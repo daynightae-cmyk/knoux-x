@@ -1,0 +1,10 @@
+{
+    "generatedAt":  "2026-07-30T15:55:16.6633098+04:00",
+    "phase":  "pre-customization",
+    "zip":  "D:\\Knoux-x.zip",
+    "sha256":  "36B2CC230A2C032F0DB2A9503A60F0B10B5017930F6657E5B1C76D9E7626B39A",
+    "selectedRoot":  "D:\\Knoux-X-Bootstrap\\staging-20260730-152743\\Knoux-x-main\\KNOUX",
+    "score":  215,
+    "repository":  "https://github.com/daynightae-cmyk/knoux-x.git",
+    "branch":  "bootstrap/pre-customization-20260730-152743"
+}

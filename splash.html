@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KNOUX Player X™ - Loading</title>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 600px;
+      height: 450px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0a0e1a 0%, #0d1321 50%, #141b2d 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Animated Background Grid */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: gridMove 20s linear infinite;
+    }
+    
+    @keyframes gridMove {
+      0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+      100% { transform: perspective(500px) rotateX(60deg) translateY(40px); }
+    }
+    
+    /* Floating Particles */
+    .particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: var(--color);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--color), 0 0 20px var(--color);
+      animation: float var(--duration) ease-in-out infinite;
+      animation-delay: var(--delay);
+      opacity: 0.6;
+    }
+    
+    @keyframes float {
+      0%, 100% { 
+        transform: translateY(100%) scale(0);
+        opacity: 0;
+      }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% { 
+        transform: translateY(-100vh) scale(1);
+        opacity: 0;
+      }
+    }
+    
+    /* Glowing Orbs */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: orbFloat 8s ease-in-out infinite;
+    }
+    
+    .orb-1 {
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, #00f0ff 0%, transparent 70%);
+      top: -100px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+    
+    .orb-2 {
+      width: 250px;
+      height: 250px;
+      background: radial-gradient(circle, #ff00f0 0%, transparent 70%);
+      bottom: -80px;
+      right: -80px;
+      animation-delay: -4s;
+    }
+    
+    .orb-3 {
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, #aa00ff 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -2s;
+      opacity: 0.2;
+    }
+    
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(30px, -30px) scale(1.1); }
+      50% { transform: translate(-20px, 20px) scale(0.9); }
+      75% { transform: translate(-30px, -20px) scale(1.05); }
+    }
+    
+    /* Main Container */
+    .splash-container {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    /* Logo Container */
+    .logo-container {
+      position: relative;
+      margin-bottom: 40px;
+    }
+    
+    .logo-ring {
+      position: absolute;
+      inset: -20px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00f0ff, #ff00f0) border-box;
+      -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      animation: ringRotate 4s linear infinite;
+    }
+    
+    .logo-ring-2 {
+      position: absolute;
+      inset: -35px;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: transparent;
+      border-bottom-color: transparent;
+      animation: ringRotate 6s linear infinite reverse;
+    }
+    
+    @keyframes ringRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .logo-image {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.5));
+      animation: logoPulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes logoPulse {
+      0%, 100% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.5));
+      }
+      50% { 
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 50px rgba(0, 240, 255, 0.8)) drop-shadow(0 0 80px rgba(255, 0, 240, 0.4));
+      }
+    }
+    
+    /* Brand Text */
+    .brand-text {
+      margin-bottom: 30px;
+    }
+    
+    .brand-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00f0ff 0%, #ff00f0 50%, #00f0ff 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 3s ease infinite;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 40px rgba(0, 240, 255, 0.5);
+      position: relative;
+    }
+    
+    .brand-name::after {
+      content: 'KNOUX';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #00f0ff 0%, #ff00f0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: blur(20px);
+      opacity: 0.5;
+      z-index: -1;
+    }
+    
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    .brand-subtitle {
+      display: block;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.8em;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+    
+    .brand-tagline {
+      display: block;
+      font-size: 0.75rem;
+      color: rgba(0, 240, 255, 0.7);
+      letter-spacing: 0.3em;
+      margin-top: 12px;
+      text-transform: uppercase;
+    }
+    
+    /* Loading Section */
+    .loading-section {
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    /* Progress Bar Container */
+    .progress-container {
+      position: relative;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    
+    .progress-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00f0ff, #ff00f0, #00f0ff);
+      background-size: 200% 100%;
+      border-radius: 2px;
+      animation: progressMove 2s ease-in-out infinite, progressGlow 1.5s ease-in-out infinite alternate;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.8);
+    }
+    
+    @keyframes progressMove {
+      0% { width: 0%; left: 0; }
+      50% { width: 100%; left: 0; }
+      100% { width: 0%; left: 100%; }
+    }
+    
+    @keyframes progressGlow {
+      from { box-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+      to { box-shadow: 0 0 25px rgba(0, 240, 255, 0.9), 0 0 40px rgba(255, 0, 240, 0.4); }
+    }
+    
+    /* Progress Segments */
+    .progress-segments {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    
+    .segment {
+      width: 30px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      animation: segmentPulse 1s ease-in-out infinite;
+    }
+    
+    .segment:nth-child(1) { animation-delay: 0s; }
+    .segment:nth-child(2) { animation-delay: 0.1s; }
+    .segment:nth-child(3) { animation-delay: 0.2s; }
+    .segment:nth-child(4) { animation-delay: 0.3s; }
+    .segment:nth-child(5) { animation-delay: 0.4s; }
+    
+    @keyframes segmentPulse {
+      0%, 100% { 
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+      }
+      50% { 
+        background: linear-gradient(90deg, #00f0ff, #ff00f0);
+        box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+      }
+    }
+    
+    /* Loading Text */
+    .loading-text-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .loading-text {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.875rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    
+    .loading-dots {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: #00f0ff;
+      border-radius: 50%;
+      animation: dotBounce 1s ease-in-out infinite;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+    }
+    
+    .dot:nth-child(1) { animation-delay: 0s; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes dotBounce {
+      0%, 100% { 
+        transform: translateY(0);
+        opacity: 0.4;
+      }
+      50% { 
+        transform: translateY(-8px);
+        opacity: 1;
+        box-shadow: 0 0 15px rgba(0, 240, 255, 1);
+      }
+    }
+    
+    /* Feature Tags */
+    .feature-tags {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+    
+    .feature-tag {
+      padding: 6px 14px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 20px;
+      font-size: 0.625rem;
+      color: rgba(0, 240, 255, 0.9);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      animation: tagGlow 2s ease-in-out infinite alternate;
+    }
+    
+    .feature-tag:nth-child(2) {
+      border-color: rgba(255, 0, 240, 0.3);
+      background: rgba(255, 0, 240, 0.1);
+      color: rgba(255, 0, 240, 0.9);
+      animation-delay: -0.5s;
+    }
+    
+    .feature-tag:nth-child(3) {
+      border-color: rgba(170, 0, 255, 0.3);
+      background: rgba(170, 0, 255, 0.1);
+      color: rgba(170, 0, 255, 0.9);
+      animation-delay: -1s;
+    }
+    
+    @keyframes tagGlow {
+      from { box-shadow: 0 0 5px currentColor; }
+      to { box-shadow: 0 0 15px currentColor, 0 0 25px currentColor; }
+    }
+    
+    /* Version */
+    .version {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 0.625rem;
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 0.1em;
+    }
+    
+    /* Corner Decorations */
+    .corner {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 2px solid transparent;
+    }
+    
+    .corner::before,
+    .corner::after {
+      content: '';
+      position: absolute;
+      background: linear-gradient(135deg, #00f0ff, #ff00f0);
+    }
+    
+    .corner-tl {
+      top: 20px;
+      left: 20px;
+    }
+    
+    .corner-tl::before {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+    }
+    
+    .corner-tl::after {
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 100%;
+    }
+    
+    .corner-tr {
+      top: 20px;
+      right: 20px;
+    }
+    
+    .corner-tr::before {
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 2px;
+    }
+    
+    .corner-tr::after {
+      top: 0;
+      right: 0;
+      width: 2px;
+      height: 100%;
+    }
+    
+    .corner-bl {
+      bottom: 20px;
+      left: 20px;
+    }
+    
+    .corner-bl::before {
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+    }
+    
+    .corner-bl::after {
+      bottom: 0;
+      left: 0;
+      width: 2px;
+      height: 100%;
+    }
+    
+    .corner-br {
+      bottom: 20px;
+      right: 20px;
+    }
+    
+    .corner-br::before {
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      height: 2px;
+    }
+    
+    .corner-br::after {
+      bottom: 0;
+      right: 0;
+      width: 2px;
+      height: 100%;
+    }
+    
+    /* Scan Lines */
+    .scan-lines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 240, 255, 0.02) 2px,
+        rgba(0, 240, 255, 0.02) 4px
+      );
+      pointer-events: none;
+      animation: scanMove 10s linear infinite;
+    }
+    
+    @keyframes scanMove {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(4px); }
+    }
+    
+    /* Glitch Effect for Brand Name */
+    .glitch-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .glitch-wrapper::before,
+    .glitch-wrapper::after {
+      content: 'KNOUX';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+    }
+    
+    .glitch-wrapper::before {
+      color: #00f0ff;
+      animation: glitch1 3s infinite linear alternate-reverse;
+    }
+    
+    .glitch-wrapper::after {
+      color: #ff00f0;
+      animation: glitch2 2s infinite linear alternate-reverse;
+    }
+    
+    @keyframes glitch1 {
+      0%, 90%, 100% { opacity: 0; transform: translate(0); }
+      92% { opacity: 0.8; transform: translate(-3px, 1px); }
+      94% { opacity: 0; transform: translate(0); }
+      96% { opacity: 0.8; transform: translate(2px, -1px); }
+      98% { opacity: 0; transform: translate(0); }
+    }
+    
+    @keyframes glitch2 {
+      0%, 85%, 100% { opacity: 0; transform: translate(0); }
+      87% { opacity: 0.8; transform: translate(3px, -1px); }
+      89% { opacity: 0; transform: translate(0); }
+      93% { opacity: 0.8; transform: translate(-2px, 1px); }
+      95% { opacity: 0; transform: translate(0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Effects -->
+  <div class="bg-grid"></div>
+  <div class="scan-lines"></div>
+  
+  <!-- Floating Orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  
+  <!-- Particles -->
+  <div class="particles" id="particles"></div>
+  
+  <!-- Corner Decorations -->
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+  
+  <!-- Main Content -->
+  <div class="splash-container">
+    <!-- Logo -->
+    <div class="logo-container">
+      <div class="logo-ring"></div>
+      <div class="logo-ring-2"></div>
+      <img src="./assets/logo.png" alt="KNOUX Player X" class="logo-image" />
+    </div>
+    
+    <!-- Brand Text -->
+    <div class="brand-text">
+      <div class="glitch-wrapper">
+        <span class="brand-name">KNOUX</span>
+      </div>
+      <span class="brand-subtitle">Player X™</span>
+      <span class="brand-tagline">Next-Gen Media Experience</span>
+    </div>
+    
+    <!-- Loading Section -->
+    <div class="loading-section">
+      <!-- Progress Bar -->
+      <div class="progress-container">
+        <div class="progress-bar"></div>
+      </div>
+      
+      <!-- Progress Segments -->
+      <div class="progress-segments">
+        <div class="segment"></div>
+        <div class="segment"></div>
+        <div class="segment"></div>
+        <div class="segment"></div>
+        <div class="segment"></div>
+      </div>
+      
+      <!-- Loading Text -->
+      <div class="loading-text-container">
+        <span class="loading-text" id="loadingText">Initializing</span>
+        <div class="loading-dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Feature Tags -->
+    <div class="feature-tags">
+      <span class="feature-tag">AI Powered</span>
+      <span class="feature-tag">4K HDR</span>
+      <span class="feature-tag">Neural DSP</span>
+    </div>
+  </div>
+  
+  <!-- Version -->
+  <span class="version">v2.0.0 Ultimate</span>
+  
+  <script>
+    // Generate random particles
+    const particlesContainer = document.getElementById('particles');
+    const colors = ['#00f0ff', '#ff00f0', '#aa00ff', '#32ff64'];
+    
+    for (let i = 0; i < 30; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.setProperty('--color', colors[Math.floor(Math.random() * colors.length)]);
+      particle.style.setProperty('--duration', (Math.random() * 5 + 5) + 's');
+      particle.style.setProperty('--delay', (Math.random() * 5) + 's');
+      particlesContainer.appendChild(particle);
+    }
+    
+    // Loading text animation
+    const loadingTexts = [
+      'Initializing',
+      'Loading Core Systems',
+      'Starting DSP Engine',
+      'Connecting AI Services',
+      'Ready'
+    ];
+    
+    let textIndex = 0;
+    const loadingTextEl = document.getElementById('loadingText');
+    
+    setInterval(() => {
+      textIndex = (textIndex + 1) % loadingTexts.length;
+      loadingTextEl.textContent = loadingTexts[textIndex];
+    }, 800);
+  </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+name: Resolve full-rebuild task-board conflicts
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Full-rebuild pull-request branch
+        required: true
+        default: codex/prepare-main-merge-and-release-candidate-9syweq
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    if: startsWith(inputs.branch, 'codex/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Merge current main and reconcile task boards
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          cp docs/reports/full-rebuild/TASK-BOARD.json "$RUNNER_TEMP/incoming-task-board.json"
+          cp docs/reports/full-rebuild/TASK-BOARD.md "$RUNNER_TEMP/incoming-task-board.md"
+          git fetch origin main
+          if git merge --no-edit origin/main; then
+            echo 'Branch merged without conflicts.'
+          else
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            unexpected="$(printf '%s\n' "$conflicts" | grep -Ev '^docs/reports/full-rebuild/TASK-BOARD\.(json|md)$' || true)"
+            if [[ -n "$unexpected" ]]; then
+              printf 'Refusing to auto-resolve unexpected conflicts:\n%s\n' "$unexpected" >&2
+              git merge --abort
+              exit 1
+            fi
+            git checkout --theirs docs/reports/full-rebuild/TASK-BOARD.json docs/reports/full-rebuild/TASK-BOARD.md
+            node tools/merge-task-boards.cjs docs/reports/full-rebuild/TASK-BOARD.json "$RUNNER_TEMP/incoming-task-board.json"
+            if ! grep -q '^## Creative Media Suite extension$' docs/reports/full-rebuild/TASK-BOARD.md; then
+              sed -n '/^## Creative Media Suite extension$/,$p' "$RUNNER_TEMP/incoming-task-board.md" >> docs/reports/full-rebuild/TASK-BOARD.md
+            fi
+            git add docs/reports/full-rebuild/TASK-BOARD.json docs/reports/full-rebuild/TASK-BOARD.md
+            git commit --no-edit
+          fi
+          node -e "JSON.parse(require('fs').readFileSync('docs/reports/full-rebuild/TASK-BOARD.json'))"
+          git diff --check HEAD^ HEAD
+          git push origin "HEAD:${{ inputs.branch }}"

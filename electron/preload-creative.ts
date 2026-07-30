@@ -5,6 +5,12 @@ import type { EditProject } from '../src/core/creative/editProject';
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
+import type {
+  LibraryFolder,
+  LibraryMediaItem,
+  LibraryQuery,
+  ScanProgress,
+} from './library/library-service';
 
 export interface DesktopCaptureSource {
   id: string;
@@ -27,6 +33,27 @@ export const creativeAPI = {
       ipcRenderer.invoke('creative:open-media'),
     toUrl: (filePath: string): Promise<string> =>
       ipcRenderer.invoke('creative:path-to-media-url', filePath),
+  },
+  library: {
+    chooseFolder: (): Promise<LibraryFolder | null> => ipcRenderer.invoke('library:choose-folder'),
+    folders: (): Promise<LibraryFolder[]> => ipcRenderer.invoke('library:folders'),
+    query: (request: LibraryQuery = {}): Promise<{ items: LibraryMediaItem[]; total: number }> =>
+      ipcRenderer.invoke('library:query', request),
+    scan: (folderPath: string): Promise<ScanProgress> => ipcRenderer.invoke('library:scan', folderPath),
+    cancelScan: (jobId: string): Promise<boolean> => ipcRenderer.invoke('library:cancel-scan', jobId),
+    removeFolder: (folderPath: string, removeIndexedMedia = false): Promise<void> =>
+      ipcRenderer.invoke('library:remove-folder', folderPath, removeIndexedMedia),
+    openItem: (filePath: string): Promise<{ filePath: string; mediaUrl: string }> =>
+      ipcRenderer.invoke('library:open-item', filePath),
+    setFavorite: (filePath: string, favorite: boolean): Promise<LibraryMediaItem> =>
+      ipcRenderer.invoke('library:set-favorite', filePath, favorite),
+    updatePlayback: (filePath: string, position: number, duration: number, completed = false): Promise<void> =>
+      ipcRenderer.invoke('library:update-playback', filePath, position, duration, completed),
+    onScanProgress: (callback: (progress: ScanProgress) => void): (() => void) => {
+      const listener = (_event: unknown, progress: ScanProgress) => callback(progress);
+      ipcRenderer.on('library:scan-progress', listener);
+      return () => ipcRenderer.removeListener('library:scan-progress', listener);
+    },
   },
   capture: {
     saveFrame: (request: CaptureFrameInput): Promise<string | null> =>

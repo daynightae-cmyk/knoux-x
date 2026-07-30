@@ -5,11 +5,13 @@ on:
     paths:
       - "scripts/Initialize-KnouxX.ps1"
       - "RUN-KNOUX-BOOTSTRAP.cmd"
+      - "docs/BOOTSTRAP-VALIDATION.md"
       - ".github/workflows/validate-bootstrap.yml"
   pull_request:
     paths:
       - "scripts/Initialize-KnouxX.ps1"
       - "RUN-KNOUX-BOOTSTRAP.cmd"
+      - "docs/BOOTSTRAP-VALIDATION.md"
       - ".github/workflows/validate-bootstrap.yml"
 
 permissions:

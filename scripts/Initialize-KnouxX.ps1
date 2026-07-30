@@ -125,8 +125,8 @@ function Repair-Package([string]$Repo) {
   Set-Prop $Pkg.scripts 'start' 'electron-forge start'; Set-Prop $Pkg.scripts 'package' 'electron-forge package'
   Set-Prop $Pkg.scripts 'make' 'electron-forge make'; Set-Prop $Pkg.scripts 'build' 'electron-forge package'
   Set-Prop $Pkg.scripts 'check' 'npm run typecheck && npm run lint'; Remove-Prop $Pkg.scripts 'build:renderer'; Remove-Prop $Pkg.scripts 'build:main'
-  foreach ($P in [ordered]@{'@google/generative-ai'='^0.24.1';events='^3.3.0';'lucide-react'='^0.563.0'}.GetEnumerator()) { Set-Prop $Pkg.dependencies $P.Key $P.Value }
-  foreach ($P in [ordered]@{'@electron-forge/plugin-vite'='^7.2.0';'@electron-forge/plugin-fuses'='^7.2.0';'@electron/fuses'='^1.8.0';'@vitejs/plugin-react'='^4.3.4';vite='^5.4.21'}.GetEnumerator()) { Set-Prop $Pkg.devDependencies $P.Key $P.Value }
+  foreach ($P in ([ordered]@{'@google/generative-ai'='^0.24.1';events='^3.3.0';'lucide-react'='^0.563.0'}).GetEnumerator()) { Set-Prop $Pkg.dependencies $P.Key $P.Value }
+  foreach ($P in ([ordered]@{'@electron-forge/plugin-vite'='^7.2.0';'@electron-forge/plugin-fuses'='^7.2.0';'@electron/fuses'='^1.8.0';'@vitejs/plugin-react'='^4.3.4';vite='^5.4.21'}).GetEnumerator()) { Set-Prop $Pkg.devDependencies $P.Key $P.Value }
   Set-Prop $Pkg 'repository' ([pscustomobject]@{type='git';url=$RepositoryUrl})
   Write-Text $Path (($Pkg | ConvertTo-Json -Depth 100) + "`n")
 }

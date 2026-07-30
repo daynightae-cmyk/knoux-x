@@ -54,7 +54,7 @@ jobs:
       - name: Rebuild Electron native modules
         shell: pwsh
         run: |
-          npm exec electron-rebuild -- -f -w better-sqlite3 -w sharp
+          npm exec electron-rebuild -- -f -w better-sqlite3,sharp
           if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
 
       - name: Validate dependency graph

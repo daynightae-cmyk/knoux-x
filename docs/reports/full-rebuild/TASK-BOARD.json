@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-30T20:00:00Z",
+  "updatedAt": "2026-07-30T20:40:00Z",
   "allowedStates": [
     "PENDING",
     "IN_PROGRESS",
@@ -477,6 +477,188 @@
       ],
       "requiredTests": [
         "Defined in the execution contract; execute only after dependencies pass"
+      ],
+      "status": "PENDING",
+      "startTime": null,
+      "endTime": null,
+      "associatedCommit": null,
+      "remainingErrors": [
+        "Final merge moved to TASK-19 and cannot run before TASK-15 through TASK-18 PASS"
+      ],
+      "evidence": [
+        "Superseded as the final merge gate by creative-suite TASK-19"
+      ],
+      "reopened": false
+    },
+    {
+      "phase": 15,
+      "task": "TASK-15",
+      "name": "Iconography, Accessories and Desktop Experience",
+      "objective": "Iconography, Accessories and Desktop Experience",
+      "priority": "P2",
+      "dependencies": [
+        "TASK-04 PASS",
+        "TASK-05 PASS",
+        "TASK-10 PASS",
+        "TASK-12 PASS"
+      ],
+      "expectedFiles": [
+        "assets/icons/**",
+        "src/components/**",
+        "src/features/player/**"
+      ],
+      "acceptanceCriteria": [
+        "Verified multi-size icon system",
+        "Operational desktop accessories only"
+      ],
+      "requiredTests": [
+        "Defined by the creative suite execution contract; runtime evidence required"
+      ],
+      "status": "PENDING",
+      "startTime": null,
+      "endTime": null,
+      "associatedCommit": null,
+      "remainingErrors": [],
+      "evidence": [],
+      "reopened": false
+    },
+    {
+      "phase": 16,
+      "task": "TASK-16",
+      "name": "Screenshot, Frame Capture and Media Recording",
+      "objective": "Screenshot, Frame Capture and Media Recording",
+      "priority": "P1/P2",
+      "dependencies": [
+        "TASK-03 PASS",
+        "TASK-05 PASS",
+        "TASK-15 PASS"
+      ],
+      "expectedFiles": [
+        "src/core/creative/**",
+        "src/features/player/**",
+        "electron/**"
+      ],
+      "acceptanceCriteria": [
+        "Real frame capture",
+        "Permission-safe recording and resource cleanup"
+      ],
+      "requiredTests": [
+        "Defined by the creative suite execution contract; runtime evidence required"
+      ],
+      "status": "IN_PROGRESS",
+      "startTime": "2026-07-30T20:30:00Z",
+      "endTime": null,
+      "associatedCommit": null,
+      "remainingErrors": [
+        "Frame persistence, clipboard, gallery, and recording adapters remain"
+      ],
+      "evidence": [
+        "Implemented capture filename, timestamp, and payload validation core with tests"
+      ],
+      "reopened": false
+    },
+    {
+      "phase": 17,
+      "task": "TASK-17",
+      "name": "KNOUX Smart Editor and Export Pipeline",
+      "objective": "KNOUX Smart Editor and Export Pipeline",
+      "priority": "P1/P2",
+      "dependencies": [
+        "TASK-03 PASS",
+        "TASK-06 PASS",
+        "TASK-16 PASS"
+      ],
+      "expectedFiles": [
+        "src/core/creative/**",
+        "src/features/editor/**",
+        "electron/**"
+      ],
+      "acceptanceCriteria": [
+        "Non-destructive project model",
+        "Validated cancelable exports"
+      ],
+      "requiredTests": [
+        "Defined by the creative suite execution contract; runtime evidence required"
+      ],
+      "status": "IN_PROGRESS",
+      "startTime": "2026-07-30T20:30:00Z",
+      "endTime": null,
+      "associatedCommit": null,
+      "remainingErrors": [
+        "Project persistence, timeline UI, FFmpeg worker, and export validation remain"
+      ],
+      "evidence": [
+        "Implemented versioned project validation, trim, split, and undo/redo core with tests"
+      ],
+      "reopened": false
+    },
+    {
+      "phase": 18,
+      "task": "TASK-18",
+      "name": "Extended Languages and Global UX",
+      "objective": "Extended Languages and Global UX",
+      "priority": "P3",
+      "dependencies": [
+        "TASK-10 PASS",
+        "TASK-15 PASS",
+        "TASK-16 PASS",
+        "TASK-17 PASS"
+      ],
+      "expectedFiles": [
+        "src/locales/**",
+        "src/i18n/**"
+      ],
+      "acceptanceCriteria": [
+        "Complete Arabic and English",
+        "Expandable locale fallback and RTL exceptions"
+      ],
+      "requiredTests": [
+        "Defined by the creative suite execution contract; runtime evidence required"
+      ],
+      "status": "PENDING",
+      "startTime": null,
+      "endTime": null,
+      "associatedCommit": null,
+      "remainingErrors": [],
+      "evidence": [],
+      "reopened": false
+    },
+    {
+      "phase": 19,
+      "task": "TASK-19",
+      "name": "Creative Suite Regression and Final Release Merge",
+      "objective": "Creative Suite Regression and Final Release Merge",
+      "priority": "P0",
+      "dependencies": [
+        "TASK-01 PASS",
+        "TASK-02 PASS",
+        "TASK-03 PASS",
+        "TASK-04 PASS",
+        "TASK-05 PASS",
+        "TASK-06 PASS",
+        "TASK-07 PASS",
+        "TASK-08 PASS",
+        "TASK-09 PASS",
+        "TASK-10 PASS",
+        "TASK-11 PASS",
+        "TASK-12 PASS",
+        "TASK-13 PASS",
+        "TASK-14 PASS",
+        "TASK-15 PASS",
+        "TASK-16 PASS",
+        "TASK-17 PASS",
+        "TASK-18 PASS"
+      ],
+      "expectedFiles": [
+        "tests/**",
+        "docs/reports/full-rebuild/**"
+      ],
+      "acceptanceCriteria": [
+        "All critical and creative gates pass",
+        "Verified merge and release-candidate tag"
+      ],
+      "requiredTests": [
+        "Defined by the creative suite execution contract; runtime evidence required"
       ],
       "status": "PENDING",
       "startTime": null,

@@ -39,3 +39,15 @@ This board is the authoritative phase ledger. A phase advances only after every 
 - Added command-line and second-instance media forwarding and protected it with a conservative extension allowlist.
 - Fixed recursive application shutdown behavior.
 - Phase 02 remains `IN_PROGRESS` and Phase 03 remains `PARTIAL` until authoritative Windows CI and the remaining security controls pass.
+
+## Creative Media Suite extension
+
+The final merge and release-candidate gate moves to **TASK-19**. The former TASK-14 cannot authorize a release before TASK-15 through TASK-18 pass.
+
+| Task | Priority | Status | Objective | Current evidence |
+|---|---|---|---|---|
+| TASK-15 | P2 | **PENDING** | Iconography, Accessories and Desktop Experience | Awaiting verified icon generation and operational accessory integration. |
+| TASK-16 | P1/P2 | **IN_PROGRESS** | Screenshot, Frame Capture and Media Recording | Capture naming, timestamp conversion, supported image payload validation, and recording state transitions implemented with tests. |
+| TASK-17 | P1/P2 | **IN_PROGRESS** | KNOUX Smart Editor and Export Pipeline | Versioned non-destructive project validation, trim, split, duration, and isolated undo/redo core implemented with tests. |
+| TASK-18 | P3 | **PENDING** | Extended Languages and Global UX | Begins after the mandatory Arabic/English foundation and creative UI stabilize. |
+| TASK-19 | P0 | **PENDING** | Creative Suite Regression and Final Release Merge | Requires TASK-01 through TASK-18 PASS. |

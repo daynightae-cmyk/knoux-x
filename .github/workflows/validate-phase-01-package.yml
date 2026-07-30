@@ -1,0 +1,58 @@
+name: Validate KNOUX Phase 01 Package
+
+on:
+  pull_request:
+    paths:
+      - "validation/phase-01/**/*.ps1"
+      - ".github/workflows/validate-phase-01-package.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parse-windows-powershell:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse every Phase 01 script with Windows PowerShell
+        shell: powershell
+        run: |
+          $files = Get-ChildItem -Path 'validation\phase-01' -Filter '*.ps1' -Recurse
+          if ($files.Count -lt 7) {
+            throw "Expected at least 7 PowerShell files, found $($files.Count)."
+          }
+
+          $allErrors = @()
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              foreach ($parseError in $errors) {
+                $allErrors += "${file}:$($parseError.Extent.StartLineNumber):$($parseError.Extent.StartColumnNumber) $($parseError.Message)"
+              }
+            }
+          }
+
+          if ($allErrors.Count -gt 0) {
+            $allErrors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
+          Write-Host "Windows PowerShell parser passed for $($files.Count) files."
+
+      - name: Reject reserved automatic argument parameters
+        shell: powershell
+        run: |
+          $content = Get-ChildItem 'validation\phase-01' -Filter '*.ps1' -Recurse | Get-Content -Raw
+          if ($content -match '\[string\[\]\]\s*\$Args\b') {
+            throw 'Reserved automatic variable $Args was used as a typed parameter.'
+          }
+          Write-Host 'Reserved parameter check passed.'

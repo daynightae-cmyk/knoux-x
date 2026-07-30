@@ -7,6 +7,7 @@ import {
   powerMonitor,
   screen,
   shell,
+  type IpcMainInvokeEvent,
 } from 'electron';
 import started from 'electron-squirrel-startup';
 import log from 'electron-log';
@@ -28,55 +29,79 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const pendingMediaPaths = mediaPathsFromArguments(process.argv);
 
-function windowForSender(sender: Electron.WebContents): BrowserWindow | null {
-  return BrowserWindow.fromWebContents(sender) ?? mainWindow;
+function isTrustedRendererUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'file:') return true;
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1');
+  } catch {
+    return false;
+  }
+}
+
+function windowForEvent(event: IpcMainInvokeEvent): BrowserWindow {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window.isDestroyed() || window !== mainWindow || !isTrustedRendererUrl(event.senderFrame.url)) {
+    throw new Error('Core desktop request was rejected from an untrusted renderer.');
+  }
+  return window;
 }
 
 function registerCoreHandlers(): void {
-  ipcMain.handle('window:minimize', (event) => windowForSender(event.sender)?.minimize());
+  ipcMain.handle('window:minimize', (event) => windowForEvent(event).minimize());
   ipcMain.handle('window:maximize', (event) => {
-    const window = windowForSender(event.sender);
-    if (!window) return false;
+    const window = windowForEvent(event);
     if (window.isMaximized()) window.unmaximize();
     else window.maximize();
     return window.isMaximized();
   });
-  ipcMain.handle('window:close', (event) => windowForSender(event.sender)?.close());
-  ipcMain.handle('window:is-maximized', (event) => windowForSender(event.sender)?.isMaximized() ?? false);
+  ipcMain.handle('window:close', (event) => windowForEvent(event).close());
+  ipcMain.handle('window:is-maximized', (event) => windowForEvent(event).isMaximized());
   ipcMain.handle('window:set-always-on-top', (event, enabled: boolean) => {
-    windowForSender(event.sender)?.setAlwaysOnTop(Boolean(enabled));
+    windowForEvent(event).setAlwaysOnTop(Boolean(enabled));
   });
   ipcMain.handle('window:set-fullscreen', (event, enabled: boolean) => {
-    windowForSender(event.sender)?.setFullScreen(Boolean(enabled));
+    windowForEvent(event).setFullScreen(Boolean(enabled));
   });
-  ipcMain.handle('window:get-bounds', (event) => windowForSender(event.sender)?.getBounds() ?? null);
+  ipcMain.handle('window:get-bounds', (event) => windowForEvent(event).getBounds());
   ipcMain.handle('window:set-bounds', (event, bounds: Electron.Rectangle) => {
-    const window = windowForSender(event.sender);
-    if (!window || !bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
-    window.setBounds(bounds);
+    const window = windowForEvent(event);
+    if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
+    if (bounds.width < 480 || bounds.height < 320 || bounds.width > 16_384 || bounds.height > 16_384) return false;
+    window.setBounds({
+      x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : window.getBounds().x,
+      y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : window.getBounds().y,
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    });
     return true;
   });
 
-  ipcMain.handle('system:get-info', () => ({
-    platform: process.platform,
-    arch: process.arch,
-    version: app.getVersion(),
-    electronVersion: process.versions.electron,
-    nodeVersion: process.versions.node,
-  }));
-  ipcMain.handle('system:open-external', async (_event, rawUrl: string) => {
+  ipcMain.handle('system:get-info', (event) => {
+    windowForEvent(event);
+    return {
+      platform: process.platform,
+      arch: process.arch,
+      version: app.getVersion(),
+      electronVersion: process.versions.electron,
+      nodeVersion: process.versions.node,
+    };
+  });
+  ipcMain.handle('system:open-external', async (event, rawUrl: string) => {
+    windowForEvent(event);
     const validated = validateExternalUrl(rawUrl);
     await shell.openExternal(validated.toString());
     return true;
   });
-  ipcMain.handle('system:show-item-in-folder', (_event, filePath: string) => {
-    const authorized = authorizeMediaPaths([filePath])[0];
-    if (!authorized) throw new Error('The requested path is not authorized.');
-    shell.showItemInFolder(authorized);
-    return true;
+  ipcMain.handle('system:get-memory-usage', async (event) => {
+    windowForEvent(event);
+    return process.getProcessMemoryInfo();
   });
-  ipcMain.handle('system:get-memory-usage', () => process.getProcessMemoryInfo());
-  ipcMain.handle('system:get-cpu-usage', () => app.getAppMetrics());
+  ipcMain.handle('system:get-cpu-usage', (event) => {
+    windowForEvent(event);
+    return app.getAppMetrics();
+  });
 }
 
 async function createMainWindow(): Promise<BrowserWindow> {
@@ -156,7 +181,6 @@ if (!gotTheLock) {
 }
 
 app.on('web-contents-created', (_event, contents) => {
-  contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   contents.on('will-navigate', (event, navigationUrl) => {
     const destination = new URL(navigationUrl);
     const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
@@ -172,6 +196,8 @@ app.on('web-contents-created', (_event, contents) => {
 app.whenReady().then(async () => {
   registerCoreHandlers();
   createApplicationMenu();
+  powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
+  powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));
   try {
     createSystemTray();
   } catch (error) {
@@ -196,6 +222,3 @@ app.on('before-quit', () => {
 app.on('will-quit', () => {
   if (!isQuitting) destroyTray();
 });
-
-powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
-powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));

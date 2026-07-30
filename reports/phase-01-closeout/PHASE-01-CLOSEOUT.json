@@ -1,0 +1,12 @@
+﻿{
+    "phase":  "01-closeout",
+    "status":  "PASS",
+    "node":  "v20.20.2",
+    "npm":  "10.8.2",
+    "executable":  {
+                       "ExePath":  "D:\\a\\knoux-x\\knoux-x\\out\\KNOUX Player X-win32-x64\\knoux-player-x.exe",
+                       "ExeSize":  176814080,
+                       "Smoke":  "PASS"
+                   },
+    "generatedAtUtc":  "2026-07-30T18:18:21.3089545Z"
+}

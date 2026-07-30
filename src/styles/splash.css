@@ -1,0 +1,520 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * KNOUX Player X™ - Splash Screen Styles
+ * ═══════════════════════════════════════════════════════════════════════
+ * 
+ * أنماط شاشة البداية المذهلة
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Splash Screen Container
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-screen-enhanced {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a0e1a 0%, #0d1321 50%, #141b2d 100%);
+  overflow: hidden;
+  z-index: 9999;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Background Grid
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: gridMove 20s linear infinite;
+  transform: perspective(500px) rotateX(60deg);
+  transform-origin: center top;
+  pointer-events: none;
+}
+
+@keyframes gridMove {
+  0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+  100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Scan Lines
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-scan-lines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.02) 2px,
+    rgba(0, 240, 255, 0.02) 4px
+  );
+  pointer-events: none;
+  animation: scanMove 8s linear infinite;
+}
+
+@keyframes scanMove {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Floating Orbs
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.splash-orb-1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #00f0ff 0%, transparent 70%);
+  top: -150px;
+  left: -150px;
+  opacity: 0.4;
+}
+
+.splash-orb-2 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, #ff00f0 0%, transparent 70%);
+  bottom: -100px;
+  right: -100px;
+  opacity: 0.4;
+}
+
+.splash-orb-3 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, #aa00ff 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.15;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Particles
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.splash-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Corner Decorations
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-corner {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  pointer-events: none;
+}
+
+.splash-corner::before,
+.splash-corner::after {
+  content: '';
+  position: absolute;
+  background: linear-gradient(135deg, #00f0ff, #ff00f0);
+}
+
+.splash-corner-tl {
+  top: 30px;
+  left: 30px;
+}
+
+.splash-corner-tl::before {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.splash-corner-tl::after {
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+}
+
+.splash-corner-tr {
+  top: 30px;
+  right: 30px;
+}
+
+.splash-corner-tr::before {
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.splash-corner-tr::after {
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+}
+
+.splash-corner-bl {
+  bottom: 30px;
+  left: 30px;
+}
+
+.splash-corner-bl::before {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.splash-corner-bl::after {
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+}
+
+.splash-corner-br {
+  bottom: 30px;
+  right: 30px;
+}
+
+.splash-corner-br::before {
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.splash-corner-br::after {
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Main Content
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Logo
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-logo-container {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin-bottom: 40px;
+}
+
+.splash-logo-ring {
+  position: absolute;
+  inset: -15px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00f0ff, #ff00f0) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.8;
+}
+
+.splash-logo-ring-2 {
+  position: absolute;
+  inset: -30px;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.splash-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Brand Text
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-brand {
+  margin-bottom: 40px;
+}
+
+.splash-brand-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 4rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #00f0ff 0%, #ff00f0 50%, #00f0ff 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 40px rgba(0, 240, 255, 0.5);
+  position: relative;
+}
+
+.splash-brand-name::after {
+  content: 'KNOUX';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #00f0ff 0%, #ff00f0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: blur(20px);
+  opacity: 0.5;
+  z-index: -1;
+}
+
+.splash-brand-subtitle {
+  display: block;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.8em;
+  margin-top: 10px;
+  text-transform: uppercase;
+}
+
+.splash-brand-tagline {
+  display: block;
+  font-size: 0.8rem;
+  color: rgba(0, 240, 255, 0.7);
+  letter-spacing: 0.3em;
+  margin-top: 15px;
+  text-transform: uppercase;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Progress Section
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-progress-section {
+  width: 100%;
+  max-width: 350px;
+  margin-bottom: 30px;
+}
+
+.splash-progress-container {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.splash-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #00f0ff, #ff00f0, #00f0ff);
+  background-size: 200% 100%;
+  border-radius: 2px;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.8);
+  animation: progressShine 2s linear infinite;
+}
+
+@keyframes progressShine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.splash-progress-glow {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: #00f0ff;
+  border-radius: 50%;
+  filter: blur(10px);
+  box-shadow: 0 0 30px #00f0ff, 0 0 60px #00f0ff;
+}
+
+.splash-progress-segments {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.splash-segment {
+  width: 40px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.splash-loading-text-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.splash-loading-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.splash-loading-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.splash-dot {
+  width: 6px;
+  height: 6px;
+  background: #00f0ff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Feature Tags
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-feature-tags {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.splash-feature-tag {
+  padding: 8px 18px;
+  border: 1px solid;
+  border-radius: 25px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Version
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.splash-version {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.1em;
+  font-family: 'Orbitron', sans-serif;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   App Container Additions
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.init-status {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  z-index: 100;
+}
+
+.init-status-dot {
+  width: 8px;
+  height: 8px;
+  background: #00f0ff;
+  border-radius: 50%;
+  animation: pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 10px #00f0ff;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Responsive
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+  .splash-brand-name {
+    font-size: 2.5rem;
+  }
+  
+  .splash-brand-subtitle {
+    font-size: 0.8rem;
+    letter-spacing: 0.5em;
+  }
+  
+  .splash-logo-container {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .splash-progress-section {
+    max-width: 250px;
+  }
+  
+  .splash-feature-tags {
+    flex-direction: column;
+    align-items: center;
+  }
+}

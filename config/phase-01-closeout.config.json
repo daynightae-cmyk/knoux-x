@@ -1,0 +1,19 @@
+{
+  "phase": "01-closeout",
+  "product": "KNOUX Player X",
+  "branch": "customization/phase-01-foundation-20260730-162025",
+  "nodeVersion": "20.20.2",
+  "typescriptVersion": "5.3.3",
+  "eslintImportResolverTypescriptVersion": "3.6.1",
+  "requiredGates": [
+    "npm-install",
+    "doctor",
+    "typecheck",
+    "lint",
+    "test",
+    "package",
+    "smoke-test"
+  ],
+  "protectedBranches": ["main", "master"],
+  "commitMessage": "fix: close KNOUX Phase 01 baseline and validation gates"
+}

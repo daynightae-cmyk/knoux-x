@@ -1,0 +1,176 @@
+﻿[
+    {
+        "value":  "knoux-player-x@2.0.0 D:\\a\\knoux-x\\knoux-x",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  1
+    },
+    {
+        "value":  "+-- @typescript-eslint/eslint-plugin@6.21.0",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  2
+    },
+    {
+        "value":  "+-- @typescript-eslint/parser@6.21.0",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  3
+    },
+    {
+        "value":  "+-- eslint-import-resolver-typescript@3.6.1",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  4
+    },
+    {
+        "value":  "`-- typescript@5.3.3",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  5
+    },
+    {
+        "value":  "",
+        "PSPath":  "D:\\a\\knoux-x\\knoux-x\\dependency-versions.log",
+        "PSParentPath":  "D:\\a\\knoux-x\\knoux-x",
+        "PSChildName":  "dependency-versions.log",
+        "PSDrive":  {
+                        "CurrentLocation":  "a\\knoux-x\\knoux-x",
+                        "Name":  "D",
+                        "Provider":  "Microsoft.PowerShell.Core\\FileSystem",
+                        "Root":  "D:\\",
+                        "Description":  "Temporary Storage",
+                        "MaximumSize":  null,
+                        "Credential":  "System.Management.Automation.PSCredential",
+                        "DisplayRoot":  null
+                    },
+        "PSProvider":  {
+                           "ImplementingType":  "Microsoft.PowerShell.Commands.FileSystemProvider",
+                           "HelpFile":  "System.Management.Automation.dll-Help.xml",
+                           "Name":  "FileSystem",
+                           "PSSnapIn":  "Microsoft.PowerShell.Core",
+                           "ModuleName":  "Microsoft.PowerShell.Core",
+                           "Module":  null,
+                           "Description":  "",
+                           "Capabilities":  52,
+                           "Home":  "C:\\Users\\runneradmin",
+                           "Drives":  "C D"
+                       },
+        "ReadCount":  6
+    }
+]

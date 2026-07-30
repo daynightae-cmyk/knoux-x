@@ -1,0 +1,38 @@
+# KNOUX X â€” PHASE 01 REPORT
+
+- **Phase:** Foundation & First Build
+- **Started:** 2026-07-30 16:20:48
+- **Completed:** 2026-07-30 16:29:00
+- **Repository:** $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.RepositoryPath)
+- **Branch:** $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.Branch)
+- **Node:** $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.NodeVersion)
+- **npm:** $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.NpmVersion)
+- **Result:** **FAILED**
+
+## Validation gates
+
+| Gate | Status |
+|---|---|
+| Dependencies | SKIPPED |
+| Doctor | SKIPPED |
+| Typecheck | SKIPPED |
+| Lint | SKIPPED |
+| Package | SKIPPED |
+
+## Files introduced by Phase 01
+
+- src/config/brand.ts
+- src/styles/knoux-tokens.css
+- 	ools/doctor.cjs
+- .gitattributes
+- docs/customization/PHASE-01-FOUNDATION.md
+
+## Logs
+
+- Master log: $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.MasterLog)
+- npm log: $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.NpmLog)
+- validation log: $(@{Config=; RepositoryPath=D:\Knoux-X-Bootstrap\repository; StartedAt=07/30/2026 16:20:48; Branch=customization/phase-01-foundation-20260730-162025; BackupRoot=D:\Knoux-X-Bootstrap\repository\backups\phase-01\20260730-162049; GitPath=C:\Program Files\Git\cmd\git.exe; NodePath=C:\Program Files\nodejs\node.exe; NpmPath=C:\Program Files\nodejs\npm.cmd; NodeVersion=v24.18.0; NpmVersion=11.16.0; NoPush=False; MasterLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-master.log; NpmLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\npm-install.log; ValidationLog=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\validation.log; ReportMarkdown=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\PHASE-01-REPORT.md; ReportJson=D:\Knoux-X-Bootstrap\repository\reports\phase-01\20260730-162048\phase-01-result.json; Gates=System.Collections.Specialized.OrderedDictionary; Result=FAILED}.ValidationLog)
+
+## Merge policy
+
+Merge this branch into main only when Dependencies, Doctor, Typecheck, Lint and Package are all PASS.

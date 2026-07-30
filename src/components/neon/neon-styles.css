@@ -1,0 +1,486 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * KNOUX Player X™ - Neon Components Styles
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Card
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(15, 21, 37, 0.9), rgba(20, 27, 45, 0.9));
+  border-radius: 16px;
+  padding: 1px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.neon-card-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--glow-color), transparent, var(--glow-color));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.neon-card:hover .neon-card-border {
+  opacity: 1;
+}
+
+.neon-card-content {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(135deg, rgba(15, 21, 37, 0.95), rgba(20, 27, 45, 0.95));
+  border-radius: 15px;
+  padding: 20px;
+  height: 100%;
+}
+
+.neon-card-shine {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.neon-card:hover .neon-card-shine {
+  opacity: 1;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Text
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-text-wrapper {
+  display: inline-block;
+}
+
+.neon-text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.02em;
+  transition: all 0.3s ease;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Input
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neon-input-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.neon-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0 12px;
+  transition: all 0.2s ease;
+}
+
+.neon-input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  transition: color 0.2s ease;
+}
+
+.neon-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 0.875rem;
+  padding: 12px 0;
+  outline: none;
+}
+
+.neon-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.neon-input-right-element {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+}
+
+.neon-input-border {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform-origin: left;
+  border-radius: 0 0 10px 10px;
+}
+
+.neon-input-error {
+  font-size: 0.75rem;
+  color: #ff3232;
+  margin-top: 4px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Progress
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.neon-progress-track {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  position: relative;
+}
+
+.neon-progress-bar {
+  position: relative;
+  transition: box-shadow 0.3s ease;
+}
+
+.neon-progress-bar.striped {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  animation: stripeMove 1s linear infinite;
+}
+
+@keyframes stripeMove {
+  0% { background-position: 0 0; }
+  100% { background-position: 20px 20px; }
+}
+
+.neon-progress-stripes {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+  animation: stripeMove 1s linear infinite;
+}
+
+.neon-progress-glow {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  pointer-events: none;
+}
+
+.neon-progress-sparkle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+}
+
+.neon-progress-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Badge
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.neon-badge-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Button (Enhanced)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.neon-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--glow-color), var(--glow-color)dd);
+  opacity: 0.2;
+  transition: opacity 0.3s ease;
+}
+
+.neon-button:hover::before {
+  opacity: 0.4;
+}
+
+.neon-button-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--glow-color), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.neon-button:hover .neon-button-border {
+  opacity: 1;
+}
+
+.neon-button-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.neon-button-glow {
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: var(--glow-color);
+  filter: blur(15px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.neon-button:hover .neon-button-glow {
+  opacity: 0.5;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Slider (Enhanced)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-slider {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.neon-slider-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.neon-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--glow-color), var(--glow-color)dd);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--glow-color);
+}
+
+.neon-slider-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color);
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.neon-slider:hover .neon-slider-thumb {
+  transform: translate(-50%, -50%) scale(1.2);
+  box-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Panel (Enhanced)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-panel {
+  position: relative;
+  background: linear-gradient(135deg, rgba(15, 21, 37, 0.8), rgba(20, 27, 45, 0.8));
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.neon-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.neon-panel-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.neon-panel-content {
+  padding: 20px;
+}
+
+.neon-panel-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    var(--glow-color)10,
+    transparent 50%
+  );
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Animations
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@keyframes neonPulse {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.8;
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes neonFlicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+    text-shadow: 
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor;
+  }
+  20%, 24%, 55% {
+    opacity: 0.5;
+    text-shadow: none;
+  }
+}
+
+@keyframes borderRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.neon-animated-border {
+  background: linear-gradient(90deg, #00f0ff, #ff00f0, #00f0ff);
+  background-size: 200% 100%;
+  animation: borderRotate 3s linear infinite;
+}

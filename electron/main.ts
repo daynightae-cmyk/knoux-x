@@ -12,16 +12,17 @@
 
 import path from 'path';
 
-import { app, BrowserWindow, ipcMain, powerMonitor, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, powerMonitor, screen, shell } from 'electron';
 import started from 'electron-squirrel-startup';
 import log from 'electron-log';
 
 // Import core systems
 import { createSystemOrchestrator, SystemConfiguration } from '../src/core/orchestrator/SystemOrchestrator';
 
-import { setupIPCHandlers } from './ipc/setup';
+import { authorizeMediaPaths, setupIPCHandlers } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
 import { createSystemTray } from './menu/system-tray';
+import { mediaPathsFromArguments, validateExternalUrl } from './security/validation';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -39,6 +40,8 @@ if (started) {
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let systemOrchestrator: ReturnType<typeof createSystemOrchestrator> | null = null;
+let isQuitting = false;
+const pendingMediaPaths = mediaPathsFromArguments(process.argv);
 
 /**
  * ØªÙƒÙˆÙŠÙ† Ø§Ù„Ù†Ø¸Ø§Ù…
@@ -162,6 +165,10 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     splashWindow?.close();
     mainWindow?.show();
     mainWindow?.focus();
+    if (pendingMediaPaths.length > 0) {
+      const paths = authorizeMediaPaths(pendingMediaPaths.splice(0));
+      mainWindow?.webContents.send('app:open-media', paths);
+    }
   });
 
   mainWindow.on('closed', () => {
@@ -180,7 +187,11 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
   // Prevent new window creation
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https:')) {
-      require('electron').shell.openExternal(url);
+      try {
+        void shell.openExternal(validateExternalUrl(url).toString());
+      } catch (error) {
+        log.warn('Blocked invalid external URL', error);
+      }
     }
     return { action: 'deny' };
   });
@@ -219,6 +230,8 @@ const initializeSystem = async (): Promise<void> => {
  * Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¨Ø£Ù…Ø§Ù†
  */
 const shutdown = async (): Promise<void> => {
+  if (isQuitting) return;
+  isQuitting = true;
   log.info('Shutting down KNOUX Player X...');
 
   try {
@@ -258,6 +271,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', async (event) => {
+  if (isQuitting) return;
   event.preventDefault();
   await shutdown();
 });
@@ -275,9 +289,13 @@ powerMonitor.on('resume', () => {
 
 // Security: Prevent navigation to external URLs
 app.on('web-contents-created', (_, contents) => {
+  contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   contents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
-    if (parsedUrl.origin !== 'file://') {
+    const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
+      ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
+      : null;
+    if (parsedUrl.protocol !== 'file:' && parsedUrl.origin !== developmentOrigin) {
       event.preventDefault();
       log.warn('Blocked navigation to:', navigationUrl);
     }
@@ -290,7 +308,12 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    const forwardedPaths = authorizeMediaPaths(mediaPathsFromArguments(argv));
+    pendingMediaPaths.push(...forwardedPaths);
+    if (forwardedPaths.length > 0) {
+      mainWindow?.webContents.send('app:open-media', forwardedPaths);
+    }
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();

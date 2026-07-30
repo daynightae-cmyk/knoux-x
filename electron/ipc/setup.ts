@@ -16,6 +16,13 @@ import path from 'path';
 import { ipcMain, dialog, shell } from 'electron';
 
 import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrchestrator';
+import { AuthorizedPathRegistry, validateExternalUrl } from '../security/validation';
+
+const authorizedPaths = new AuthorizedPathRegistry();
+
+export function authorizeMediaPaths(paths: readonly string[]): string[] {
+  return paths.map((filePath) => authorizedPaths.authorizeFile(filePath));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // معالجات الملفات
@@ -36,7 +43,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
       ],
       properties: ['openFile'],
     });
-    return result.canceled ? null : result.filePaths[0];
+    return result.canceled ? null : authorizedPaths.authorizeFile(result.filePaths[0]);
   });
 
   ipc.handle('file:open-multiple', async (_, options) => {
@@ -49,7 +56,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
       ],
       properties: ['openFile', 'multiSelections'],
     });
-    return result.canceled ? [] : result.filePaths;
+    return result.canceled ? [] : result.filePaths.map((filePath) => authorizedPaths.authorizeFile(filePath));
   });
 
   ipc.handle('file:open-directory', async (_, options) => {
@@ -58,7 +65,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
       defaultPath: options?.defaultPath,
       properties: ['openDirectory'],
     });
-    return result.canceled ? null : result.filePaths[0];
+    return result.canceled ? null : authorizedPaths.authorizeRoot(result.filePaths[0]);
   });
 
   ipc.handle('file:save', async (_, options) => {
@@ -68,20 +75,20 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
       buttonLabel: options?.buttonLabel,
       filters: options?.filters,
     });
-    return result.canceled ? null : result.filePath;
+    return result.canceled || !result.filePath ? null : authorizedPaths.authorizeFile(result.filePath);
   });
 
   ipc.handle('file:read', async (_, filePath: string) => {
-    return fs.readFile(filePath);
+    return fs.readFile(authorizedPaths.requireAuthorized(filePath));
   });
 
   ipc.handle('file:write', async (_, filePath: string, data: Buffer | string) => {
-    await fs.writeFile(filePath, data);
+    await fs.writeFile(authorizedPaths.requireAuthorized(filePath), data);
   });
 
   ipc.handle('file:delete', async (_, filePath: string) => {
     try {
-      await fs.unlink(filePath);
+      await fs.unlink(authorizedPaths.requireAuthorized(filePath));
       return true;
     } catch {
       return false;
@@ -90,7 +97,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
 
   ipc.handle('file:exists', async (_, filePath: string) => {
     try {
-      await fs.access(filePath);
+      await fs.access(authorizedPaths.requireAuthorized(filePath));
       return true;
     } catch {
       return false;
@@ -98,7 +105,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
   });
 
   ipc.handle('file:stats', async (_, filePath: string) => {
-    const stats = await fs.stat(filePath);
+    const stats = await fs.stat(authorizedPaths.requireAuthorized(filePath));
     return {
       size: stats.size,
       created: stats.birthtime,
@@ -108,6 +115,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
   });
 
   ipc.handle('file:scan', async (_, dirPath: string, recursive = false) => {
+    const authorizedRoot = authorizedPaths.requireAuthorized(dirPath);
     const files: string[] = [];
     const mediaExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'];
 
@@ -123,18 +131,19 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
       }
     }
 
-    await scan(dirPath);
-    return files;
+    await scan(authorizedRoot);
+    return files.map((filePath) => authorizedPaths.authorizeFile(filePath));
   });
 
   ipc.handle('file:media-info', async (_, filePath: string) => {
-    const stats = await fs.stat(filePath);
-    const ext = path.extname(filePath).toLowerCase();
+    const authorizedPath = authorizedPaths.requireAuthorized(filePath);
+    const stats = await fs.stat(authorizedPath);
+    const ext = path.extname(authorizedPath).toLowerCase();
     const format = ext.replace('.', '');
 
     return {
-      path: filePath,
-      name: path.basename(filePath),
+      path: authorizedPath,
+      name: path.basename(authorizedPath),
       size: stats.size,
       format,
       metadata: {},
@@ -148,7 +157,7 @@ function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrato
 
 function setupPlayerHandlers(ipc: typeof ipcMain, orchestrator: SystemOrchestrator): void {
   ipc.handle('player:load', async (_, filePath: string) => {
-    await orchestrator.services.player.load(filePath);
+    await orchestrator.services.player.load(authorizedPaths.requireAuthorized(filePath));
   });
 
   ipc.handle('player:play', async () => {
@@ -473,11 +482,11 @@ function setupSystemHandlers(ipc: typeof ipcMain, orchestrator: SystemOrchestrat
   });
 
   ipc.handle('system:open-external', async (_, url: string) => {
-    await shell.openExternal(url);
+    await shell.openExternal(validateExternalUrl(url).toString());
   });
 
   ipc.handle('system:show-item', async (_, filePath: string) => {
-    await shell.showItemInFolder(filePath);
+    await shell.showItemInFolder(authorizedPaths.requireAuthorized(filePath));
   });
 }
 

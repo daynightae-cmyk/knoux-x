@@ -1,0 +1,105 @@
+name: KNOUX Full Rebuild Windows
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, codex/knoux-player-x-full-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-rebuild-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-package:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure native toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+
+      - name: Bootstrap deterministic lockfile when absent
+        shell: pwsh
+        run: |
+          if (-not (Test-Path package-lock.json)) {
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw 'package-lock.json generation failed.' }
+          }
+          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json is still missing.' }
+
+      - name: Install deterministic dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Rebuild Electron native modules
+        shell: pwsh
+        run: |
+          npm exec electron-rebuild -- -f -w better-sqlite3,sharp
+          if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
+
+      - name: Validate dependency graph
+        run: npm ls better-sqlite3 sharp onnxruntime-node --depth=0
+
+      - name: Quality gates
+        shell: pwsh
+        run: |
+          npm run doctor
+          npm run typecheck
+          npm run lint -- --max-warnings=0
+          npm test -- --runInBand
+
+      - name: Package and make installer
+        shell: pwsh
+        run: |
+          npm run package -- --arch=x64
+          npm run make -- --arch=x64
+
+      - name: Verify package, installer, smoke, and cleanup
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
+          $installer = Get-ChildItem out\make -Recurse -Include '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $installer -or $installer.Length -le 0) { throw 'Installer is missing or empty.' }
+          $process = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
+          $process.CloseMainWindow() | Out-Null
+          if (-not $process.WaitForExit(15000)) { Stop-Process -Id $process.Id -Force }
+          Start-Sleep -Seconds 3
+          $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron)$' })
+          if ($orphans.Count -gt 0) {
+            $orphans | Stop-Process -Force
+            throw 'KNOUX/Electron processes remained after shutdown.'
+          }
+          Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
+          Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: knoux-windows-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            out/**
+            artifact-hashes.txt

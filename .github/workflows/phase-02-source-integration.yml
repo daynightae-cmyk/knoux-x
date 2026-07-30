@@ -1,0 +1,76 @@
+name: KNOUX Phase 02 Source Integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'docs/source-integration/**'
+      - '.github/workflows/phase-02-source-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: startsWith(github.head_ref, 'customization/phase-02-') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure native build environment
+        shell: powershell
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_config_msvs_version=2022" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install dependencies
+        shell: powershell
+        run: npm install --no-audit --no-fund
+
+      - name: Doctor
+        shell: powershell
+        run: npm run doctor
+
+      - name: Typecheck
+        shell: powershell
+        run: npm run typecheck
+
+      - name: Lint with zero-warning budget
+        shell: powershell
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit tests
+        shell: powershell
+        run: npm test -- --runInBand
+
+      - name: Package Windows application
+        shell: powershell
+        run: npm run package
+
+      - name: Verify packaged executable
+        shell: powershell
+        run: |
+          $exe = Get-ChildItem .\out -Recurse -Filter '*.exe' |
+            Where-Object { $_.Name -match 'knoux' } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+          if (-not $exe -or $exe.Length -le 0) {
+            throw 'Packaged KNOUX executable was not found.'
+          }
+          Write-Host "Validated executable: $($exe.FullName)"
+          Write-Host "Size: $($exe.Length) bytes"

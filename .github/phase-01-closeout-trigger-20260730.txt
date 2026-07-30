@@ -1,0 +1,1 @@
+KNOUX Phase 01 closeout validation trigger after aligning the runner to Windows 2022, Visual Studio 2022, Python 3.12, Node 20.20.2, and npm 10.8.2.

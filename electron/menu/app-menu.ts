@@ -14,7 +14,7 @@ async function openMedia(): Promise<void> {
     title: 'Open media',
     properties: ['openFile'],
     filters: [
-      { name: 'Media', extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'] },
+      { name: 'Verified media', extensions: ['mp4', 'webm', 'mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] },
       { name: 'All files', extensions: ['*'] },
     ],
   });

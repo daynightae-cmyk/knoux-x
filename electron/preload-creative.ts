@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron';
 
 import type { CaptureFormat } from '../src/core/creative/capture';
 import type { EditProject } from '../src/core/creative/editProject';
+import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/ai-service';
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
@@ -129,6 +130,17 @@ export const creativeAPI = {
       ipcRenderer.on('export:progress', listener);
       return () => ipcRenderer.removeListener('export:progress', listener);
     },
+  },
+  ai: {
+    settings: (): Promise<AISettings> => ipcRenderer.invoke('ai-secure:settings'),
+    configure: (request: AIConfigureRequest): Promise<AISettings> =>
+      ipcRenderer.invoke('ai-secure:configure', request),
+    clear: (): Promise<AISettings> => ipcRenderer.invoke('ai-secure:clear'),
+    test: (): Promise<{ ok: boolean; latencyMs: number; message: string }> =>
+      ipcRenderer.invoke('ai-secure:test'),
+    chat: (message: string, history: AIChatMessage[] = []): Promise<string> =>
+      ipcRenderer.invoke('ai-secure:chat', message, history),
+    cancel: (): Promise<boolean> => ipcRenderer.invoke('ai-secure:cancel'),
   },
 } as const;
 

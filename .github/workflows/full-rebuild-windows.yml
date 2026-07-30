@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: full-rebuild-windows-${{ github.ref }}
@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -47,6 +49,21 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'package-lock.json generation failed.' }
           }
           if (-not (Test-Path package-lock.json)) { throw 'package-lock.json is still missing.' }
+
+      - name: Persist deterministic lockfile
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
+        shell: pwsh
+        run: |
+          git add package-lock.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'build: add deterministic Node 20 dependency lockfile'
+            git push origin HEAD:codex/knoux-player-x-full-rebuild
+          } else {
+            Write-Host 'Committed package-lock.json is already current.'
+          }
 
       - name: Install deterministic dependencies
         run: npm ci --no-audit --no-fund
@@ -87,10 +104,10 @@ jobs:
           $process.CloseMainWindow() | Out-Null
           if (-not $process.WaitForExit(15000)) { Stop-Process -Id $process.Id -Force }
           Start-Sleep -Seconds 3
-          $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron)$' })
+          $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron|ffmpeg|ffprobe)$' })
           if ($orphans.Count -gt 0) {
             $orphans | Stop-Process -Force
-            throw 'KNOUX/Electron processes remained after shutdown.'
+            throw 'KNOUX, Electron, or media-tool processes remained after shutdown.'
           }
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append

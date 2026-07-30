@@ -24,7 +24,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.20.2
-          cache: npm
 
       - uses: actions/setup-python@v5
         with:
@@ -39,6 +38,15 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+
+      - name: Bootstrap deterministic lockfile when absent
+        shell: pwsh
+        run: |
+          if (-not (Test-Path package-lock.json)) {
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw 'package-lock.json generation failed.' }
+          }
+          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json is still missing.' }
 
       - name: Install deterministic dependencies
         run: npm ci --no-audit --no-fund
@@ -85,7 +93,7 @@ jobs:
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
 
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: knoux-windows-${{ github.sha }}
           if-no-files-found: error

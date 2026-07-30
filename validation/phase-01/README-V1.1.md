@@ -1,0 +1,1 @@
+Phase 01 V1.1 regression validation: native STDERR warnings must be captured without terminating Windows PowerShell 5.1 when the native process exits successfully.

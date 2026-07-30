@@ -4,7 +4,7 @@ import type { CaptureFormat } from '../src/core/creative/capture';
 import type { EditProject } from '../src/core/creative/editProject';
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
-import type { FFmpegCapabilities } from './creative/ffmpeg-service';
+import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
 
 export interface DesktopCaptureSource {
   id: string;
@@ -22,6 +22,12 @@ export interface CaptureFrameInput {
 }
 
 export const creativeAPI = {
+  media: {
+    open: (): Promise<{ filePath: string; mediaUrl: string } | null> =>
+      ipcRenderer.invoke('creative:open-media'),
+    toUrl: (filePath: string): Promise<string> =>
+      ipcRenderer.invoke('creative:path-to-media-url', filePath),
+  },
   capture: {
     saveFrame: (request: CaptureFrameInput): Promise<string | null> =>
       ipcRenderer.invoke('capture:save-frame', request),
@@ -39,8 +45,7 @@ export const creativeAPI = {
     getRecent: (): Promise<string[]> => ipcRenderer.invoke('capture:recent'),
     showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('capture:show-item', filePath),
     getDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:get-default-directory'),
-    setDefaultDirectory: (directory: string | null): Promise<void> =>
-      ipcRenderer.invoke('capture:set-default-directory', directory),
+    chooseDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:choose-default-directory'),
     getDesktopSources: (): Promise<DesktopCaptureSource[]> => ipcRenderer.invoke('capture:desktop-sources'),
   },
   recording: {
@@ -78,8 +83,10 @@ export const creativeAPI = {
     clearRecentProjects: (): Promise<void> => ipcRenderer.invoke('editor:clear-recent-projects'),
   },
   export: {
+    selectSource: (): Promise<string | null> => ipcRenderer.invoke('export:select-source'),
     presets: (): Promise<ExportPreset[]> => ipcRenderer.invoke('export:presets'),
     capabilities: (): Promise<FFmpegCapabilities> => ipcRenderer.invoke('export:capabilities'),
+    probe: (filePath: string): Promise<ProbeResult> => ipcRenderer.invoke('export:probe', filePath),
     jobs: (): Promise<ExportJobSnapshot[]> => ipcRenderer.invoke('export:jobs'),
     start: (request: {
       inputPath: string;

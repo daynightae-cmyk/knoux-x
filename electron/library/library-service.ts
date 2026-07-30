@@ -182,12 +182,23 @@ export class LibraryService {
     if (!Number.isFinite(position) || position < 0 || !Number.isFinite(duration) || duration < 0) {
       throw new RangeError('Playback position and duration must be finite non-negative numbers.');
     }
-    const now = new Date().toISOString();
-    this.database.prepare(`
-      UPDATE media_items
-      SET last_played_at = ?, play_count = play_count + 1, last_position = ?, completed = ?, updated_at = ?
-      WHERE path = ?
-    `).run(now, position, completed || (duration > 0 && position / duration >= 0.92) ? 1 : 0, now, path.resolve(filePath));
+    const resolved = path.resolve(filePath);
+    const nowDate = new Date();
+    const now = nowDate.toISOString();
+    const previous = this.database.prepare('SELECT last_played_at FROM media_items WHERE path = ?')
+      .get(resolved) as { last_played_at?: string | null } | undefined;
+    const previousTime = previous?.last_played_at ? Date.parse(previous.last_played_at) : Number.NaN;
+    const newSession = !Number.isFinite(previousTime) || nowDate.getTime() - previousTime >= 30 * 60 * 1000;
+    this.database.prepare(
+      'UPDATE media_items SET last_played_at = ?, play_count = play_count + ?, last_position = ?, completed = ?, updated_at = ? WHERE path = ?',
+    ).run(
+      now,
+      newSession ? 1 : 0,
+      position,
+      completed || (duration > 0 && position / duration >= 0.92) ? 1 : 0,
+      now,
+      resolved,
+    );
   }
 
   cancelScan(jobId: string): boolean {

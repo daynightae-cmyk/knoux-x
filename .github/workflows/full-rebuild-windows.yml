@@ -34,8 +34,8 @@ jobs:
       - name: Apply pending runtime hardening
         shell: pwsh
         run: |
-          if (Test-Path tools/finalize-creative-runtime.cjs) {
-            node tools/finalize-creative-runtime.cjs
+          if (Test-Path tools/run-finalize-creative-runtime.cjs) {
+            node tools/run-finalize-creative-runtime.cjs
             if ($LASTEXITCODE -ne 0) { throw 'Runtime hardening migration failed.' }
           } else {
             Write-Host 'No pending runtime hardening migration.'

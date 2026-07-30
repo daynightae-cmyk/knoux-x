@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-30T19:15:00Z",
+  "status": "PARTIAL",
+  "expectedCommit": "63beef1e38b7946e1a4207aba1dc149307035fa0",
+  "observedCommit": "63beef1e38b7946e1a4207aba1dc149307035fa0",
+  "executionBranch": "codex/knoux-player-x-full-rebuild",
+  "safetyTag": "safety/full-rebuild-baseline-63beef1",
+  "originFetch": { "status": "BLOCKED", "reason": "CONNECT tunnel failed, response 403" },
+  "runtime": { "requiredNode": "20.20.2", "observedNode": "24.15.0", "observedNpm": "11.4.2" },
+  "gates": {
+    "install": "BLOCKED",
+    "doctor": "PASS",
+    "typecheck": "FAIL",
+    "lint": "FAIL",
+    "unitTests": "FAIL",
+    "package": "NOT_RUN",
+    "executable": "NOT_RUN",
+    "launchSmoke": "NOT_RUN",
+    "cleanExit": "NOT_RUN"
+  },
+  "criticalFindings": [
+    "No package-lock.json or node_modules",
+    "npm registry access returned HTTP 403",
+    "Portable Windows Node runtime unavailable",
+    "Package and runtime behavior unverified"
+  ]
+}

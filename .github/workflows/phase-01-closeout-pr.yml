@@ -12,7 +12,7 @@ permissions:
 jobs:
   closeout:
     if: github.head_ref == 'customization/phase-01-foundation-20260730-162025' || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 120
 
     steps:
@@ -26,13 +26,29 @@ jobs:
           node-version: 20.20.2
           registry-url: https://registry.npmjs.org
 
-      - name: Configure Git
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure Git and native build environment
         shell: powershell
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config core.autocrlf false
           if ((git rev-parse --abbrev-ref HEAD).Trim() -in @('main','master')) { throw 'Protected branch refusal.' }
+
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_config_msvs_version=2022" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'Visual Studio 2022 C++ Build Tools were not detected.' }
+          $vcvars = Join-Path ($vs | Select-Object -First 1) 'VC\Auxiliary\Build\vcvars64.bat'
+          if (-not (Test-Path $vcvars)) { throw "vcvars64.bat was not found: $vcvars" }
+          Write-Host "Visual Studio C++ environment: $vcvars"
+          Write-Host "Python: $python"
 
       - name: Apply closeout repairs
         shell: powershell

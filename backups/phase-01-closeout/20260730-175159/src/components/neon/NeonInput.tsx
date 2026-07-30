@@ -8,16 +8,16 @@
  * @module Components/Neon
  */
 
-import { forwardRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import './neon-styles.css';
 
-export interface NeonInputProps extends InputHTMLAttributes<HTMLInputElement> {
+export interface NeonInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   glowColor?: 'cyan' | 'magenta' | 'green' | 'purple' | 'yellow' | 'red';
-  icon?: ReactNode;
-  rightElement?: ReactNode;
+  icon?: React.ReactNode;
+  rightElement?: React.ReactNode;
 }
 
 const colorMap = {

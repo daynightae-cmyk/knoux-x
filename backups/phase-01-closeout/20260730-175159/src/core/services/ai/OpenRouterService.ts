@@ -63,33 +63,6 @@ export interface ServiceStatus {
   model: string;
 }
 
-interface OpenRouterMessage {
-  role: ChatMessage['role'];
-  content: string;
-}
-
-interface OpenRouterErrorResponse {
-  error?: {
-    message?: string;
-  };
-}
-
-interface OpenRouterChatResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-}
-
-interface OpenRouterStreamChunk {
-  choices?: Array<{
-    delta?: {
-      content?: string;
-    };
-  }>;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // نماذج AI المتاحة (مجانية)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -164,7 +137,7 @@ export class OpenRouterService extends EventEmitter {
   private context: ChatContext = { messages: [] };
   private isInitialized = false;
   private abortController: AbortController | null = null;
-  private requestQueue: Promise<unknown> = Promise.resolve();
+  private requestQueue: Promise<any> = Promise.resolve();
   private status: ServiceStatus = {
     isOnline: false,
     latency: 0,
@@ -256,15 +229,12 @@ export class OpenRouterService extends EventEmitter {
   // الطلبات API
   // ═════════════════════════════════════════════════════════════════════════
 
-  private async makeRequest<TResponse>(
-    endpoint: string,
-    body: Record<string, unknown>
-  ): Promise<TResponse> {
+  private async makeRequest(endpoint: string, body: any): Promise<any> {
     if (!this.apiKey) {
       throw new Error('API key not configured');
     }
 
-    const request = this.requestQueue.then(async (): Promise<TResponse> => {
+    return this.requestQueue = this.requestQueue.then(async () => {
       this.abortController = new AbortController();
 
       try {
@@ -281,13 +251,11 @@ export class OpenRouterService extends EventEmitter {
         });
 
         if (!response.ok) {
-          const errorPayload = await response.json().catch(
-            (): OpenRouterErrorResponse => ({ error: { message: 'Unknown error' } })
-          ) as OpenRouterErrorResponse;
-          throw new Error(errorPayload.error?.message || `HTTP ${response.status}`);
+          const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+          throw new Error(error.error?.message || `HTTP ${response.status}`);
         }
 
-        return response.json() as Promise<TResponse>;
+        return response.json();
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error('Request cancelled');
@@ -295,9 +263,6 @@ export class OpenRouterService extends EventEmitter {
         throw error;
       }
     });
-
-    this.requestQueue = request;
-    return request;
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -319,7 +284,7 @@ export class OpenRouterService extends EventEmitter {
       const messages = this.buildMessages(message);
 
       // Send request
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages,
         temperature: 0.7,
@@ -399,7 +364,7 @@ export class OpenRouterService extends EventEmitter {
             if (data === '[DONE]') return;
 
             try {
-              const parsed = JSON.parse(data) as OpenRouterStreamChunk;
+              const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) {
                 yield content;
@@ -416,8 +381,8 @@ export class OpenRouterService extends EventEmitter {
     }
   }
 
-  private buildMessages(userMessage: string): OpenRouterMessage[] {
-    const messages: OpenRouterMessage[] = [
+  private buildMessages(userMessage: string): any[] {
+    const messages: any[] = [
       {
         role: 'system',
         content: `You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. 
@@ -473,7 +438,7 @@ Provide a brief analysis in JSON format with these fields:
 
 Respond ONLY with valid JSON.`;
 
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.5,
@@ -528,7 +493,7 @@ Respond ONLY with valid JSON.`;
       const prompt = `Generate a playlist of ${count} songs/movies for a "${mood}" mood. 
 Return ONLY the titles, one per line, no numbering or extra text.`;
 
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.8,
@@ -558,7 +523,7 @@ recommend 5 similar movies/songs.
 Format each as: Title - Brief reason why it's similar
 One per line.`;
 
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
@@ -698,7 +663,7 @@ One per line.`;
     try {
       const prompt = `Summarize this in ${maxLength} characters or less:\n${text}`;
       
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
@@ -717,7 +682,7 @@ One per line.`;
     try {
       const prompt = `Translate to ${targetLang}:\n${text}`;
       
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
@@ -736,7 +701,7 @@ One per line.`;
     try {
       const prompt = `Generate subtitle timestamps for this audio context:\n${audioContext}\nFormat: [HH:MM:SS] Text`;
       
-      const response = await this.makeRequest<OpenRouterChatResponse>('/chat/completions', {
+      const response = await this.makeRequest('/chat/completions', {
         model: this.currentModel,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.5,

@@ -325,15 +325,11 @@ export class AudioEngine extends EventEmitter {
   }
 
   public async setAudioDevice(deviceId: string): Promise<void> {
-    if (!this.mediaElement) return;
-
-    const sinkCapableElement = this.mediaElement as HTMLMediaElement & {
-      setSinkId?: (sinkId: string) => Promise<void>;
-    };
-
-    if (typeof sinkCapableElement.setSinkId === 'function') {
-      await sinkCapableElement.setSinkId(deviceId);
-      this.emit('device-change', deviceId);
+    if (this.mediaElement) {
+      if (typeof (this.mediaElement as any).setSinkId === 'function') {
+        await (this.mediaElement as any).setSinkId(deviceId);
+        this.emit('device-change', deviceId);
+      }
     }
   }
 }

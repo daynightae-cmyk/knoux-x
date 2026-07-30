@@ -28,15 +28,6 @@ import './styles/splash.css';
 // شاشة البداية المذهلة
 // ═══════════════════════════════════════════════════════════════════════════
 
-const SPLASH_LOADING_TEXTS = [
-  'Initializing Core Systems',
-  'Loading Neural DSP Engine',
-  'Connecting AI Services',
-  'Optimizing Video Pipeline',
-  'Loading Media Library',
-  'Ready to Launch',
-] as const;
-
 interface SplashScreenProps {
   onComplete: () => void;
 }
@@ -45,6 +36,15 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
   const [loadingText, setLoadingText] = useState('Initializing');
   const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; color: string }>>([]);
+
+  const loadingTexts = [
+    'Initializing Core Systems',
+    'Loading Neural DSP Engine',
+    'Connecting AI Services',
+    'Optimizing Video Pipeline',
+    'Loading Media Library',
+    'Ready to Launch',
+  ];
 
   // Generate particles on mount
   useEffect(() => {
@@ -72,10 +72,10 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
       // Update loading text based on progress
       const textIndex = Math.min(
-        SPLASH_LOADING_TEXTS.length - 1,
-        Math.floor((newProgress / 100) * SPLASH_LOADING_TEXTS.length)
+        loadingTexts.length - 1,
+        Math.floor((newProgress / 100) * loadingTexts.length)
       );
-      setLoadingText(SPLASH_LOADING_TEXTS[textIndex]);
+      setLoadingText(loadingTexts[textIndex]);
 
       if (newProgress >= 100) {
         clearInterval(timer);

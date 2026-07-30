@@ -4,8 +4,8 @@
 
 - npm install: PASS
 - doctor: PASS
-- typecheck: PASS
-- lint: PASS
+- typecheck: PASS (0 errors)
+- lint: PASS (0 errors, 0 warnings)
 - tests: PASS
 - Windows package: PASS
 - smoke test: PASS

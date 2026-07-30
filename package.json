@@ -2,7 +2,7 @@
   "name": "knoux-player-x",
   "version": "2.0.0",
   "description": "KNOUX Player X — premium next-generation desktop media player and creative suite.",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/main-entry.js",
   "author": "Eng. Sadek Elgazar (Knoux)",
   "license": "Proprietary",
   "private": true,

@@ -6,6 +6,7 @@ on:
       - codex/knoux-player-x-full-rebuild
     paths:
       - tools/finalize-creative-runtime.cjs
+      - tools/run-finalize-creative-runtime.cjs
       - .github/workflows/apply-runtime-hardening.yml
   workflow_dispatch:
 
@@ -31,7 +32,7 @@ jobs:
           node-version: 20.20.2
 
       - name: Apply deterministic source hardening
-        run: node tools/finalize-creative-runtime.cjs
+        run: node tools/run-finalize-creative-runtime.cjs
 
       - name: Commit hardened runtime
         shell: pwsh

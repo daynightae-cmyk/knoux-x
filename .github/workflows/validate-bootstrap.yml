@@ -1,0 +1,71 @@
+name: Validate KNOUX Bootstrap
+
+on:
+  push:
+    paths:
+      - "scripts/Initialize-KnouxX.ps1"
+      - "RUN-KNOUX-BOOTSTRAP.cmd"
+      - ".github/workflows/validate-bootstrap.yml"
+  pull_request:
+    paths:
+      - "scripts/Initialize-KnouxX.ps1"
+      - "RUN-KNOUX-BOOTSTRAP.cmd"
+      - ".github/workflows/validate-bootstrap.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parse-powershell:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell script
+        shell: pwsh
+        run: |
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE 'scripts\Initialize-KnouxX.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            $scriptPath,
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object {
+              Write-Error ("Line {0}, column {1}: {2}" -f `
+                $_.Extent.StartLineNumber,
+                $_.Extent.StartColumnNumber,
+                $_.Message)
+            }
+            exit 1
+          }
+
+          Write-Host "PowerShell syntax is valid. Tokens: $($tokens.Count)"
+
+      - name: Verify safe defaults
+        shell: pwsh
+        run: |
+          $content = Get-Content 'scripts\Initialize-KnouxX.ps1' -Raw
+          $required = @(
+            "D:\Knoux-x.zip",
+            "https://github.com/daynightae-cmyk/knoux-x.git",
+            "bootstrap/pre-customization",
+            "Electron safeStorage"
+          )
+
+          foreach ($value in $required) {
+            if (-not $content.Contains($value)) {
+              throw "Missing required bootstrap value: $value"
+            }
+          }
+
+          $forbidden = @('ghp_', 'github_pat_', 'BEGIN PRIVATE KEY')
+          foreach ($value in $forbidden) {
+            if ($content.Contains($value)) {
+              throw "Potential secret material detected: $value"
+            }
+          }

@@ -2,8 +2,10 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import { clipboard, dialog, nativeImage, shell } from 'electron';
+import type { FileFilter } from 'electron';
 import Store from 'electron-store';
 import sharp from 'sharp';
+import type { OverlayOptions } from 'sharp';
 
 import {
   CaptureFormat,
@@ -47,7 +49,7 @@ function assertCapturePayload(dataUrl: string): void {
   }
 }
 
-function filtersForFormat(format: CaptureFormat): Electron.FileFilter[] {
+function filtersForFormat(format: CaptureFormat): FileFilter[] {
   if (format === 'jpeg') return [{ name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }];
   if (format === 'webp') return [{ name: 'WebP Image', extensions: ['webp'] }];
   return [{ name: 'PNG Image', extensions: ['png'] }];
@@ -152,7 +154,7 @@ export class CaptureService {
     const sheetWidth = columns * cellWidth + (columns + 1) * gap;
     const sheetHeight = rows * cellHeight + (rows + 1) * gap;
 
-    const composite: sharp.OverlayOptions[] = [];
+    const composite: OverlayOptions[] = [];
     for (let index = 0; index < request.frames.length; index += 1) {
       const decoded = decodeCaptureDataUrl(request.frames[index].dataUrl);
       const input = await sharp(decoded.bytes)
@@ -178,7 +180,7 @@ export class CaptureService {
     }).composite(composite).png().toBuffer();
 
     const fileName = createCaptureFileName(request.mediaName, 0, 'png');
-      const result = await dialog.showSaveDialog({
+    const result = await dialog.showSaveDialog({
       title: 'Save KNOUX contact sheet',
       defaultPath: path.join(this.store.get('defaultDirectory') ?? '', `contact-sheet_${fileName}`),
       filters: [{ name: 'PNG Image', extensions: ['png'] }],

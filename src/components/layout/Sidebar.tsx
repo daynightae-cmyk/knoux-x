@@ -37,9 +37,9 @@ export const Sidebar: React.FC = () => {
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
 
   const handleOpenFile = async (): Promise<void> => {
-    const filePath = await window.knouxAPI.file.openFile();
-    if (!filePath) return;
-    setCurrentMedia(filePath);
+    const selected = await window.knouxCreativeAPI.media.open();
+    if (!selected) return;
+    setCurrentMedia(selected.filePath);
     setView('player');
   };
 

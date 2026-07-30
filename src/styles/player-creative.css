@@ -1,0 +1,41 @@
+.subtitle-delay-control {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--knoux-border);
+  border-radius: 9px;
+  background: rgba(5,3,13,0.78);
+}
+
+.subtitle-delay-control span {
+  min-width: 48px;
+  color: var(--knoux-muted);
+  font-size: 0.72rem;
+  text-align: center;
+  direction: ltr;
+}
+
+.video-element::cue {
+  color: white;
+  background: rgba(5, 3, 13, 0.78);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: clamp(16px, 2.2vw, 32px);
+  line-height: 1.35;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.95), 0 0 2px black;
+}
+
+.player-view:fullscreen .video-element::cue {
+  font-size: clamp(20px, 2.5vw, 42px);
+}
+
+@media (max-width: 1080px) {
+  .controls-top {
+    align-items: flex-start;
+  }
+
+  .capture-toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

@@ -1,46 +1,51 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Player View
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * واجهة المشغل - عرض الفيديو والضوابط
- * 
- * @module Features/Player
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Play,
+  Camera,
+  Clipboard,
+  FolderOpen,
+  Maximize,
   Pause,
+  PictureInPicture,
+  Play,
+  Repeat,
+  Shuffle,
   SkipBack,
   SkipForward,
   Volume2,
   VolumeX,
-  Maximize,
-  Subtitles,
-  Repeat,
-  Shuffle,
-  ListMusic,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSlider } from '../../components/neon/NeonSlider';
 import { usePlayerStore } from '../../store/playerStore';
+import type { CaptureFormat } from '../../core/creative/capture';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون واجهة المشغل
-// ═══════════════════════════════════════════════════════════════════════════
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    : `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function mediaName(filePath: string | null): string {
+  return filePath?.split(/[\\/]/).pop() ?? 'No media';
+}
 
 export const PlayerView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const controlsTimeoutRef = useRef<number | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [buffering, setBuffering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [captureFormat, setCaptureFormat] = useState<CaptureFormat>('png');
+  const [capturing, setCapturing] = useState(false);
 
   const {
     currentMedia,
@@ -49,13 +54,16 @@ export const PlayerView: React.FC = () => {
     duration,
     volume,
     muted,
+    playbackRate,
     loop,
     shuffle,
+    setCurrentMedia,
     play,
     pause,
     seek,
     setDuration,
     setVolume,
+    setPlaybackRate,
     toggleMute,
     toggleLoop,
     toggleShuffle,
@@ -63,170 +71,232 @@ export const PlayerView: React.FC = () => {
     previous,
   } = usePlayerStore();
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // إعداد عنصر الفيديو
-  // ═════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    let active = true;
+    setError(null);
+    if (!currentMedia) {
+      setMediaUrl(null);
+      return () => { active = false; };
+    }
+    void window.knouxCreativeAPI.media.toUrl(currentMedia)
+      .then((url) => { if (active) setMediaUrl(url); })
+      .catch((reason) => {
+        if (!active) return;
+        setMediaUrl(null);
+        setError(reason instanceof Error ? reason.message : 'The selected media is no longer authorized.');
+      });
+    return () => { active = false; };
+  }, [currentMedia]);
 
   useEffect(() => {
-    if (!videoRef.current) return undefined;
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = Math.max(0, Math.min(1, volume));
+    video.muted = muted;
+    video.playbackRate = playbackRate;
+    video.loop = loop;
+  }, [loop, mediaUrl, muted, playbackRate, volume]);
 
-    const unsubscribeState = window.knouxAPI.player.onStateChange((state) => {
-      if (typeof state !== 'object' || state === null) return;
+  useEffect(() => () => {
+    if (controlsTimeoutRef.current !== null) window.clearTimeout(controlsTimeoutRef.current);
+  }, []);
 
-      const snapshot = state as {
-        playing?: boolean;
-        paused?: boolean;
-        currentTime?: number;
-        duration?: number;
-        volume?: number;
-      };
+  const openMedia = useCallback(async (): Promise<void> => {
+    setError(null);
+    const selected = await window.knouxCreativeAPI.media.open();
+    if (!selected) return;
+    setCurrentMedia(selected.filePath);
+    setMediaUrl(selected.mediaUrl);
+  }, [setCurrentMedia]);
 
-      if (snapshot.playing === true) play();
-      if (snapshot.paused === true) pause();
-      if (typeof snapshot.currentTime === 'number') seek(snapshot.currentTime);
-      if (typeof snapshot.duration === 'number') setDuration(snapshot.duration);
-      if (typeof snapshot.volume === 'number') setVolume(snapshot.volume);
-    });
-
-    const unsubscribeTime = window.knouxAPI.player.onTimeUpdate((time) => {
-      seek(time);
-    });
-
-    return () => {
-      unsubscribeState();
-      unsubscribeTime();
-    };
-  }, [pause, play, seek, setDuration, setVolume]);
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // معالجات التحكم
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const handlePlayPause = useCallback(async () => {
-    if (isPlaying) {
-      await window.knouxAPI.player.pause();
-      pause();
-    } else {
-      await window.knouxAPI.player.play();
-      play();
+  const handlePlayPause = useCallback(async (): Promise<void> => {
+    const video = videoRef.current;
+    if (!video || !mediaUrl) return;
+    try {
+      if (video.paused) await video.play();
+      else video.pause();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Playback could not start.');
     }
-  }, [isPlaying, play, pause]);
+  }, [mediaUrl]);
 
-  const handleSeek = useCallback((value: number) => {
-    const time = (value / 100) * duration;
-    window.knouxAPI.player.seek(time);
-    seek(time);
+  const handleSeek = useCallback((value: number): void => {
+    const video = videoRef.current;
+    if (!video || duration <= 0) return;
+    const target = Math.max(0, Math.min(duration, (value / 100) * duration));
+    video.currentTime = target;
+    seek(target);
   }, [duration, seek]);
 
-  const handleVolumeChange = useCallback((value: number) => {
-    setVolume(value / 100);
-    window.knouxAPI.player.setVolume(value / 100);
+  const handleVolumeChange = useCallback((value: number): void => {
+    const nextVolume = Math.max(0, Math.min(1, value / 100));
+    setVolume(nextVolume);
+    if (videoRef.current) videoRef.current.volume = nextVolume;
   }, [setVolume]);
 
-  const handleMouseMove = useCallback(() => {
+  const showControlsTemporarily = useCallback((): void => {
     setShowControls(true);
-    
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setShowControls(false);
-      }
+    if (controlsTimeoutRef.current !== null) window.clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      if (!videoRef.current?.paused) setShowControls(false);
     }, 3000);
-  }, [isPlaying]);
+  }, []);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // تنسيق الوقت
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const formatTime = (seconds: number): string => {
-    if (isNaN(seconds)) return '0:00';
-    
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const captureDataUrl = useCallback((): string => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0 || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      throw new Error('A decoded video frame is not available yet.');
     }
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Canvas frame capture is unavailable.');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const mimeType = captureFormat === 'jpeg' ? 'image/jpeg' : `image/${captureFormat}`;
+    const dataUrl = canvas.toDataURL(mimeType, captureFormat === 'png' ? undefined : 0.92);
+    if (dataUrl.length < 128) throw new Error('The captured frame is empty.');
+    return dataUrl;
+  }, [captureFormat]);
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const saveCurrentFrame = useCallback(async (): Promise<void> => {
+    if (!currentMedia || capturing) return;
+    setCapturing(true);
+    setError(null);
+    try {
+      await window.knouxCreativeAPI.capture.saveFrame({
+        dataUrl: captureDataUrl(),
+        mediaName: mediaName(currentMedia),
+        timestampSeconds: videoRef.current?.currentTime ?? 0,
+        format: captureFormat,
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Frame capture failed.');
+    } finally {
+      setCapturing(false);
+    }
+  }, [captureDataUrl, captureFormat, capturing, currentMedia]);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض المكون
-  // ═════════════════════════════════════════════════════════════════════════
+  const copyCurrentFrame = useCallback(async (): Promise<void> => {
+    if (capturing) return;
+    setCapturing(true);
+    setError(null);
+    try {
+      await window.knouxCreativeAPI.capture.copyFrame(captureDataUrl());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Frame copy failed.');
+    } finally {
+      setCapturing(false);
+    }
+  }, [captureDataUrl, capturing]);
+
+  const toggleFullscreen = useCallback(async (): Promise<void> => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await containerRef.current?.requestFullscreen();
+  }, []);
+
+  const togglePictureInPicture = useCallback(async (): Promise<void> => {
+    const video = videoRef.current;
+    if (!video || !document.pictureInPictureEnabled) return;
+    if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    else await video.requestPictureInPicture();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        void handlePlayPause();
+      } else if (event.key.toLowerCase() === 'f') {
+        void toggleFullscreen();
+      } else if (event.key.toLowerCase() === 's' && currentMedia) {
+        event.preventDefault();
+        void saveCurrentFrame();
+      } else if (event.key === 'ArrowRight' && videoRef.current) {
+        videoRef.current.currentTime = Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + 5);
+      } else if (event.key === 'ArrowLeft' && videoRef.current) {
+        videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentMedia, handlePlayPause, saveCurrentFrame, toggleFullscreen]);
+
+  const progress = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
   return (
     <div
       ref={containerRef}
       className="player-view"
-      onMouseMove={handleMouseMove}
+      onMouseMove={showControlsTemporarily}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {/* Video Container */}
       <div className="video-container">
-        {currentMedia ? (
+        {mediaUrl ? (
           <video
+            key={mediaUrl}
             ref={videoRef}
             className="video-element"
-            src={currentMedia}
-            onClick={handlePlayPause}
+            src={mediaUrl}
+            preload="metadata"
+            playsInline
+            onClick={() => void handlePlayPause()}
+            onPlay={play}
+            onPause={pause}
+            onTimeUpdate={(event) => seek(event.currentTarget.currentTime)}
+            onLoadedMetadata={(event) => {
+              setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
+              setBuffering(false);
+            }}
+            onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+            onWaiting={() => setBuffering(true)}
+            onPlaying={() => setBuffering(false)}
+            onCanPlay={() => setBuffering(false)}
+            onError={() => setError(videoRef.current?.error?.message ?? 'This media could not be decoded by the current Chromium build.')}
+            onEnded={() => { if (!loop) next(); }}
           />
         ) : (
           <div className="empty-state">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="empty-content"
-            >
-              <ImageIcon size={64} className="empty-icon" />
-              <h2>No Media Loaded</h2>
-              <p>Open a file to start playing</p>
-              <NeonButton
-                variant="primary"
-                onClick={async () => {
-                  const filePath = await window.knouxAPI.file.openFile();
-                  if (filePath) {
-                    await window.knouxAPI.player.load(filePath);
-                    await window.knouxAPI.player.play();
-                  }
-                }}
-              >
-                Open File
-              </NeonButton>
+            <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="empty-content">
+              <FolderOpen size={64} className="empty-icon" />
+              <h2>Open local media</h2>
+              <p>Video and audio stay on your device.</p>
+              <NeonButton variant="primary" onClick={() => void openMedia()}>Open File</NeonButton>
             </motion.div>
           </div>
         )}
+        {buffering && <div className="player-buffering" role="status">Buffering…</div>}
+        {error && <div className="player-error" role="alert">{error}</div>}
       </div>
 
-      {/* Controls Overlay */}
       <AnimatePresence>
         {showControls && (
-          <motion.div
-            className="controls-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {/* Top Bar */}
+          <motion.div className="controls-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="controls-top">
               <NeonPanel variant="dark" padding="sm" borderGlow={false}>
-                <span className="media-title">
-                  {currentMedia ? currentMedia.split('/').pop() : 'No media'}
-                </span>
+                <span className="media-title">{mediaName(currentMedia)}</span>
               </NeonPanel>
+              {mediaUrl && (
+                <div className="capture-toolbar">
+                  <select value={captureFormat} onChange={(event) => setCaptureFormat(event.target.value as CaptureFormat)} aria-label="Screenshot format">
+                    <option value="png">PNG</option>
+                    <option value="jpeg">JPEG</option>
+                    <option value="webp">WebP</option>
+                  </select>
+                  <button type="button" className="control-btn" onClick={() => void saveCurrentFrame()} title="Save current frame (S)" aria-label="Save current frame" disabled={capturing}>
+                    <Camera size={18} />
+                  </button>
+                  <button type="button" className="control-btn" onClick={() => void copyCurrentFrame()} title="Copy current frame" aria-label="Copy current frame" disabled={capturing}>
+                    <Clipboard size={18} />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Bottom Controls */}
             <div className="controls-bottom">
               <NeonPanel variant="dark" padding="md">
-                {/* Progress Bar */}
                 <div className="progress-section">
                   <span className="time-display">{formatTime(currentTime)}</span>
                   <NeonSlider
@@ -235,117 +305,57 @@ export const PlayerView: React.FC = () => {
                     max={100}
                     step={0.1}
                     onChange={handleSeek}
-                    glowColor="#00f0ff"
+                    glowColor="#8b5cf6"
                     showTooltip
-                    tooltipFormatter={(v) => formatTime((v / 100) * duration)}
+                    tooltipFormatter={(value) => formatTime((value / 100) * duration)}
                   />
                   <span className="time-display">{formatTime(duration)}</span>
                 </div>
 
-                {/* Control Buttons */}
                 <div className="control-buttons">
-                  {/* Left Group */}
                   <div className="control-group">
-                    <motion.button
-                      className={`control-btn ${shuffle ? 'active' : ''}`}
-                      onClick={toggleShuffle}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
+                    <button type="button" className={`control-btn ${shuffle ? 'active' : ''}`} onClick={toggleShuffle} title="Shuffle" aria-label="Shuffle">
                       <Shuffle size={18} />
-                    </motion.button>
-                    
-                    <motion.button
-                      className="control-btn"
-                      onClick={previous}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <SkipBack size={22} />
-                    </motion.button>
+                    </button>
+                    <button type="button" className="control-btn" onClick={previous} title="Previous" aria-label="Previous"><SkipBack size={22} /></button>
                   </div>
 
-                  {/* Center Group - Play/Pause */}
                   <div className="control-group center">
-                    <NeonButton
-                      variant="primary"
-                      size="lg"
-                      glowIntensity="high"
-                      onClick={handlePlayPause}
-                    >
+                    <NeonButton variant="primary" size="lg" glowIntensity="high" onClick={() => void handlePlayPause()} disabled={!mediaUrl}>
                       {isPlaying ? <Pause size={24} /> : <Play size={24} />}
                     </NeonButton>
                   </div>
 
-                  {/* Right Group */}
                   <div className="control-group">
-                    <motion.button
-                      className="control-btn"
-                      onClick={next}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <SkipForward size={22} />
-                    </motion.button>
-                    
-                    <motion.button
-                      className={`control-btn ${loop ? 'active' : ''}`}
-                      onClick={toggleLoop}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Repeat size={18} />
-                    </motion.button>
+                    <button type="button" className="control-btn" onClick={next} title="Next" aria-label="Next"><SkipForward size={22} /></button>
+                    <button type="button" className={`control-btn ${loop ? 'active' : ''}`} onClick={toggleLoop} title="Repeat" aria-label="Repeat"><Repeat size={18} /></button>
                   </div>
 
-                  {/* Volume */}
                   <div className="volume-control">
-                    <motion.button
-                      className="control-btn"
-                      onClick={toggleMute}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
+                    <button type="button" className="control-btn" onClick={toggleMute} title="Mute" aria-label="Mute">
                       {muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                    </motion.button>
+                    </button>
                     <div className="volume-slider">
-                      <NeonSlider
-                        value={muted ? 0 : volume * 100}
-                        min={0}
-                        max={100}
-                        onChange={handleVolumeChange}
-                        glowColor="#00f0ff"
-                        height="sm"
-                      />
+                      <NeonSlider value={muted ? 0 : volume * 100} min={0} max={100} onChange={handleVolumeChange} glowColor="#8b5cf6" height="sm" />
                     </div>
                   </div>
 
-                  {/* Extra Controls */}
+                  <select
+                    className="playback-rate-select"
+                    value={playbackRate}
+                    onChange={(event) => setPlaybackRate(Number(event.target.value))}
+                    aria-label="Playback speed"
+                  >
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
+                  </select>
+
                   <div className="control-group">
-                    <motion.button
-                      className="control-btn"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Subtitles size={18} />
-                    </motion.button>
-                    
-                    <motion.button
-                      className="control-btn"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <ListMusic size={18} />
-                    </motion.button>
-                    
-                    <motion.button
-                      className="control-btn"
-                      onClick={() => window.knouxAPI.window.setFullscreen(true)}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
+                    <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title="Picture in Picture" aria-label="Picture in Picture" disabled={!document.pictureInPictureEnabled}>
+                      <PictureInPicture size={18} />
+                    </button>
+                    <button type="button" className="control-btn" onClick={() => void toggleFullscreen()} title="Fullscreen" aria-label="Fullscreen">
                       <Maximize size={18} />
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
               </NeonPanel>

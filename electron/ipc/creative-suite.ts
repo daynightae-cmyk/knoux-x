@@ -1,3 +1,5 @@
+import { pathToFileURL } from 'url';
+
 import {
   BrowserWindow,
   desktopCapturer,
@@ -21,6 +23,10 @@ export interface CreativeSuiteController {
 }
 
 const creativePaths = new AuthorizedPathRegistry();
+const mediaFilters = [{
+  name: 'Media Files',
+  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'],
+}];
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -64,6 +70,20 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
     assertTrustedSender(event);
     return handler(event, ...args);
   };
+
+  ipc.handle('creative:open-media', trusted(async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Open media in KNOUX Player X',
+      filters: mediaFilters,
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const filePath = creativePaths.authorizeFile(result.filePaths[0]);
+    return { filePath, mediaUrl: pathToFileURL(filePath).toString() };
+  }));
+  ipc.handle('creative:path-to-media-url', trusted(async (_event, filePath: string) => {
+    return pathToFileURL(requireCreativePath(filePath)).toString();
+  }));
 
   ipc.handle('capture:save-frame', trusted(async (_event, request: SaveFrameRequest) => capture.saveFrame(request)));
   ipc.handle('capture:copy-frame', trusted(async (_event, dataUrl: string) => capture.copyFrame(validateString(dataUrl, 'Capture data', 96 * 1024 * 1024))));
@@ -122,10 +142,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
   ipc.handle('export:select-source', trusted(async () => {
     const result = await dialog.showOpenDialog({
       title: 'Select media for KNOUX export',
-      filters: [{
-        name: 'Media Files',
-        extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'flac', 'm4a', 'ogg'],
-      }],
+      filters: mediaFilters,
       properties: ['openFile'],
     });
     return result.canceled || result.filePaths.length === 0

@@ -86,11 +86,11 @@ jobs:
           npm run lint:fix 2>&1 | Tee-Object lint-fix.log
           exit $LASTEXITCODE
 
-      - name: Lint
+      - name: Lint with zero-warning budget
         shell: powershell
         run: |
           $ErrorActionPreference = 'Continue'
-          npm run lint 2>&1 | Tee-Object lint.log
+          npm run lint -- --max-warnings=0 2>&1 | Tee-Object lint.log
           exit $LASTEXITCODE
 
       - name: Unit tests
@@ -135,8 +135,8 @@ jobs:
 
           - npm install: PASS
           - doctor: PASS
-          - typecheck: PASS
-          - lint: PASS
+          - typecheck: PASS (0 errors)
+          - lint: PASS (0 errors, 0 warnings)
           - tests: PASS
           - Windows package: PASS
           - smoke test: PASS
@@ -145,7 +145,7 @@ jobs:
           - Phase 02: not started
           "@ | Set-Content "$root\PHASE-01-CLOSEOUT.md" -Encoding UTF8
           "# Typecheck Before / After`n`n- Before: 29 errors in 13 files.`n- After: 0 errors." | Set-Content "$root\TYPECHECK-BEFORE-AFTER.md" -Encoding UTF8
-          "# Lint Before / After`n`n- Before: 419 findings caused largely by resolver incompatibility.`n- After: validation command passed." | Set-Content "$root\LINT-BEFORE-AFTER.md" -Encoding UTF8
+          "# Lint Before / After`n`n- Before: 419 findings (237 errors, 182 warnings).`n- Intermediate: 0 errors, 10 warnings.`n- After: 0 errors, 0 warnings; enforced with --max-warnings=0." | Set-Content "$root\LINT-BEFORE-AFTER.md" -Encoding UTF8
           "# Package Verification`n`n- EXE: $($meta.ExePath)`n- Size: $($meta.ExeSize)`n- Smoke: PASS" | Set-Content "$root\PACKAGE-VERIFICATION.md" -Encoding UTF8
           Get-Content dependency-versions.log | ConvertTo-Json | Set-Content "$root\DEPENDENCY-VERSIONS.json" -Encoding UTF8
           git status --short | Set-Content "$root\CHANGED-FILES.txt" -Encoding UTF8

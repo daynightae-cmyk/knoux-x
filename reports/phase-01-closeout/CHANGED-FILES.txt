@@ -8,10 +8,5 @@
  M reports/phase-01-closeout/PHASE-01-CLOSEOUT.json
  M reports/phase-01-closeout/PHASE-01-CLOSEOUT.md
  M reports/phase-01-closeout/TYPECHECK-BEFORE-AFTER.md
- M src/App.tsx
- M src/components/neon/NeonInput.tsx
- M src/core/services/ai/OpenRouterService.ts
- M src/core/services/audio/AudioEngine.ts
- M src/main.tsx
-?? backups/phase-01-closeout/20260730-175159/
+?? backups/phase-01-closeout/20260730-175835/
 ?? package-verification.json

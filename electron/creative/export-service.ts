@@ -142,6 +142,10 @@ export class ExportService {
     return this.ffmpeg.discoverCapabilities();
   }
 
+  async probe(filePath: string): Promise<ProbeResult> {
+    return this.ffmpeg.probe(path.resolve(filePath));
+  }
+
   async export(
     request: ExportRequest,
     onProgress?: (job: ExportJobSnapshot) => void,
@@ -194,7 +198,7 @@ export class ExportService {
     this.jobs.set(jobId, job);
     onProgress?.(structuredClone(job));
 
-    const partialPath = `${outputPath}.${jobId}.partial`;
+    const partialPath = `${outputPath}.${jobId}.partial.${preset.extension}`;
     let blockerId: number | null = null;
     try {
       if (request.preventSleep !== false) blockerId = powerSaveBlocker.start('prevent-app-suspension');
@@ -237,11 +241,13 @@ export class ExportService {
       return structuredClone(job);
     } catch (error) {
       await fs.rm(partialPath, { force: true });
-      if (job.status !== 'canceled') {
-        job.status = 'failed';
-        job.error = error instanceof Error ? error.message : 'Export failed.';
-        job.completedAt = new Date().toISOString();
+      if (job.status === 'canceled') {
+        onProgress?.(structuredClone(job));
+        return structuredClone(job);
       }
+      job.status = 'failed';
+      job.error = error instanceof Error ? error.message : 'Export failed.';
+      job.completedAt = new Date().toISOString();
       onProgress?.(structuredClone(job));
       throw error;
     } finally {

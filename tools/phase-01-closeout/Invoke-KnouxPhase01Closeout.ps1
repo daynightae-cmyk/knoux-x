@@ -67,13 +67,17 @@ $targets = @(
     '.eslintrc.json',
     'electron\ipc\setup.ts',
     'electron\main.ts',
+    'src\App.tsx',
+    'src\main.tsx',
     'src\components\layout\TitleBar.tsx',
     'src\components\neon\NeonButton.tsx',
+    'src\components\neon\NeonInput.tsx',
     'src\components\neon\NeonPanel.tsx',
     'src\core\dsp\DSPSystemManager.ts',
     'src\core\orchestrator\SystemOrchestrator.ts',
     'src\core\services\ai\GeminiService.ts',
     'src\core\services\ai\OpenRouterService.ts',
+    'src\core\services\audio\AudioEngine.ts',
     'src\core\services\subtitle\SubtitleEngine.ts',
     'src\features\ai\AIAssistant.tsx',
     'src\features\library\LibraryView.tsx',
@@ -97,6 +101,9 @@ Invoke-Native -FilePath $nodeExe -Arguments @($repairEngine, $repo)
 
 $removalEngine = Join-Path $PSScriptRoot 'apply-removals.cjs'
 Invoke-Native -FilePath $nodeExe -Arguments @($removalEngine, $repo)
+
+$lintCleanupEngine = Join-Path $PSScriptRoot 'apply-lint-cleanup.cjs'
+Invoke-Native -FilePath $nodeExe -Arguments @($lintCleanupEngine, $repo)
 
 Write-Host "[PASS] KNOUX Phase 01 source repair applied on branch: $branch" -ForegroundColor Green
 Write-Host "Backup: $backupRoot" -ForegroundColor Cyan

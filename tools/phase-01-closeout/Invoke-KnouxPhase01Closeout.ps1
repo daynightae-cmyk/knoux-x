@@ -95,6 +95,9 @@ foreach ($relative in $targets) {
 $repairEngine = Join-Path $PSScriptRoot 'apply-fixes.cjs'
 Invoke-Native -FilePath $nodeExe -Arguments @($repairEngine, $repo)
 
+$removalEngine = Join-Path $PSScriptRoot 'apply-removals.cjs'
+Invoke-Native -FilePath $nodeExe -Arguments @($removalEngine, $repo)
+
 Write-Host "[PASS] KNOUX Phase 01 source repair applied on branch: $branch" -ForegroundColor Green
 Write-Host "Backup: $backupRoot" -ForegroundColor Cyan
 Write-Host "Reports: $reportRoot" -ForegroundColor Cyan

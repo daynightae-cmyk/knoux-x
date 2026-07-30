@@ -6,10 +6,12 @@ import { TitleBar } from './components/layout/TitleBar';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerView } from './features/player/PlayerView';
 import { SettingsView } from './features/settings/SettingsView';
+import { useTranslation } from './i18n';
 import { useAppStore, ViewType } from './store/appStore';
 import './styles/global.css';
 import './styles/creative-suite.css';
 import './styles/library-creative.css';
+import './styles/settings-creative.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -58,6 +60,7 @@ const App: React.FC = () => {
     isLoading,
     loadingMessage,
   } = useAppStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -82,7 +85,7 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
             >
-              <Suspense fallback={<div className="creative-loading">Loading KNOUX module…</div>}>
+              <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
                 {viewFor(currentView)}
               </Suspense>
             </motion.div>
@@ -91,7 +94,7 @@ const App: React.FC = () => {
       </div>
 
       {isAIAssistantOpen && (
-        <Suspense fallback={<div className="creative-loading floating-module">Loading optional AI…</div>}>
+        <Suspense fallback={<div className="creative-loading floating-module">{t('app.loadingAI')}</div>}>
           <AIAssistant />
         </Suspense>
       )}
@@ -118,7 +121,7 @@ const App: React.FC = () => {
       {isLoading && (
         <div className="global-loading-overlay" role="status">
           <div className="global-loading-spinner" />
-          <span>{loadingMessage || 'Working…'}</span>
+          <span>{loadingMessage || t('app.working')}</span>
         </div>
       )}
     </div>

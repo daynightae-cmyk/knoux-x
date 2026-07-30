@@ -1,3 +1,4 @@
+import path from 'path';
 import { pathToFileURL } from 'url';
 
 import {
@@ -16,6 +17,8 @@ import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-
 import { ProjectService } from '../creative/project-service';
 import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
+import type { LibraryQuery } from '../library/library-service';
+import { LibraryService } from '../library/library-service';
 import { AuthorizedPathRegistry } from '../security/validation';
 
 export interface CreativeSuiteController {
@@ -25,7 +28,7 @@ export interface CreativeSuiteController {
 const creativePaths = new AuthorizedPathRegistry();
 const mediaFilters = [{
   name: 'Media Files',
-  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'],
+  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus'],
 }];
 
 function isTrustedRendererUrl(value: string): boolean {
@@ -63,12 +66,20 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
   const recording = new RecordingService();
   const projects = new ProjectService();
   const exports = new ExportService();
+  const library = new LibraryService();
 
   const trusted = <TArgs extends unknown[], TResult>(
     handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>,
   ) => async (event: IpcMainInvokeEvent, ...args: TArgs): Promise<TResult> => {
     assertTrustedSender(event);
     return handler(event, ...args);
+  };
+
+  const requireLibraryFolder = (folderPath: string): string => {
+    const resolved = path.resolve(validateString(folderPath, 'Library folder'));
+    const stored = library.listFolders().find((folder) => path.resolve(folder.path) === resolved);
+    if (!stored) throw new Error('The requested path is not a persisted KNOUX library folder.');
+    return creativePaths.authorizeRoot(stored.path);
   };
 
   ipc.handle('creative:open-media', trusted(async () => {
@@ -83,6 +94,46 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
   }));
   ipc.handle('creative:path-to-media-url', trusted(async (_event, filePath: string) => {
     return pathToFileURL(requireCreativePath(filePath)).toString();
+  }));
+
+  ipc.handle('library:choose-folder', trusted(async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Add a folder to KNOUX Library',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const folderPath = creativePaths.authorizeRoot(result.filePaths[0]);
+    return library.addFolder(folderPath);
+  }));
+  ipc.handle('library:folders', trusted(async () => library.listFolders()));
+  ipc.handle('library:query', trusted(async (_event, request: LibraryQuery) => library.query(request ?? {})));
+  ipc.handle('library:scan', trusted(async (event, folderPath: string) => {
+    const authorizedFolder = requireLibraryFolder(folderPath);
+    return library.scanFolder(authorizedFolder, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send('library:scan-progress', progress);
+    });
+  }));
+  ipc.handle('library:cancel-scan', trusted(async (_event, jobId: string) => library.cancelScan(validateString(jobId, 'Scan job ID', 128))));
+  ipc.handle('library:remove-folder', trusted(async (_event, folderPath: string, removeIndexedMedia = false) => {
+    library.removeFolder(requireLibraryFolder(folderPath), Boolean(removeIndexedMedia));
+  }));
+  ipc.handle('library:open-item', trusted(async (_event, filePath: string) => {
+    const item = library.getMedia(validateString(filePath, 'Library media path'));
+    if (!item || item.missing) throw new Error('The library media item is missing or no longer indexed.');
+    const authorized = creativePaths.authorizeFile(item.path);
+    return { filePath: authorized, mediaUrl: pathToFileURL(authorized).toString() };
+  }));
+  ipc.handle('library:set-favorite', trusted(async (_event, filePath: string, favorite: boolean) => {
+    return library.setFavorite(validateString(filePath, 'Library media path'), Boolean(favorite));
+  }));
+  ipc.handle('library:update-playback', trusted(async (
+    _event,
+    filePath: string,
+    position: number,
+    duration: number,
+    completed = false,
+  ) => {
+    library.updatePlayback(validateString(filePath, 'Library media path'), position, duration, Boolean(completed));
   }));
 
   ipc.handle('capture:save-frame', trusted(async (_event, request: SaveFrameRequest) => capture.saveFrame(request)));
@@ -169,6 +220,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
     async shutdown(): Promise<void> {
       exports.shutdown();
       await recording.shutdown();
+      library.close();
     },
   };
 }

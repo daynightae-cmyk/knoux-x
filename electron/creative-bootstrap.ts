@@ -2,12 +2,14 @@ import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 
 import type { AIChatMessage, AIConfigureRequest } from './creative/ai-service';
 import { AIService } from './creative/ai-service';
+import { SubtitleService } from './creative/subtitle-service';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
 const aiService = new AIService();
+const subtitleService = new SubtitleService();
 let controller: CreativeSuiteController | null = null;
 let registered = false;
 
@@ -23,6 +25,14 @@ function requireTrustedEvent(event: IpcMainInvokeEvent): void {
   }
 }
 
+function validateDelay(value: unknown): number {
+  const delay = Number(value ?? 0);
+  if (!Number.isFinite(delay) || Math.abs(delay) > 3600) {
+    throw new RangeError('Subtitle delay must be a finite value within one hour.');
+  }
+  return delay;
+}
+
 function registerCreativeRuntime(): void {
   if (registered) return;
   registered = true;
@@ -32,6 +42,18 @@ function registerCreativeRuntime(): void {
     requireTrustedEvent(event);
     permissionExpiry.set(event.sender.id, Date.now() + MEDIA_PERMISSION_WINDOW_MS);
     return true;
+  });
+
+  ipcMain.handle('subtitle:select', async (event, delaySeconds = 0) => {
+    requireTrustedEvent(event);
+    return subtitleService.select(validateDelay(delaySeconds));
+  });
+  ipcMain.handle('subtitle:reload', async (event, filePath: string, delaySeconds = 0) => {
+    requireTrustedEvent(event);
+    if (typeof filePath !== 'string' || filePath.length === 0 || filePath.length > 4096) {
+      throw new TypeError('Subtitle path is invalid.');
+    }
+    return subtitleService.load(filePath, validateDelay(delaySeconds));
   });
 
   ipcMain.handle('ai-secure:settings', (event) => {

@@ -105,6 +105,9 @@ Invoke-Native -FilePath $nodeExe -Arguments @($removalEngine, $repo)
 $lintCleanupEngine = Join-Path $PSScriptRoot 'apply-lint-cleanup.cjs'
 Invoke-Native -FilePath $nodeExe -Arguments @($lintCleanupEngine, $repo)
 
+$lintCleanupV2Engine = Join-Path $PSScriptRoot 'apply-lint-cleanup-v2.cjs'
+Invoke-Native -FilePath $nodeExe -Arguments @($lintCleanupV2Engine, $repo)
+
 Write-Host "[PASS] KNOUX Phase 01 source repair applied on branch: $branch" -ForegroundColor Green
 Write-Host "Backup: $backupRoot" -ForegroundColor Cyan
 Write-Host "Reports: $reportRoot" -ForegroundColor Cyan

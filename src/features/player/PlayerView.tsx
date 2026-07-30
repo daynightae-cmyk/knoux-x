@@ -2,25 +2,31 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Camera,
+  Captions,
   Clipboard,
   FolderOpen,
   Maximize,
+  Minus,
   Pause,
   PictureInPicture,
   Play,
+  Plus,
   Repeat,
   Shuffle,
   SkipBack,
   SkipForward,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSlider } from '../../components/neon/NeonSlider';
+import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 import type { CaptureFormat } from '../../core/creative/capture';
+import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -40,12 +46,16 @@ export const PlayerView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
+  const lastPersistedSecondRef = useRef(-1);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [buffering, setBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captureFormat, setCaptureFormat] = useState<CaptureFormat>('png');
   const [capturing, setCapturing] = useState(false);
+  const [subtitle, setSubtitle] = useState<LoadedSubtitle | null>(null);
+  const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const {
     currentMedia,
@@ -74,6 +84,7 @@ export const PlayerView: React.FC = () => {
   useEffect(() => {
     let active = true;
     setError(null);
+    lastPersistedSecondRef.current = -1;
     if (!currentMedia) {
       setMediaUrl(null);
       return () => { active = false; };
@@ -87,6 +98,16 @@ export const PlayerView: React.FC = () => {
       });
     return () => { active = false; };
   }, [currentMedia]);
+
+  useEffect(() => {
+    if (!subtitle) {
+      setSubtitleUrl(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(new Blob([subtitle.webVtt], { type: 'text/vtt;charset=utf-8' }));
+    setSubtitleUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [subtitle]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -107,7 +128,23 @@ export const PlayerView: React.FC = () => {
     if (!selected) return;
     setCurrentMedia(selected.filePath);
     setMediaUrl(selected.mediaUrl);
+    setSubtitle(null);
   }, [setCurrentMedia]);
+
+  const persistPlayback = useCallback(async (completed = false): Promise<void> => {
+    const video = videoRef.current;
+    if (!video || !currentMedia || !Number.isFinite(video.duration)) return;
+    try {
+      await window.knouxCreativeAPI.library.updatePlayback(
+        currentMedia,
+        video.currentTime,
+        video.duration,
+        completed,
+      );
+    } catch {
+      // Directly opened files do not need to be present in the library.
+    }
+  }, [currentMedia]);
 
   const handlePlayPause = useCallback(async (): Promise<void> => {
     const video = videoRef.current;
@@ -144,8 +181,8 @@ export const PlayerView: React.FC = () => {
 
   const captureDataUrl = useCallback((): string => {
     const video = videoRef.current;
-    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0 || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      throw new Error('A decoded video frame is not available yet.');
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0 || video.readyState < video.HAVE_CURRENT_DATA) {
+      throw new Error(t('player.frameUnavailable'));
     }
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
@@ -157,7 +194,7 @@ export const PlayerView: React.FC = () => {
     const dataUrl = canvas.toDataURL(mimeType, captureFormat === 'png' ? undefined : 0.92);
     if (dataUrl.length < 128) throw new Error('The captured frame is empty.');
     return dataUrl;
-  }, [captureFormat]);
+  }, [captureFormat, t]);
 
   const saveCurrentFrame = useCallback(async (): Promise<void> => {
     if (!currentMedia || capturing) return;
@@ -190,6 +227,26 @@ export const PlayerView: React.FC = () => {
     }
   }, [captureDataUrl, capturing]);
 
+  const selectSubtitle = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      const loaded = await window.knouxCreativeAPI.subtitles.select(subtitle?.delaySeconds ?? 0);
+      if (loaded) setSubtitle(loaded);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Subtitle file could not be loaded.');
+    }
+  }, [subtitle?.delaySeconds]);
+
+  const changeSubtitleDelay = useCallback(async (delta: number): Promise<void> => {
+    if (!subtitle) return;
+    const delay = Math.max(-60, Math.min(60, Number((subtitle.delaySeconds + delta).toFixed(25))));
+    try {
+      setSubtitle(await window.knouxCreativeAPI.subtitles.reload(subtitle.filePath, delay));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Subtitle delay could not be changed.');
+    }
+  }, [subtitle]);
+
   const toggleFullscreen = useCallback(async (): Promise<void> => {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await containerRef.current?.requestFullscreen();
@@ -214,6 +271,10 @@ export const PlayerView: React.FC = () => {
       } else if (event.key.toLowerCase() === 's' && currentMedia) {
         event.preventDefault();
         void saveCurrentFrame();
+      } else if (event.key === '[' && subtitle) {
+        void changeSubtitleDelay(-0.1);
+      } else if (event.key === ']' && subtitle) {
+        void changeSubtitleDelay(0.1);
       } else if (event.key === 'ArrowRight' && videoRef.current) {
         videoRef.current.currentTime = Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + 5);
       } else if (event.key === 'ArrowLeft' && videoRef.current) {
@@ -222,7 +283,7 @@ export const PlayerView: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentMedia, handlePlayPause, saveCurrentFrame, toggleFullscreen]);
+  }, [changeSubtitleDelay, currentMedia, handlePlayPause, saveCurrentFrame, subtitle, toggleFullscreen]);
 
   const progress = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
@@ -244,8 +305,16 @@ export const PlayerView: React.FC = () => {
             playsInline
             onClick={() => void handlePlayPause()}
             onPlay={play}
-            onPause={pause}
-            onTimeUpdate={(event) => seek(event.currentTarget.currentTime)}
+            onPause={() => { pause(); void persistPlayback(false); }}
+            onTimeUpdate={(event) => {
+              const time = event.currentTarget.currentTime;
+              seek(time);
+              const wholeSecond = Math.floor(time);
+              if (wholeSecond > 0 && wholeSecond % 15 === 0 && wholeSecond !== lastPersistedSecondRef.current) {
+                lastPersistedSecondRef.current = wholeSecond;
+                void persistPlayback(false);
+              }
+            }}
             onLoadedMetadata={(event) => {
               setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
               setBuffering(false);
@@ -254,20 +323,25 @@ export const PlayerView: React.FC = () => {
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
             onCanPlay={() => setBuffering(false)}
-            onError={() => setError(videoRef.current?.error?.message ?? 'This media could not be decoded by the current Chromium build.')}
-            onEnded={() => { if (!loop) next(); }}
-          />
+            onError={() => setError(videoRef.current?.error?.message ?? t('player.decodeError'))}
+            onEnded={() => {
+              void persistPlayback(true);
+              if (!loop) next();
+            }}
+          >
+            {subtitleUrl && <track key={subtitleUrl} kind="subtitles" src={subtitleUrl} srcLang="und" label={subtitle?.name ?? 'Subtitles'} default />}
+          </video>
         ) : (
           <div className="empty-state">
             <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="empty-content">
               <FolderOpen size={64} className="empty-icon" />
-              <h2>Open local media</h2>
-              <p>Video and audio stay on your device.</p>
-              <NeonButton variant="primary" onClick={() => void openMedia()}>Open File</NeonButton>
+              <h2>{t('player.openLocalMedia')}</h2>
+              <p>{t('player.localPrivacy')}</p>
+              <NeonButton variant="primary" onClick={() => void openMedia()}>{t('player.openFile')}</NeonButton>
             </motion.div>
           </div>
         )}
-        {buffering && <div className="player-buffering" role="status">Buffering…</div>}
+        {buffering && <div className="player-buffering" role="status">{t('player.buffering')}</div>}
         {error && <div className="player-error" role="alert">{error}</div>}
       </div>
 
@@ -280,17 +354,22 @@ export const PlayerView: React.FC = () => {
               </NeonPanel>
               {mediaUrl && (
                 <div className="capture-toolbar">
-                  <select value={captureFormat} onChange={(event) => setCaptureFormat(event.target.value as CaptureFormat)} aria-label="Screenshot format">
+                  {subtitle && (
+                    <div className="subtitle-delay-control" title={subtitle.name}>
+                      <button type="button" className="control-btn" onClick={() => void changeSubtitleDelay(-0.1)} aria-label="Reduce subtitle delay"><Minus size={15} /></button>
+                      <span>{subtitle.delaySeconds >= 0 ? '+' : ''}{subtitle.delaySeconds.toFixed(1)}s</span>
+                      <button type="button" className="control-btn" onClick={() => void changeSubtitleDelay(0.1)} aria-label="Increase subtitle delay"><Plus size={15} /></button>
+                      <button type="button" className="control-btn" onClick={() => setSubtitle(null)} aria-label="Remove subtitles"><X size={15} /></button>
+                    </div>
+                  )}
+                  <button type="button" className="control-btn" onClick={() => void selectSubtitle()} title="Open SRT or VTT subtitles" aria-label="Open subtitles"><Captions size={18} /></button>
+                  <select value={captureFormat} onChange={(event) => setCaptureFormat(event.target.value as CaptureFormat)} aria-label={t('player.screenshotFormat')}>
                     <option value="png">PNG</option>
                     <option value="jpeg">JPEG</option>
                     <option value="webp">WebP</option>
                   </select>
-                  <button type="button" className="control-btn" onClick={() => void saveCurrentFrame()} title="Save current frame (S)" aria-label="Save current frame" disabled={capturing}>
-                    <Camera size={18} />
-                  </button>
-                  <button type="button" className="control-btn" onClick={() => void copyCurrentFrame()} title="Copy current frame" aria-label="Copy current frame" disabled={capturing}>
-                    <Clipboard size={18} />
-                  </button>
+                  <button type="button" className="control-btn" onClick={() => void saveCurrentFrame()} title={`${t('player.saveFrame')} (S)`} aria-label={t('player.saveFrame')} disabled={capturing}><Camera size={18} /></button>
+                  <button type="button" className="control-btn" onClick={() => void copyCurrentFrame()} title={t('player.copyFrame')} aria-label={t('player.copyFrame')} disabled={capturing}><Clipboard size={18} /></button>
                 </div>
               )}
             </div>
@@ -299,63 +378,30 @@ export const PlayerView: React.FC = () => {
               <NeonPanel variant="dark" padding="md">
                 <div className="progress-section">
                   <span className="time-display">{formatTime(currentTime)}</span>
-                  <NeonSlider
-                    value={progress}
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    onChange={handleSeek}
-                    glowColor="#8b5cf6"
-                    showTooltip
-                    tooltipFormatter={(value) => formatTime((value / 100) * duration)}
-                  />
+                  <NeonSlider value={progress} min={0} max={100} step={0.1} onChange={handleSeek} glowColor="#8b5cf6" showTooltip tooltipFormatter={(value) => formatTime((value / 100) * duration)} />
                   <span className="time-display">{formatTime(duration)}</span>
                 </div>
 
                 <div className="control-buttons">
                   <div className="control-group">
-                    <button type="button" className={`control-btn ${shuffle ? 'active' : ''}`} onClick={toggleShuffle} title="Shuffle" aria-label="Shuffle">
-                      <Shuffle size={18} />
-                    </button>
-                    <button type="button" className="control-btn" onClick={previous} title="Previous" aria-label="Previous"><SkipBack size={22} /></button>
+                    <button type="button" className={`control-btn ${shuffle ? 'active' : ''}`} onClick={toggleShuffle} title={t('player.shuffle')} aria-label={t('player.shuffle')}><Shuffle size={18} /></button>
+                    <button type="button" className="control-btn" onClick={previous} title={t('player.previous')} aria-label={t('player.previous')}><SkipBack size={22} /></button>
                   </div>
-
-                  <div className="control-group center">
-                    <NeonButton variant="primary" size="lg" glowIntensity="high" onClick={() => void handlePlayPause()} disabled={!mediaUrl}>
-                      {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-                    </NeonButton>
-                  </div>
-
+                  <div className="control-group center"><NeonButton variant="primary" size="lg" glowIntensity="high" onClick={() => void handlePlayPause()} disabled={!mediaUrl}>{isPlaying ? <Pause size={24} /> : <Play size={24} />}</NeonButton></div>
                   <div className="control-group">
-                    <button type="button" className="control-btn" onClick={next} title="Next" aria-label="Next"><SkipForward size={22} /></button>
-                    <button type="button" className={`control-btn ${loop ? 'active' : ''}`} onClick={toggleLoop} title="Repeat" aria-label="Repeat"><Repeat size={18} /></button>
+                    <button type="button" className="control-btn" onClick={next} title={t('player.next')} aria-label={t('player.next')}><SkipForward size={22} /></button>
+                    <button type="button" className={`control-btn ${loop ? 'active' : ''}`} onClick={toggleLoop} title={t('player.repeat')} aria-label={t('player.repeat')}><Repeat size={18} /></button>
                   </div>
-
                   <div className="volume-control">
-                    <button type="button" className="control-btn" onClick={toggleMute} title="Mute" aria-label="Mute">
-                      {muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                    </button>
-                    <div className="volume-slider">
-                      <NeonSlider value={muted ? 0 : volume * 100} min={0} max={100} onChange={handleVolumeChange} glowColor="#8b5cf6" height="sm" />
-                    </div>
+                    <button type="button" className="control-btn" onClick={toggleMute} title={t('player.mute')} aria-label={t('player.mute')}>{muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
+                    <div className="volume-slider"><NeonSlider value={muted ? 0 : volume * 100} min={0} max={100} onChange={handleVolumeChange} glowColor="#8b5cf6" height="sm" /></div>
                   </div>
-
-                  <select
-                    className="playback-rate-select"
-                    value={playbackRate}
-                    onChange={(event) => setPlaybackRate(Number(event.target.value))}
-                    aria-label="Playback speed"
-                  >
+                  <select className="playback-rate-select" value={playbackRate} onChange={(event) => setPlaybackRate(Number(event.target.value))} aria-label={t('player.speed')}>
                     {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
                   </select>
-
                   <div className="control-group">
-                    <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title="Picture in Picture" aria-label="Picture in Picture" disabled={!document.pictureInPictureEnabled}>
-                      <PictureInPicture size={18} />
-                    </button>
-                    <button type="button" className="control-btn" onClick={() => void toggleFullscreen()} title="Fullscreen" aria-label="Fullscreen">
-                      <Maximize size={18} />
-                    </button>
+                    <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title={t('player.pip')} aria-label={t('player.pip')} disabled={!document.pictureInPictureEnabled}><PictureInPicture size={18} /></button>
+                    <button type="button" className="control-btn" onClick={() => void toggleFullscreen()} title={t('player.fullscreen')} aria-label={t('player.fullscreen')}><Maximize size={18} /></button>
                   </div>
                 </div>
               </NeonPanel>

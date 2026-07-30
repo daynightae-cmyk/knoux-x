@@ -1,0 +1,156 @@
+﻿diff --git a/ROLLBACK-PHASE-01-CLOSEOUT.cmd b/ROLLBACK-PHASE-01-CLOSEOUT.cmd
+index 0eaad8a..50a1461 100644
+--- a/ROLLBACK-PHASE-01-CLOSEOUT.cmd
++++ b/ROLLBACK-PHASE-01-CLOSEOUT.cmd
+@@ -1,12 +1,12 @@
+-@echo off
+-setlocal EnableExtensions
+-cd /d "%~dp0"
+-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $root=(Resolve-Path '.').Path; $base=Join-Path $root 'backups\phase-01-closeout'; if(-not(Test-Path $base)){throw 'No Phase 01 closeout backup directory found.'}; $latest=Get-ChildItem $base -Directory | Sort-Object Name -Descending | Select-Object -First 1; if(-not $latest){throw 'No Phase 01 closeout backup snapshot found.'}; Get-ChildItem $latest.FullName -Recurse -File | Where-Object {$_.Name -notin @('git-status-before.txt','working-tree-before.patch')} | ForEach-Object { $relative=$_.FullName.Substring($latest.FullName.Length).TrimStart('\'); $target=Join-Path $root $relative; New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null; Copy-Item $_.FullName $target -Force }; Write-Host ('[PASS] Restored backup: '+$latest.FullName) -ForegroundColor Green"
+-set "EXIT_CODE=%ERRORLEVEL%"
+-if not "%EXIT_CODE%"=="0" (
+-  echo [FAILED] Rollback failed with exit code %EXIT_CODE%.
+-  pause
+-  exit /b %EXIT_CODE%
+-)
+-pause
+-exit /b 0
++@echo off
++setlocal EnableExtensions
++cd /d "%~dp0"
++powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $root=(Resolve-Path '.').Path; $base=Join-Path $root 'backups\phase-01-closeout'; if(-not(Test-Path $base)){throw 'No Phase 01 closeout backup directory found.'}; $latest=Get-ChildItem $base -Directory | Sort-Object Name -Descending | Select-Object -First 1; if(-not $latest){throw 'No Phase 01 closeout backup snapshot found.'}; Get-ChildItem $latest.FullName -Recurse -File | Where-Object {$_.Name -notin @('git-status-before.txt','working-tree-before.patch')} | ForEach-Object { $relative=$_.FullName.Substring($latest.FullName.Length).TrimStart('\'); $target=Join-Path $root $relative; New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null; Copy-Item $_.FullName $target -Force }; Write-Host ('[PASS] Restored backup: '+$latest.FullName) -ForegroundColor Green"
++set "EXIT_CODE=%ERRORLEVEL%"
++if not "%EXIT_CODE%"=="0" (
++  echo [FAILED] Rollback failed with exit code %EXIT_CODE%.
++  pause
++  exit /b %EXIT_CODE%
++)
++pause
++exit /b 0
+diff --git a/RUN-KNOUX-BOOTSTRAP.cmd b/RUN-KNOUX-BOOTSTRAP.cmd
+index 9975e58..5bfd702 100644
+--- a/RUN-KNOUX-BOOTSTRAP.cmd
++++ b/RUN-KNOUX-BOOTSTRAP.cmd
+@@ -1,19 +1,19 @@
+-@echo off
+-setlocal
+-cd /d "%~dp0"
+-
+-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^
+-  -File "%~dp0scripts\Initialize-KnouxX.ps1" ^
+-  -ZipPath "D:\Knoux-x.zip" ^
+-  -RepositoryUrl "https://github.com/daynightae-cmyk/knoux-x.git" ^
+-  -WorkspaceRoot "D:\Knoux-X-Bootstrap"
+-
+-set "EXIT_CODE=%ERRORLEVEL%"
+-echo.
+-if not "%EXIT_CODE%"=="0" (
+-  echo KNOUX bootstrap failed with exit code %EXIT_CODE%.
+-) else (
+-  echo KNOUX bootstrap completed successfully.
+-)
+-pause
+-exit /b %EXIT_CODE%
++@echo off
++setlocal
++cd /d "%~dp0"
++
++powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass ^
++  -File "%~dp0scripts\Initialize-KnouxX.ps1" ^
++  -ZipPath "D:\Knoux-x.zip" ^
++  -RepositoryUrl "https://github.com/daynightae-cmyk/knoux-x.git" ^
++  -WorkspaceRoot "D:\Knoux-X-Bootstrap"
++
++set "EXIT_CODE=%ERRORLEVEL%"
++echo.
++if not "%EXIT_CODE%"=="0" (
++  echo KNOUX bootstrap failed with exit code %EXIT_CODE%.
++) else (
++  echo KNOUX bootstrap completed successfully.
++)
++pause
++exit /b %EXIT_CODE%
+diff --git a/RUN-PHASE-01-CLOSEOUT.cmd b/RUN-PHASE-01-CLOSEOUT.cmd
+index 8afce70..6dce134 100644
+--- a/RUN-PHASE-01-CLOSEOUT.cmd
++++ b/RUN-PHASE-01-CLOSEOUT.cmd
+@@ -1,16 +1,16 @@
+-@echo off
+-setlocal EnableExtensions
+-cd /d "%~dp0"
+-set "NODE_HOME=D:\Knoux-X-Bootstrap\.tools\node-v20.20.2-win-x64"
+-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\phase-01-closeout\Invoke-KnouxPhase01Closeout.ps1" -RepositoryRoot "%~dp0" -NodeHome "%NODE_HOME%"
+-set "EXIT_CODE=%ERRORLEVEL%"
+-if not "%EXIT_CODE%"=="0" (
+-  echo.
+-  echo [FAILED] KNOUX Phase 01 closeout preparation failed with exit code %EXIT_CODE%.
+-  pause
+-  exit /b %EXIT_CODE%
+-)
+-echo.
+-echo [PASS] Source repairs applied. Run VERIFY-PHASE-01-CLOSEOUT.cmd next.
+-pause
+-exit /b 0
++@echo off
++setlocal EnableExtensions
++cd /d "%~dp0"
++set "NODE_HOME=D:\Knoux-X-Bootstrap\.tools\node-v20.20.2-win-x64"
++powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\phase-01-closeout\Invoke-KnouxPhase01Closeout.ps1" -RepositoryRoot "%~dp0" -NodeHome "%NODE_HOME%"
++set "EXIT_CODE=%ERRORLEVEL%"
++if not "%EXIT_CODE%"=="0" (
++  echo.
++  echo [FAILED] KNOUX Phase 01 closeout preparation failed with exit code %EXIT_CODE%.
++  pause
++  exit /b %EXIT_CODE%
++)
++echo.
++echo [PASS] Source repairs applied. Run VERIFY-PHASE-01-CLOSEOUT.cmd next.
++pause
++exit /b 0
+diff --git a/VERIFY-PHASE-01-CLOSEOUT.cmd b/VERIFY-PHASE-01-CLOSEOUT.cmd
+index 6144f5d..d3a47ef 100644
+--- a/VERIFY-PHASE-01-CLOSEOUT.cmd
++++ b/VERIFY-PHASE-01-CLOSEOUT.cmd
+@@ -1,21 +1,21 @@
+-@echo off
+-setlocal EnableExtensions
+-cd /d "%~dp0"
+-set "NODE_HOME=D:\Knoux-X-Bootstrap\.tools\node-v20.20.2-win-x64"
+-set "PATH=%NODE_HOME%;%PATH%"
+-call "%NODE_HOME%\npm.cmd" install --no-audit --no-fund
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-call "%NODE_HOME%\npm.cmd" run doctor
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-call "%NODE_HOME%\npm.cmd" run typecheck
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-call "%NODE_HOME%\npm.cmd" run lint
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-call "%NODE_HOME%\npm.cmd" test -- --runInBand --passWithNoTests
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-call "%NODE_HOME%\npm.cmd" run package
+-if errorlevel 1 exit /b %ERRORLEVEL%
+-echo.
+-echo [PASS] KNOUX Phase 01 validation gates passed.
+-pause
+-exit /b 0
++@echo off
++setlocal EnableExtensions
++cd /d "%~dp0"
++set "NODE_HOME=D:\Knoux-X-Bootstrap\.tools\node-v20.20.2-win-x64"
++set "PATH=%NODE_HOME%;%PATH%"
++call "%NODE_HOME%\npm.cmd" install --no-audit --no-fund
++if errorlevel 1 exit /b %ERRORLEVEL%
++call "%NODE_HOME%\npm.cmd" run doctor
++if errorlevel 1 exit /b %ERRORLEVEL%
++call "%NODE_HOME%\npm.cmd" run typecheck
++if errorlevel 1 exit /b %ERRORLEVEL%
++call "%NODE_HOME%\npm.cmd" run lint
++if errorlevel 1 exit /b %ERRORLEVEL%
++call "%NODE_HOME%\npm.cmd" test -- --runInBand --passWithNoTests
++if errorlevel 1 exit /b %ERRORLEVEL%
++call "%NODE_HOME%\npm.cmd" run package
++if errorlevel 1 exit /b %ERRORLEVEL%
++echo.
++echo [PASS] KNOUX Phase 01 validation gates passed.
++pause
++exit /b 0

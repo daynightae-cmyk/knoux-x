@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Check,
 } from 'lucide-react';
+
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonSlider } from '../../components/neon/NeonSlider';

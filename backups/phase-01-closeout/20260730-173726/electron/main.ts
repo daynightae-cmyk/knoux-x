@@ -10,15 +10,13 @@
  * @version 1.0.0
  */
 
+import { app, BrowserWindow, ipcMain, nativeTheme, powerMonitor, screen } from 'electron';
 import path from 'path';
-
-import { app, BrowserWindow, ipcMain, powerMonitor, screen } from 'electron';
 import started from 'electron-squirrel-startup';
 import log from 'electron-log';
 
 // Import core systems
 import { createSystemOrchestrator, SystemConfiguration } from '../src/core/orchestrator/SystemOrchestrator';
-
 import { setupIPCHandlers } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
 import { createSystemTray } from './menu/system-tray';

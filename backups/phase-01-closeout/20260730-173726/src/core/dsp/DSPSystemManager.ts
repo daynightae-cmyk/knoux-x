@@ -57,6 +57,7 @@ export class DSPSystemManager extends EventEmitter {
   private effects: Map<string, AudioEffect>;
   private audioContext: AudioContext | null = null;
   private processorNode: AudioWorkletNode | null = null;
+  private nativeModule: unknown = null;
 
   constructor(config: DSPConfiguration) {
     super();
@@ -263,7 +264,7 @@ export class DSPSystemManager extends EventEmitter {
     return outputBuffer;
   }
 
-  private applyEqualizer(sample: number, _index: number): number {
+  private applyEqualizer(sample: number, index: number): number {
     let output = sample;
     
     for (const band of this.equalizerBands) {

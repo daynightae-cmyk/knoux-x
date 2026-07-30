@@ -11,6 +11,7 @@
  */
 
 import EventEmitter from 'events';
+
 import { DSPSystemManager } from '../../dsp/DSPSystemManager';
 
 // ═══════════════════════════════════════════════════════════════════════════

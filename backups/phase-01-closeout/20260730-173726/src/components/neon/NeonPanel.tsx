@@ -10,15 +10,14 @@
  * @version 1.0.0
  */
 
-import { forwardRef, type ReactNode } from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
+import React, { forwardRef } from 'react';
+import { motion, HTMLMotionProps } from 'framer-motion';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface NeonPanelProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
-  children?: ReactNode;
+export interface NeonPanelProps extends HTMLMotionProps<"div"> {
   variant?: 'default' | 'primary' | 'secondary' | 'dark';
   borderGlow?: boolean;
   glowColor?: string;

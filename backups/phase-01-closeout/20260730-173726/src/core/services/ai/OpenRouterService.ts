@@ -504,8 +504,8 @@ Return ONLY the titles, one per line, no numbering or extra text.`;
 
       return text
         .split('\n')
-        .map((line: string) => line.trim())
-        .filter((line: string) => line.length > 0 && !line.match(/^\d+\./) && !line.startsWith('-'));
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.match(/^\d+\./) && !line.startsWith('-'));
     } catch (error) {
       console.error('Playlist generation error:', error);
       return [];
@@ -534,8 +534,8 @@ One per line.`;
 
       return text
         .split('\n')
-        .filter((line: string) => line.trim().length > 0)
-        .map((line: string) => {
+        .filter(line => line.trim().length > 0)
+        .map(line => {
           const parts = line.split(' - ');
           return {
             title: parts[0]?.replace(/^\d+\.\s*/, '').trim() || line,
@@ -709,7 +709,7 @@ One per line.`;
       });
 
       const text = response.choices?.[0]?.message?.content || '';
-      return text.split('\n').filter((line: string) => line.trim().length > 0);
+      return text.split('\n').filter(line => line.trim().length > 0);
     } catch {
       return [];
     }

@@ -10,10 +10,8 @@
  * @version 1.0.0
  */
 
-import EventEmitter from 'events';
-
 import { BrowserWindow } from 'electron';
-
+import EventEmitter from 'events';
 import { AudioEngine } from '../services/audio/AudioEngine';
 import { VideoEngine } from '../services/video/VideoEngine';
 import { SubtitleEngine } from '../services/subtitle/SubtitleEngine';
@@ -364,7 +362,7 @@ export class SystemOrchestrator extends EventEmitter {
     }
   }
 
-  public getWorker(_task: string): Worker | null {
+  public getWorker(task: string): Worker | null {
     // Return or create a worker for the task
     return null;
   }

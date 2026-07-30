@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -20,12 +20,12 @@ import {
   MoreVertical,
   Grid,
   List,
+  Filter,
   Music,
   Film,
   Clock,
   Calendar,
 } from 'lucide-react';
-
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonButton } from '../../components/neon/NeonButton';
 
@@ -145,6 +145,16 @@ export const LibraryView: React.FC = () => {
         return true;
     }
   });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // تنسيق الوقت
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // ═════════════════════════════════════════════════════════════════════════
   // عرض المكون

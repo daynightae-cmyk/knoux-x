@@ -10,8 +10,9 @@
  * @version 1.0.0
  */
 
-import { Tray, Menu, app, nativeImage, BrowserWindow } from 'electron';
 import path from 'path';
+
+import { Tray, Menu, app, nativeImage, BrowserWindow } from 'electron';
 
 let tray: Tray | null = null;
 

@@ -34,15 +34,6 @@
       "typescript": {
         "alwaysTryTypes": true,
         "project": "./tsconfig.json"
-      },
-      "node": {
-        "extensions": [
-          ".js",
-          ".jsx",
-          ".ts",
-          ".tsx",
-          ".json"
-        ]
       }
     }
   },
@@ -74,21 +65,11 @@
       }
     ],
     "no-console": "off",
-    "no-debugger": "warn",
-    "import/no-unresolved": [
-      "error",
-      {
-        "ignore": [
-          "\\.(css|scss|sass|less)$"
-        ]
-      }
-    ]
+    "no-debugger": "warn"
   },
   "overrides": [
     {
-      "files": [
-        "electron/**/*.ts"
-      ],
+      "files": ["electron/**/*.ts"],
       "rules": {
         "@typescript-eslint/no-var-requires": "off"
       }
@@ -100,9 +81,6 @@
     "node_modules/",
     ".vite/",
     "*.config.js",
-    "*.config.ts",
-    "out/",
-    "reports/",
-    "backups/"
+    "*.config.ts"
   ]
 }

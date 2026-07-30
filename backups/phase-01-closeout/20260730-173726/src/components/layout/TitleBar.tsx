@@ -26,7 +26,7 @@ import {
 
 export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [currentMedia] = useState<string | null>(null);
+  const [currentMedia, setCurrentMedia] = useState<string | null>(null);
 
   // ═════════════════════════════════════════════════════════════════════════
   // معالجات الأحداث

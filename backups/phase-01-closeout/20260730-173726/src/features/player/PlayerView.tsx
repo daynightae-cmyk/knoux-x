@@ -20,13 +20,13 @@ import {
   Volume2,
   VolumeX,
   Maximize,
+  Settings,
   Subtitles,
   Repeat,
   Shuffle,
   ListMusic,
   Image as ImageIcon,
 } from 'lucide-react';
-
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSlider } from '../../components/neon/NeonSlider';
@@ -49,14 +49,15 @@ export const PlayerView: React.FC = () => {
     duration,
     volume,
     muted,
+    playbackRate,
     loop,
     shuffle,
     play,
     pause,
     seek,
-    setDuration,
     setVolume,
     toggleMute,
+    setPlaybackRate,
     toggleLoop,
     toggleShuffle,
     next,
@@ -68,35 +69,17 @@ export const PlayerView: React.FC = () => {
   // ═════════════════════════════════════════════════════════════════════════
 
   useEffect(() => {
-    if (!videoRef.current) return undefined;
+    if (videoRef.current) {
+      // Attach to player service
+      window.knouxAPI.player.onStateChange((state) => {
+        // Update store with state
+      });
 
-    const unsubscribeState = window.knouxAPI.player.onStateChange((state) => {
-      if (typeof state !== 'object' || state === null) return;
-
-      const snapshot = state as {
-        playing?: boolean;
-        paused?: boolean;
-        currentTime?: number;
-        duration?: number;
-        volume?: number;
-      };
-
-      if (snapshot.playing === true) play();
-      if (snapshot.paused === true) pause();
-      if (typeof snapshot.currentTime === 'number') seek(snapshot.currentTime);
-      if (typeof snapshot.duration === 'number') setDuration(snapshot.duration);
-      if (typeof snapshot.volume === 'number') setVolume(snapshot.volume);
-    });
-
-    const unsubscribeTime = window.knouxAPI.player.onTimeUpdate((time) => {
-      seek(time);
-    });
-
-    return () => {
-      unsubscribeState();
-      unsubscribeTime();
-    };
-  }, [pause, play, seek, setDuration, setVolume]);
+      window.knouxAPI.player.onTimeUpdate((time) => {
+        // Update current time
+      });
+    }
+  }, []);
 
   // ═════════════════════════════════════════════════════════════════════════
   // معالجات التحكم

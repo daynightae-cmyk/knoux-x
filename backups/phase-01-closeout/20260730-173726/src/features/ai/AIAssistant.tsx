@@ -13,6 +13,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
+  MessageSquare, 
   X, 
   Send, 
   Bot, 
@@ -25,7 +26,6 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonBadge } from '../../components/neon/NeonBadge';
@@ -34,6 +34,7 @@ import { useAppStore } from '../../store/appStore';
 import { 
   openRouterService, 
   AVAILABLE_MODELS,
+  type AIModel,
   type ServiceStatus 
 } from '../../core/services/ai/OpenRouterService';
 
@@ -423,7 +424,7 @@ export const AIAssistant: React.FC = () => {
                     <Bot size={56} className="welcome-icon" />
                   </motion.div>
                   
-                  <h3>Hello! I&apos;m KNOUX AI</h3>
+                  <h3>Hello! I'm KNOUX AI</h3>
                   <p>Your intelligent media assistant powered by cutting-edge AI</p>
                   
                   <div className="welcome-features">

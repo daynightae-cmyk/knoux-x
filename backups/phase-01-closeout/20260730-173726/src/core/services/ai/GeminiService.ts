@@ -11,7 +11,6 @@
  */
 
 import EventEmitter from 'events';
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -116,11 +115,11 @@ export class GeminiService extends EventEmitter {
       history: [
         {
           role: 'user',
-          parts: [{ text: 'You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.' }],
+          parts: 'You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.',
         },
         {
           role: 'model',
-          parts: [{ text: 'I understand. I am KNOUX AI, ready to assist you with your media player. I can help with playback controls, playlist management, media recommendations, and more. How can I help you today?' }],
+          parts: 'I understand. I am KNOUX AI, ready to assist you with your media player. I can help with playback controls, playlist management, media recommendations, and more. How can I help you today?',
         },
       ],
     });

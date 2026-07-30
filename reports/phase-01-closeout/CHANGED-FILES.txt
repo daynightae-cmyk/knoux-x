@@ -1,0 +1,29 @@
+﻿ M .eslintrc.json
+ M ROLLBACK-PHASE-01-CLOSEOUT.cmd
+ M RUN-KNOUX-BOOTSTRAP.cmd
+ M RUN-PHASE-01-CLOSEOUT.cmd
+ M VERIFY-PHASE-01-CLOSEOUT.cmd
+ M electron/ipc/setup.ts
+ M electron/main.ts
+ M electron/menu/system-tray.ts
+ M package.json
+ M src/App.tsx
+ M src/components/layout/Sidebar.tsx
+ M src/components/layout/TitleBar.tsx
+ M src/components/neon/NeonButton.tsx
+ M src/components/neon/NeonPanel.tsx
+ M src/core/dsp/DSPSystemManager.ts
+ M src/core/orchestrator/SystemOrchestrator.ts
+ M src/core/services/ai/GeminiService.ts
+ M src/core/services/ai/OpenRouterService.ts
+ M src/core/services/audio/AudioEngine.ts
+ M src/core/services/subtitle/SubtitleEngine.ts
+ M src/features/ai/AIAssistant.tsx
+ M src/features/library/LibraryView.tsx
+ M src/features/player/PlayerView.tsx
+ M src/features/settings/SettingsView.tsx
+ M src/main.tsx
+?? backups/phase-01-closeout/
+?? package-verification.json
+?? reports/phase-01-closeout/
+?? src/types/electron-squirrel-startup.d.ts

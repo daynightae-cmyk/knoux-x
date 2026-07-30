@@ -10,22 +10,21 @@
  * @version 1.0.0
  */
 
-import { forwardRef, type ReactNode } from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
+import React, { forwardRef } from 'react';
+import { motion } from 'framer-motion';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface NeonButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
-  children?: ReactNode;
+export interface NeonButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   glowColor?: string;
   glowIntensity?: 'low' | 'medium' | 'high';
   isLoading?: boolean;
-  leftIcon?: ReactNode;
-  rightIcon?: ReactNode;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
   fullWidth?: boolean;
 }
 

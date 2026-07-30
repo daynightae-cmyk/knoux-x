@@ -10,18 +10,16 @@
  * @version 1.0.0
  */
 
+import { ipcMain, dialog, shell, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs/promises';
 import path from 'path';
-
-import { ipcMain, dialog, shell } from 'electron';
-
 import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrchestrator';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // معالجات الملفات
 // ═══════════════════════════════════════════════════════════════════════════
 
-function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrator): void {
+function setupFileHandlers(ipc: typeof ipcMain, orchestrator: SystemOrchestrator): void {
   ipc.handle('file:open', async (_, options) => {
     const result = await dialog.showOpenDialog({
       title: options?.title || 'Open File',

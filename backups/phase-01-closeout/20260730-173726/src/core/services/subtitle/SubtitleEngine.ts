@@ -453,8 +453,13 @@ export class SubtitleEngine extends EventEmitter {
     console.log('Translating subtitles to:', targetLanguage);
     this.emit('translate-start');
 
-    // Translation provider integration is intentionally deferred. The current
-    // method only emits lifecycle events and never mutates subtitle cues.
+    if (this.cues.length > 0) {
+      // Translate each cue
+      for (const cue of this.cues) {
+        // AI translation would go here
+        // cue.text = await translate(cue.text, targetLanguage);
+      }
+    }
 
     this.emit('translate-complete');
   }

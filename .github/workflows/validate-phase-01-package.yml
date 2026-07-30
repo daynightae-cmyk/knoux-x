@@ -56,3 +56,7 @@ jobs:
             throw 'Reserved automatic variable $Args was used as a typed parameter.'
           }
           Write-Host 'Reserved parameter check passed.'
+
+      - name: Validate harmless native STDERR handling
+        shell: powershell
+        run: .\validation\phase-01\test-native-stderr.ps1

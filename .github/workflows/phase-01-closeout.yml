@@ -1,0 +1,358 @@
+name: KNOUX Phase 01 Closeout
+
+on:
+  push:
+    branches:
+      - customization/phase-01-foundation-20260730-162025
+    paths:
+      - .github/workflows/phase-01-closeout.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_COLOR: '0'
+  NODE_VERSION: 20.20.2
+
+jobs:
+  closeout:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout customization branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: customization/phase-01-foundation-20260730-162025
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+
+      - name: Configure Git and verify protected branch guard
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config core.autocrlf false
+          $branch = (git rev-parse --abbrev-ref HEAD).Trim()
+          if ($branch -in @('main', 'master')) {
+            throw "Refusing to run on protected branch: $branch"
+          }
+          node -v
+          npm -v
+
+      - name: Apply source repairs and timestamped backup
+        id: repair
+        shell: powershell
+        continue-on-error: true
+        run: |
+          .\tools\phase-01-closeout\Invoke-KnouxPhase01Closeout.ps1 `
+            -RepositoryRoot $env:GITHUB_WORKSPACE
+
+      - name: Install aligned dependency graph
+        id: install
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm install --no-audit --no-fund 2>&1 | Tee-Object -FilePath npm-install.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ls typescript --depth=0 2>&1 | Tee-Object -FilePath dependency-typescript.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ls @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-import-resolver-typescript --depth=0 2>&1 | Tee-Object -FilePath dependency-eslint.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run doctor
+        id: doctor
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm run doctor 2>&1 | Tee-Object -FilePath doctor.log
+          exit $LASTEXITCODE
+
+      - name: Run TypeScript validation
+        id: typecheck
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm run typecheck 2>&1 | Tee-Object -FilePath typecheck.log
+          exit $LASTEXITCODE
+
+      - name: Apply safe ESLint autofixes
+        id: lintfix
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm run lint:fix 2>&1 | Tee-Object -FilePath lint-fix.log
+          exit $LASTEXITCODE
+
+      - name: Run ESLint validation
+        id: lint
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm run lint 2>&1 | Tee-Object -FilePath lint.log
+          exit $LASTEXITCODE
+
+      - name: Run unit tests
+        id: tests
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm test -- --runInBand --passWithNoTests 2>&1 | Tee-Object -FilePath tests.log
+          exit $LASTEXITCODE
+
+      - name: Package Windows x64 application
+        id: package
+        shell: powershell
+        continue-on-error: true
+        run: |
+          npm run package 2>&1 | Tee-Object -FilePath package.log
+          exit $LASTEXITCODE
+
+      - name: Verify packaged executable and native resources
+        id: verify_package
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $exe = Get-ChildItem -Path .\out -Filter '*.exe' -Recurse -ErrorAction Stop |
+            Where-Object { $_.Name -match 'knoux|KNOUX' } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+          if (-not $exe -or $exe.Length -le 0) {
+            throw 'A non-empty KNOUX executable was not found under out.'
+          }
+          $resources = Join-Path $exe.DirectoryName 'resources'
+          if (-not (Test-Path $resources)) {
+            throw "Packaged resources directory is missing: $resources"
+          }
+          $nativeChecks = @(
+            'better_sqlite3.node',
+            'sharp*.node',
+            'onnxruntime*.dll'
+          )
+          $nativeResult = foreach ($pattern in $nativeChecks) {
+            $found = Get-ChildItem -Path $resources -Filter $pattern -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            [pscustomobject]@{ Pattern = $pattern; Found = [bool]$found; Path = if ($found) { $found.FullName } else { $null } }
+          }
+          $nativeResult | ConvertTo-Json -Depth 4 | Set-Content package-native-checks.json -Encoding UTF8
+          [pscustomobject]@{
+            ExePath = $exe.FullName
+            ExeSize = $exe.Length
+            ResourcesPath = $resources
+          } | ConvertTo-Json -Depth 4 | Set-Content package-executable.json -Encoding UTF8
+          Write-Host "Packaged executable: $($exe.FullName)"
+          Write-Host "Executable size: $($exe.Length) bytes"
+
+      - name: Run packaged executable smoke test
+        id: smoke
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $meta = Get-Content package-executable.json -Raw | ConvertFrom-Json
+          $process = Start-Process -FilePath $meta.ExePath -PassThru
+          Start-Sleep -Seconds 20
+          $survived = -not $process.HasExited
+          $exitCode = if ($process.HasExited) { $process.ExitCode } else { $null }
+          [pscustomobject]@{
+            ProcessId = $process.Id
+            SurvivedTwentySeconds = $survived
+            ExitCode = $exitCode
+          } | ConvertTo-Json -Depth 4 | Set-Content smoke-test.json -Encoding UTF8
+          if (-not $survived) {
+            throw "Packaged application exited during smoke test with code: $exitCode"
+          }
+          Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          Get-Process electron,knoux-player-x -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+      - name: Scan staged source for obvious secrets
+        id: secrets
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $patterns = @('AIza[0-9A-Za-z_-]{30,}', 'sk-or-v1-[0-9A-Za-z]{20,}', '-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----')
+          $files = git ls-files
+          $hits = @()
+          foreach ($file in $files) {
+            if (-not (Test-Path $file -PathType Leaf)) { continue }
+            if ($file -match '\.(png|jpg|jpeg|ico|zip|exe|dll|node)$') { continue }
+            $text = Get-Content $file -Raw -ErrorAction SilentlyContinue
+            foreach ($pattern in $patterns) {
+              if ($text -match $pattern) { $hits += "$file :: $pattern" }
+            }
+          }
+          if ($hits.Count -gt 0) {
+            $hits | Set-Content secret-scan.log -Encoding UTF8
+            throw 'Potential secret material was detected.'
+          }
+          'No obvious secrets detected.' | Set-Content secret-scan.log -Encoding UTF8
+
+      - name: Generate Phase 01 closeout reports
+        if: always()
+        shell: powershell
+        env:
+          REPAIR: ${{ steps.repair.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          DOCTOR: ${{ steps.doctor.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINTFIX: ${{ steps.lintfix.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          PACKAGE: ${{ steps.package.outcome }}
+          VERIFY_PACKAGE: ${{ steps.verify_package.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          SECRETS: ${{ steps.secrets.outcome }}
+        run: |
+          $reportRoot = Join-Path $env:GITHUB_WORKSPACE 'reports\phase-01-closeout'
+          New-Item -ItemType Directory -Path $reportRoot -Force | Out-Null
+          $gates = [ordered]@{
+            repair = $env:REPAIR
+            install = $env:INSTALL
+            doctor = $env:DOCTOR
+            typecheck = $env:TYPECHECK
+            lintFix = $env:LINTFIX
+            lint = $env:LINT
+            tests = $env:TESTS
+            package = $env:PACKAGE
+            packageVerification = $env:VERIFY_PACKAGE
+            smokeTest = $env:SMOKE
+            secretScan = $env:SECRETS
+          }
+          $failed = @($gates.GetEnumerator() | Where-Object { $_.Value -ne 'success' })
+          $status = if ($failed.Count -eq 0) { 'PASS' } else { 'FAILED' }
+          $exe = if (Test-Path package-executable.json) { Get-Content package-executable.json -Raw | ConvertFrom-Json } else { $null }
+          $smoke = if (Test-Path smoke-test.json) { Get-Content smoke-test.json -Raw | ConvertFrom-Json } else { $null }
+          $dependencyText = @()
+          if (Test-Path dependency-typescript.log) { $dependencyText += Get-Content dependency-typescript.log }
+          if (Test-Path dependency-eslint.log) { $dependencyText += Get-Content dependency-eslint.log }
+          [pscustomobject]@{
+            phase = '01-closeout'
+            status = $status
+            branch = (git rev-parse --abbrev-ref HEAD).Trim()
+            commitBefore = '${{ github.sha }}'
+            node = (node -v).Trim()
+            npm = (npm -v).Trim()
+            gates = $gates
+            executable = $exe
+            smoke = $smoke
+            generatedAtUtc = [DateTime]::UtcNow.ToString('o')
+          } | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $reportRoot 'PHASE-01-CLOSEOUT.json') -Encoding UTF8
+          $markdown = @"
+          # KNOUX Player X — Phase 01 Closeout
+
+          **Status:** $status
+
+          ## Validation gates
+
+          | Gate | Result |
+          |---|---|
+          $(($gates.GetEnumerator() | ForEach-Object { "| $($_.Key) | $($_.Value) |" }) -join "`n")
+
+          ## Packaged executable
+
+          - Path: $($exe.ExePath)
+          - Size: $($exe.ExeSize)
+          - Smoke test survived 20 seconds: $($smoke.SurvivedTwentySeconds)
+
+          ## Scope
+
+          TypeScript/ESLint alignment, known source repairs, Windows packaging verification, native-resource inspection, smoke test, and secret scan. Phase 02 was not started.
+          "@
+          $markdown | Set-Content (Join-Path $reportRoot 'PHASE-01-CLOSEOUT.md') -Encoding UTF8
+          @"
+          # Typecheck Before / After
+
+          - Before: 29 errors across 13 files.
+          - After gate: $env:TYPECHECK
+          - Full output: `typecheck.log` workflow artifact.
+          "@ | Set-Content (Join-Path $reportRoot 'TYPECHECK-BEFORE-AFTER.md') -Encoding UTF8
+          @"
+          # Lint Before / After
+
+          - Before: 419 findings (237 errors, 182 warnings), dominated by an incompatible TypeScript resolver.
+          - Autofix gate: $env:LINTFIX
+          - Final lint gate: $env:LINT
+          - Full output: `lint.log` workflow artifact.
+          "@ | Set-Content (Join-Path $reportRoot 'LINT-BEFORE-AFTER.md') -Encoding UTF8
+          @"
+          # Package Verification
+
+          - Package gate: $env:PACKAGE
+          - Executable verification: $env:VERIFY_PACKAGE
+          - Smoke test: $env:SMOKE
+          - Executable path: $($exe.ExePath)
+          - Executable size: $($exe.ExeSize)
+          "@ | Set-Content (Join-Path $reportRoot 'PACKAGE-VERIFICATION.md') -Encoding UTF8
+          [pscustomobject]@{
+            node = (node -v).Trim()
+            npm = (npm -v).Trim()
+            dependencyTree = $dependencyText
+          } | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $reportRoot 'DEPENDENCY-VERSIONS.json') -Encoding UTF8
+          git status --short | Set-Content (Join-Path $reportRoot 'CHANGED-FILES.txt') -Encoding UTF8
+
+      - name: Upload diagnostic logs and closeout package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KNOUX-X-PHASE-01-CLOSEOUT-V2
+          if-no-files-found: warn
+          path: |
+            RUN-PHASE-01-CLOSEOUT.cmd
+            VERIFY-PHASE-01-CLOSEOUT.cmd
+            ROLLBACK-PHASE-01-CLOSEOUT.cmd
+            tools/phase-01-closeout/**
+            config/phase-01-closeout.config.json
+            reports/phase-01-closeout/**
+            *.log
+            *.json
+
+      - name: Commit verified closeout changes
+        if: >-
+          steps.repair.outcome == 'success' &&
+          steps.install.outcome == 'success' &&
+          steps.doctor.outcome == 'success' &&
+          steps.typecheck.outcome == 'success' &&
+          steps.lintfix.outcome == 'success' &&
+          steps.lint.outcome == 'success' &&
+          steps.tests.outcome == 'success' &&
+          steps.package.outcome == 'success' &&
+          steps.verify_package.outcome == 'success' &&
+          steps.smoke.outcome == 'success' &&
+          steps.secrets.outcome == 'success'
+        shell: powershell
+        run: |
+          git add package.json package-lock.json .eslintrc.json electron src reports backups
+          git diff --cached --stat
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "fix: close KNOUX Phase 01 baseline and validation gates"
+            git push origin HEAD:customization/phase-01-foundation-20260730-162025
+          } else {
+            Write-Host 'No verified source changes remained to commit.'
+          }
+
+      - name: Enforce final result
+        if: always()
+        shell: powershell
+        env:
+          REPAIR: ${{ steps.repair.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          DOCTOR: ${{ steps.doctor.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINTFIX: ${{ steps.lintfix.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          PACKAGE: ${{ steps.package.outcome }}
+          VERIFY_PACKAGE: ${{ steps.verify_package.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          SECRETS: ${{ steps.secrets.outcome }}
+        run: |
+          $results = @($env:REPAIR,$env:INSTALL,$env:DOCTOR,$env:TYPECHECK,$env:LINTFIX,$env:LINT,$env:TESTS,$env:PACKAGE,$env:VERIFY_PACKAGE,$env:SMOKE,$env:SECRETS)
+          if ($results -contains 'failure') {
+            throw 'KNOUX Phase 01 closeout did not satisfy all required gates. Review the uploaded artifact and job logs.'
+          }
+          Write-Host '[PASS] KNOUX Phase 01 closeout completed and committed.' -ForegroundColor Green

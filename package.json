@@ -26,6 +26,14 @@
     "doctor": "node tools/doctor.cjs",
     "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"
   },
+  "jest": {
+    "testEnvironment": "node",
+    "modulePathIgnorePatterns": [
+      "<rootDir>/backups/",
+      "<rootDir>/out/",
+      "<rootDir>/reports/"
+    ]
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.2.0",
     "@electron-forge/maker-deb": "^7.2.0",

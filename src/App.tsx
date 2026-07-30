@@ -9,6 +9,7 @@ import { SettingsView } from './features/settings/SettingsView';
 import { useAppStore, ViewType } from './store/appStore';
 import './styles/global.css';
 import './styles/creative-suite.css';
+import './styles/library-creative.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');

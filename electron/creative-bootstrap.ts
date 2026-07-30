@@ -1,10 +1,13 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 
+import type { AIChatMessage, AIConfigureRequest } from './creative/ai-service';
+import { AIService } from './creative/ai-service';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
+const aiService = new AIService();
 let controller: CreativeSuiteController | null = null;
 let registered = false;
 
@@ -14,17 +17,46 @@ function isTrustedWindow(webContentsId: number): boolean {
   ));
 }
 
+function requireTrustedEvent(event: IpcMainInvokeEvent): void {
+  if (!isTrustedWindow(event.sender.id)) {
+    throw new Error('Request came from an untrusted renderer.');
+  }
+}
+
 function registerCreativeRuntime(): void {
   if (registered) return;
   registered = true;
   controller = setupCreativeSuiteHandlers(ipcMain);
 
   ipcMain.handle('creative:request-media-permission', (event) => {
-    if (!isTrustedWindow(event.sender.id)) {
-      throw new Error('Media permission request came from an untrusted renderer.');
-    }
+    requireTrustedEvent(event);
     permissionExpiry.set(event.sender.id, Date.now() + MEDIA_PERMISSION_WINDOW_MS);
     return true;
+  });
+
+  ipcMain.handle('ai-secure:settings', (event) => {
+    requireTrustedEvent(event);
+    return aiService.getSettings();
+  });
+  ipcMain.handle('ai-secure:configure', (event, request: AIConfigureRequest) => {
+    requireTrustedEvent(event);
+    return aiService.configure(request);
+  });
+  ipcMain.handle('ai-secure:clear', (event) => {
+    requireTrustedEvent(event);
+    return aiService.clearCredential();
+  });
+  ipcMain.handle('ai-secure:test', async (event) => {
+    requireTrustedEvent(event);
+    return aiService.testConnection();
+  });
+  ipcMain.handle('ai-secure:chat', async (event, message: string, history: AIChatMessage[] = []) => {
+    requireTrustedEvent(event);
+    return aiService.chat(message, history);
+  });
+  ipcMain.handle('ai-secure:cancel', (event) => {
+    requireTrustedEvent(event);
+    return aiService.cancel();
   });
 }
 
@@ -49,5 +81,6 @@ app.on('web-contents-created', (_event, contents) => {
 
 app.on('before-quit', () => {
   permissionExpiry.clear();
+  aiService.cancel();
   void controller?.shutdown();
 });

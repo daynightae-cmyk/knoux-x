@@ -246,14 +246,19 @@ export class FFmpegService {
     const modulePath = kind === 'ffmpeg'
       ? candidateExecutable('ffmpeg-static')
       : candidateExecutable('ffprobe-static');
-    const names = process.platform === 'win32'
-      ? [`${kind}.exe`, kind]
-      : [kind];
+    const executableName = process.platform === 'win32' ? `${kind}.exe` : kind;
+    const commandNames = process.platform === 'win32' ? [executableName, kind] : [kind];
+    const resourceCandidates = typeof process.resourcesPath === 'string'
+      ? [
+          path.join(process.resourcesPath, executableName),
+          path.join(process.resourcesPath, 'media-tools', executableName),
+        ]
+      : [];
     const candidates = [
       configured,
-      ...names.map((name) => path.join(process.resourcesPath, 'media-tools', name)),
+      ...resourceCandidates,
       modulePath,
-      ...names,
+      ...commandNames,
     ].filter((value): value is string => Boolean(value));
 
     for (const candidate of candidates) {

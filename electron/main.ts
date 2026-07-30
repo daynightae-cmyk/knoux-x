@@ -23,8 +23,6 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 log.transports.file.level = 'info';
 log.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 
-if (started) app.quit();
-
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const pendingMediaPaths = mediaPathsFromArguments(process.argv);
@@ -69,9 +67,10 @@ function registerCoreHandlers(): void {
     const window = windowForEvent(event);
     if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
     if (bounds.width < 480 || bounds.height < 320 || bounds.width > 16_384 || bounds.height > 16_384) return false;
+    const currentBounds = window.getBounds();
     window.setBounds({
-      x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : window.getBounds().x,
-      y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : window.getBounds().y,
+      x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : currentBounds.x,
+      y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : currentBounds.y,
       width: Math.round(bounds.width),
       height: Math.round(bounds.height),
     });
@@ -162,7 +161,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
   return window;
 }
 
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = !started && app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
@@ -178,43 +177,44 @@ if (!gotTheLock) {
       mainWindow.focus();
     }
   });
+
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-navigate', (event, navigationUrl) => {
+      const destination = new URL(navigationUrl);
+      const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
+        ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
+        : null;
+      if (destination.protocol !== 'file:' && destination.origin !== developmentOrigin) {
+        event.preventDefault();
+        log.warn('Blocked navigation to %s', navigationUrl);
+      }
+    });
+  });
+
+  app.whenReady().then(async () => {
+    registerCoreHandlers();
+    createApplicationMenu();
+    powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
+    powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));
+    try {
+      createSystemTray();
+    } catch (error) {
+      log.warn('System tray is unavailable', error);
+    }
+    await createMainWindow();
+  }).catch((error) => {
+    log.error('Failed to start KNOUX Player X', error);
+    app.quit();
+  });
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+  });
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
 }
 
-app.on('web-contents-created', (_event, contents) => {
-  contents.on('will-navigate', (event, navigationUrl) => {
-    const destination = new URL(navigationUrl);
-    const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
-      ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
-      : null;
-    if (destination.protocol !== 'file:' && destination.origin !== developmentOrigin) {
-      event.preventDefault();
-      log.warn('Blocked navigation to %s', navigationUrl);
-    }
-  });
-});
-
-app.whenReady().then(async () => {
-  registerCoreHandlers();
-  createApplicationMenu();
-  powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
-  powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));
-  try {
-    createSystemTray();
-  } catch (error) {
-    log.warn('System tray is unavailable', error);
-  }
-  await createMainWindow();
-}).catch((error) => {
-  log.error('Failed to start KNOUX Player X', error);
-  app.quit();
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
-});
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
 app.on('before-quit', () => {
   isQuitting = true;
   destroyTray();

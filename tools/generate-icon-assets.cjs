@@ -3,9 +3,28 @@ const path = require('node:path');
 const sharp = require('sharp');
 
 const root = process.cwd();
-const source = path.join(root, 'assets/logo.png');
 const output = path.join(root, 'assets/icons');
 const sizes = [16, 20, 24, 32, 48, 64, 128, 256, 512];
+
+function logoSvg(size) {
+  const scale = size / 512;
+  return Buffer.from(`<svg width="${size}" height="${size}" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg" cx="38%" cy="28%" r="78%"><stop offset="0" stop-color="#321062"/><stop offset="0.62" stop-color="#130728"/><stop offset="1" stop-color="#06020d"/></radialGradient>
+      <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5b00d8"/><stop offset="0.52" stop-color="#8b19ff"/><stop offset="1" stop-color="#c026ff"/></linearGradient>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <circle cx="256" cy="256" r="236" fill="url(#bg)" stroke="#9b4dff" stroke-width="12"/>
+    <circle cx="256" cy="256" r="218" fill="none" stroke="#d2a8ff" stroke-opacity="0.38" stroke-width="3"/>
+    <g filter="url(#glow)" fill="url(#violet)">
+      <rect x="147" y="117" width="86" height="184" rx="43" transform="rotate(-45 190 209)"/>
+      <rect x="212" y="177" width="86" height="184" rx="43" transform="rotate(45 255 269)"/>
+      <rect x="151" y="275" width="86" height="166" rx="43" transform="rotate(45 194 358)"/>
+      <circle cx="330" cy="257" r="38"/>
+    </g>
+    <circle cx="256" cy="256" r="236" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2"/>
+  </svg>`);
+}
 
 function icoBuffer(images) {
   const header = Buffer.alloc(6);
@@ -33,14 +52,14 @@ function badgeSvg(size, label, color) {
   const badgeSize = Math.max(8, Math.round(size * 0.34));
   const x = size - badgeSize - Math.max(1, Math.round(size * 0.04));
   const y = size - badgeSize - Math.max(1, Math.round(size * 0.04));
-  const fontSize = Math.max(6, Math.round(badgeSize * 0.52));
-  return Buffer.from(`<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><circle cx="${x + badgeSize / 2}" cy="${y + badgeSize / 2}" r="${badgeSize / 2}" fill="${color}" stroke="#ffffff" stroke-width="${Math.max(1, size * 0.012)}"/><text x="${x + badgeSize / 2}" y="${y + badgeSize * 0.68}" text-anchor="middle" fill="#ffffff" font-family="Segoe UI,Arial" font-size="${fontSize}" font-weight="700">${label}</text></svg>`);
+  const fontSize = Math.max(6, Math.round(badgeSize * 0.48));
+  return Buffer.from(`<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><circle cx="${x + badgeSize / 2}" cy="${y + badgeSize / 2}" r="${badgeSize / 2}" fill="${color}" stroke="#ffffff" stroke-width="${Math.max(1, size * 0.012)}"/><text x="${x + badgeSize / 2}" y="${y + badgeSize * 0.67}" text-anchor="middle" fill="#ffffff" font-family="Segoe UI,Arial" font-size="${fontSize}" font-weight="700">${label}</text></svg>`);
 }
 
 async function renderIcon(size, badge) {
-  let pipeline = sharp(source).resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } });
+  let pipeline = sharp(logoSvg(size)).png();
   if (badge) pipeline = pipeline.composite([{ input: badgeSvg(size, badge.label, badge.color), top: 0, left: 0 }]);
-  return pipeline.png().toBuffer();
+  return pipeline.toBuffer();
 }
 
 async function createFamily(name, badge) {
@@ -51,9 +70,7 @@ async function createFamily(name, badge) {
 }
 
 async function main() {
-  if (!fs.existsSync(source) || fs.statSync(source).size === 0) throw new Error('assets/logo.png is missing or empty.');
   fs.mkdirSync(path.join(output, 'sizes'), { recursive: true });
-
   for (const size of sizes) {
     fs.writeFileSync(path.join(output, 'sizes', `app-${size}.png`), await renderIcon(size));
   }

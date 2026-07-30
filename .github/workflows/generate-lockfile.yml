@@ -2,9 +2,19 @@ name: Generate KNOUX lockfile
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/knoux-player-x-full-rebuild
+    paths:
+      - package.json
+      - .github/workflows/generate-lockfile.yml
 
 permissions:
   contents: write
+
+concurrency:
+  group: knoux-lockfile-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   generate:
@@ -14,6 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: codex/knoux-player-x-full-rebuild
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -21,10 +32,14 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Generate and validate lockfile
+        shell: pwsh
         run: |
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'package-lock.json generation failed.' }
           npm ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci validation failed.' }
           npm ls --depth=0
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency graph validation failed.' }
 
       - name: Commit lockfile to execution branch
         shell: pwsh
@@ -37,4 +52,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             git commit -m 'build: add deterministic Node 20 dependency lockfile'
             git push origin HEAD:codex/knoux-player-x-full-rebuild
+          } else {
+            Write-Host 'Committed package-lock.json is already current.'
           }

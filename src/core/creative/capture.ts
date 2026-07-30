@@ -40,9 +40,20 @@ export function createCaptureFileName(
   return `${stem}_${formatCaptureTime(timestampSeconds)}_${date}.${extension}`;
 }
 
-export function dataUrlByteLength(dataUrl: string): number {
+function matchCaptureDataUrl(dataUrl: string): RegExpExecArray {
   const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
   if (!match) throw new TypeError('Capture must be a supported base64 image data URL.');
-  const payload = match[2];
+  return match;
+}
+
+export function dataUrlByteLength(dataUrl: string): number {
+  const payload = matchCaptureDataUrl(dataUrl)[2];
   return Math.floor(payload.length * 3 / 4) - (payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0);
+}
+
+export function decodeCaptureDataUrl(dataUrl: string): { format: CaptureFormat; bytes: Buffer } {
+  const match = matchCaptureDataUrl(dataUrl);
+  const bytes = Buffer.from(match[2], 'base64');
+  if (bytes.length === 0) throw new RangeError('Capture image is empty.');
+  return { format: match[1] as CaptureFormat, bytes };
 }

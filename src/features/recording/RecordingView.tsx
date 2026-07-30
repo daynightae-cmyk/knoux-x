@@ -36,11 +36,12 @@ export const RecordingView: React.FC = () => {
   const sessionIdRef = useRef<string | null>(null);
   const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   const startedAtRef = useRef(0);
+  const cancelRequestedRef = useRef(false);
 
   const loadSources = useCallback(async () => {
     setError(null);
     try {
-      const next = await window.knouxAPI.capture.getDesktopSources();
+      const next = await window.knouxCreativeAPI.capture.getDesktopSources();
       setSources(next);
       setSelectedSourceId((current) => current || next[0]?.id || '');
     } catch (reason) {
@@ -52,7 +53,9 @@ export const RecordingView: React.FC = () => {
 
   useEffect(() => {
     if (status !== 'recording') return undefined;
-    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 500);
+    const timer = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    }, 500);
     return () => window.clearInterval(timer);
   }, [status]);
 
@@ -64,7 +67,9 @@ export const RecordingView: React.FC = () => {
   }, []);
 
   useEffect(() => () => {
-    recorderRef.current?.stop();
+    cancelRequestedRef.current = true;
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
     cleanupStreams();
   }, [cleanupStreams]);
 
@@ -78,7 +83,11 @@ export const RecordingView: React.FC = () => {
 
     setStatus('starting');
     setError(null);
+    cancelRequestedRef.current = false;
     try {
+      const granted = await window.knouxCreativeAPI.recording.requestMediaPermission();
+      if (!granted) throw new Error('Recording permission was not granted.');
+
       const desktopVideo = {
         mandatory: {
           chromeMediaSource: 'desktop' as const,
@@ -110,7 +119,7 @@ export const RecordingView: React.FC = () => {
       }
 
       const source = sources.find((entry) => entry.id === selectedSourceId);
-      const session = await window.knouxAPI.recording.begin({
+      const session = await window.knouxCreativeAPI.recording.begin({
         source: selectedSourceId.startsWith('screen:') ? 'display' : 'window',
         mimeType,
         suggestedName: source?.name ?? 'KNOUX recording',
@@ -122,22 +131,26 @@ export const RecordingView: React.FC = () => {
         return;
       }
 
-      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 8_000_000 });
+      const recorder = new MediaRecorder(combinedStream, {
+        mimeType,
+        videoBitsPerSecond: 8_000_000,
+      });
       sessionIdRef.current = session.id;
       streamRef.current = combinedStream;
       recorderRef.current = recorder;
       writeChainRef.current = Promise.resolve();
 
       recorder.addEventListener('dataavailable', (event) => {
-        if (event.data.size === 0 || !sessionIdRef.current) return;
+        if (event.data.size === 0 || !sessionIdRef.current || cancelRequestedRef.current) return;
         const sessionId = sessionIdRef.current;
         writeChainRef.current = writeChainRef.current.then(async () => {
           const chunk = await event.data.arrayBuffer();
-          await window.knouxAPI.recording.append(sessionId, chunk);
+          await window.knouxCreativeAPI.recording.append(sessionId, chunk);
         });
       });
       recorder.addEventListener('error', (event) => {
-        setError(event.error.message);
+        const mediaError = event as Event & { error?: DOMException };
+        setError(mediaError.error?.message ?? 'MediaRecorder reported an error.');
       });
       combinedStream.getVideoTracks()[0]?.addEventListener('ended', () => {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -145,9 +158,12 @@ export const RecordingView: React.FC = () => {
       recorder.addEventListener('stop', () => {
         void (async () => {
           setStatus('stopping');
+          const sessionId = sessionIdRef.current;
           try {
             await writeChainRef.current;
-            if (sessionIdRef.current) await window.knouxAPI.recording.finish(sessionIdRef.current);
+            if (sessionId && !cancelRequestedRef.current) {
+              await window.knouxCreativeAPI.recording.finish(sessionId);
+            }
           } catch (reason) {
             setError(reason instanceof Error ? reason.message : 'Recording could not be finalized.');
           } finally {
@@ -173,7 +189,7 @@ export const RecordingView: React.FC = () => {
     const sessionId = sessionIdRef.current;
     if (!recorder || !sessionId || recorder.state !== 'recording') return;
     recorder.pause();
-    await window.knouxAPI.recording.pause(sessionId);
+    await window.knouxCreativeAPI.recording.pause(sessionId);
     setStatus('paused');
   }, []);
 
@@ -182,7 +198,7 @@ export const RecordingView: React.FC = () => {
     const sessionId = sessionIdRef.current;
     if (!recorder || !sessionId || recorder.state !== 'paused') return;
     recorder.resume();
-    await window.knouxAPI.recording.resume(sessionId);
+    await window.knouxCreativeAPI.recording.resume(sessionId);
     startedAtRef.current = Date.now() - elapsed * 1000;
     setStatus('recording');
   }, [elapsed]);
@@ -193,12 +209,17 @@ export const RecordingView: React.FC = () => {
   }, []);
 
   const cancelRecording = useCallback(async () => {
+    cancelRequestedRef.current = true;
     const sessionId = sessionIdRef.current;
     const recorder = recorderRef.current;
-    if (recorder && recorder.state !== 'inactive') recorder.stop();
     if (sessionId) {
-      try { await window.knouxAPI.recording.cancel(sessionId); } catch { /* session may already be finalizing */ }
+      try {
+        await window.knouxCreativeAPI.recording.cancel(sessionId);
+      } catch {
+        // A session already entering finalization is cleaned by the main process.
+      }
     }
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
     cleanupStreams();
     setStatus('idle');
   }, [cleanupStreams]);

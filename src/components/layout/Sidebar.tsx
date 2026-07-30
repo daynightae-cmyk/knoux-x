@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
 ];
 
 export const Sidebar: React.FC = () => {
-  const { currentView, setView, toggleAIAssistant } = useAppStore();
+  const { currentView, setView, toggleAIAssistant, addNotification } = useAppStore();
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
 
   const handleOpenFile = async (): Promise<void> => {
@@ -44,10 +44,23 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleOpenFolder = async (): Promise<void> => {
-    const folderPath = await window.knouxAPI.file.openDirectory();
-    if (!folderPath) return;
-    await window.knouxAPI.library.scan([folderPath]);
-    setView('library');
+    try {
+      const folder = await window.knouxCreativeAPI.library.chooseFolder();
+      if (!folder) return;
+      setView('library');
+      await window.knouxCreativeAPI.library.scan(folder.path);
+      addNotification({
+        type: 'success',
+        title: 'Library updated',
+        message: `${folder.name} was indexed successfully.`,
+      });
+    } catch (reason) {
+      addNotification({
+        type: 'error',
+        title: 'Library scan failed',
+        message: reason instanceof Error ? reason.message : 'The selected folder could not be indexed.',
+      });
+    }
   };
 
   return (

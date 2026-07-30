@@ -111,13 +111,22 @@ jobs:
           npm run package -- --arch=x64
           npm run make -- --arch=x64
 
-      - name: Verify package, installer, smoke, and cleanup
+      - name: Verify package, media tools, installer, smoke, and cleanup
         shell: pwsh
         run: |
           $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
           $installer = Get-ChildItem out\make -Recurse -Include '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $installer -or $installer.Length -le 0) { throw 'Installer is missing or empty.' }
+          $resources = Join-Path $exe.Directory.FullName 'resources'
+          $ffmpeg = Get-ChildItem $resources -Recurse -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ffmpeg -or $ffmpeg.Length -le 0) { throw 'Packaged ffmpeg.exe is missing or empty.' }
+          if (-not $ffprobe -or $ffprobe.Length -le 0) { throw 'Packaged ffprobe.exe is missing or empty.' }
+          & $ffmpeg.FullName -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged ffmpeg.exe did not execute.' }
+          & $ffprobe.FullName -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged ffprobe.exe did not execute.' }
           $process = Start-Process -FilePath $exe.FullName -PassThru
           Start-Sleep -Seconds 20
           if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
@@ -131,6 +140,8 @@ jobs:
           }
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $ffprobe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
 
       - uses: actions/upload-artifact@v4
         if: success()

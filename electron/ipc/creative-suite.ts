@@ -1,6 +1,11 @@
-import { desktopCapturer, IpcMain, IpcMainInvokeEvent } from 'electron';
+import {
+  BrowserWindow,
+  desktopCapturer,
+  dialog,
+  IpcMain,
+  IpcMainInvokeEvent,
+} from 'electron';
 
-import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrchestrator';
 import type { BurstFrameRequest, ContactSheetRequest, SaveFrameRequest } from '../creative/capture-service';
 import { CaptureService } from '../creative/capture-service';
 import type { ExportRequest } from '../creative/export-service';
@@ -9,19 +14,29 @@ import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-
 import { ProjectService } from '../creative/project-service';
 import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
+import { AuthorizedPathRegistry } from '../security/validation';
 
 export interface CreativeSuiteController {
   shutdown(): Promise<void>;
 }
 
-interface CreativeSuiteDependencies {
-  orchestrator: SystemOrchestrator;
-  requireAuthorizedPath(filePath: string): string;
+const creativePaths = new AuthorizedPathRegistry();
+
+function isTrustedRendererUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'file:') return true;
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1');
+  } catch {
+    return false;
+  }
 }
 
-function assertTrustedSender(event: IpcMainInvokeEvent, orchestrator: SystemOrchestrator): void {
-  const mainWindow = orchestrator.getMainWindow();
-  if (!mainWindow || mainWindow.isDestroyed() || event.sender.id !== mainWindow.webContents.id) {
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  const senderUrl = event.senderFrame.url;
+  if (!owner || owner.isDestroyed() || !isTrustedRendererUrl(senderUrl)) {
     throw new Error('Creative Suite request was rejected from an untrusted renderer.');
   }
 }
@@ -33,20 +48,20 @@ function validateString(value: unknown, name: string, maxLength = 4096): string 
   return value;
 }
 
-export function setupCreativeSuiteHandlers(
-  ipc: IpcMain,
-  dependencies: CreativeSuiteDependencies,
-): CreativeSuiteController {
+function requireCreativePath(filePath: string): string {
+  return creativePaths.requireAuthorized(validateString(filePath, 'Authorized media path'));
+}
+
+export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteController {
   const capture = new CaptureService();
   const recording = new RecordingService();
   const projects = new ProjectService();
   const exports = new ExportService();
-  const { orchestrator, requireAuthorizedPath } = dependencies;
 
   const trusted = <TArgs extends unknown[], TResult>(
     handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>,
   ) => async (event: IpcMainInvokeEvent, ...args: TArgs): Promise<TResult> => {
-    assertTrustedSender(event, orchestrator);
+    assertTrustedSender(event);
     return handler(event, ...args);
   };
 
@@ -60,9 +75,16 @@ export function setupCreativeSuiteHandlers(
   ipc.handle('capture:recent', trusted(async () => capture.getRecentCaptures()));
   ipc.handle('capture:show-item', trusted(async (_event, filePath: string) => capture.showCaptureInFolder(validateString(filePath, 'Capture path'))));
   ipc.handle('capture:get-default-directory', trusted(async () => capture.getDefaultDirectory()));
-  ipc.handle('capture:set-default-directory', trusted(async (_event, directory: string | null) => {
-    if (directory === null) capture.setDefaultDirectory(null);
-    else capture.setDefaultDirectory(requireAuthorizedPath(validateString(directory, 'Capture directory')));
+  ipc.handle('capture:choose-default-directory', trusted(async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select the default KNOUX capture folder',
+      defaultPath: capture.getDefaultDirectory() ?? undefined,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const directory = creativePaths.authorizeRoot(result.filePaths[0]);
+    capture.setDefaultDirectory(directory);
+    return directory;
   }));
   ipc.handle('capture:desktop-sources', trusted(async () => {
     const sources = await desktopCapturer.getSources({
@@ -97,20 +119,28 @@ export function setupCreativeSuiteHandlers(
   ipc.handle('editor:recent-projects', trusted(async () => projects.getRecentProjects()));
   ipc.handle('editor:clear-recent-projects', trusted(async () => projects.clearRecentProjects()));
 
+  ipc.handle('export:select-source', trusted(async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select media for KNOUX export',
+      filters: [{
+        name: 'Media Files',
+        extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'mp3', 'wav', 'flac', 'm4a', 'ogg'],
+      }],
+      properties: ['openFile'],
+    });
+    return result.canceled || result.filePaths.length === 0
+      ? null
+      : creativePaths.authorizeFile(result.filePaths[0]);
+  }));
   ipc.handle('export:presets', trusted(async () => exports.listPresets()));
   ipc.handle('export:capabilities', trusted(async () => exports.getCapabilities()));
   ipc.handle('export:jobs', trusted(async () => exports.listJobs()));
   ipc.handle('export:cancel', trusted(async (_event, jobId: string) => exports.cancel(validateString(jobId, 'Export job ID', 128))));
-  ipc.handle('export:probe', trusted(async (_event, filePath: string) => {
-    const authorized = requireAuthorizedPath(validateString(filePath, 'Media path'));
-    const capabilities = await exports.getCapabilities();
-    if (!capabilities.available) throw new Error('Media probing is unavailable because FFmpeg is not installed.');
-    return dependencies.orchestrator.services.file.getMediaInfo(authorized);
-  }));
+  ipc.handle('export:probe', trusted(async (_event, filePath: string) => exports.probe(requireCreativePath(filePath))));
   ipc.handle('export:start', trusted(async (event, request: ExportRequest) => {
     const authorizedRequest: ExportRequest = {
       ...request,
-      inputPath: requireAuthorizedPath(validateString(request.inputPath, 'Export source path')),
+      inputPath: requireCreativePath(request.inputPath),
       outputPath: undefined,
     };
     return exports.export(authorizedRequest, (job) => {

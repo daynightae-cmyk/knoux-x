@@ -12,29 +12,31 @@ import {
   Share2,
 } from 'lucide-react';
 
+import { useTranslation } from '../../i18n';
 import { useAppStore, ViewType } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { NeonButton } from '../neon/NeonButton';
 
 interface NavItem {
   id: ViewType;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
 }
 
 const navItems: NavItem[] = [
-  { id: 'player', label: 'Player', icon: <Play size={18} /> },
-  { id: 'library', label: 'Library', icon: <Library size={18} /> },
-  { id: 'capture', label: 'Captures', icon: <Camera size={18} /> },
-  { id: 'recording', label: 'Recorder', icon: <Circle size={18} /> },
-  { id: 'editor', label: 'Editor', icon: <Clapperboard size={18} /> },
-  { id: 'export', label: 'Export', icon: <Share2 size={18} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+  { id: 'player', labelKey: 'nav.player', icon: <Play size={18} /> },
+  { id: 'library', labelKey: 'nav.library', icon: <Library size={18} /> },
+  { id: 'capture', labelKey: 'nav.captures', icon: <Camera size={18} /> },
+  { id: 'recording', labelKey: 'nav.recorder', icon: <Circle size={18} /> },
+  { id: 'editor', labelKey: 'nav.editor', icon: <Clapperboard size={18} /> },
+  { id: 'export', labelKey: 'nav.export', icon: <Share2 size={18} /> },
+  { id: 'settings', labelKey: 'nav.settings', icon: <Settings size={18} /> },
 ];
 
 export const Sidebar: React.FC = () => {
   const { currentView, setView, toggleAIAssistant, addNotification } = useAppStore();
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const { t } = useTranslation();
 
   const handleOpenFile = async (): Promise<void> => {
     const selected = await window.knouxCreativeAPI.media.open();
@@ -51,14 +53,14 @@ export const Sidebar: React.FC = () => {
       await window.knouxCreativeAPI.library.scan(folder.path);
       addNotification({
         type: 'success',
-        title: 'Library updated',
-        message: `${folder.name} was indexed successfully.`,
+        title: t('library.updated'),
+        message: `${folder.name}: ${t('library.indexed')}`,
       });
     } catch (reason) {
       addNotification({
         type: 'error',
-        title: 'Library scan failed',
-        message: reason instanceof Error ? reason.message : 'The selected folder could not be indexed.',
+        title: t('library.scanFailed'),
+        message: reason instanceof Error ? reason.message : t('library.scanFailed'),
       });
     }
   };
@@ -71,7 +73,7 @@ export const Sidebar: React.FC = () => {
       transition={{ duration: 0.25 }}
     >
       <div className="sidebar-section">
-        <h3 className="section-title">Quick Actions</h3>
+        <h3 className="section-title">{t('nav.quickActions')}</h3>
         <div className="quick-actions">
           <NeonButton
             variant="primary"
@@ -80,7 +82,7 @@ export const Sidebar: React.FC = () => {
             onClick={() => void handleOpenFile()}
             fullWidth
           >
-            Open File
+            {t('nav.openFile')}
           </NeonButton>
           <NeonButton
             variant="secondary"
@@ -89,13 +91,13 @@ export const Sidebar: React.FC = () => {
             onClick={() => void handleOpenFolder()}
             fullWidth
           >
-            Add Library Folder
+            {t('nav.addLibraryFolder')}
           </NeonButton>
         </div>
       </div>
 
       <div className="sidebar-section sidebar-scroll-section">
-        <h3 className="section-title">Workspace</h3>
+        <h3 className="section-title">{t('nav.workspace')}</h3>
         <nav className="nav-menu" aria-label="KNOUX workspace">
           {navItems.map((item) => (
             <motion.button
@@ -108,7 +110,7 @@ export const Sidebar: React.FC = () => {
               aria-current={currentView === item.id ? 'page' : undefined}
             >
               <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
+              <span className="nav-label">{t(item.labelKey)}</span>
               {currentView === item.id && (
                 <motion.div
                   className="active-indicator"
@@ -129,7 +131,7 @@ export const Sidebar: React.FC = () => {
           onClick={toggleAIAssistant}
           fullWidth
         >
-          Optional AI
+          {t('nav.optionalAI')}
         </NeonButton>
       </div>
 

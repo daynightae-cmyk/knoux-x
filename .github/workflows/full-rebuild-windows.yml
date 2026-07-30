@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: full-rebuild-windows-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validate-package:
@@ -111,7 +111,7 @@ jobs:
           npm run package -- --arch=x64
           npm run make -- --arch=x64
 
-      - name: Verify package, media tools, installer, smoke, and cleanup
+      - name: Verify package, media tools, Open With, single instance, smoke, and cleanup
         shell: pwsh
         run: |
           $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
@@ -123,13 +123,33 @@ jobs:
           $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $ffmpeg -or $ffmpeg.Length -le 0) { throw 'Packaged ffmpeg.exe is missing or empty.' }
           if (-not $ffprobe -or $ffprobe.Length -le 0) { throw 'Packaged ffprobe.exe is missing or empty.' }
-          & $ffmpeg.FullName -version | Select-Object -First 1
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged ffmpeg.exe did not execute.' }
-          & $ffprobe.FullName -version | Select-Object -First 1
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged ffprobe.exe did not execute.' }
-          $process = Start-Process -FilePath $exe.FullName -PassThru
+
+          $ffmpegVersion = @(& $ffmpeg.FullName -version 2>&1)
+          $ffmpegExit = $LASTEXITCODE
+          Write-Host ($ffmpegVersion | Select-Object -First 1)
+          if ($ffmpegExit -ne 0) { throw "Packaged ffmpeg.exe did not execute: $ffmpegExit" }
+          $ffprobeVersion = @(& $ffprobe.FullName -version 2>&1)
+          $ffprobeExit = $LASTEXITCODE
+          Write-Host ($ffprobeVersion | Select-Object -First 1)
+          if ($ffprobeExit -ne 0) { throw "Packaged ffprobe.exe did not execute: $ffprobeExit" }
+
+          $fixture = Join-Path $env:RUNNER_TEMP 'knoux-open-with-smoke.mp4'
+          & $ffmpeg.FullName -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=320x180:rate=15:duration=2' -c:v mpeg4 -q:v 5 $fixture
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $fixture) -or (Get-Item $fixture).Length -le 1000) {
+            throw 'Synthetic Open With fixture could not be generated.'
+          }
+
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
           Start-Sleep -Seconds 20
           if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
+
+          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
+          if (-not $second.WaitForExit(10000)) {
+            Stop-Process -Id $second.Id -Force
+            throw 'Second application instance did not exit after forwarding media.'
+          }
+          if ($process.HasExited) { throw 'Primary application exited while handling a second-instance media request.' }
+
           $process.CloseMainWindow() | Out-Null
           if (-not $process.WaitForExit(15000)) { Stop-Process -Id $process.Id -Force }
           Start-Sleep -Seconds 3
@@ -138,6 +158,7 @@ jobs:
             $orphans | Stop-Process -Force
             throw 'KNOUX, Electron, or media-tool processes remained after shutdown.'
           }
+
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append

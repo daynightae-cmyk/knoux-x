@@ -1,9 +1,9 @@
 {
     "name":  "knoux-player-x",
     "version":  "2.0.0",
-    "description":  "KNOUX Player X Ultimate â€” premium next-generation desktop media experience with AI-assisted playback.",
+    "description":  "KNOUX Player Xâ„¢ Ultimate - Next-Gen Media Player with OpenRouter AI Integration",
     "main":  ".vite/build/main.js",
-    "author":  "Eng. Sadek Elgazar (Knoux)",
+    "author":  "SADEK ELGAZAR (KNOUX)",
     "license":  "Proprietary",
     "private":  true,
     "scripts":  {
@@ -22,9 +22,7 @@
                     "test:e2e":  "playwright test",
                     "typecheck":  "tsc --noEmit",
                     "analyze":  "webpack-bundle-analyzer dist/stats.json",
-                    "check":  "npm run typecheck \u0026\u0026 npm run lint",
-                    "doctor":  "node tools/doctor.cjs",
-                    "phase1:verify":  "npm run doctor \u0026\u0026 npm run typecheck \u0026\u0026 npm run lint \u0026\u0026 npm run package"
+                    "check":  "npm run typecheck \u0026\u0026 npm run lint"
                 },
     "devDependencies":  {
                             "@electron-forge/cli":  "^7.2.0",
@@ -122,7 +120,7 @@
                        "url":  "https://github.com/daynightae-cmyk/knoux-x.git"
                    },
     "bugs":  {
-                 "url":  "https://github.com/daynightae-cmyk/knoux-x/issues"
+                 "url":  "https://github.com/knoux/knoux-player-x/issues"
              },
-    "homepage":  "https://knoux.store"
+    "homepage":  "https://knoux.dev"
 }

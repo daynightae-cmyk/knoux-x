@@ -1,0 +1,22 @@
+{
+    "phase":  "01",
+    "result":  "FAILED",
+    "repository":  "D:\\Knoux-X-Bootstrap\\repository",
+    "branch":  "",
+    "node":  "v24.18.0",
+    "npm":  "11.16.0",
+    "startedAt":  "2026-07-30T16:20:24.4457518+04:00",
+    "completedAt":  "2026-07-30T16:20:25.2173932+04:00",
+    "gates":  {
+                  "Dependencies":  null,
+                  "Doctor":  null,
+                  "Typecheck":  null,
+                  "Lint":  null,
+                  "Package":  null
+              },
+    "logs":  {
+                 "master":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-162024\\phase-01-master.log",
+                 "npm":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-162024\\npm-install.log",
+                 "validation":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-162024\\validation.log"
+             }
+}

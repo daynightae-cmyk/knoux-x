@@ -1,0 +1,22 @@
+{
+    "phase":  "01",
+    "result":  "PARTIAL",
+    "repository":  "D:\\Knoux-X-Bootstrap\\repository",
+    "branch":  "customization/phase-01-foundation-20260730-162025",
+    "node":  "v24.18.0",
+    "npm":  "11.16.0",
+    "startedAt":  "2026-07-30T17:34:28.5369032+04:00",
+    "completedAt":  "2026-07-30T17:51:46.6399205+04:00",
+    "gates":  {
+                  "Dependencies":  "FAIL",
+                  "Doctor":  "PASS",
+                  "Typecheck":  "SKIPPED",
+                  "Lint":  "SKIPPED",
+                  "Package":  "SKIPPED"
+              },
+    "logs":  {
+                 "master":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-173428\\phase-01-master.log",
+                 "npm":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-173428\\npm-install.log",
+                 "validation":  "D:\\Knoux-X-Bootstrap\\repository\\reports\\phase-01\\20260730-173428\\validation.log"
+             }
+}

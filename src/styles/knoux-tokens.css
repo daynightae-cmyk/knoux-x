@@ -1,0 +1,39 @@
+:root {
+  --knoux-bg-0: #07040f;
+  --knoux-bg-1: #0d0718;
+  --knoux-bg-2: #151026;
+  --knoux-surface: rgba(24, 16, 45, 0.76);
+  --knoux-surface-strong: rgba(32, 20, 60, 0.94);
+  --knoux-border: rgba(167, 103, 255, 0.28);
+  --knoux-border-strong: rgba(190, 133, 255, 0.55);
+  --knoux-primary: #9d4edd;
+  --knoux-primary-bright: #c77dff;
+  --knoux-accent: #7b2cff;
+  --knoux-cyan: #55e6ff;
+  --knoux-text: #f7f2ff;
+  --knoux-text-muted: #b9aecb;
+  --knoux-success: #48e5a5;
+  --knoux-warning: #ffc857;
+  --knoux-danger: #ff5f87;
+  --knoux-shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --knoux-glow-primary: 0 0 26px rgba(157, 78, 221, 0.32);
+  --knoux-radius-sm: 10px;
+  --knoux-radius-md: 16px;
+  --knoux-radius-lg: 24px;
+  --knoux-space-1: 4px;
+  --knoux-space-2: 8px;
+  --knoux-space-3: 12px;
+  --knoux-space-4: 16px;
+  --knoux-space-5: 24px;
+  --knoux-space-6: 32px;
+  --knoux-duration-fast: 120ms;
+  --knoux-duration-normal: 220ms;
+  --knoux-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --knoux-duration-fast: 1ms;
+    --knoux-duration-normal: 1ms;
+  }
+}

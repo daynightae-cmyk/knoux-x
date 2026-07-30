@@ -31,31 +31,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Apply pending runtime hardening
-        shell: pwsh
-        run: |
-          if (Test-Path tools/run-finalize-creative-runtime.cjs) {
-            node tools/run-finalize-creative-runtime.cjs
-            if ($LASTEXITCODE -ne 0) { throw 'Runtime hardening migration failed.' }
-          } else {
-            Write-Host 'No pending runtime hardening migration.'
-          }
-
-      - name: Persist runtime hardening
-        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
-        shell: pwsh
-        run: |
-          git add -A
-          git diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m 'refactor: remove legacy eager runtime and harden desktop integration'
-            git push origin HEAD:codex/knoux-player-x-full-rebuild
-          } else {
-            Write-Host 'Runtime source is already hardened.'
-          }
-
       - name: Configure native toolchain
         shell: pwsh
         run: |
@@ -75,23 +50,43 @@ jobs:
           }
           if (-not (Test-Path package-lock.json)) { throw 'package-lock.json is still missing.' }
 
-      - name: Persist deterministic lockfile
+      - name: Install deterministic dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate and validate KNOUX icon system
+        shell: pwsh
+        run: |
+          node tools/generate-icon-assets.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'KNOUX icon generation failed.' }
+          $required = @(
+            'assets/icons/app-icon.ico',
+            'assets/icons/app-icon.png',
+            'assets/icons/tray-icon.png',
+            'assets/icons/favicon.png',
+            'assets/icons/file-video.ico',
+            'assets/icons/file-audio.ico',
+            'assets/icons/file-subtitle.ico',
+            'assets/icons/file-playlist.ico',
+            'assets/icons/file-project.ico'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file) -or (Get-Item $file).Length -le 0) { throw "Missing or empty icon: $file" }
+          }
+
+      - name: Persist deterministic lockfile and icon assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
         shell: pwsh
         run: |
-          git add package-lock.json
+          git add package-lock.json assets/icons
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m 'build: add deterministic Node 20 dependency lockfile'
+            git commit -m 'build: add deterministic lockfile and KNOUX icon assets'
             git push origin HEAD:codex/knoux-player-x-full-rebuild
           } else {
-            Write-Host 'Committed package-lock.json is already current.'
+            Write-Host 'Lockfile and icon assets are already current.'
           }
-
-      - name: Install deterministic dependencies
-        run: npm ci --no-audit --no-fund
 
       - name: Rebuild Electron native modules
         shell: pwsh
@@ -145,3 +140,5 @@ jobs:
           path: |
             out/**
             artifact-hashes.txt
+            package-lock.json
+            assets/icons/**

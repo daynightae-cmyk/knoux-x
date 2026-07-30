@@ -1,0 +1,322 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Copy,
+  FilePlus2,
+  FolderOpen,
+  Redo2,
+  Save,
+  Scissors,
+  Trash2,
+  Undo2,
+  Video,
+} from 'lucide-react';
+
+import { NeonButton } from '../../components/neon/NeonButton';
+import { NeonPanel } from '../../components/neon/NeonPanel';
+import {
+  clipDuration,
+  EditClip,
+  EditHistory,
+  EditProject,
+  splitClip,
+  trimClip,
+} from '../../core/creative/editProject';
+
+function projectDuration(project: EditProject | null): number {
+  if (!project || project.clips.length === 0) return 0;
+  return Math.max(...project.clips.map((clip) => clip.timelineStart + clipDuration(clip)));
+}
+
+function formatSeconds(seconds: number): string {
+  if (!Number.isFinite(seconds)) return '0:00.000';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+  return `${minutes}:${remainder.toFixed(3).padStart(6, '0')}`;
+}
+
+async function readMediaDuration(mediaUrl: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const media = document.createElement('video');
+    media.preload = 'metadata';
+    media.src = mediaUrl;
+    const cleanup = (): void => {
+      media.removeAttribute('src');
+      media.load();
+    };
+    media.addEventListener('loadedmetadata', () => {
+      const duration = media.duration;
+      cleanup();
+      if (Number.isFinite(duration) && duration > 0) resolve(duration);
+      else reject(new Error('The selected media has no finite duration.'));
+    }, { once: true });
+    media.addEventListener('error', () => {
+      cleanup();
+      reject(new Error('The selected media metadata could not be decoded.'));
+    }, { once: true });
+  });
+}
+
+export const EditorView: React.FC = () => {
+  const [project, setProject] = useState<EditProject | null>(null);
+  const [projectPath, setProjectPath] = useState<string | undefined>();
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const [playhead, setPlayhead] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const historyRef = useRef<EditHistory<EditProject> | null>(null);
+
+  const totalDuration = useMemo(() => projectDuration(project), [project]);
+  const selectedClip = useMemo(
+    () => project?.clips.find((clip) => clip.id === selectedClipId) ?? null,
+    [project, selectedClipId],
+  );
+
+  const replaceProject = useCallback((next: EditProject, recordHistory = true): void => {
+    const stamped = { ...next, updatedAt: new Date().toISOString() };
+    if (recordHistory && historyRef.current) historyRef.current.apply(stamped);
+    else historyRef.current = new EditHistory(stamped);
+    setProject(stamped);
+    setDirty(true);
+  }, []);
+
+  const createNewProject = useCallback(async (): Promise<void> => {
+    setError(null);
+    const name = window.prompt('Project name', 'Untitled KNOUX Project')?.trim();
+    if (!name) return;
+    const next = await window.knouxCreativeAPI.editor.createProject(name);
+    historyRef.current = new EditHistory(next);
+    setProject(next);
+    setProjectPath(undefined);
+    setSelectedClipId(null);
+    setPlayhead(0);
+    setDirty(false);
+  }, []);
+
+  const openProject = useCallback(async (): Promise<void> => {
+    setError(null);
+    const opened = await window.knouxCreativeAPI.editor.openProject();
+    if (!opened) return;
+    historyRef.current = new EditHistory(opened.project);
+    setProject(opened.project);
+    setProjectPath(opened.filePath);
+    setSelectedClipId(opened.project.clips[0]?.id ?? null);
+    setPlayhead(0);
+    setDirty(false);
+  }, []);
+
+  const saveProject = useCallback(async (saveAs = false): Promise<void> => {
+    if (!project || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const savedPath = await window.knouxCreativeAPI.editor.saveProject(project, projectPath, saveAs);
+      if (savedPath) {
+        setProjectPath(savedPath);
+        setDirty(false);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Project could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, project, projectPath]);
+
+  useEffect(() => {
+    if (!project || !dirty) return undefined;
+    const timer = window.setTimeout(() => {
+      void window.knouxCreativeAPI.editor.autosave(project).catch(() => undefined);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [dirty, project]);
+
+  const addMedia = useCallback(async (): Promise<void> => {
+    if (!project || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const selected = await window.knouxCreativeAPI.media.open();
+      if (!selected) return;
+      const duration = await readMediaDuration(selected.mediaUrl);
+      const clip: EditClip = {
+        id: crypto.randomUUID(),
+        sourcePath: selected.filePath,
+        sourceIn: 0,
+        sourceOut: duration,
+        timelineStart: projectDuration(project),
+        playbackRate: 1,
+        volume: 1,
+      };
+      replaceProject({ ...project, clips: [...project.clips, clip] });
+      setSelectedClipId(clip.id);
+      setPlayhead(clip.timelineStart);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Media could not be added.');
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, project, replaceProject]);
+
+  const splitSelected = useCallback((): void => {
+    if (!project || !selectedClip) return;
+    try {
+      const [left, right] = splitClip(selectedClip, playhead, crypto.randomUUID());
+      const index = project.clips.findIndex((clip) => clip.id === selectedClip.id);
+      const clips = [...project.clips];
+      clips.splice(index, 1, left, right);
+      replaceProject({ ...project, clips });
+      setSelectedClipId(right.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Place the playhead inside the selected clip before splitting.');
+    }
+  }, [playhead, project, replaceProject, selectedClip]);
+
+  const updateSelectedRange = useCallback((sourceIn: number, sourceOut: number): void => {
+    if (!project || !selectedClip) return;
+    try {
+      const updated = trimClip(selectedClip, sourceIn, sourceOut);
+      replaceProject({
+        ...project,
+        clips: project.clips.map((clip) => clip.id === updated.id ? updated : clip),
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The trim range is invalid.');
+    }
+  }, [project, replaceProject, selectedClip]);
+
+  const duplicateSelected = useCallback((): void => {
+    if (!project || !selectedClip) return;
+    const copy: EditClip = {
+      ...selectedClip,
+      id: crypto.randomUUID(),
+      timelineStart: totalDuration,
+    };
+    replaceProject({ ...project, clips: [...project.clips, copy] });
+    setSelectedClipId(copy.id);
+  }, [project, replaceProject, selectedClip, totalDuration]);
+
+  const deleteSelected = useCallback((): void => {
+    if (!project || !selectedClip) return;
+    const remaining = project.clips.filter((clip) => clip.id !== selectedClip.id);
+    let cursor = 0;
+    const ripple = remaining.map((clip) => {
+      const next = { ...clip, timelineStart: cursor };
+      cursor += clipDuration(next);
+      return next;
+    });
+    replaceProject({ ...project, clips: ripple });
+    setSelectedClipId(ripple[0]?.id ?? null);
+    setPlayhead(Math.min(playhead, projectDuration({ ...project, clips: ripple })));
+  }, [playhead, project, replaceProject, selectedClip]);
+
+  const undo = useCallback((): void => {
+    if (!historyRef.current?.canUndo) return;
+    const previous = historyRef.current.undo();
+    setProject(previous);
+    setDirty(true);
+  }, []);
+
+  const redo = useCallback((): void => {
+    if (!historyRef.current?.canRedo) return;
+    const next = historyRef.current.redo();
+    setProject(next);
+    setDirty(true);
+  }, []);
+
+  return (
+    <section className="creative-view editor-view" aria-labelledby="editor-title">
+      <header className="creative-header">
+        <div>
+          <span className="creative-eyebrow">Non-destructive workflow</span>
+          <h1 id="editor-title"><Scissors size={30} /> KNOUX Smart Editor</h1>
+          <p>Build a versioned .knouxedit timeline without modifying the original media files.</p>
+        </div>
+        <div className="creative-actions">
+          <NeonButton variant="ghost" leftIcon={<FilePlus2 size={16} />} onClick={() => void createNewProject()}>New</NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openProject()}>Open</NeonButton>
+          <NeonButton variant="secondary" leftIcon={<Save size={16} />} onClick={() => void saveProject(false)} disabled={!project || !dirty || busy}>Save</NeonButton>
+          <NeonButton variant="primary" onClick={() => void saveProject(true)} disabled={!project || busy}>Save As</NeonButton>
+        </div>
+      </header>
+
+      {error && <div className="creative-error" role="alert">{error}</div>}
+
+      {!project ? (
+        <NeonPanel variant="dark" padding="lg">
+          <div className="creative-empty-hint">
+            <Scissors size={42} />
+            <div><strong>Create or open a project</strong><span>Projects are autosaved locally and remain independent of source files.</span></div>
+          </div>
+        </NeonPanel>
+      ) : (
+        <>
+          <NeonPanel variant="dark" padding="md">
+            <div className="editor-project-bar">
+              <label>
+                <span>Project</span>
+                <input value={project.name} onChange={(event) => replaceProject({ ...project, name: event.target.value })} />
+              </label>
+              <div><strong>{project.clips.length}</strong><span> clips</span></div>
+              <div><strong>{formatSeconds(totalDuration)}</strong><span> duration</span></div>
+              <div className={dirty ? 'dirty-status active' : 'dirty-status'}>{dirty ? 'Unsaved changes' : 'Saved'}</div>
+            </div>
+          </NeonPanel>
+
+          <div className="editor-toolbar">
+            <NeonButton variant="primary" leftIcon={<Video size={16} />} onClick={() => void addMedia()} disabled={busy}>Add media</NeonButton>
+            <NeonButton variant="secondary" leftIcon={<Scissors size={16} />} onClick={splitSelected} disabled={!selectedClip}>Split</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Copy size={16} />} onClick={duplicateSelected} disabled={!selectedClip}>Duplicate</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Trash2 size={16} />} onClick={deleteSelected} disabled={!selectedClip}>Ripple delete</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Undo2 size={16} />} onClick={undo} disabled={!historyRef.current?.canUndo}>Undo</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Redo2 size={16} />} onClick={redo} disabled={!historyRef.current?.canRedo}>Redo</NeonButton>
+          </div>
+
+          <div className="editor-workspace">
+            <NeonPanel variant="dark" padding="md" className="editor-inspector">
+              <h2>Inspector</h2>
+              {selectedClip ? (
+                <div className="creative-form-grid">
+                  <label><span>Source in</span><input type="number" step="0.001" min={0} value={selectedClip.sourceIn} onChange={(event) => updateSelectedRange(Number(event.target.value), selectedClip.sourceOut)} /></label>
+                  <label><span>Source out</span><input type="number" step="0.001" min={selectedClip.sourceIn} value={selectedClip.sourceOut} onChange={(event) => updateSelectedRange(selectedClip.sourceIn, Number(event.target.value))} /></label>
+                  <label><span>Playback rate</span><input type="number" step="0.05" min={0.1} max={8} value={selectedClip.playbackRate} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, playbackRate: Number(event.target.value) } : clip) })} /></label>
+                  <label><span>Volume</span><input type="number" step="0.05" min={0} max={2} value={selectedClip.volume} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, volume: Number(event.target.value) } : clip) })} /></label>
+                  <div className="inspector-path" title={selectedClip.sourcePath}>{selectedClip.sourcePath}</div>
+                </div>
+              ) : <div className="creative-empty">Select a clip to edit its properties.</div>}
+            </NeonPanel>
+
+            <div className="editor-timeline-panel">
+              <div className="timeline-ruler">
+                <label>Playhead <input type="number" min={0} max={totalDuration} step="0.001" value={playhead} onChange={(event) => setPlayhead(Number(event.target.value))} /></label>
+                <span>{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
+              </div>
+              <div className="editor-timeline" style={{ '--timeline-duration': Math.max(totalDuration, 1) } as React.CSSProperties}>
+                <div className="timeline-playhead" style={{ left: `${totalDuration > 0 ? (playhead / totalDuration) * 100 : 0}%` }} />
+                {project.clips.map((clip, index) => (
+                  <button
+                    key={clip.id}
+                    type="button"
+                    className={`timeline-clip ${clip.id === selectedClipId ? 'selected' : ''}`}
+                    style={{
+                      left: `${totalDuration > 0 ? (clip.timelineStart / totalDuration) * 100 : 0}%`,
+                      width: `${totalDuration > 0 ? (clipDuration(clip) / totalDuration) * 100 : 100}%`,
+                    }}
+                    onClick={() => {
+                      setSelectedClipId(clip.id);
+                      setPlayhead(clip.timelineStart + clipDuration(clip) / 2);
+                    }}
+                    title={clip.sourcePath}
+                  >
+                    <strong>{index + 1}</strong>
+                    <span>{clip.sourcePath.split(/[\\/]/).pop()}</span>
+                    <small>{formatSeconds(clipDuration(clip))}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+};

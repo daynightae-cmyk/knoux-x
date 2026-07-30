@@ -1,0 +1,40 @@
+name: Generate KNOUX lockfile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/knoux-player-x-full-rebuild
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          registry-url: https://registry.npmjs.org
+
+      - name: Generate and validate lockfile
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ls --depth=0
+
+      - name: Commit lockfile to execution branch
+        shell: pwsh
+        run: |
+          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated.' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m 'build: add deterministic Node 20 dependency lockfile'
+            git push origin HEAD:codex/knoux-player-x-full-rebuild
+          }

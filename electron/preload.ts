@@ -438,6 +438,14 @@ const systemAPI = {
   },
 };
 
+const appAPI = {
+  onOpenMedia: (callback: (paths: string[]) => void): (() => void) => {
+    const handler = (_event: unknown, paths: string[]) => callback([...paths]);
+    ipcRenderer.on('app:open-media', handler);
+    return () => ipcRenderer.removeListener('app:open-media', handler);
+  },
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // واجهة API للذكاء الاصطناعي
 // ═══════════════════════════════════════════════════════════════════════════
@@ -480,6 +488,7 @@ contextBridge.exposeInMainWorld('knouxAPI', {
   settings: settingsAPI,
   window: windowAPI,
   system: systemAPI,
+  app: appAPI,
   ai: aiAPI,
 });
 
@@ -496,6 +505,7 @@ declare global {
       settings: typeof settingsAPI;
       window: typeof windowAPI;
       system: typeof systemAPI;
+      app: typeof appAPI;
       ai: typeof aiAPI;
     };
   }

@@ -1,11 +1,10 @@
 {
-  "name": "knoux-player-x",
-  "version": "2.0.0",
-  "description": "KNOUX Player X Ultimate â€” premium next-generation desktop media experience with AI-assisted playback.",
-  "main": ".vite/build/main.js",
-  "author": "Eng. Sadek Elgazar (Knoux)",
-  "license": "Proprietary",
-  "private": true,
+  "capturedAt": "2026-07-30T19:15:00Z",
+  "nodeRequested": "20.20.2",
+  "nodeObserved": "24.15.0",
+  "npmObserved": "11.4.2",
+  "lockfile": false,
+  "nodeModules": false,
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
@@ -26,16 +25,33 @@
     "doctor": "node tools/doctor.cjs",
     "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "transform": {
-      "^.+\\.tsx?$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
-    },
-    "modulePathIgnorePatterns": [
-      "<rootDir>/backups/",
-      "<rootDir>/out/",
-      "<rootDir>/reports/"
-    ]
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.15.0",
+    "@tensorflow/tfjs-node": "^4.15.0",
+    "better-sqlite3": "^9.4.0",
+    "electron-log": "^5.0.1",
+    "electron-squirrel-startup": "^1.0.0",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7",
+    "fluent-ffmpeg": "^2.1.2",
+    "framer-motion": "^10.16.16",
+    "i18next": "^23.7.11",
+    "i18next-browser-languagedetector": "^7.2.0",
+    "i18next-fs-backend": "^2.3.1",
+    "music-metadata": "^7.14.0",
+    "node-id3": "^0.2.6",
+    "onnxruntime-node": "^1.16.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^13.5.0",
+    "react-icons": "^4.12.0",
+    "react-router-dom": "^6.21.1",
+    "sharp": "^0.33.1",
+    "xstate": "^5.4.1",
+    "zustand": "^4.4.7",
+    "@google/generative-ai": "^0.24.1",
+    "events": "^3.3.0",
+    "lucide-react": "^0.563.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.2.0",
@@ -85,56 +101,8 @@
     "vite": "^5.4.21",
     "eslint-import-resolver-typescript": "3.6.1"
   },
-  "dependencies": {
-    "@tensorflow/tfjs": "^4.15.0",
-    "@tensorflow/tfjs-node": "^4.15.0",
-    "better-sqlite3": "^9.4.0",
-    "electron-log": "^5.0.1",
-    "electron-squirrel-startup": "^1.0.0",
-    "electron-store": "^8.1.0",
-    "electron-updater": "^6.1.7",
-    "fluent-ffmpeg": "^2.1.2",
-    "framer-motion": "^10.16.16",
-    "i18next": "^23.7.11",
-    "i18next-browser-languagedetector": "^7.2.0",
-    "i18next-fs-backend": "^2.3.1",
-    "music-metadata": "^7.14.0",
-    "node-id3": "^0.2.6",
-    "onnxruntime-node": "^1.16.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-i18next": "^13.5.0",
-    "react-icons": "^4.12.0",
-    "react-router-dom": "^6.21.1",
-    "sharp": "^0.33.1",
-    "xstate": "^5.4.1",
-    "zustand": "^4.4.7",
-    "@google/generative-ai": "^0.24.1",
-    "events": "^3.3.0",
-    "lucide-react": "^0.563.0"
-  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
-  },
-  "keywords": [
-    "media-player",
-    "video-player",
-    "audio-player",
-    "electron",
-    "react",
-    "typescript",
-    "ai",
-    "machine-learning",
-    "dsp",
-    "neon-design"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/daynightae-cmyk/knoux-x.git"
-  },
-  "bugs": {
-    "url": "https://github.com/daynightae-cmyk/knoux-x/issues"
-  },
-  "homepage": "https://knoux.store"
+  }
 }

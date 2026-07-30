@@ -6,6 +6,7 @@ import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/a
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
+import type { LoadedSubtitle } from './creative/subtitle-service';
 import type {
   LibraryFolder,
   LibraryMediaItem,
@@ -94,6 +95,12 @@ export const creativeAPI = {
     cancel: (sessionId: string): Promise<RecordingSessionSnapshot> =>
       ipcRenderer.invoke('recording:cancel', sessionId),
     list: (): Promise<RecordingSessionSnapshot[]> => ipcRenderer.invoke('recording:list'),
+  },
+  subtitles: {
+    select: (delaySeconds = 0): Promise<LoadedSubtitle | null> =>
+      ipcRenderer.invoke('subtitle:select', delaySeconds),
+    reload: (filePath: string, delaySeconds = 0): Promise<LoadedSubtitle> =>
+      ipcRenderer.invoke('subtitle:reload', filePath, delaySeconds),
   },
   editor: {
     createProject: (name: string): Promise<EditProject> =>

@@ -163,7 +163,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 const gotTheLock = !started && app.requestSingleInstanceLock();
 if (!gotTheLock) {
-  app.quit();
+  app.exit(0);
 } else {
   app.on('second-instance', (_event, argv) => {
     const forwardedPaths = authorizeMediaPaths(mediaPathsFromArguments(argv));
@@ -204,7 +204,7 @@ if (!gotTheLock) {
     await createMainWindow();
   }).catch((error) => {
     log.error('Failed to start KNOUX Player X', error);
-    app.quit();
+    app.exit(1);
   });
 
   app.on('activate', () => {

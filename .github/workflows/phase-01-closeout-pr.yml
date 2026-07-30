@@ -41,34 +41,55 @@ jobs:
       - name: Install aligned dependencies
         shell: powershell
         run: |
+          $ErrorActionPreference = 'Continue'
           npm install --no-audit --no-fund 2>&1 | Tee-Object npm-install.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { exit $code }
           npm ls typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-import-resolver-typescript --depth=0 2>&1 | Tee-Object dependency-versions.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { exit $code }
 
       - name: Doctor
         shell: powershell
-        run: npm run doctor 2>&1 | Tee-Object doctor.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm run doctor 2>&1 | Tee-Object doctor.log
+          exit $LASTEXITCODE
 
       - name: Typecheck
         shell: powershell
-        run: npm run typecheck 2>&1 | Tee-Object typecheck.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm run typecheck 2>&1 | Tee-Object typecheck.log
+          exit $LASTEXITCODE
 
       - name: Lint autofix after backup
         shell: powershell
-        run: npm run lint:fix 2>&1 | Tee-Object lint-fix.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm run lint:fix 2>&1 | Tee-Object lint-fix.log
+          exit $LASTEXITCODE
 
       - name: Lint
         shell: powershell
-        run: npm run lint 2>&1 | Tee-Object lint.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm run lint 2>&1 | Tee-Object lint.log
+          exit $LASTEXITCODE
 
       - name: Unit tests
         shell: powershell
-        run: npm test -- --runInBand --passWithNoTests 2>&1 | Tee-Object tests.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm test -- --runInBand --passWithNoTests 2>&1 | Tee-Object tests.log
+          exit $LASTEXITCODE
 
       - name: Package Windows application
         shell: powershell
-        run: npm run package 2>&1 | Tee-Object package.log
+        run: |
+          $ErrorActionPreference = 'Continue'
+          npm run package 2>&1 | Tee-Object package.log
+          exit $LASTEXITCODE
 
       - name: Verify package and smoke test
         shell: powershell
@@ -107,8 +128,8 @@ jobs:
           - executable size: $($meta.ExeSize) bytes
           - Phase 02: not started
           "@ | Set-Content "$root\PHASE-01-CLOSEOUT.md" -Encoding UTF8
-          '# Typecheck Before / After`n`n- Before: 29 errors in 13 files.`n- After: 0 errors.' | Set-Content "$root\TYPECHECK-BEFORE-AFTER.md" -Encoding UTF8
-          '# Lint Before / After`n`n- Before: 419 findings caused largely by resolver incompatibility.`n- After: validation command passed.' | Set-Content "$root\LINT-BEFORE-AFTER.md" -Encoding UTF8
+          "# Typecheck Before / After`n`n- Before: 29 errors in 13 files.`n- After: 0 errors." | Set-Content "$root\TYPECHECK-BEFORE-AFTER.md" -Encoding UTF8
+          "# Lint Before / After`n`n- Before: 419 findings caused largely by resolver incompatibility.`n- After: validation command passed." | Set-Content "$root\LINT-BEFORE-AFTER.md" -Encoding UTF8
           "# Package Verification`n`n- EXE: $($meta.ExePath)`n- Size: $($meta.ExeSize)`n- Smoke: PASS" | Set-Content "$root\PACKAGE-VERIFICATION.md" -Encoding UTF8
           Get-Content dependency-versions.log | ConvertTo-Json | Set-Content "$root\DEPENDENCY-VERSIONS.json" -Encoding UTF8
           git status --short | Set-Content "$root\CHANGED-FILES.txt" -Encoding UTF8

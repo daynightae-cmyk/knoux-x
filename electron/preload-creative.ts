@@ -7,6 +7,10 @@ import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/a
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
+import type {
+  DesktopCaptureRequest,
+  DesktopCaptureResult,
+} from './creative/region-capture-service';
 import type { LoadedSubtitle } from './creative/subtitle-service';
 import type {
   LibraryFolder,
@@ -77,6 +81,12 @@ export const creativeAPI = {
     getDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:get-default-directory'),
     chooseDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:choose-default-directory'),
     getDesktopSources: (): Promise<DesktopCaptureSource[]> => ipcRenderer.invoke('capture:desktop-sources'),
+    captureDesktop: (request: DesktopCaptureRequest): Promise<DesktopCaptureResult | null> =>
+      ipcRenderer.invoke('capture:desktop', request),
+    completeRegionSelection: (payload: { token: string; x: number; y: number; width: number; height: number }): void =>
+      ipcRenderer.send('capture:selector-complete', payload),
+    cancelRegionSelection: (token: string): void =>
+      ipcRenderer.send('capture:selector-cancel', token),
   },
   recording: {
     begin: (request: {

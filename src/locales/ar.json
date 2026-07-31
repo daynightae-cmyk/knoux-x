@@ -34,6 +34,14 @@
     "unknown": "غير معروف",
     "error": "خطأ"
   },
+  "window": {
+    "enableAlwaysOnTop": "إبقاء كنوكس فوق جميع النوافذ",
+    "disableAlwaysOnTop": "إلغاء البقاء فوق النوافذ",
+    "minimize": "تصغير النافذة",
+    "maximize": "تكبير النافذة",
+    "restore": "استعادة حجم النافذة",
+    "close": "إغلاق كنوكس بلاير إكس"
+  },
   "player": {
     "openLocalMedia": "فتح وسائط محلية",
     "localPrivacy": "يبقى الفيديو والصوت على جهازك.",

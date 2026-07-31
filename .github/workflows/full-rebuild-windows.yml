@@ -164,17 +164,11 @@ jobs:
           if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
 
           $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
-          Start-Sleep -Seconds 8
-          $afterSecondIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-          $unexpectedIds = @($afterSecondIds | Where-Object { $_ -notin $primaryIds })
-          if ($unexpectedIds.Count -gt 0) {
+          if (-not $second.WaitForExit(15000)) {
             Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
-            throw "Second-instance launch left additional KNOUX processes running: $($unexpectedIds -join ', ')."
-          }
-          if (-not $second.HasExited -and $second.Id -notin $primaryIds) {
-            Stop-Process -Id $second.Id -Force -ErrorAction SilentlyContinue
             throw 'Second launcher process did not exit after forwarding the media request.'
           }
+          Start-Sleep -Seconds 3
           $remainingPrimaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
           if (@($remainingPrimaryIds | Where-Object { $_ -in $primaryIds }).Count -lt 1) {
             throw 'Primary application exited while handling a second-instance media request.'

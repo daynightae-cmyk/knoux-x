@@ -33,7 +33,7 @@ async function atomicJson(filePath: string, value: unknown): Promise<void> {
   await fs.rename(temporaryPath, filePath);
 }
 
-function safePreferences(window: BrowserWindow): Record<string, unknown> {
+function safePreferences(window: BrowserWindow, configuredPreload: string): Record<string, unknown> {
   const preferences = (window.webContents as unknown as { getLastWebPreferences(): Electron.WebPreferences }).getLastWebPreferences();
   return {
     nodeIntegration: preferences.nodeIntegration,
@@ -41,7 +41,8 @@ function safePreferences(window: BrowserWindow): Record<string, unknown> {
     sandbox: preferences.sandbox,
     webSecurity: preferences.webSecurity,
     allowRunningInsecureContent: preferences.allowRunningInsecureContent,
-    preload: preferences.preload,
+    preload: configuredPreload,
+    runtimeReportedPreload: preferences.preload ?? null,
   };
 }
 
@@ -130,9 +131,17 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
       return { namespacePresence, requiredApis, runtimeDescriptor: runtimeBefore, overwriteBlocked, steps, systemInfo, buildInfo, ipcHealth };
     })()`, true) as Record<string, unknown>;
 
-    const mainPreferences = safePreferences(options.mainWindow);
-    const smokePreferences = safePreferences(smokeWindow);
     const expectedPreload = resolveTrustedPreloadPath();
+    const mainBridge = await options.mainWindow.webContents.executeJavaScript(`(() => ({
+      runtime: window.knouxRuntime,
+      hasCoreApi: typeof window.knouxAPI === 'object' && typeof window.knouxAPI.settings?.get === 'function',
+      hasCreativeApi: typeof window.knouxCreativeAPI === 'object'
+    }))()`, true) as { runtime?: { edition?: string }; hasCoreApi?: boolean; hasCreativeApi?: boolean };
+    if (mainBridge.runtime?.edition !== 'desktop' || !mainBridge.hasCoreApi || !mainBridge.hasCreativeApi) {
+      throw new Error(`PACKAGED_MAIN_BRIDGE_INVALID ${JSON.stringify(mainBridge)}`);
+    }
+    const mainPreferences = safePreferences(options.mainWindow, expectedPreload);
+    const smokePreferences = safePreferences(smokeWindow, expectedPreload);
     for (const [label, preferences] of [['main', mainPreferences], ['smoke', smokePreferences]] as const) {
       if (preferences.nodeIntegration !== false || preferences.contextIsolation !== true || preferences.sandbox !== true || preferences.webSecurity !== true) {
         throw new Error(`PACKAGED_WINDOW_SECURITY_FAILED ${label}`);
@@ -159,6 +168,7 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
       ipcManifest: options.manifest,
       windows: { main: mainPreferences, smoke: smokePreferences },
       renderer: rendererResult,
+      mainRenderer: mainBridge,
       startedAt,
       completedAt: new Date().toISOString(),
     });

@@ -96,6 +96,7 @@ export const creativeAPI = {
     cancel: (sessionId: string): Promise<RecordingSessionSnapshot> =>
       ipcRenderer.invoke('recording:cancel', sessionId),
     list: (): Promise<RecordingSessionSnapshot[]> => ipcRenderer.invoke('recording:list'),
+    showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('recording:show-item', filePath),
   },
   subtitles: {
     select: (delaySeconds = 0): Promise<LoadedSubtitle | null> =>

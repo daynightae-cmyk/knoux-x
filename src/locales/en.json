@@ -31,6 +31,7 @@
     "items": "items",
     "seconds": "seconds",
     "unavailable": "Unavailable",
+    "unknown": "Unknown",
     "error": "Error"
   },
   "player": {
@@ -146,7 +147,11 @@
     "playbackRate": "Playback rate",
     "volume": "Volume",
     "selectClip": "Select a clip to edit its properties.",
-    "playhead": "Playhead"
+    "playhead": "Playhead",
+    "saveFailed": "Project could not be saved.",
+    "addMediaFailed": "Media could not be added.",
+    "splitFailed": "Place the playhead inside the selected clip before splitting.",
+    "trimFailed": "The trim range is invalid."
   },
   "export": {
     "eyebrow": "Verified media pipeline",
@@ -175,7 +180,11 @@
     "waitingDestination": "Waiting for destination",
     "time": "Time",
     "fps": "FPS",
-    "speed": "Speed"
+    "speed": "Speed",
+    "capabilitiesFailed": "Export capabilities could not be loaded.",
+    "probeFailed": "Media metadata could not be inspected.",
+    "startFailed": "Export failed.",
+    "status": "Status"
   },
   "settings": {
     "title": "Settings",

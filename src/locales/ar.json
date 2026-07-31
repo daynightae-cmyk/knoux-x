@@ -31,6 +31,7 @@
     "items": "عناصر",
     "seconds": "ثوانٍ",
     "unavailable": "غير متاح",
+    "unknown": "غير معروف",
     "error": "خطأ"
   },
   "player": {
@@ -146,7 +147,11 @@
     "playbackRate": "سرعة التشغيل",
     "volume": "مستوى الصوت",
     "selectClip": "حدد مقطعًا لتعديل خصائصه.",
-    "playhead": "مؤشر التشغيل"
+    "playhead": "مؤشر التشغيل",
+    "saveFailed": "تعذر حفظ المشروع.",
+    "addMediaFailed": "تعذر إضافة الوسائط.",
+    "splitFailed": "ضع مؤشر التشغيل داخل المقطع المحدد قبل التقسيم.",
+    "trimFailed": "نطاق القص غير صالح."
   },
   "export": {
     "eyebrow": "مسار وسائط متحقق منه",
@@ -175,7 +180,11 @@
     "waitingDestination": "في انتظار وجهة الحفظ",
     "time": "الوقت",
     "fps": "الإطارات في الثانية",
-    "speed": "السرعة"
+    "speed": "السرعة",
+    "capabilitiesFailed": "تعذر تحميل إمكانات التصدير.",
+    "probeFailed": "تعذر فحص بيانات الوسائط.",
+    "startFailed": "فشل التصدير.",
+    "status": "الحالة"
   },
   "settings": {
     "title": "الإعدادات",

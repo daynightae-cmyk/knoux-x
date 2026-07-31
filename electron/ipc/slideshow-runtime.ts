@@ -2,10 +2,9 @@ import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 
 import type { SlideshowRenderFormat } from '../../src/core/creative/slideshowRender';
 import type { SlideshowProject, SlideshowTemplate } from '../../src/core/creative/slideshowProject';
-import { authorizedMediaPaths } from '../security/path-registry';
-
 import { SlideshowProjectService } from '../creative/slideshow-project-service';
 import { SlideshowRenderService } from '../creative/slideshow-render-service';
+import { authorizedMediaPaths } from '../security/path-registry';
 
 export interface SlideshowRuntimeController {
   close(): void;

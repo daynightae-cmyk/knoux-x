@@ -315,6 +315,72 @@
   margin: 14px 0;
 }
 
+.editor-start-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-start-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.editor-start-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.editor-start-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.editor-start-heading span,
+.editor-start-card span,
+.editor-start-card small {
+  color: var(--knoux-muted);
+  font-size: 0.76rem;
+}
+
+.editor-start-list {
+  display: grid;
+  gap: 8px;
+  max-height: 290px;
+  overflow: auto;
+}
+
+.editor-start-card {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--knoux-border);
+  border-radius: 12px;
+  color: var(--knoux-text);
+  background: color-mix(in srgb, var(--knoux-surface-elevated) 88%, transparent);
+  text-align: start;
+  cursor: pointer;
+}
+
+.editor-start-card:hover,
+.editor-start-card:focus-visible {
+  border-color: color-mix(in srgb, var(--knoux-accent) 72%, white);
+  box-shadow: 0 0 18px var(--knoux-accent-soft);
+}
+
+.editor-start-card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-project-bar {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) auto auto auto;
@@ -650,7 +716,8 @@
 @media (max-width: 1180px) {
   .recording-layout,
   .export-layout,
-  .editor-workspace {
+  .editor-workspace,
+  .editor-start-grid {
     grid-template-columns: 1fr;
   }
 

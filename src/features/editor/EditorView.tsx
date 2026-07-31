@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeft,
+  ArrowRight,
   Copy,
   FilePlus2,
   FolderOpen,
+  History,
+  Link,
   Redo2,
   Save,
   Scissors,
@@ -18,10 +22,17 @@ import {
   EditClip,
   EditHistory,
   EditProject,
+  moveClip,
+  reflowTimeline,
   splitClip,
   trimClip,
 } from '../../core/creative/editProject';
 import { useTranslation } from '../../i18n';
+
+interface RecoverableProject {
+  project: EditProject;
+  filePath: string;
+}
 
 function projectDuration(project: EditProject | null): number {
   if (!project || project.clips.length === 0) return 0;
@@ -65,12 +76,19 @@ export const EditorView: React.FC = () => {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentProjects, setRecentProjects] = useState<string[]>([]);
+  const [recoverableProjects, setRecoverableProjects] = useState<RecoverableProject[]>([]);
+  const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const historyRef = useRef<EditHistory<EditProject> | null>(null);
   const { t } = useTranslation();
 
   const totalDuration = useMemo(() => projectDuration(project), [project]);
   const selectedClip = useMemo(
     () => project?.clips.find((clip) => clip.id === selectedClipId) ?? null,
+    [project, selectedClipId],
+  );
+  const selectedClipIndex = useMemo(
+    () => project?.clips.findIndex((clip) => clip.id === selectedClipId) ?? -1,
     [project, selectedClipId],
   );
 
@@ -82,30 +100,80 @@ export const EditorView: React.FC = () => {
     setDirty(true);
   }, []);
 
+  const activateProject = useCallback((
+    next: EditProject,
+    filePath: string | undefined,
+    hasUnsavedRecovery = false,
+  ): void => {
+    historyRef.current = new EditHistory(next);
+    setProject(next);
+    setProjectPath(filePath);
+    setSelectedClipId(next.clips[0]?.id ?? null);
+    setPlayhead(0);
+    setDirty(hasUnsavedRecovery);
+  }, []);
+
+  const refreshStartWorkspace = useCallback(async (): Promise<void> => {
+    setWorkspaceLoading(true);
+    try {
+      const [recent, recoverable] = await Promise.all([
+        window.knouxCreativeAPI.editor.recentProjects(),
+        window.knouxCreativeAPI.editor.recoverAutosaves(),
+      ]);
+      setRecentProjects(recent);
+      setRecoverableProjects(recoverable);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.workspaceLoadFailed'));
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => { void refreshStartWorkspace(); }, [refreshStartWorkspace]);
+
   const createNewProject = useCallback(async (): Promise<void> => {
     setError(null);
     const name = window.prompt(t('editor.projectNamePrompt'), t('editor.defaultProject'))?.trim();
     if (!name) return;
     const next = await window.knouxCreativeAPI.editor.createProject(name);
-    historyRef.current = new EditHistory(next);
-    setProject(next);
-    setProjectPath(undefined);
-    setSelectedClipId(null);
-    setPlayhead(0);
-    setDirty(false);
-  }, [t]);
+    activateProject(next, undefined);
+  }, [activateProject, t]);
 
   const openProject = useCallback(async (): Promise<void> => {
     setError(null);
     const opened = await window.knouxCreativeAPI.editor.openProject();
     if (!opened) return;
-    historyRef.current = new EditHistory(opened.project);
-    setProject(opened.project);
-    setProjectPath(opened.filePath);
-    setSelectedClipId(opened.project.clips[0]?.id ?? null);
-    setPlayhead(0);
-    setDirty(false);
-  }, []);
+    activateProject(opened.project, opened.filePath);
+    await refreshStartWorkspace();
+  }, [activateProject, refreshStartWorkspace]);
+
+  const openRecentProject = useCallback(async (filePath: string): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      const opened = await window.knouxCreativeAPI.editor.openRecent(filePath);
+      activateProject(opened.project, opened.filePath);
+      await refreshStartWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.openRecentFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [activateProject, refreshStartWorkspace, t]);
+
+  const recoverProject = useCallback((recovery: RecoverableProject): void => {
+    activateProject(recovery.project, undefined, true);
+  }, [activateProject]);
+
+  const clearRecentProjects = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      await window.knouxCreativeAPI.editor.clearRecentProjects();
+      setRecentProjects([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.clearRecentFailed'));
+    }
+  }, [t]);
 
   const saveProject = useCallback(async (saveAs = false): Promise<void> => {
     if (!project || busy) return;
@@ -116,13 +184,14 @@ export const EditorView: React.FC = () => {
       if (savedPath) {
         setProjectPath(savedPath);
         setDirty(false);
+        await refreshStartWorkspace();
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('editor.saveFailed'));
     } finally {
       setBusy(false);
     }
-  }, [busy, project, projectPath, t]);
+  }, [busy, project, projectPath, refreshStartWorkspace, t]);
 
   useEffect(() => {
     if (!project || !dirty) return undefined;
@@ -199,17 +268,46 @@ export const EditorView: React.FC = () => {
 
   const deleteSelected = useCallback((): void => {
     if (!project || !selectedClip) return;
-    const remaining = project.clips.filter((clip) => clip.id !== selectedClip.id);
-    let cursor = 0;
-    const ripple = remaining.map((clip) => {
-      const next = { ...clip, timelineStart: cursor };
-      cursor += clipDuration(next);
-      return next;
-    });
+    const ripple = reflowTimeline(project.clips.filter((clip) => clip.id !== selectedClip.id));
     replaceProject({ ...project, clips: ripple });
     setSelectedClipId(ripple[0]?.id ?? null);
     setPlayhead(Math.min(playhead, projectDuration({ ...project, clips: ripple })));
   }, [playhead, project, replaceProject, selectedClip]);
+
+  const moveSelected = useCallback((offset: -1 | 1): void => {
+    if (!project || !selectedClip) return;
+    try {
+      replaceProject({ ...project, clips: moveClip(project.clips, selectedClip.id, offset) });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.reorderFailed'));
+    }
+  }, [project, replaceProject, selectedClip, t]);
+
+  const relinkSelected = useCallback(async (): Promise<void> => {
+    if (!project || !selectedClip || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const selected = await window.knouxCreativeAPI.media.open();
+      if (!selected) return;
+      const duration = await readMediaDuration(selected.mediaUrl);
+      const sourceIn = Math.min(selectedClip.sourceIn, Math.max(0, duration - 0.001));
+      const sourceOut = Math.min(selectedClip.sourceOut, duration);
+      const safeRange = sourceOut > sourceIn
+        ? { sourceIn, sourceOut }
+        : { sourceIn: 0, sourceOut: duration };
+      replaceProject({
+        ...project,
+        clips: project.clips.map((clip) => clip.id === selectedClip.id
+          ? { ...clip, sourcePath: selected.filePath, ...safeRange }
+          : clip),
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.relinkFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, project, replaceProject, selectedClip, t]);
 
   const undo = useCallback((): void => {
     if (!historyRef.current?.canUndo) return;
@@ -244,12 +342,81 @@ export const EditorView: React.FC = () => {
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       {!project ? (
-        <NeonPanel variant="dark" padding="lg">
-          <div className="creative-empty-hint">
-            <Scissors size={42} />
-            <div><strong>{t('editor.emptyTitle')}</strong><span>{t('editor.emptyDescription')}</span></div>
-          </div>
-        </NeonPanel>
+        <div className="editor-start-workspace">
+          <NeonPanel variant="dark" padding="lg">
+            <div className="creative-empty-hint">
+              <Scissors size={42} />
+              <div><strong>{t('editor.emptyTitle')}</strong><span>{t('editor.emptyDescription')}</span></div>
+            </div>
+          </NeonPanel>
+
+          {workspaceLoading ? (
+            <div className="creative-loading">{t('editor.workspaceLoading')}</div>
+          ) : (
+            <div className="editor-start-grid">
+              <NeonPanel variant="dark" padding="md">
+                <div className="editor-start-heading">
+                  <div>
+                    <h2><History size={18} /> {t('editor.recoveries')}</h2>
+                    <span>{t('editor.recoveriesDescription')}</span>
+                  </div>
+                  <strong>{recoverableProjects.length}</strong>
+                </div>
+                {recoverableProjects.length === 0 ? (
+                  <div className="creative-empty">{t('editor.noRecoveries')}</div>
+                ) : (
+                  <div className="editor-start-list">
+                    {recoverableProjects.map((recovery) => (
+                      <button
+                        key={recovery.filePath}
+                        type="button"
+                        className="editor-start-card"
+                        onClick={() => recoverProject(recovery)}
+                        disabled={busy}
+                      >
+                        <strong>{recovery.project.name}</strong>
+                        <span dir="auto">{recovery.filePath}</span>
+                        <small>{new Date(recovery.project.updatedAt).toLocaleString()}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </NeonPanel>
+
+              <NeonPanel variant="dark" padding="md">
+                <div className="editor-start-heading">
+                  <div>
+                    <h2><FolderOpen size={18} /> {t('editor.recentProjects')}</h2>
+                    <span>{t('editor.recentProjectsDescription')}</span>
+                  </div>
+                  {recentProjects.length > 0 && (
+                    <NeonButton variant="ghost" size="sm" onClick={() => void clearRecentProjects()}>
+                      {t('editor.clearRecent')}
+                    </NeonButton>
+                  )}
+                </div>
+                {recentProjects.length === 0 ? (
+                  <div className="creative-empty">{t('editor.noRecentProjects')}</div>
+                ) : (
+                  <div className="editor-start-list">
+                    {recentProjects.map((filePath) => (
+                      <button
+                        key={filePath}
+                        type="button"
+                        className="editor-start-card"
+                        onClick={() => void openRecentProject(filePath)}
+                        disabled={busy}
+                      >
+                        <strong dir="auto">{filePath.split(/[\\/]/).pop()}</strong>
+                        <span dir="auto">{filePath}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </NeonPanel>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <NeonPanel variant="dark" padding="md">
@@ -269,6 +436,9 @@ export const EditorView: React.FC = () => {
             <NeonButton variant="secondary" leftIcon={<Scissors size={16} />} onClick={splitSelected} disabled={!selectedClip}>{t('editor.split')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Copy size={16} />} onClick={duplicateSelected} disabled={!selectedClip}>{t('editor.duplicate')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Trash2 size={16} />} onClick={deleteSelected} disabled={!selectedClip}>{t('editor.rippleDelete')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<ArrowLeft size={16} />} onClick={() => moveSelected(-1)} disabled={selectedClipIndex <= 0}>{t('editor.moveEarlier')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<ArrowRight size={16} />} onClick={() => moveSelected(1)} disabled={selectedClipIndex < 0 || selectedClipIndex >= project.clips.length - 1}>{t('editor.moveLater')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Link size={16} />} onClick={() => void relinkSelected()} disabled={!selectedClip || busy}>{t('editor.relink')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Undo2 size={16} />} onClick={undo} disabled={!historyRef.current?.canUndo}>{t('editor.undo')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Redo2 size={16} />} onClick={redo} disabled={!historyRef.current?.canRedo}>{t('editor.redo')}</NeonButton>
           </div>

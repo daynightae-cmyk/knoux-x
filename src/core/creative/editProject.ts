@@ -55,6 +55,27 @@ export function trimClip(clip: EditClip, sourceIn: number, sourceOut: number): E
   return { ...clip, sourceIn, sourceOut };
 }
 
+export function reflowTimeline(clips: EditClip[]): EditClip[] {
+  let timelineStart = 0;
+  return clips.map((clip) => {
+    const next = { ...clip, timelineStart };
+    timelineStart += clipDuration(next);
+    return next;
+  });
+}
+
+export function moveClip(clips: EditClip[], clipId: string, offset: -1 | 1): EditClip[] {
+  const index = clips.findIndex((clip) => clip.id === clipId);
+  if (index < 0) throw new Error('The selected clip does not exist in this timeline.');
+  const destination = index + offset;
+  if (destination < 0 || destination >= clips.length) return reflowTimeline(clips);
+
+  const reordered = clips.map((clip) => ({ ...clip }));
+  const [selected] = reordered.splice(index, 1);
+  reordered.splice(destination, 0, selected);
+  return reflowTimeline(reordered);
+}
+
 export function parseEditProject(value: unknown): EditProject {
   if (typeof value !== 'object' || value === null) throw new TypeError('Edit project must be an object.');
   const candidate = value as Partial<EditProject>;

@@ -1,5 +1,14 @@
 import { createCaptureFileName, dataUrlByteLength, formatCaptureTime, sanitizeWindowsFileStem } from '../../src/core/creative/capture';
-import { EditHistory, clipDuration, parseEditProject, splitClip, trimClip, type EditClip } from '../../src/core/creative/editProject';
+import {
+  EditHistory,
+  clipDuration,
+  moveClip,
+  parseEditProject,
+  reflowTimeline,
+  splitClip,
+  trimClip,
+  type EditClip,
+} from '../../src/core/creative/editProject';
 import { initialRecordingState, reduceRecordingState } from '../../src/core/creative/recordingState';
 
 describe('creative media core', () => {
@@ -36,5 +45,17 @@ describe('creative media core', () => {
     history.apply({ ...project, name: 'Renamed' });
     expect(history.undo().name).toBe('Project');
     expect(history.redo().name).toBe('Renamed');
+  });
+
+  test('reorders clips and deterministically reflows the timeline', () => {
+    const first: EditClip = { id: 'first', sourcePath: 'C:\\media\\first.mp4', sourceIn: 0, sourceOut: 4, timelineStart: 19, playbackRate: 1, volume: 1 };
+    const second: EditClip = { id: 'second', sourcePath: 'C:\\media\\second.mp4', sourceIn: 2, sourceOut: 8, timelineStart: 27, playbackRate: 2, volume: 1 };
+    expect(reflowTimeline([first, second]).map((clip) => clip.timelineStart)).toEqual([0, 4]);
+
+    const reordered = moveClip([first, second], 'second', -1);
+    expect(reordered.map((clip) => clip.id)).toEqual(['second', 'first']);
+    expect(reordered.map((clip) => clip.timelineStart)).toEqual([0, 3]);
+    expect(first.timelineStart).toBe(19);
+    expect(() => moveClip([first], 'missing', 1)).toThrow('does not exist');
   });
 });

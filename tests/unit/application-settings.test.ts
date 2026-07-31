@@ -74,7 +74,7 @@ describe('KNOUX application settings', () => {
       await reloaded.shutdown();
 
       const persisted = JSON.parse(await fs.readFile(filePath, 'utf8'));
-      expect(persisted.schemaVersion).toBe(1);
+      expect(persisted.schemaVersion).toBe(2);
       expect(persisted.settings.defaultVolume).toBe(0.42);
       await expect(fs.access(`${filePath}.${process.pid}.tmp`)).rejects.toBeDefined();
     } finally {
@@ -114,6 +114,41 @@ describe('KNOUX application settings', () => {
       expect(entries.some((entry) => entry.startsWith('application-settings.json.corrupt-'))).toBe(true);
       expect(entries).toContain('application-settings.json');
       await manager.shutdown();
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  test('round-trips product customization and restores documented defaults', async () => {
+    const { directory, filePath } = await temporarySettingsPath();
+    try {
+      const manager = new SettingsManager(filePath);
+      await manager.initialize();
+      const shortcuts = structuredClone(DEFAULT_APPLICATION_SETTINGS.shortcuts);
+      shortcuts[0] = { ...shortcuts[0], accelerator: 'Ctrl+Space' };
+      const workspace = { ...structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace), sidebarWidth: 340, timelineHeight: 420 };
+      const recordingConfiguration = {
+        ...structuredClone(DEFAULT_APPLICATION_SETTINGS.recordingConfiguration),
+        frameRate: 60 as const,
+        cameraOverlay: true,
+        outputFolder: 'D:\\KNOUX Recordings',
+      };
+      await manager.set('shortcuts', shortcuts);
+      await manager.set('workspace', workspace);
+      await manager.set('recordingConfiguration', recordingConfiguration);
+      const exported = await manager.export();
+      await manager.shutdown();
+
+      const reloaded = new SettingsManager(filePath);
+      await reloaded.initialize();
+      expect(await reloaded.get('shortcuts')).toEqual(shortcuts);
+      expect(await reloaded.get('workspace')).toMatchObject({ sidebarWidth: 340, timelineHeight: 420 });
+      expect(await reloaded.get('recordingConfiguration')).toMatchObject({ frameRate: 60, cameraOverlay: true });
+      await reloaded.reset('recordingConfiguration');
+      expect(await reloaded.get('recordingConfiguration')).toEqual(DEFAULT_APPLICATION_SETTINGS.recordingConfiguration);
+      await reloaded.import(exported);
+      expect(await reloaded.get('recordingConfiguration')).toEqual(recordingConfiguration);
+      await reloaded.shutdown();
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }

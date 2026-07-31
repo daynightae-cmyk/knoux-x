@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
@@ -105,6 +105,9 @@ const fileAPI = {
 
   getMediaInfo: (filePath: string): Promise<MediaInfo> =>
     ipcRenderer.invoke('file:media-info', filePath),
+
+  authorizeDroppedFile: (file: File): Promise<string> =>
+    ipcRenderer.invoke('file:authorize-dropped', webUtils.getPathForFile(file)),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

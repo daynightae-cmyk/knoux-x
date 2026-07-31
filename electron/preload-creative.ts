@@ -107,6 +107,7 @@ export const creativeAPI = {
       mimeType: string;
       suggestedName?: string;
       countdownSeconds?: number;
+      preferredDirectory?: string;
     }): Promise<RecordingSessionSnapshot | null> => ipcRenderer.invoke('recording:begin', request),
     append: (sessionId: string, chunk: ArrayBuffer | Uint8Array): Promise<RecordingSessionSnapshot> =>
       ipcRenderer.invoke('recording:append', sessionId, chunk),

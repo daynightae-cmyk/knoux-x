@@ -24,6 +24,8 @@ interface StoredSettingsDocument {
   settings: ApplicationSettings;
 }
 
+const MAX_SETTINGS_BYTES = 2 * 1024 * 1024;
+
 function resolveSettingKey(value: string): ApplicationSettingKey | null {
   if (value === 'volume') return 'defaultVolume';
   return APPLICATION_SETTING_KEYS.has(value as ApplicationSettingKey) ? value as ApplicationSettingKey : null;
@@ -113,7 +115,7 @@ export class SettingsManager extends EventEmitter {
   }
 
   public async import(data: string): Promise<void> {
-    if (typeof data !== 'string' || data.length === 0 || data.length > 262_144 || data.includes('\u0000')) {
+    if (typeof data !== 'string' || data.length === 0 || data.length > MAX_SETTINGS_BYTES || data.includes('\u0000')) {
       throw new TypeError('Settings import data is invalid.');
     }
     let decoded: unknown;
@@ -180,10 +182,10 @@ export class SettingsManager extends EventEmitter {
     const storagePath = this.requireStoragePath();
     try {
       const raw = await fs.readFile(storagePath, 'utf8');
-      if (raw.length > 262_144) throw new Error('Settings file is too large.');
+      if (raw.length > MAX_SETTINGS_BYTES) throw new Error('Settings file is too large.');
       const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
       if ('settings' in decoded) {
-        if (decoded.schemaVersion !== APPLICATION_SETTINGS_SCHEMA_VERSION) throw new Error('Settings schema is unsupported.');
+        if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
         this.settings = parseApplicationSettings(decoded.settings);
       } else {
         this.settings = parseApplicationSettings(decoded);

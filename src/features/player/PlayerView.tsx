@@ -123,9 +123,14 @@ export const PlayerView: React.FC = () => {
     const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
       const firstPath = paths[0];
       if (!firstPath) return;
-      setCurrentMedia(firstPath);
-      setSubtitle(null);
-      setError(null);
+      void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
+        if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
+          throw new Error('Open With media contains no playable stream.');
+        }
+        setCurrentMedia(firstPath);
+        setSubtitle(null);
+        setError(null);
+      }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Open With media validation failed.'));
     });
     window.knouxAPI.app.ready();
     return unsubscribe;
@@ -174,11 +179,40 @@ export const PlayerView: React.FC = () => {
 
   const openMedia = useCallback(async (): Promise<void> => {
     setError(null);
-    const selected = await window.knouxCreativeAPI.media.open();
-    if (!selected) return;
-    setCurrentMedia(selected.filePath);
-    setMediaUrl(selected.mediaUrl);
-    setSubtitle(null);
+    try {
+      const selected = await window.knouxCreativeAPI.media.open();
+      if (!selected) return;
+      const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
+      if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
+        throw new Error('The selected file contains no playable audio or video stream.');
+      }
+      setCurrentMedia(selected.filePath);
+      setMediaUrl(selected.mediaUrl);
+      setSubtitle(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Media validation failed.');
+    }
+  }, [setCurrentMedia]);
+
+  const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>): Promise<void> => {
+    event.preventDefault();
+    if (document.documentElement.dataset.runtime === 'web-preview') {
+      setError('Drag-and-drop is available in the Windows desktop edition.');
+      return;
+    }
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    try {
+      const filePath = await window.knouxAPI.file.authorizeDroppedFile(file);
+      const probe = await window.knouxCreativeAPI.export.probe(filePath);
+      if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
+        throw new Error('Dropped file contains no playable stream.');
+      }
+      setCurrentMedia(filePath);
+      setSubtitle(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Dropped media could not be opened.');
+    }
   }, [setCurrentMedia]);
 
   const persistPlayback = useCallback(async (completed = false): Promise<void> => {
@@ -263,6 +297,15 @@ export const PlayerView: React.FC = () => {
       setCapturing(false);
     }
   }, [captureDataUrl, captureFormat, capturing, currentMedia, t]);
+
+  useEffect(() => {
+    const handleCommand = (event: Event): void => {
+      const command = (event as CustomEvent<{ command?: string }>).detail?.command;
+      if (command === 'screenshot') void saveCurrentFrame();
+    };
+    window.addEventListener('knoux:command', handleCommand);
+    return () => window.removeEventListener('knoux:command', handleCommand);
+  }, [saveCurrentFrame]);
 
   const copyCurrentFrame = useCallback(async (): Promise<void> => {
     if (capturing) return;
@@ -412,6 +455,8 @@ export const PlayerView: React.FC = () => {
     <div
       ref={containerRef}
       className="player-view"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => void handleDrop(event)}
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >

@@ -1,15 +1,17 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
 import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
+import { CommandShortcutController } from './components/system/CommandShortcutController';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
 import { useAppStore } from './store/appStore';
 import type { ViewType } from './store/appStore';
+import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/creative-suite.css';
@@ -96,8 +98,11 @@ const App: React.FC = () => {
     isLoading,
     loadingMessage,
     motionEnabled,
+    setView,
+    setSidebarWidth,
   } = useAppStore();
   const { t } = useTranslation();
+  const workspaceLoadedRef = useRef(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -108,6 +113,39 @@ const App: React.FC = () => {
     root.style.setProperty('--knoux-accent', accentColor);
     root.style.colorScheme = getKnouxThemePreset(theme).logo === 'day' ? 'light' : 'dark';
   }, [accentColor, locale, motionEnabled, theme]);
+
+  useEffect(() => {
+    const applyWorkspace = (workspace: WorkspaceSettings): void => {
+      const root = document.documentElement;
+      root.style.setProperty('--knoux-sidebar-width', `${workspace.sidebarWidth}px`);
+      root.style.setProperty('--knoux-timeline-height', `${workspace.timelineHeight}px`);
+      for (const [panel, size] of Object.entries(workspace.panelSizes)) {
+        root.style.setProperty(`--knoux-panel-${panel.replace(/[^a-z0-9-]/gi, '-')}`, `${size}px`);
+      }
+      setSidebarWidth(workspace.sidebarWidth);
+    };
+    let active = true;
+    void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
+      if (!active) return;
+      const workspace = value as WorkspaceSettings;
+      applyWorkspace(workspace);
+      if (!workspace.hiddenModules.includes(workspace.lastOpenedSection)) setView(workspace.lastOpenedSection as ViewType);
+      workspaceLoadedRef.current = true;
+    });
+    const unsubscribe = window.knouxAPI.settings.onChange((key, value) => {
+      if (key === 'workspace') applyWorkspace(value as WorkspaceSettings);
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [setSidebarWidth, setView]);
+
+  useEffect(() => {
+    if (!workspaceLoadedRef.current) return;
+    void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
+      const workspace = value as WorkspaceSettings;
+      if (workspace.lastOpenedSection === currentView) return;
+      return window.knouxAPI.settings.set('workspace', { ...workspace, lastOpenedSection: currentView });
+    });
+  }, [currentView]);
 
   return (
     <div className="app-shell" data-current-view={currentView}>
@@ -164,6 +202,7 @@ const App: React.FC = () => {
         </div>
       )}
       <FirstRunExperience />
+      <CommandShortcutController />
     </div>
   );
 };

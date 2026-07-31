@@ -170,6 +170,99 @@
   padding: 4px;
 }
 
+.customization-settings-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.customization-settings-stack .settings-section-heading > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.customization-settings-stack small {
+  color: var(--text-muted);
+}
+
+.customization-order-list,
+.shortcut-manager-list,
+.preset-manager-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.customization-order-list > div,
+.shortcut-manager-list > div,
+.preset-manager-list > div:not(.creative-empty) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.customization-order-list label,
+.shortcut-manager-list label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-transform: capitalize;
+}
+
+.customization-move-actions,
+.customization-inline-actions,
+.customization-name-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.customization-move-actions button,
+.shortcut-manager-list button,
+.preset-manager-list button,
+.customization-name-field button {
+  min-width: 34px;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--text-primary);
+}
+
+.shortcut-manager-list > div {
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.6fr) 36px;
+}
+
+.shortcut-manager-list input[dir='ltr'] {
+  width: 100%;
+}
+
+.preset-manager-list > div:not(.creative-empty) {
+  grid-template-columns: minmax(0, 1fr) repeat(3, 36px);
+}
+
+.preset-manager-list > div > button:first-child {
+  justify-content: flex-start;
+  padding-inline: 12px;
+}
+
+.preset-manager-list > div > button:first-child.active {
+  border-color: var(--knoux-accent);
+  color: var(--knoux-accent);
+}
+
+.customization-name-field input {
+  min-width: 0;
+  flex: 1;
+}
+
 @media (max-width: 1120px) {
   .settings-privacy-grid {
     grid-template-columns: 1fr;
@@ -196,5 +289,14 @@
 
   .settings-backup-actions > * {
     flex: 1 1 100%;
+  }
+
+  .shortcut-manager-list > div {
+    grid-template-columns: 1fr 36px;
+  }
+
+  .shortcut-manager-list input[dir='ltr'] {
+    grid-column: 1;
+    grid-row: 2;
   }
 }

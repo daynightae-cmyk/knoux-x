@@ -31,6 +31,7 @@ import {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import {
   addTrack,
   createTimelineItem,
@@ -354,10 +355,15 @@ export const MultitrackEditorView: React.FC = () => {
       if (!selected) return;
       const extension = selected.filePath.split('.').pop()?.toLowerCase() ?? '';
       const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
-      const audioExtensions = new Set(['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus']);
-      const actualKind: 'video' | 'audio' | 'image' = imageExtensions.has(extension)
-        ? 'image'
-        : audioExtensions.has(extension) ? 'audio' : 'video';
+      let actualKind: 'video' | 'audio' | 'image' = 'image';
+      if (!imageExtensions.has(extension)) {
+        const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
+        const hasVideo = probe.streams?.some((stream) => stream.codec_type === 'video') ?? false;
+        const hasAudio = probe.streams?.some((stream) => stream.codec_type === 'audio') ?? false;
+        if (targetKind === 'video' && !hasVideo) throw new Error(t('multitrack.addMediaFailed'));
+        if (targetKind === 'audio' && !hasAudio) throw new Error(t('multitrack.addMediaFailed'));
+        actualKind = targetKind === 'audio' ? 'audio' : 'video';
+      }
       if (targetKind === 'image' && actualKind !== 'image') throw new Error(t('multitrack.selectImageFile'));
       const track = compatibleTrack(project, actualKind);
       if (!track) throw new Error(t('multitrack.noCompatibleTrack'));
@@ -437,6 +443,29 @@ export const MultitrackEditorView: React.FC = () => {
       setError(reason instanceof Error ? reason.message : t('multitrack.splitFailed'));
     }
   }, [commit, playhead, project, selectedItem, t]);
+
+  const trimSelectedIn = useCallback((): void => {
+    if (!selectedItem) return;
+    const offset = playhead - selectedItem.timelineStart;
+    if (offset <= 0 || offset >= selectedItem.duration) return;
+    patchSelectedItem((item) => ({
+      ...item,
+      timelineStart: playhead,
+      sourceIn: item.sourceIn + offset * item.playbackRate,
+      duration: item.duration - offset,
+    }));
+  }, [patchSelectedItem, playhead, selectedItem]);
+
+  const trimSelectedOut = useCallback((): void => {
+    if (!selectedItem) return;
+    const duration = playhead - selectedItem.timelineStart;
+    if (duration <= 0 || duration >= selectedItem.duration) return;
+    patchSelectedItem((item) => ({
+      ...item,
+      sourceOut: item.sourceIn + duration * item.playbackRate,
+      duration,
+    }));
+  }, [patchSelectedItem, playhead, selectedItem]);
 
   const duplicateSelected = useCallback((): void => {
     if (!project || !selectedItem) return;
@@ -536,6 +565,22 @@ export const MultitrackEditorView: React.FC = () => {
     }
   }, [playhead, selectedItem]);
 
+  useEffect(() => {
+    const handleCommand = (event: Event): void => {
+      switch ((event as CustomEvent<{ command?: string }>).detail?.command) {
+        case 'split-clip': splitSelected(); break;
+        case 'trim-in': trimSelectedIn(); break;
+        case 'trim-out': trimSelectedOut(); break;
+        case 'undo': undo(); break;
+        case 'redo': redo(); break;
+        case 'save': void saveProject(false); break;
+        default: break;
+      }
+    };
+    window.addEventListener('knoux:command', handleCommand);
+    return () => window.removeEventListener('knoux:command', handleCommand);
+  }, [redo, saveProject, splitSelected, trimSelectedIn, trimSelectedOut, undo]);
+
   if (!project) {
     return (
       <section className="creative-view multitrack-editor-view" aria-labelledby="multitrack-title">
@@ -594,6 +639,22 @@ export const MultitrackEditorView: React.FC = () => {
       </header>
 
       <RuntimeModeNotice feature="Versioned offline multitrack editing" featureAr="تحرير متعدد المسارات محلي وإصداري" />
+      <StudioPresetBar
+        kind="video-editing"
+        values={{ timelineZoom: project.settings.timelineZoom, snapEnabled: project.settings.snapEnabled, snapThreshold: project.settings.snapThreshold, autosaveSeconds: project.settings.autosaveSeconds }}
+        onApply={(values) => {
+          commit({
+            ...project,
+            settings: {
+              ...project.settings,
+              timelineZoom: typeof values.timelineZoom === 'number' ? Math.max(0.25, Math.min(4, values.timelineZoom)) : project.settings.timelineZoom,
+              snapEnabled: typeof values.snapEnabled === 'boolean' ? values.snapEnabled : project.settings.snapEnabled,
+              snapThreshold: typeof values.snapThreshold === 'number' ? Math.max(0, values.snapThreshold) : project.settings.snapThreshold,
+              autosaveSeconds: typeof values.autosaveSeconds === 'number' ? Math.max(5, values.autosaveSeconds) : project.settings.autosaveSeconds,
+            },
+          });
+        }}
+      />
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       <div className="multitrack-toolbar">

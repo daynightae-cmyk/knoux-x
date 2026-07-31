@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Subtitles,
   Trash2,
   Upload,
@@ -37,6 +38,8 @@ import { useAppStore } from '../../store/appStore';
 import type { ThemeType } from '../../store/appStore';
 import { KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
 
+import { CustomizationSettingsPanel } from './CustomizationSettingsPanel';
+
 type SettingsCategory =
   | 'general'
   | 'playback'
@@ -45,6 +48,7 @@ type SettingsCategory =
   | 'subtitles'
   | 'appearance'
   | 'accessibility'
+  | 'customization'
   | 'storage'
   | 'privacy'
   | 'about';
@@ -119,13 +123,14 @@ export const SettingsView: React.FC = () => {
   const { locale, t } = useTranslation();
 
   const categories = useMemo<Category[]>(() => [
-    { id: 'general', labelKey: 'settings.general', icon: <Globe2 size={18} /> },
+    { id: 'general', labelKey: 'settings.general', icon: <MonitorCog size={18} /> },
     { id: 'playback', labelKey: 'settings.playback', icon: <Play size={18} /> },
     { id: 'audio', labelKey: 'settings.audio', icon: <AudioLines size={18} /> },
     { id: 'video', labelKey: 'settings.video', icon: <Video size={18} /> },
     { id: 'subtitles', labelKey: 'settings.subtitles', icon: <Subtitles size={18} /> },
     { id: 'appearance', labelKey: 'settings.appearance', icon: <Palette size={18} /> },
     { id: 'accessibility', labelKey: 'settings.accessibility', icon: <Accessibility size={18} /> },
+    { id: 'customization', labelKey: 'settings.customization', icon: <SlidersHorizontal size={18} /> },
     { id: 'storage', labelKey: 'settings.storage', icon: <HardDrive size={18} /> },
     { id: 'privacy', labelKey: 'settings.privacy', icon: <ShieldCheck size={18} /> },
     { id: 'about', labelKey: 'settings.about', icon: <Info size={18} /> },
@@ -407,6 +412,28 @@ export const SettingsView: React.FC = () => {
               <h2>{t('settings.video')}</h2>
               {toggle('hardwareAcceleration', 'settings.hardwareAcceleration', t('settings.hardwareRestart'))}
               {toggle('deinterlace', 'settings.deinterlace')}
+              <label className="settings-range-card">
+                <span>{t('settings.brightness')} · {settings.brightness}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value={settings.brightness}
+                  onChange={(event) => void updateSetting('brightness', Number(event.target.value))}
+                />
+              </label>
+              <label className="settings-range-card">
+                <span>{t('settings.contrast')} · {settings.contrast}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value={settings.contrast}
+                  onChange={(event) => void updateSetting('contrast', Number(event.target.value))}
+                />
+              </label>
               <div className="setting-card"><div><strong>{t('settings.aspectRatio')}</strong></div><select value={settings.aspectRatio} onChange={(event) => void updateSetting('aspectRatio', event.target.value as ApplicationSettings['aspectRatio'])}>{['auto', '16:9', '4:3', '21:9', '1:1'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}</select></div>
             </NeonPanel>
           )}
@@ -446,6 +473,16 @@ export const SettingsView: React.FC = () => {
               {toggle('motionEnabled', 'settings.motion')}
               <div className="setting-card"><div><strong>High Contrast</strong><span>Apply the verified KNOUX high-contrast theme.</span></div><NeonButton variant="secondary" onClick={() => void updateSetting('theme', 'high-contrast')}>{t('settings.enabled')}</NeonButton></div>
             </NeonPanel>
+          )}
+
+          {category === 'customization' && (
+            <CustomizationSettingsPanel
+              settings={settings}
+              busy={busy}
+              updateSetting={updateSetting}
+              reportError={setError}
+              reportNotice={setNotice}
+            />
           )}
 
           {category === 'storage' && (

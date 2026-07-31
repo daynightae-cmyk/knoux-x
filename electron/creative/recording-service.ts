@@ -22,6 +22,7 @@ export interface BeginRecordingRequest {
   mimeType: string;
   suggestedName?: string;
   countdownSeconds?: number;
+  preferredDirectory?: string;
 }
 
 export interface RecordingSessionSnapshot {
@@ -76,9 +77,14 @@ export class RecordingService {
     const extension = extensionForMimeType(request.mimeType);
     const countdownSeconds = validateCountdown(request.countdownSeconds);
     const name = sanitizeWindowsFileStem(request.suggestedName ?? `KNOUX-${request.source}-recording`);
+    const preferredDirectory = typeof request.preferredDirectory === 'string' && request.preferredDirectory.length > 0
+      ? path.resolve(request.preferredDirectory)
+      : null;
     const result = await dialog.showSaveDialog({
       title: 'Save KNOUX recording',
-      defaultPath: `${name}-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
+      defaultPath: preferredDirectory
+        ? path.join(preferredDirectory, `${name}.${extension}`)
+        : `${name}.${extension}`,
       filters: [{ name: `${extension.toUpperCase()} Recording`, extensions: [extension] }],
       properties: ['createDirectory', 'showOverwriteConfirmation'],
     });

@@ -1,4 +1,26 @@
-export const APPLICATION_SETTINGS_SCHEMA_VERSION = 1;
+import {
+  DEFAULT_RECORDING_CONFIGURATION,
+  DEFAULT_RECORDING_TOOLBAR,
+  DEFAULT_SHORTCUTS,
+  DEFAULT_WORKSPACE_SETTINGS,
+  STUDIO_PRESET_KINDS,
+  validateLastSelectedPresets,
+  validateRecordingConfiguration,
+  validateRecordingToolbar,
+  validateShortcutBindings,
+  validateStudioPresets,
+  validateWorkspaceSettings,
+  type RecordingConfiguration,
+  type RecordingToolbarSettings,
+  type ShortcutBinding,
+  type StudioPreset,
+  type StudioPresetKind,
+  type WorkspaceSettings,
+} from './productCustomization';
+
+export * from './productCustomization';
+
+export const APPLICATION_SETTINGS_SCHEMA_VERSION = 2;
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type AspectRatioMode = 'auto' | '16:9' | '4:3' | '21:9' | '1:1';
@@ -35,6 +57,12 @@ export interface ApplicationSettings {
   rememberWindowState: boolean;
   cacheSizeMB: number;
   logLevel: LogLevel;
+  recordingToolbar: RecordingToolbarSettings;
+  shortcuts: ShortcutBinding[];
+  studioPresets: StudioPreset[];
+  lastSelectedPresets: Record<StudioPresetKind, string | null>;
+  workspace: WorkspaceSettings;
+  recordingConfiguration: RecordingConfiguration;
 }
 
 export interface ApplicationSettingsExport {
@@ -75,6 +103,12 @@ export const DEFAULT_APPLICATION_SETTINGS: ApplicationSettings = {
   rememberWindowState: true,
   cacheSizeMB: 512,
   logLevel: 'info',
+  recordingToolbar: structuredClone(DEFAULT_RECORDING_TOOLBAR),
+  shortcuts: structuredClone(DEFAULT_SHORTCUTS),
+  studioPresets: [],
+  lastSelectedPresets: Object.fromEntries(STUDIO_PRESET_KINDS.map((kind) => [kind, null])) as Record<StudioPresetKind, string | null>,
+  workspace: structuredClone(DEFAULT_WORKSPACE_SETTINGS),
+  recordingConfiguration: structuredClone(DEFAULT_RECORDING_CONFIGURATION),
 };
 
 export type ApplicationSettingKey = keyof ApplicationSettings;
@@ -188,6 +222,24 @@ export function validateApplicationSetting<K extends ApplicationSettingKey>(key:
       if (!['debug', 'info', 'warn', 'error'].includes(String(value))) throw new TypeError('Log level is unsupported.');
       validated = value;
       break;
+    case 'recordingToolbar':
+      validated = validateRecordingToolbar(value);
+      break;
+    case 'shortcuts':
+      validated = validateShortcutBindings(value);
+      break;
+    case 'studioPresets':
+      validated = validateStudioPresets(value);
+      break;
+    case 'lastSelectedPresets':
+      validated = validateLastSelectedPresets(value);
+      break;
+    case 'workspace':
+      validated = validateWorkspaceSettings(value);
+      break;
+    case 'recordingConfiguration':
+      validated = validateRecordingConfiguration(value);
+      break;
     default:
       throw new TypeError(`Unsupported application setting: ${String(key)}`);
   }
@@ -211,7 +263,7 @@ export function parseApplicationSettingsExport(value: unknown): ApplicationSetti
   const source = value as Record<string, unknown>;
   if (source.settings !== undefined) {
     if (source.product !== 'KNOUX Player X') throw new TypeError('Settings file belongs to another product.');
-    if (source.schemaVersion !== APPLICATION_SETTINGS_SCHEMA_VERSION) throw new TypeError('Settings schema version is unsupported.');
+    if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(Number(source.schemaVersion))) throw new TypeError('Settings schema version is unsupported.');
     return parseApplicationSettings(source.settings);
   }
   return parseApplicationSettings(source);

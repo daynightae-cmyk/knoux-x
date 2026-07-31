@@ -24,6 +24,7 @@ import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
@@ -102,7 +103,7 @@ export const CaptureView: React.FC = () => {
     }
   }, [t]);
 
-  const runCapture = useCallback(async (): Promise<void> => {
+  const runCapture = useCallback(async (requestedMode: DesktopCaptureMode = mode): Promise<void> => {
     if (!desktopRuntime || !selectedSource || capturing || (!save && !copyToClipboard)) return;
     setCapturing(true);
     setError(null);
@@ -110,7 +111,7 @@ export const CaptureView: React.FC = () => {
     try {
       const next = await window.knouxCreativeAPI.capture.captureDesktop({
         sourceId: selectedSource.id,
-        mode,
+        mode: requestedMode,
         format,
         save,
         copyToClipboard,
@@ -143,6 +144,16 @@ export const CaptureView: React.FC = () => {
     t,
   ]);
 
+  useEffect(() => {
+    const handleCommand = (event: Event): void => {
+      if ((event as CustomEvent<{ command?: string }>).detail?.command !== 'region-capture') return;
+      setMode('region');
+      void runCapture('region');
+    };
+    window.addEventListener('knoux:command', handleCommand);
+    return () => window.removeEventListener('knoux:command', handleCommand);
+  }, [runCapture]);
+
   const editResult = useCallback((): void => {
     if (!result) return;
     setImageEditorSource({
@@ -168,6 +179,19 @@ export const CaptureView: React.FC = () => {
       </header>
 
       <RuntimeModeNotice feature="Desktop, window and region capture" featureAr="التقاط الشاشة والنافذة والمنطقة" />
+      <StudioPresetBar
+        kind="capture"
+        values={{ mode, format, delaySeconds, aspectPreset, jpegQuality, save, copyToClipboard }}
+        onApply={(values) => {
+          if (['source', 'region'].includes(String(values.mode))) setMode(values.mode as DesktopCaptureMode);
+          if (formats.includes(values.format as CaptureFormat)) setFormat(values.format as CaptureFormat);
+          if (delays.includes(values.delaySeconds as typeof delays[number])) setDelaySeconds(values.delaySeconds as typeof delays[number]);
+          if (aspectPresets.includes(values.aspectPreset as RegionAspectPreset)) setAspectPreset(values.aspectPreset as RegionAspectPreset);
+          if (typeof values.jpegQuality === 'number') setJpegQuality(Math.max(1, Math.min(100, values.jpegQuality)));
+          if (typeof values.save === 'boolean') setSave(values.save);
+          if (typeof values.copyToClipboard === 'boolean') setCopyToClipboard(values.copyToClipboard);
+        }}
+      />
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       <div className="capture-studio-layout">

@@ -29,6 +29,7 @@ import {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useTranslation } from '../../i18n';
 import { useImageEditorStore } from '../../store/imageEditorStore';
@@ -642,6 +643,13 @@ export const ImageEditorView: React.FC = () => {
       </header>
 
       <RuntimeModeNotice feature="Offline canvas image editing" featureAr="تحرير الصور محليًا داخل Canvas" />
+      <StudioPresetBar
+        kind="image-export"
+        values={{ format: exportFormat }}
+        onApply={(values) => {
+          if (['png', 'jpeg', 'webp'].includes(String(values.format))) setExportFormat(values.format as CaptureFormat);
+        }}
+      />
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       <div className="image-editor-shell">

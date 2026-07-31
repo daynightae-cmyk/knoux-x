@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   AudioLines,
@@ -21,6 +21,7 @@ import {
 import { useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
 import type { ViewType } from '../../store/appStore';
+import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from '../../core/settings/productCustomization';
 import { usePlayerStore } from '../../store/playerStore';
 import { BrandMark } from '../brand/BrandMark';
 import { NeonButton } from '../neon/NeonButton';
@@ -80,6 +81,24 @@ export const Sidebar: React.FC = () => {
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
   const { t } = useTranslation();
   const compact = sidebarMode === 'compact';
+  const [workspace, setWorkspace] = useState<WorkspaceSettings>(structuredClone(DEFAULT_WORKSPACE_SETTINGS));
+
+  useEffect(() => {
+    let active = true;
+    void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
+      if (!active) return;
+      const next = value as WorkspaceSettings;
+      setWorkspace(next);
+      setSidebarWidth(next.sidebarWidth);
+    });
+    const unsubscribe = window.knouxAPI.settings.onChange((key, value) => {
+      if (key !== 'workspace') return;
+      const next = value as WorkspaceSettings;
+      setWorkspace(next);
+      setSidebarWidth(next.sidebarWidth);
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [setSidebarWidth]);
 
   const handleOpenFile = async (): Promise<void> => {
     const selected = await window.knouxCreativeAPI.media.open();
@@ -113,19 +132,31 @@ export const Sidebar: React.FC = () => {
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = sidebarWidth;
+    let latestWidth = sidebarWidth;
     const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
     const handleMove = (moveEvent: PointerEvent): void => {
-      setSidebarWidth(startWidth + ((moveEvent.clientX - startX) * direction));
+      latestWidth = Math.max(220, Math.min(480, startWidth + ((moveEvent.clientX - startX) * direction)));
+      setSidebarWidth(latestWidth);
     };
     const handleUp = (): void => {
       document.removeEventListener('pointermove', handleMove);
       document.removeEventListener('pointerup', handleUp);
+      void window.knouxAPI.settings.set('workspace', { ...workspace, sidebarWidth: latestWidth });
     };
     document.addEventListener('pointermove', handleMove);
     document.addEventListener('pointerup', handleUp, { once: true });
-  }, [compact, setSidebarWidth, sidebarWidth]);
+  }, [compact, setSidebarWidth, sidebarWidth, workspace]);
 
-  const groups = useMemo(() => navGroups, []);
+  const groups = useMemo(() => {
+    const items = new Map(navGroups.flatMap((group) => group.items).map((item) => [item.id, item]));
+    return [{
+      labelKey: 'nav.workspace',
+      items: workspace.moduleOrder
+        .filter((id) => !workspace.hiddenModules.includes(id))
+        .map((id) => items.get(id))
+        .filter((item): item is NavItem => Boolean(item)),
+    }];
+  }, [workspace.hiddenModules, workspace.moduleOrder]);
 
   return (
     <motion.aside

@@ -46,6 +46,7 @@ import type {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
 
 const templates: SlideshowTemplate[] = [
@@ -437,6 +438,22 @@ export const SlideshowView: React.FC = () => {
         <div className="creative-actions"><NeonButton variant="ghost" leftIcon={<FilePlus2 size={15} />} onClick={() => void createProject()} disabled={busy}>{t('common.new')}</NeonButton><NeonButton variant="ghost" leftIcon={<FolderOpen size={15} />} onClick={() => void openProject()} disabled={busy}>{t('common.open')}</NeonButton><NeonButton variant="secondary" leftIcon={<Save size={15} />} onClick={() => void saveProject(false)} disabled={busy}>{dirty ? t('slideshow.saveChanges') : t('common.save')}</NeonButton><NeonButton variant="ghost" onClick={() => void saveProject(true)} disabled={busy}>{t('common.saveAs')}</NeonButton></div>
       </header>
       <RuntimeModeNotice feature="Offline slideshow projects and FFmpeg rendering" featureAr="مشاريع عروض شرائح ورندر FFmpeg محلي" />
+      <StudioPresetBar
+        kind="slideshow"
+        values={{ template: project.template, aspect: project.aspect, resolution: project.resolution, fps: project.fps, defaultImageDuration: project.defaultImageDuration, defaultTransition: project.defaultTransition, renderFormat }}
+        onApply={(values) => {
+          const next = { ...project };
+          if (templates.includes(values.template as SlideshowTemplate)) next.template = values.template as SlideshowTemplate;
+          if (aspects.includes(values.aspect as SlideshowAspect)) next.aspect = values.aspect as SlideshowAspect;
+          if (resolutions.includes(values.resolution as SlideshowResolution)) next.resolution = values.resolution as SlideshowResolution;
+          if ([24, 25, 30, 50, 60].includes(Number(values.fps))) next.fps = Number(values.fps) as SlideshowProject['fps'];
+          if (typeof values.defaultImageDuration === 'number') next.defaultImageDuration = Math.max(0.1, values.defaultImageDuration);
+          if (transitions.includes(values.defaultTransition as SlideshowTransition)) next.defaultTransition = values.defaultTransition as SlideshowTransition;
+          if (renderFormats.includes(values.renderFormat as SlideshowRenderFormat)) setRenderFormat(values.renderFormat as SlideshowRenderFormat);
+          setProject(next);
+          setDirty(true);
+        }}
+      />
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       <div className="slideshow-toolbar">

@@ -26,6 +26,7 @@ import {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
 
 interface AudioSource {
@@ -348,6 +349,24 @@ export const AudioToolsView: React.FC = () => {
       </header>
 
       <RuntimeModeNotice feature="Offline FFmpeg audio analysis and processing" featureAr="تحليل ومعالجة الصوت محليًا عبر FFmpeg" />
+      <StudioPresetBar
+        kind="audio-tools"
+        values={{ format, sampleRate, channels, bitrate, normalize, targetLufs, truePeakDb, loudnessRange, gainDb, fadeIn, fadeOut, tempo }}
+        onApply={(values) => {
+          if (formats.includes(values.format as AudioOutputFormat)) setFormat(values.format as AudioOutputFormat);
+          if (sampleRates.includes(values.sampleRate as typeof sampleRates[number])) setSampleRate(values.sampleRate as typeof sampleRates[number]);
+          if (values.channels === 1 || values.channels === 2) setChannels(values.channels);
+          if (bitrates.includes(values.bitrate as typeof bitrates[number])) setBitrate(values.bitrate as typeof bitrates[number]);
+          if (typeof values.normalize === 'boolean') setNormalize(values.normalize);
+          if (typeof values.targetLufs === 'number') setTargetLufs(values.targetLufs);
+          if (typeof values.truePeakDb === 'number') setTruePeakDb(values.truePeakDb);
+          if (typeof values.loudnessRange === 'number') setLoudnessRange(values.loudnessRange);
+          if (typeof values.gainDb === 'number') setGainDb(values.gainDb);
+          if (typeof values.fadeIn === 'number') setFadeIn(values.fadeIn);
+          if (typeof values.fadeOut === 'number') setFadeOut(values.fadeOut);
+          if (typeof values.tempo === 'number') setTempo(values.tempo);
+        }}
+      />
       {error && <div className="creative-error" role="alert">{error}</div>}
 
       <div className="audio-tools-grid">
@@ -428,7 +447,7 @@ export const AudioToolsView: React.FC = () => {
               {AUDIO_EQ_FREQUENCIES.map((frequency, index) => (
                 <label key={frequency}>
                   <strong>{frequency >= 1000 ? `${frequency / 1000}k` : frequency} Hz</strong>
-                  <input type="range" orient="vertical" min="-20" max="20" step="0.5" value={equalizer[index]} onChange={(event) => updateEqualizer(index, Number(event.target.value))} />
+                  <input type="range" min="-20" max="20" step="0.5" value={equalizer[index]} onChange={(event) => updateEqualizer(index, Number(event.target.value))} />
                   <span>{equalizer[index].toFixed(1)} dB</span>
                 </label>
               ))}

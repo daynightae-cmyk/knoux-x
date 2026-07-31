@@ -91,6 +91,16 @@ export const PlayerViewportBoundary: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [diagnosticsVisible, displayMode]);
 
+  useEffect(() => {
+    const handleCommand = (event: Event): void => {
+      if ((event as CustomEvent<{ command?: string }>).detail?.command === 'theater-mode') {
+        setDisplayMode((current) => current === 'theater' ? 'normal' : 'theater');
+      }
+    };
+    window.addEventListener('knoux:command', handleCommand);
+    return () => window.removeEventListener('knoux:command', handleCommand);
+  }, []);
+
   useEffect(() => () => clearHideTimer(), [clearHideTimer]);
 
   return (

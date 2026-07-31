@@ -91,7 +91,7 @@ function queuePatch(next: QueueState): Pick<PlayerState, 'playlist' | 'currentIn
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       currentMedia: null,
       setCurrentMedia: (mediaPath) => set((state) => {
         if (!mediaPath) return { currentMedia: null, currentTime: 0, duration: 0, isPlaying: false };

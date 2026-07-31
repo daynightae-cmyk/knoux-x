@@ -171,16 +171,8 @@ jobs:
           $env:KNOUX_STARTUP_TRACE_FILE = $startupTrace
           $env:ELECTRON_ENABLE_LOGGING = '1'
           $env:ELECTRON_LOG_FILE = $electronLog
-          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $primaryOut -RedirectStandardError $primaryErr -PassThru
-          Start-Sleep -Seconds 20
-          if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
 
-          $primaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-          if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
-
-          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $secondaryOut -RedirectStandardError $secondaryErr -PassThru
-          if (-not $second.WaitForExit(15000)) {
-            Write-Host "Primary PID: $($process.Id); secondary PID: $($second.Id)"
+          function Write-KnouxStartupDiagnostics {
             Get-CimInstance Win32_Process |
               Where-Object { $_.Name -match '^(knoux-player-x|electron|ffmpeg|ffprobe)\.exe$' } |
               Select-Object ProcessId, ParentProcessId, Name, CommandLine |
@@ -204,6 +196,22 @@ jobs:
             if (Test-Path $startupTrace) { Get-Content $startupTrace }
             Write-Host '--- electron log ---'
             if (Test-Path $electronLog) { Get-Content $electronLog }
+          }
+
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $primaryOut -RedirectStandardError $primaryErr -PassThru
+          Start-Sleep -Seconds 20
+          if ($process.HasExited) {
+            Write-KnouxStartupDiagnostics
+            throw "Packaged application exited early: $($process.ExitCode)"
+          }
+
+          $primaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
+
+          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $secondaryOut -RedirectStandardError $secondaryErr -PassThru
+          if (-not $second.WaitForExit(15000)) {
+            Write-Host "Primary PID: $($process.Id); secondary PID: $($second.Id)"
+            Write-KnouxStartupDiagnostics
             Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
             throw 'Second launcher process did not exit after forwarding the media request.'
           }

@@ -5,6 +5,8 @@ import { AIService } from './creative/ai-service';
 import { SubtitleService } from './creative/subtitle-service';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
+import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
+import { setupMultitrackRuntime } from './ipc/multitrack-runtime';
 import type { RecordingRegionRuntimeController } from './ipc/recording-region-runtime';
 import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
 
@@ -14,6 +16,7 @@ let aiService: AIService | null = null;
 let subtitleService: SubtitleService | null = null;
 let controller: CreativeSuiteController | null = null;
 let recordingRegionController: RecordingRegionRuntimeController | null = null;
+let multitrackController: MultitrackRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -45,6 +48,7 @@ function registerCreativeRuntime(): void {
   subtitleService = new SubtitleService();
   controller = setupCreativeSuiteHandlers(ipcMain);
   recordingRegionController = setupRecordingRegionRuntime();
+  multitrackController = setupMultitrackRuntime();
 
   ipcMain.handle('creative:request-media-permission', (event) => {
     requireTrustedEvent(event);
@@ -117,5 +121,6 @@ export function cleanupCreativeRuntime(): void {
   permissionExpiry.clear();
   aiService?.cancel();
   recordingRegionController?.close();
+  multitrackController?.close();
   void controller?.shutdown();
 }

@@ -1,0 +1,202 @@
+.player-diagnostics-panel {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 42;
+  display: flex;
+  flex-direction: column;
+  width: min(390px, calc(100% - 28px));
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: #f8f7ff;
+  background: rgba(5, 3, 13, 0.94);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55), 0 0 28px color-mix(in srgb, var(--knoux-accent) 16%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+[dir='rtl'] .player-diagnostics-panel {
+  right: auto;
+  left: 14px;
+}
+
+.player-diagnostics-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--knoux-accent) 8%, rgba(0, 0, 0, 0.22));
+}
+
+.player-diagnostics-panel > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-diagnostics-panel > header button {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.player-diagnostics-panel > header button:hover,
+.player-diagnostics-panel > header button:focus-visible {
+  border-color: var(--knoux-accent);
+  color: #fff;
+}
+
+.player-diagnostics-content {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.player-diagnostics-content section {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.player-diagnostics-content h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 0.82rem;
+}
+
+.player-diagnostics-content dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.player-diagnostics-content dl > div {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.85fr) minmax(0, 1.15fr);
+  gap: 9px;
+  align-items: start;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.player-diagnostics-content dl > div:last-child {
+  border-bottom: 0;
+}
+
+.player-diagnostics-content dt {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.69rem;
+}
+
+.player-diagnostics-content dd {
+  min-width: 0;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-diagnostics-content dd[data-health='excellent'],
+.player-diagnostics-content dd[data-health='good'] {
+  color: #55f49a;
+}
+
+.player-diagnostics-content dd[data-health='strained'] {
+  color: #ffd166;
+}
+
+.player-diagnostics-content dd[data-health='poor'] {
+  color: #ff6b78;
+}
+
+.player-diagnostics-content section > p {
+  margin: 9px 0 0;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.player-diagnostics-warning,
+.player-diagnostics-empty {
+  padding: 14px;
+  color: #ffd166;
+  font-size: 0.76rem;
+}
+
+.player-diagnostics-empty {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  color: rgba(255, 255, 255, 0.52);
+  text-align: center;
+}
+
+.player-viewport-toolbar .diagnostics-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+html[data-player-display-mode='cinema'] .player-diagnostics-panel {
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+}
+
+[dir='rtl'] html[data-player-display-mode='cinema'] .player-diagnostics-panel {
+  right: auto;
+  left: 10px;
+}
+
+@media (max-width: 700px) {
+  .player-diagnostics-panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+  }
+
+  [dir='rtl'] .player-diagnostics-panel {
+    right: 8px;
+    left: 8px;
+  }
+}
+
+@media (max-height: 650px) {
+  .player-diagnostics-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-diagnostics-warning {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-diagnostics-panel {
+    backdrop-filter: none;
+  }
+}

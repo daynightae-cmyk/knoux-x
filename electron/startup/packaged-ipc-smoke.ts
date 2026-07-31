@@ -137,7 +137,10 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
       if (preferences.nodeIntegration !== false || preferences.contextIsolation !== true || preferences.sandbox !== true || preferences.webSecurity !== true) {
         throw new Error(`PACKAGED_WINDOW_SECURITY_FAILED ${label}`);
       }
-      if (path.resolve(String(preferences.preload)) !== expectedPreload) throw new Error(`PACKAGED_WINDOW_PRELOAD_MISMATCH ${label}`);
+      const actualPreload = path.resolve(String(preferences.preload));
+      if (actualPreload !== expectedPreload) {
+        throw new Error(`PACKAGED_WINDOW_PRELOAD_MISMATCH ${label} ${JSON.stringify({ actualPreload, expectedPreload })}`);
+      }
     }
 
     await atomicJson(options.evidencePath, {

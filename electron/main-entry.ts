@@ -1,3 +1,4 @@
+/* eslint-disable import/order -- startup imports are intentionally kept explicit and minimal before the instance lock. */
 import { app } from 'electron';
 import log from 'electron-log';
 

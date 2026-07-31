@@ -51,14 +51,33 @@ function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set
   }
 }
 
+function requirePackagedManifest(buildPath, packageName) {
+  const manifestPath = path.join(buildPath, 'node_modules', ...packageName.split('/'), 'package.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`${packageName} was not copied into the packaged application: ${manifestPath}`);
+  }
+  return manifestPath;
+}
+
 function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, callback) {
   try {
-    copyRuntimeDependencyTree('better-sqlite3', buildPath);
-    const packagedManifest = path.join(buildPath, 'node_modules', 'better-sqlite3', 'package.json');
-    if (!fs.existsSync(packagedManifest)) {
-      throw new Error(`better-sqlite3 was not copied into the packaged application: ${packagedManifest}`);
+    const copiedRoots = new Set();
+    copyRuntimeDependencyTree('better-sqlite3', buildPath, copiedRoots);
+    copyRuntimeDependencyTree('sharp', buildPath, copiedRoots);
+
+    const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
+    const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
+    const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
+    const sharpPlatformPackages = fs.existsSync(sharpPlatformRoot)
+      ? fs.readdirSync(sharpPlatformRoot).filter((name) => name.startsWith('sharp-'))
+      : [];
+    if (sharpPlatformPackages.length === 0) {
+      throw new Error(`Sharp platform runtime packages were not copied into ${sharpPlatformRoot}`);
     }
-    console.log(`[KNOUX package] Native SQLite runtime copied to ${packagedManifest}`);
+
+    console.log(`[KNOUX package] Native SQLite runtime copied to ${sqliteManifest}`);
+    console.log(`[KNOUX package] Sharp runtime copied to ${sharpManifest}`);
+    console.log(`[KNOUX package] Sharp platform packages: ${sharpPlatformPackages.join(', ')}`);
     callback();
   } catch (error) {
     callback(error);

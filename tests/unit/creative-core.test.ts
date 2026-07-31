@@ -1,12 +1,15 @@
 import { createCaptureFileName, dataUrlByteLength, formatCaptureTime, sanitizeWindowsFileStem } from '../../src/core/creative/capture';
 import {
   EditHistory,
+  clampTimelineZoom,
   clipDuration,
   moveClip,
   parseEditProject,
   reflowTimeline,
+  removeMarker,
   splitClip,
   trimClip,
+  upsertMarker,
   type EditClip,
 } from '../../src/core/creative/editProject';
 import { initialRecordingState, reduceRecordingState } from '../../src/core/creative/recordingState';
@@ -57,5 +60,29 @@ describe('creative media core', () => {
     expect(reordered.map((clip) => clip.timelineStart)).toEqual([0, 3]);
     expect(first.timelineStart).toBe(19);
     expect(() => moveClip([first], 'missing', 1)).toThrow('does not exist');
+  });
+
+  test('creates, updates, sorts, and removes timeline markers without mutation', () => {
+    const source = [{ id: 'later', time: 8, label: ' Later ' }];
+    const inserted = upsertMarker(source, { id: 'first', time: 2, label: ' Intro ' }, 10);
+    expect(inserted).toEqual([
+      { id: 'first', time: 2, label: 'Intro' },
+      { id: 'later', time: 8, label: 'Later' },
+    ]);
+    expect(source[0].label).toBe(' Later ');
+
+    const updated = upsertMarker(inserted, { id: 'later', time: 1, label: 'Opening' }, 10);
+    expect(updated.map((marker) => marker.id)).toEqual(['later', 'first']);
+    expect(removeMarker(updated, 'first')).toEqual([{ id: 'later', time: 1, label: 'Opening' }]);
+    expect(() => upsertMarker([], { id: 'bad', time: 11, label: 'Past end' }, 10)).toThrow();
+    expect(() => removeMarker(updated, 'missing')).toThrow('does not exist');
+  });
+
+  test('clamps timeline zoom to stable quarter-step bounds', () => {
+    expect(clampTimelineZoom(0)).toBe(1);
+    expect(clampTimelineZoom(2.12)).toBe(2);
+    expect(clampTimelineZoom(2.14)).toBe(2.25);
+    expect(clampTimelineZoom(99)).toBe(8);
+    expect(clampTimelineZoom(Number.NaN)).toBe(1);
   });
 });

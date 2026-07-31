@@ -33,6 +33,10 @@ const ExportView = lazy(async () => {
   const module = await import('./features/export/ExportView');
   return { default: module.ExportView };
 });
+const QueueView = lazy(async () => {
+  const module = await import('./features/queue/QueueView');
+  return { default: module.QueueView };
+});
 const AIAssistant = lazy(async () => {
   const module = await import('./features/ai/AIAssistant');
   return { default: module.AIAssistant };
@@ -41,6 +45,7 @@ const AIAssistant = lazy(async () => {
 function viewFor(currentView: ViewType): React.ReactNode {
   switch (currentView) {
     case 'player': return <PlayerView />;
+    case 'queue': return <QueueView />;
     case 'library': return <LibraryView />;
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;

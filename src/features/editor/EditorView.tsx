@@ -3,29 +3,36 @@ import {
   ArrowLeft,
   ArrowRight,
   Copy,
+  Edit3,
   FilePlus2,
   FolderOpen,
   History,
   Link,
+  MapPin,
   Redo2,
   Save,
   Scissors,
   Trash2,
   Undo2,
   Video,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import {
   clipDuration,
+  clampTimelineZoom,
   EditClip,
   EditHistory,
   EditProject,
   moveClip,
   reflowTimeline,
+  removeMarker,
   splitClip,
   trimClip,
+  upsertMarker,
 } from '../../core/creative/editProject';
 import { useTranslation } from '../../i18n';
 
@@ -72,7 +79,9 @@ export const EditorView: React.FC = () => {
   const [project, setProject] = useState<EditProject | null>(null);
   const [projectPath, setProjectPath] = useState<string | undefined>();
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [playhead, setPlayhead] = useState(0);
+  const [timelineZoom, setTimelineZoom] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +99,10 @@ export const EditorView: React.FC = () => {
   const selectedClipIndex = useMemo(
     () => project?.clips.findIndex((clip) => clip.id === selectedClipId) ?? -1,
     [project, selectedClipId],
+  );
+  const selectedMarker = useMemo(
+    () => project?.markers.find((marker) => marker.id === selectedMarkerId) ?? null,
+    [project, selectedMarkerId],
   );
 
   const replaceProject = useCallback((next: EditProject, recordHistory = true): void => {
@@ -109,7 +122,9 @@ export const EditorView: React.FC = () => {
     setProject(next);
     setProjectPath(filePath);
     setSelectedClipId(next.clips[0]?.id ?? null);
+    setSelectedMarkerId(null);
     setPlayhead(0);
+    setTimelineZoom(1);
     setDirty(hasUnsavedRecovery);
   }, []);
 
@@ -220,6 +235,7 @@ export const EditorView: React.FC = () => {
       };
       replaceProject({ ...project, clips: [...project.clips, clip] });
       setSelectedClipId(clip.id);
+      setSelectedMarkerId(null);
       setPlayhead(clip.timelineStart);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('editor.addMediaFailed'));
@@ -237,6 +253,7 @@ export const EditorView: React.FC = () => {
       clips.splice(index, 1, left, right);
       replaceProject({ ...project, clips });
       setSelectedClipId(right.id);
+      setSelectedMarkerId(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('editor.splitFailed'));
     }
@@ -264,15 +281,21 @@ export const EditorView: React.FC = () => {
     };
     replaceProject({ ...project, clips: [...project.clips, copy] });
     setSelectedClipId(copy.id);
+    setSelectedMarkerId(null);
   }, [project, replaceProject, selectedClip, totalDuration]);
 
   const deleteSelected = useCallback((): void => {
     if (!project || !selectedClip) return;
     const ripple = reflowTimeline(project.clips.filter((clip) => clip.id !== selectedClip.id));
-    replaceProject({ ...project, clips: ripple });
+    const duration = projectDuration({ ...project, clips: ripple });
+    const markers = project.markers.filter((marker) => marker.time <= duration);
+    replaceProject({ ...project, clips: ripple, markers });
     setSelectedClipId(ripple[0]?.id ?? null);
-    setPlayhead(Math.min(playhead, projectDuration({ ...project, clips: ripple })));
-  }, [playhead, project, replaceProject, selectedClip]);
+    if (selectedMarkerId && !markers.some((marker) => marker.id === selectedMarkerId)) {
+      setSelectedMarkerId(null);
+    }
+    setPlayhead(Math.min(playhead, duration));
+  }, [playhead, project, replaceProject, selectedClip, selectedMarkerId]);
 
   const moveSelected = useCallback((offset: -1 | 1): void => {
     if (!project || !selectedClip) return;
@@ -309,6 +332,55 @@ export const EditorView: React.FC = () => {
     }
   }, [busy, project, replaceProject, selectedClip, t]);
 
+  const addMarkerAtPlayhead = useCallback((): void => {
+    if (!project) return;
+    const defaultLabel = `${t('editor.markerDefault')} ${project.markers.length + 1}`;
+    const label = window.prompt(t('editor.markerNamePrompt'), defaultLabel)?.trim();
+    if (!label) return;
+    try {
+      const marker = { id: crypto.randomUUID(), time: Math.min(playhead, totalDuration), label };
+      replaceProject({
+        ...project,
+        markers: upsertMarker(project.markers, marker, totalDuration),
+      });
+      setSelectedMarkerId(marker.id);
+      setSelectedClipId(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.markerFailed'));
+    }
+  }, [playhead, project, replaceProject, t, totalDuration]);
+
+  const renameSelectedMarker = useCallback((): void => {
+    if (!project || !selectedMarker) return;
+    const label = window.prompt(t('editor.markerNamePrompt'), selectedMarker.label)?.trim();
+    if (!label) return;
+    try {
+      replaceProject({
+        ...project,
+        markers: upsertMarker(project.markers, { ...selectedMarker, label }, totalDuration),
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.markerFailed'));
+    }
+  }, [project, replaceProject, selectedMarker, t, totalDuration]);
+
+  const deleteSelectedMarker = useCallback((): void => {
+    if (!project || !selectedMarker) return;
+    try {
+      replaceProject({
+        ...project,
+        markers: removeMarker(project.markers, selectedMarker.id),
+      });
+      setSelectedMarkerId(null);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('editor.markerFailed'));
+    }
+  }, [project, replaceProject, selectedMarker, t]);
+
+  const changeTimelineZoom = useCallback((next: number): void => {
+    setTimelineZoom(clampTimelineZoom(next));
+  }, []);
+
   const undo = useCallback((): void => {
     if (!historyRef.current?.canUndo) return;
     const previous = historyRef.current.undo();
@@ -322,6 +394,81 @@ export const EditorView: React.FC = () => {
     setProject(next);
     setDirty(true);
   }, []);
+
+  useEffect(() => {
+    if (!project) return undefined;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const isEditing = Boolean(
+        target?.isContentEditable
+        || target?.tagName === 'INPUT'
+        || target?.tagName === 'TEXTAREA'
+        || target?.tagName === 'SELECT',
+      );
+      const modifier = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (modifier && key === 's') {
+        event.preventDefault();
+        void saveProject(event.shiftKey);
+        return;
+      }
+      if (isEditing) return;
+      if (modifier && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (modifier && key === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (!modifier && key === 'm') {
+        event.preventDefault();
+        if (event.shiftKey) renameSelectedMarker();
+        else addMarkerAtPlayhead();
+        return;
+      }
+      if (!modifier && key === 's') {
+        event.preventDefault();
+        splitSelected();
+        return;
+      }
+      if (!modifier && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault();
+        if (selectedMarker) deleteSelectedMarker();
+        else deleteSelected();
+        return;
+      }
+      if (!modifier && (event.code === 'Equal' || event.code === 'NumpadAdd')) {
+        event.preventDefault();
+        changeTimelineZoom(timelineZoom + 0.25);
+        return;
+      }
+      if (!modifier && (event.code === 'Minus' || event.code === 'NumpadSubtract')) {
+        event.preventDefault();
+        changeTimelineZoom(timelineZoom - 0.25);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    addMarkerAtPlayhead,
+    changeTimelineZoom,
+    deleteSelected,
+    deleteSelectedMarker,
+    project,
+    redo,
+    renameSelectedMarker,
+    saveProject,
+    selectedMarker,
+    splitSelected,
+    timelineZoom,
+    undo,
+  ]);
 
   return (
     <section className="creative-view editor-view" aria-labelledby="editor-title">
@@ -439,6 +586,9 @@ export const EditorView: React.FC = () => {
             <NeonButton variant="ghost" leftIcon={<ArrowLeft size={16} />} onClick={() => moveSelected(-1)} disabled={selectedClipIndex <= 0}>{t('editor.moveEarlier')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<ArrowRight size={16} />} onClick={() => moveSelected(1)} disabled={selectedClipIndex < 0 || selectedClipIndex >= project.clips.length - 1}>{t('editor.moveLater')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Link size={16} />} onClick={() => void relinkSelected()} disabled={!selectedClip || busy}>{t('editor.relink')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<MapPin size={16} />} onClick={addMarkerAtPlayhead}>{t('editor.addMarker')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Edit3 size={16} />} onClick={renameSelectedMarker} disabled={!selectedMarker}>{t('editor.renameMarker')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Trash2 size={16} />} onClick={deleteSelectedMarker} disabled={!selectedMarker}>{t('editor.deleteMarker')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Undo2 size={16} />} onClick={undo} disabled={!historyRef.current?.canUndo}>{t('editor.undo')}</NeonButton>
             <NeonButton variant="ghost" leftIcon={<Redo2 size={16} />} onClick={redo} disabled={!historyRef.current?.canRedo}>{t('editor.redo')}</NeonButton>
           </div>
@@ -460,30 +610,72 @@ export const EditorView: React.FC = () => {
             <div className="editor-timeline-panel">
               <div className="timeline-ruler">
                 <label>{t('editor.playhead')} <input type="number" min={0} max={totalDuration} step="0.001" value={playhead} onChange={(event) => setPlayhead(Number(event.target.value))} /></label>
-                <span dir="ltr">{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
-              </div>
-              <div className="editor-timeline" dir="ltr" style={{ '--timeline-duration': Math.max(totalDuration, 1) } as React.CSSProperties}>
-                <div className="timeline-playhead" style={{ left: `${totalDuration > 0 ? (playhead / totalDuration) * 100 : 0}%` }} />
-                {project.clips.map((clip, index) => (
-                  <button
-                    key={clip.id}
-                    type="button"
-                    className={`timeline-clip ${clip.id === selectedClipId ? 'selected' : ''}`}
-                    style={{
-                      left: `${totalDuration > 0 ? (clip.timelineStart / totalDuration) * 100 : 0}%`,
-                      width: `${totalDuration > 0 ? (clipDuration(clip) / totalDuration) * 100 : 100}%`,
-                    }}
-                    onClick={() => {
-                      setSelectedClipId(clip.id);
-                      setPlayhead(clip.timelineStart + clipDuration(clip) / 2);
-                    }}
-                    title={clip.sourcePath}
-                  >
-                    <strong>{index + 1}</strong>
-                    <span>{clip.sourcePath.split(/[\\/]/).pop()}</span>
-                    <small>{formatSeconds(clipDuration(clip))}</small>
+                <div className="timeline-ruler-controls">
+                  <span dir="ltr">{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
+                  <button type="button" onClick={() => changeTimelineZoom(timelineZoom - 0.25)} disabled={timelineZoom <= 1} aria-label={t('editor.zoomOut')} title={t('editor.zoomOut')}>
+                    <ZoomOut size={16} />
                   </button>
-                ))}
+                  <output aria-label={t('editor.timelineZoom')}>{Math.round(timelineZoom * 100)}%</output>
+                  <button type="button" onClick={() => changeTimelineZoom(timelineZoom + 0.25)} disabled={timelineZoom >= 8} aria-label={t('editor.zoomIn')} title={t('editor.zoomIn')}>
+                    <ZoomIn size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="editor-timeline-scroll">
+                <div
+                  className="editor-timeline"
+                  dir="ltr"
+                  style={{
+                    '--timeline-duration': Math.max(totalDuration, 1),
+                    width: `${timelineZoom * 100}%`,
+                  } as React.CSSProperties}
+                >
+                  <div className="timeline-playhead" style={{ left: `${totalDuration > 0 ? (playhead / totalDuration) * 100 : 0}%` }} />
+                  {project.markers.map((marker) => (
+                    <button
+                      key={marker.id}
+                      type="button"
+                      className={`timeline-marker ${marker.id === selectedMarkerId ? 'selected' : ''}`}
+                      style={{ left: `${totalDuration > 0 ? (marker.time / totalDuration) * 100 : 0}%` }}
+                      onClick={() => {
+                        setSelectedMarkerId(marker.id);
+                        setSelectedClipId(null);
+                        setPlayhead(marker.time);
+                      }}
+                      aria-label={t('editor.markerAt', { label: marker.label, time: formatSeconds(marker.time) })}
+                      title={`${marker.label} — ${formatSeconds(marker.time)}`}
+                    >
+                      <MapPin size={15} />
+                      <span>{marker.label}</span>
+                    </button>
+                  ))}
+                  {project.clips.map((clip, index) => (
+                    <button
+                      key={clip.id}
+                      type="button"
+                      className={`timeline-clip ${clip.id === selectedClipId ? 'selected' : ''}`}
+                      style={{
+                        left: `${totalDuration > 0 ? (clip.timelineStart / totalDuration) * 100 : 0}%`,
+                        width: `${totalDuration > 0 ? (clipDuration(clip) / totalDuration) * 100 : 100}%`,
+                      }}
+                      onClick={() => {
+                        setSelectedClipId(clip.id);
+                        setSelectedMarkerId(null);
+                        setPlayhead(clip.timelineStart + clipDuration(clip) / 2);
+                      }}
+                      title={clip.sourcePath}
+                    >
+                      <strong>{index + 1}</strong>
+                      <span>{clip.sourcePath.split(/[\\/]/).pop()}</span>
+                      <small>{formatSeconds(clipDuration(clip))}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="editor-timeline-footer">
+                <span>{t('editor.markersCount', { count: project.markers.length })}</span>
+                <span>{selectedMarker ? `${selectedMarker.label} — ${formatSeconds(selectedMarker.time)}` : t('editor.noMarkerSelected')}</span>
+                <small>{t('editor.shortcutsHint')}</small>
               </div>
             </div>
           </div>

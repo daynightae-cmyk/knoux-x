@@ -235,14 +235,24 @@ jobs:
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffprobe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Write-Host '--- SHA256 release evidence ---'
+          Get-Content artifact-hashes.txt | Write-Host
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: knoux-windows-${{ github.sha }}
+          name: knoux-windows-installer-${{ github.sha }}
           if-no-files-found: error
           path: |
-            out/**
+            out/make/**/*.exe
+            artifact-hashes.txt
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: knoux-windows-evidence-${{ github.sha }}
+          if-no-files-found: error
+          path: |
             artifact-hashes.txt
             package-lock.json
             assets/icons/**

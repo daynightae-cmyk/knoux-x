@@ -34,7 +34,7 @@ export const QueueView: React.FC = () => {
     setRepeatMode,
     toggleShuffle,
   } = usePlayerStore();
-  const setCurrentView = useAppStore((state) => state.setCurrentView);
+  const setView = useAppStore((state) => state.setView);
   const { t } = useTranslation();
 
   const addMedia = useCallback(async (): Promise<void> => {
@@ -45,8 +45,8 @@ export const QueueView: React.FC = () => {
 
   const playIndex = useCallback((index: number): void => {
     selectQueueIndex(index);
-    setCurrentView('player');
-  }, [selectQueueIndex, setCurrentView]);
+    setView('player');
+  }, [selectQueueIndex, setView]);
 
   const repeatOptions: Array<{ mode: RepeatMode; label: string; icon: React.ReactNode }> = [
     { mode: 'off', label: t('queue.repeatOff'), icon: <Repeat size={15} /> },

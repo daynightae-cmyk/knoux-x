@@ -7,6 +7,7 @@ import {
   Clapperboard,
   FolderOpen,
   Library,
+  ListMusic,
   Play,
   Settings,
   Share2,
@@ -25,6 +26,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'player', labelKey: 'nav.player', icon: <Play size={18} /> },
+  { id: 'queue', labelKey: 'nav.queue', icon: <ListMusic size={18} /> },
   { id: 'library', labelKey: 'nav.library', icon: <Library size={18} /> },
   { id: 'capture', labelKey: 'nav.captures', icon: <Camera size={18} /> },
   { id: 'recording', labelKey: 'nav.recorder', icon: <Circle size={18} /> },

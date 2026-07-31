@@ -10,6 +10,12 @@ export interface EditClip {
   volume: number;
 }
 
+export interface EditMarker {
+  id: string;
+  time: number;
+  label: string;
+}
+
 export interface EditProject {
   version: typeof EDIT_PROJECT_VERSION;
   id: string;
@@ -17,7 +23,7 @@ export interface EditProject {
   createdAt: string;
   updatedAt: string;
   clips: EditClip[];
-  markers: Array<{ id: string; time: number; label: string }>;
+  markers: EditMarker[];
 }
 
 function assertFiniteRange(start: number, end: number): void {
@@ -76,6 +82,49 @@ export function moveClip(clips: EditClip[], clipId: string, offset: -1 | 1): Edi
   return reflowTimeline(reordered);
 }
 
+function normalizeMarker(marker: EditMarker, timelineDuration: number): EditMarker {
+  if (
+    typeof marker.id !== 'string'
+    || marker.id.trim().length === 0
+    || typeof marker.label !== 'string'
+    || marker.label.trim().length === 0
+    || !Number.isFinite(marker.time)
+    || marker.time < 0
+    || marker.time > timelineDuration
+  ) {
+    throw new RangeError('Marker id, label, and timeline position must be valid.');
+  }
+  return { ...marker, id: marker.id.trim(), label: marker.label.trim() };
+}
+
+export function upsertMarker(
+  markers: EditMarker[],
+  marker: EditMarker,
+  timelineDuration = Number.POSITIVE_INFINITY,
+): EditMarker[] {
+  if ((Number.isFinite(timelineDuration) && timelineDuration < 0) || Number.isNaN(timelineDuration)) {
+    throw new RangeError('Timeline duration must be non-negative.');
+  }
+  const normalized = normalizeMarker(marker, timelineDuration);
+  const next = markers
+    .filter((entry) => entry.id !== normalized.id)
+    .map((entry) => normalizeMarker(entry, timelineDuration));
+  next.push(normalized);
+  return next.sort((left, right) => left.time - right.time || left.id.localeCompare(right.id));
+}
+
+export function removeMarker(markers: EditMarker[], markerId: string): EditMarker[] {
+  if (!markers.some((marker) => marker.id === markerId)) {
+    throw new Error('The selected marker does not exist in this timeline.');
+  }
+  return markers.filter((marker) => marker.id !== markerId).map((marker) => ({ ...marker }));
+}
+
+export function clampTimelineZoom(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(8, Math.max(1, Math.round(value * 4) / 4));
+}
+
 export function parseEditProject(value: unknown): EditProject {
   if (typeof value !== 'object' || value === null) throw new TypeError('Edit project must be an object.');
   const candidate = value as Partial<EditProject>;
@@ -86,6 +135,7 @@ export function parseEditProject(value: unknown): EditProject {
     throw new TypeError('Edit project timeline collections are malformed.');
   }
   candidate.clips.forEach((clip) => clipDuration(clip));
+  candidate.markers.forEach((marker) => normalizeMarker(marker, Number.POSITIVE_INFINITY));
   return structuredClone(candidate as EditProject);
 }
 

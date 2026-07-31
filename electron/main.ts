@@ -138,11 +138,14 @@ function registerCoreHandlers(): void {
   const getMemoryUsage = async (event: IpcMainInvokeEvent) => {
     windowForEvent(event);
     const usage = await process.getProcessMemoryInfo();
+    const system = process.getSystemMemoryInfo();
+    const used = Math.round(usage.residentSet / 1024);
+    const total = Math.round(system.total / 1024);
     return {
       ...usage,
-      used: usage.workingSetSize,
-      total: usage.privateBytes,
-      percentage: usage.privateBytes > 0 ? Math.min(100, (usage.workingSetSize / usage.privateBytes) * 100) : 0,
+      used,
+      total,
+      percentage: total > 0 ? Math.min(100, (used / total) * 100) : 0,
     };
   };
   ipcMain.handle('system:get-memory-usage', getMemoryUsage);

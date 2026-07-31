@@ -92,9 +92,16 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
       const steps = [];
       const step = async (name, operation) => {
         const at = new Date().toISOString();
-        const value = await operation();
-        steps.push({ name, at, ok: true, value });
-        return value;
+        try {
+          const value = await operation();
+          steps.push({ name, at, ok: true, value });
+          return value;
+        } catch (error) {
+          const diagnostic = error && typeof error === 'object'
+            ? { name: error.name, code: error.code, channel: error.channel, message: error.message, detail: error.detail }
+            : { message: String(error) };
+          throw new Error('PACKAGED_STEP_FAILED ' + name + ' ' + JSON.stringify(diagnostic));
+        }
       };
       const originalLanguage = await step('settings:get:initial', () => window.knouxAPI.settings.get('language', 'en'));
       const changedLanguage = originalLanguage === 'ar' ? 'en' : 'ar';

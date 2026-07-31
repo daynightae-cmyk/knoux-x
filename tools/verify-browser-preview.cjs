@@ -1,4 +1,3 @@
-const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
@@ -7,9 +6,16 @@ const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
 const reportRoot = path.join(root, 'reports', 'native-completion', 'sprint-01');
-const buildRoot = path.join(reportRoot, 'browser-preview-build');
+const buildRoot = path.join(root, '.vite', 'renderer', 'main_window');
 const evidencePath = path.join(reportRoot, 'browser-preview.json');
 const screenshotPath = path.join(reportRoot, 'browser-preview.png');
+const stagePath = path.join(reportRoot, 'browser-preview-stages.log');
+
+function stage(name) {
+  const line = `${new Date().toISOString()} ${name}\n`;
+  fs.appendFileSync(stagePath, line, 'utf8');
+  process.stderr.write(line);
+}
 
 function contentType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
@@ -23,14 +29,12 @@ function writeJson(filePath, value) {
 
 async function main() {
   fs.mkdirSync(reportRoot, { recursive: true });
-  const build = childProcess.spawnSync(process.execPath, [
-    path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'),
-    'build',
-    '--config', path.join(root, 'vite.renderer.config.ts'),
-    '--outDir', buildRoot,
-    '--emptyOutDir',
-  ], { cwd: root, encoding: 'utf8', timeout: 120000, windowsHide: true });
-  if (build.error || build.status !== 0) throw new Error(`BROWSER_PREVIEW_BUILD_FAILED\n${build.stdout || ''}\n${build.stderr || ''}`);
+  fs.writeFileSync(stagePath, '', 'utf8');
+  const builtIndex = path.join(buildRoot, 'index.html');
+  if (!fs.existsSync(builtIndex) || !fs.statSync(builtIndex).isFile()) {
+    throw new Error(`BROWSER_PREVIEW_BUILD_MISSING ${builtIndex}`);
+  }
+  stage('BROWSER_PREVIEW_STAGE packaged-renderer-found');
 
   const server = http.createServer((request, response) => {
     const requestPath = decodeURIComponent((request.url || '/').split('?')[0]);
@@ -44,9 +48,16 @@ async function main() {
     fs.createReadStream(filePath).pipe(response);
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  stage('BROWSER_PREVIEW_STAGE server-listening');
   const address = server.address();
   const url = `http://127.0.0.1:${address.port}/`;
-  const browser = await chromium.launch({ headless: true });
+  const browserExecutable = [
+    path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+  ].find((candidate) => fs.existsSync(candidate));
+  if (!browserExecutable) throw new Error('BROWSER_PREVIEW_EXECUTABLE_MISSING');
+  const browser = await chromium.launch({ executablePath: browserExecutable, headless: true, timeout: 30000 });
+  stage('BROWSER_PREVIEW_STAGE browser-launched');
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
   const pageErrors = [];
@@ -54,6 +65,7 @@ async function main() {
   page.on('pageerror', (error) => pageErrors.push(error.message));
   try {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+    stage('BROWSER_PREVIEW_STAGE page-loaded');
     await page.waitForFunction(() => document.documentElement.dataset.runtime === 'web-preview', null, { timeout: 30000 });
     const runtime = await page.evaluate(() => ({
       descriptor: window.knouxRuntime,
@@ -78,6 +90,8 @@ async function main() {
       mode: 'real-browser-preview',
       success: true,
       url,
+      buildRoot,
+      browserExecutable,
       runtime,
       consoleErrors,
       pageErrors,

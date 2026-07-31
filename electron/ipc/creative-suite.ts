@@ -29,8 +29,12 @@ export interface CreativeSuiteController {
 
 const creativePaths = authorizedMediaPaths;
 const mediaFilters = [{
-  name: 'Media Files',
-  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus'],
+  name: 'Media and Image Files',
+  extensions: [
+    'mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v',
+    'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus',
+    'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff',
+  ],
 }];
 
 function isTrustedRendererUrl(value: string): boolean {

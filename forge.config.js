@@ -31,8 +31,10 @@ function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set
   }
 
   const destination = path.join(buildPath, 'node_modules', relative);
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.cpSync(source, destination, { recursive: true, force: true, dereference: true });
+  if (path.resolve(source) !== path.resolve(destination)) {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(source, destination, { recursive: true, force: true, dereference: true });
+  }
 
   const manifest = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
   const dependencies = {
@@ -46,6 +48,20 @@ function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set
       if (manifest.optionalDependencies?.[dependency]) continue;
       throw error;
     }
+  }
+}
+
+function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, callback) {
+  try {
+    copyRuntimeDependencyTree('better-sqlite3', buildPath);
+    const packagedManifest = path.join(buildPath, 'node_modules', 'better-sqlite3', 'package.json');
+    if (!fs.existsSync(packagedManifest)) {
+      throw new Error(`better-sqlite3 was not copied into the packaged application: ${packagedManifest}`);
+    }
+    console.log(`[KNOUX package] Native SQLite runtime copied to ${packagedManifest}`);
+    callback();
+  } catch (error) {
+    callback(error);
   }
 }
 
@@ -74,11 +90,7 @@ module.exports = {
     appBundleId: 'dev.knoux.player-x',
     ...(fs.existsSync(`${icon}.ico`) ? { icon } : {}),
     ...(extraResource.length > 0 ? { extraResource } : {}),
-    afterPrune: [
-      async (buildPath) => {
-        copyRuntimeDependencyTree('better-sqlite3', buildPath);
-      },
-    ],
+    afterPrune: [packageNativeRuntime],
   },
   makers: [
     { name: '@electron-forge/maker-squirrel', platforms: ['win32'], config: squirrel },

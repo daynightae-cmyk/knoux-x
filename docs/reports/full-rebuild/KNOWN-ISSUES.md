@@ -11,7 +11,7 @@ Updated: 2026-07-31
 
 ## Resolved Windows startup gate
 
-Windows workflow run `30614286539` is green on commit `610c1ce81137616638a967f9fbf9740591f6d9de`. It verifies deterministic install, 10 Jest suites / 43 tests, Electron package and Squirrel make, packaged FFmpeg/FFprobe, primary launch, Open With forwarding through a terminating second instance, primary survival, clean shutdown, and split artifact upload.
+Windows workflow run `30615732971` is green on commit `427aeae77f3277f365cfe36ff2df6f3a16272e3c`. It verifies deterministic install, 10 Jest suites / 43 tests, Electron package and Squirrel make, packaged FFmpeg/FFprobe, primary launch, Open With forwarding through a terminating second instance, primary survival, clean shutdown, and split artifact upload.
 
 ## Installer presentation
 
@@ -19,7 +19,7 @@ The Squirrel installer does not show the nine official screens during file insta
 
 ## Artifact access
 
-Run `30614286539` publishes a downloadable installer artifact, `knoux-windows-installer-0a46edfd245e0d4c2b06260c3a125eb085b231e5` (artifact ID `8786797516`, 224,499,477 bytes, artifact digest `sha256:c24c926d574ebf609f73475afe2e234f1c5cef62c392485e5c1a8bcaaa892f93`). The inner `KNOUX Player X-2.0.0 Setup.exe` SHA-256 is `7E1A3AFC0769F403AFCFB2D5A4AD0AD670DCDE77929821FEA153826FE56C98CE`. A separate 2 MB evidence artifact is also available as artifact ID `8786797858`.
+Run `30615732971` publishes a downloadable installer artifact, `knoux-windows-installer-2b48ab943debeeaecebf69d4f73feab61bceb19b` (artifact ID `8787379658`, 224,499,821 bytes, artifact digest `sha256:4d9a9c799f72115bf9753c56bc309cfad22df699d5aea23315a7dd7d8b7cf56a`). The inner `KNOUX Player X-2.0.0 Setup.exe` SHA-256 is `438D2015441683B8AB519F7B5C264D2DB4EEF8CF694BBCA3D593009B30FD02EB`. A separate 2 MB evidence artifact is also available as artifact ID `8787380400`.
 
 ## Vercel
 

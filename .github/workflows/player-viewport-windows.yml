@@ -1,0 +1,98 @@
+name: KNOUX Player Viewport Windows
+
+on:
+  push:
+    branches:
+      - fix/player-viewport-layout-and-video-position
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/App.tsx'
+      - 'src/features/player/**'
+      - 'src/components/layout/**'
+      - 'src/styles/**'
+      - 'tests/player-viewport-contract.test.ts'
+      - 'tools/test-player-viewport.cjs'
+      - '.github/workflows/player-viewport-windows.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-viewport-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packaged-player-viewport:
+    name: Packaged viewport and video bounds
+    runs-on: windows-2022
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 20.20.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure native Windows toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+
+      - name: Install deterministic dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Rebuild Electron native modules
+        shell: pwsh
+        run: |
+          npm exec electron-rebuild -- -f -w better-sqlite3,sharp
+          if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
+
+      - name: Doctor
+        run: npm run doctor
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: ESLint zero warnings
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit tests
+        run: npm test -- --runInBand
+
+      - name: Package Windows x64 application
+        run: npm run package -- --arch=x64
+
+      - name: Make Windows x64 installer
+        run: npm run make -- --arch=x64
+
+      - name: Measure landscape and portrait video bounds in packaged EXE
+        run: npm run test:player-viewport
+
+      - name: Upload player viewport evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-player-viewport-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            artifacts/player-viewport/**
+            out/make/**

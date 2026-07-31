@@ -154,26 +154,35 @@ jobs:
             throw 'Synthetic Open With fixture could not be generated.'
           }
 
-          $beforeIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
           $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
           Start-Sleep -Seconds 20
           if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
 
+          $primaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
+
           $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
-          Start-Sleep -Seconds 6
-          $activeIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-          $newIds = @($activeIds | Where-Object { $_ -notin $beforeIds })
-          if ($newIds.Count -ne 1) {
+          Start-Sleep -Seconds 8
+          $afterSecondIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          $unexpectedIds = @($afterSecondIds | Where-Object { $_ -notin $primaryIds })
+          if ($unexpectedIds.Count -gt 0) {
             Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
-            throw "Single-instance validation expected one new KNOUX process but found $($newIds.Count)."
+            throw "Second-instance launch left additional KNOUX processes running: $($unexpectedIds -join ', ')."
           }
-          if ($process.HasExited) { throw 'Primary application exited while handling a second-instance media request.' }
-          if (-not $second.HasExited -and $second.Id -ne $process.Id) {
+          if (-not $second.HasExited -and $second.Id -notin $primaryIds) {
             Stop-Process -Id $second.Id -Force -ErrorAction SilentlyContinue
+            throw 'Second launcher process did not exit after forwarding the media request.'
+          }
+          $remainingPrimaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          if (@($remainingPrimaryIds | Where-Object { $_ -in $primaryIds }).Count -lt 1) {
+            throw 'Primary application exited while handling a second-instance media request.'
           }
 
           $process.CloseMainWindow() | Out-Null
-          if (-not $process.WaitForExit(15000)) { Stop-Process -Id $process.Id -Force }
+          Start-Sleep -Seconds 5
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 3
           $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron|ffmpeg|ffprobe)$' })
           if ($orphans.Count -gt 0) {

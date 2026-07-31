@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-import { app, dialog, powerSaveBlocker } from 'electron';
+import { dialog, powerSaveBlocker } from 'electron';
 
 import {
   audioOutputExtension,

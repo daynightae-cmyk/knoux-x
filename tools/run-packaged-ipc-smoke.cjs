@@ -61,10 +61,15 @@ function main() {
   const preloadEntryPath = '.vite/build/preload-entry.js';
   const preloadEntry = extractEntry(preloadEntryPath, path.join(inspectionRoot, 'preload-entry.js'));
   const mainText = fs.readFileSync(mainEntry.outputPath, 'utf8');
+  const runtimeMainMatch = mainText.match(/require\("\.\/(main-[^"/]+\.js)"\)/);
+  if (!runtimeMainMatch) throw new Error('ASAR_RUNTIME_MAIN_REFERENCE_MISSING');
+  const runtimeMainPath = `.vite/build/${runtimeMainMatch[1]}`;
+  const runtimeMain = extractEntry(runtimeMainPath, path.join(inspectionRoot, 'main-runtime.js'));
+  const runtimeMainText = fs.readFileSync(runtimeMain.outputPath, 'utf8');
   const preloadText = fs.readFileSync(preloadEntry.outputPath, 'utf8');
   const head = git(['rev-parse', 'HEAD']).toLowerCase();
   const branch = git(['branch', '--show-current']);
-  if (!mainText.includes('preload-entry.js') || !mainText.includes('KNOUX_IPC_HEALTH') || !mainText.toLowerCase().includes(head)) {
+  if (!runtimeMainText.includes('preload-entry.js') || !runtimeMainText.includes('KNOUX_IPC_HEALTH') || !runtimeMainText.toLowerCase().includes(head)) {
     throw new Error('ASAR_MAIN_ENTRY_STALE_OR_UNRELATED');
   }
   for (const marker of ['knouxRuntime', 'knouxAPI', 'knouxCreativeAPI', 'knouxRecordingAPI', 'knouxMultitrackAPI', 'knouxSlideshowAPI', 'knouxAudioToolsAPI']) {
@@ -104,7 +109,8 @@ function main() {
     executable: { path: executablePath, bytes: fs.statSync(executablePath).size, sha256: hashFile(executablePath) },
     asar: { path: asarPath, bytes: fs.statSync(asarPath).size, sha256: hashFile(asarPath) },
     packageManifest: packageEntry,
-    mainBundle: mainEntry,
+    configuredMainEntry: mainEntry,
+    mainBundle: runtimeMain,
     preloadBundle: preloadEntry,
   };
   const finalEvidence = {
@@ -117,7 +123,7 @@ function main() {
     testedBranch: branch,
     configuredMain: packagedManifest.main,
     expectedPreloadEntry: preloadEntryPath,
-    asarEntriesInspected: [packageEntry.normalized, mainEntry.normalized, preloadEntry.normalized],
+    asarEntriesInspected: [packageEntry.normalized, mainEntry.normalized, runtimeMain.normalized, preloadEntry.normalized],
     artifacts,
     runtime,
     fatalPatterns: fatalPatterns.map((pattern) => pattern.source),

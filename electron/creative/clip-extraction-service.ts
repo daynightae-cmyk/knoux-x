@@ -24,6 +24,7 @@ export interface ClipExtractionResult {
 
 export class ClipExtractionService {
   private readonly ffmpeg = new FFmpegService();
+  private readonly completedOutputs = new Set<string>();
 
   async extract(
     inputPath: string,
@@ -58,6 +59,7 @@ export class ClipExtractionService {
       const files = (await fs.readdir(output))
         .filter((entry) => /^frame-\d{6}\.png$/i.test(entry));
       if (files.length === 0) throw new Error('FFmpeg completed without producing extracted frames.');
+      this.completedOutputs.add(output);
       return {
         mode: options.mode,
         outputPath: output,
@@ -80,6 +82,7 @@ export class ClipExtractionService {
     if (Math.abs(actualDuration - options.durationSeconds) > durationTolerance) {
       throw new Error('The extracted clip duration differs materially from the requested range.');
     }
+    this.completedOutputs.add(output);
     return {
       mode: options.mode,
       outputPath: output,
@@ -96,10 +99,13 @@ export class ClipExtractionService {
   }
 
   showInFolder(outputPath: string): void {
-    shell.showItemInFolder(path.resolve(outputPath));
+    const resolved = path.resolve(outputPath);
+    if (!this.completedOutputs.has(resolved)) throw new Error('The requested clip output is not part of this KNOUX session.');
+    shell.showItemInFolder(resolved);
   }
 
   shutdown(): void {
     this.ffmpeg.cancelAll();
+    this.completedOutputs.clear();
   }
 }

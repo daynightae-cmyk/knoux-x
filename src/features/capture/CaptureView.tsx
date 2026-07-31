@@ -3,6 +3,7 @@ import {
   Camera,
   Clipboard,
   Crop,
+  Edit3,
   FolderCog,
   FolderOpen,
   Image as ImageIcon,
@@ -14,17 +15,19 @@ import {
   X,
 } from 'lucide-react';
 
-import { NeonButton } from '../../components/neon/NeonButton';
-import { NeonPanel } from '../../components/neon/NeonPanel';
-import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
-import { useTranslation } from '../../i18n';
-import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 import type {
   DesktopCaptureMode,
   DesktopCaptureResult,
   RegionAspectPreset,
 } from '../../../electron/creative/region-capture-service';
+import type { DesktopCaptureSource } from '../../../electron/preload-creative';
+import { NeonButton } from '../../components/neon/NeonButton';
+import { NeonPanel } from '../../components/neon/NeonPanel';
+import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import type { CaptureFormat } from '../../core/creative/capture';
+import { useTranslation } from '../../i18n';
+import { useAppStore } from '../../store/appStore';
+import { useImageEditorStore } from '../../store/imageEditorStore';
 
 const delays = [0, 3, 5, 10] as const;
 const aspectPresets: RegionAspectPreset[] = ['free', '1:1', '4:3', '16:9', '9:16', '21:9'];
@@ -54,6 +57,8 @@ export const CaptureView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const setView = useAppStore((state) => state.setView);
+  const setImageEditorSource = useImageEditorStore((state) => state.setSource);
   const { t } = useTranslation();
 
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview'
@@ -141,6 +146,16 @@ export const CaptureView: React.FC = () => {
     selectedSourceId,
     t,
   ]);
+
+  const editResult = useCallback((): void => {
+    if (!result) return;
+    setImageEditorSource({
+      dataUrl: result.dataUrl,
+      name: result.sourceName || 'KNOUX Capture',
+      sourcePath: result.outputPath ?? undefined,
+    });
+    setView('image-editor');
+  }, [result, setImageEditorSource, setView]);
 
   return (
     <section className="creative-view capture-studio" aria-labelledby="capture-title">
@@ -318,9 +333,14 @@ export const CaptureView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg" className="capture-result-panel">
           <div className="creative-section-heading compact-heading">
             <h2><ImageIcon size={20} /> {t('capture.lastResult')}</h2>
-            <button type="button" className="capture-result-close" onClick={() => setResult(null)} aria-label={t('common.cancel')}>
-              <X size={17} />
-            </button>
+            <div className="capture-result-actions">
+              <NeonButton variant="secondary" size="sm" leftIcon={<Edit3 size={15} />} onClick={editResult}>
+                {t('capture.editImage')}
+              </NeonButton>
+              <button type="button" className="capture-result-close" onClick={() => setResult(null)} aria-label={t('common.cancel')}>
+                <X size={17} />
+              </button>
+            </div>
           </div>
           <div className="capture-result-grid">
             <div className="capture-result-preview"><img src={result.dataUrl} alt={t('capture.lastResult')} /></div>

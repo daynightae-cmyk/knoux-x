@@ -16,6 +16,10 @@ import {
   playerViewportArabic,
   playerViewportEnglish,
 } from '../locales/playerDiagnostics';
+import {
+  recordingStudioArabic,
+  recordingStudioEnglish,
+} from '../locales/recordingStudio';
 import { useAppStore } from '../store/appStore';
 import type { LocaleType } from '../store/appStore';
 
@@ -38,6 +42,10 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...en.capture,
       ...captureStudioEnglish,
     },
+    recording: {
+      ...en.recording,
+      ...recordingStudioEnglish,
+    },
     imageEditor: imageEditorEnglish,
     playerViewport: playerViewportEnglish,
     diagnostics: diagnosticsEnglish,
@@ -56,6 +64,10 @@ const dictionaries: Record<LocaleType, unknown> = {
     capture: {
       ...ar.capture,
       ...captureStudioArabic,
+    },
+    recording: {
+      ...ar.recording,
+      ...recordingStudioArabic,
     },
     imageEditor: imageEditorArabic,
     playerViewport: playerViewportArabic,

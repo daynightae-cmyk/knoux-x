@@ -1,12 +1,18 @@
 import { ipcRenderer } from 'electron';
 
 import type { CaptureFormat } from '../src/core/creative/capture';
+import type { ClipExtractionOptions } from '../src/core/creative/clipExtraction';
 import type { EditProject } from '../src/core/creative/editProject';
 
 import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/ai-service';
-import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
+import type { ClipExtractionResult } from './creative/clip-extraction-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
-import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
+import type { FFmpegCapabilities, FFmpegProgress, ProbeResult } from './creative/ffmpeg-service';
+import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
+import type {
+  DesktopCaptureRequest,
+  DesktopCaptureResult,
+} from './creative/region-capture-service';
 import type { LoadedSubtitle } from './creative/subtitle-service';
 import type {
   LibraryFolder,
@@ -77,6 +83,23 @@ export const creativeAPI = {
     getDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:get-default-directory'),
     chooseDefaultDirectory: (): Promise<string | null> => ipcRenderer.invoke('capture:choose-default-directory'),
     getDesktopSources: (): Promise<DesktopCaptureSource[]> => ipcRenderer.invoke('capture:desktop-sources'),
+    captureDesktop: (request: DesktopCaptureRequest): Promise<DesktopCaptureResult | null> =>
+      ipcRenderer.invoke('capture:desktop', request),
+    completeRegionSelection: (payload: { token: string; x: number; y: number; width: number; height: number }): void =>
+      ipcRenderer.send('capture:selector-complete', payload),
+    cancelRegionSelection: (token: string): void =>
+      ipcRenderer.send('capture:selector-cancel', token),
+  },
+  clip: {
+    extract: (inputPath: string, options: ClipExtractionOptions): Promise<ClipExtractionResult | null> =>
+      ipcRenderer.invoke('clip:extract', inputPath, options),
+    cancel: (jobId: string): Promise<boolean> => ipcRenderer.invoke('clip:cancel', jobId),
+    showItem: (outputPath: string): Promise<void> => ipcRenderer.invoke('clip:show-item', outputPath),
+    onProgress: (callback: (progress: FFmpegProgress) => void): (() => void) => {
+      const listener = (_event: unknown, progress: FFmpegProgress) => callback(progress);
+      ipcRenderer.on('clip:progress', listener);
+      return () => ipcRenderer.removeListener('clip:progress', listener);
+    },
   },
   recording: {
     begin: (request: {
@@ -84,6 +107,7 @@ export const creativeAPI = {
       mimeType: string;
       suggestedName?: string;
       countdownSeconds?: number;
+      preferredDirectory?: string;
     }): Promise<RecordingSessionSnapshot | null> => ipcRenderer.invoke('recording:begin', request),
     append: (sessionId: string, chunk: ArrayBuffer | Uint8Array): Promise<RecordingSessionSnapshot> =>
       ipcRenderer.invoke('recording:append', sessionId, chunk),

@@ -1,31 +1,36 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Activity } from 'lucide-react';
 
+import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 
+import { PlayerDiagnosticsPanel } from './PlayerDiagnosticsPanel';
 import { PlayerView } from './PlayerView';
 
 type FitMode = 'contain' | 'cover' | 'fill' | 'original';
 type DisplayMode = 'normal' | 'theater' | 'cinema';
 
-const fitModes: ReadonlyArray<{ value: FitMode; label: string }> = [
-  { value: 'contain', label: 'Fit' },
-  { value: 'cover', label: 'Fill' },
-  { value: 'fill', label: 'Stretch' },
-  { value: 'original', label: 'Original' },
+const fitModes: ReadonlyArray<{ value: FitMode; labelKey: string }> = [
+  { value: 'contain', labelKey: 'playerViewport.fit' },
+  { value: 'cover', labelKey: 'playerViewport.fill' },
+  { value: 'fill', labelKey: 'playerViewport.stretch' },
+  { value: 'original', labelKey: 'playerViewport.original' },
 ];
 
-const displayModes: ReadonlyArray<{ value: DisplayMode; label: string }> = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'theater', label: 'Theater' },
-  { value: 'cinema', label: 'Cinema' },
+const displayModes: ReadonlyArray<{ value: DisplayMode; labelKey: string }> = [
+  { value: 'normal', labelKey: 'playerViewport.normal' },
+  { value: 'theater', labelKey: 'playerViewport.theater' },
+  { value: 'cinema', labelKey: 'playerViewport.cinema' },
 ];
 
 export const PlayerViewportBoundary: React.FC = () => {
   const [fitMode, setFitMode] = useState<FitMode>('contain');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('normal');
   const [toolbarVisible, setToolbarVisible] = useState(true);
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
   const isPlaying = usePlayerStore((state) => state.isPlaying);
+  const { t } = useTranslation();
 
   const clearHideTimer = useCallback((): void => {
     if (hideTimerRef.current !== null) {
@@ -37,13 +42,13 @@ export const PlayerViewportBoundary: React.FC = () => {
   const revealToolbar = useCallback((): void => {
     clearHideTimer();
     setToolbarVisible(true);
-    if (isPlaying) {
+    if (isPlaying && !diagnosticsVisible) {
       hideTimerRef.current = window.setTimeout(() => {
         setToolbarVisible(false);
         hideTimerRef.current = null;
       }, 2600);
     }
-  }, [clearHideTimer, isPlaying]);
+  }, [clearHideTimer, diagnosticsVisible, isPlaying]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -54,12 +59,12 @@ export const PlayerViewportBoundary: React.FC = () => {
   }, [displayMode]);
 
   useEffect(() => {
-    if (isPlaying) revealToolbar();
+    if (isPlaying && !diagnosticsVisible) revealToolbar();
     else {
       clearHideTimer();
       setToolbarVisible(true);
     }
-  }, [clearHideTimer, isPlaying, revealToolbar]);
+  }, [clearHideTimer, diagnosticsVisible, isPlaying, revealToolbar]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -72,6 +77,11 @@ export const PlayerViewportBoundary: React.FC = () => {
       } else if (event.key.toLowerCase() === 'c') {
         event.preventDefault();
         setDisplayMode((current) => current === 'cinema' ? 'normal' : 'cinema');
+      } else if (event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        setDiagnosticsVisible((current) => !current);
+      } else if (event.key === 'Escape' && diagnosticsVisible) {
+        setDiagnosticsVisible(false);
       } else if (event.key === 'Escape' && displayMode !== 'normal' && !document.fullscreenElement) {
         setDisplayMode('normal');
       }
@@ -79,7 +89,17 @@ export const PlayerViewportBoundary: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [displayMode]);
+  }, [diagnosticsVisible, displayMode]);
+
+  useEffect(() => {
+    const handleCommand = (event: Event): void => {
+      if ((event as CustomEvent<{ command?: string }>).detail?.command === 'theater-mode') {
+        setDisplayMode((current) => current === 'theater' ? 'normal' : 'theater');
+      }
+    };
+    window.addEventListener('knoux:command', handleCommand);
+    return () => window.removeEventListener('knoux:command', handleCommand);
+  }, []);
 
   useEffect(() => () => clearHideTimer(), [clearHideTimer]);
 
@@ -90,16 +110,16 @@ export const PlayerViewportBoundary: React.FC = () => {
       data-display-mode={displayMode}
       onMouseMove={revealToolbar}
       onFocusCapture={revealToolbar}
-      aria-label="KNOUX media player workspace"
+      aria-label={t('playerViewport.workspace')}
     >
       <PlayerView />
 
       <div
         className={`player-viewport-toolbar ${toolbarVisible ? 'visible' : 'hidden'}`}
         role="toolbar"
-        aria-label="Player viewport controls"
+        aria-label={t('playerViewport.controls')}
       >
-        <div className="player-viewport-toolbar__group" aria-label="Video fit mode">
+        <div className="player-viewport-toolbar__group" aria-label={t('playerViewport.fitMode')}>
           {fitModes.map((mode) => (
             <button
               type="button"
@@ -107,14 +127,14 @@ export const PlayerViewportBoundary: React.FC = () => {
               className={fitMode === mode.value ? 'active' : ''}
               onClick={() => setFitMode(mode.value)}
               aria-pressed={fitMode === mode.value}
-              title={`${mode.label} video to viewport`}
+              title={t('playerViewport.fitTitle', { mode: t(mode.labelKey) })}
             >
-              {mode.label}
+              {t(mode.labelKey)}
             </button>
           ))}
         </div>
 
-        <div className="player-viewport-toolbar__group" aria-label="Player display mode">
+        <div className="player-viewport-toolbar__group" aria-label={t('playerViewport.displayMode')}>
           {displayModes.map((mode) => (
             <button
               type="button"
@@ -122,13 +142,34 @@ export const PlayerViewportBoundary: React.FC = () => {
               className={displayMode === mode.value ? 'active' : ''}
               onClick={() => setDisplayMode(mode.value)}
               aria-pressed={displayMode === mode.value}
-              title={mode.value === 'theater' ? 'Theater mode (T)' : mode.value === 'cinema' ? 'Cinema mode (C)' : 'Normal mode'}
+              title={mode.value === 'theater'
+                ? t('playerViewport.theaterTitle')
+                : mode.value === 'cinema'
+                  ? t('playerViewport.cinemaTitle')
+                  : t('playerViewport.normalTitle')}
             >
-              {mode.label}
+              {t(mode.labelKey)}
             </button>
           ))}
         </div>
+
+        <div className="player-viewport-toolbar__group">
+          <button
+            type="button"
+            className={diagnosticsVisible ? 'active diagnostics-toggle' : 'diagnostics-toggle'}
+            onClick={() => setDiagnosticsVisible((current) => !current)}
+            aria-pressed={diagnosticsVisible}
+            title={t('diagnostics.openTitle')}
+          >
+            <Activity size={14} />
+            {t('diagnostics.shortTitle')}
+          </button>
+        </div>
       </div>
+
+      {diagnosticsVisible && (
+        <PlayerDiagnosticsPanel onClose={() => setDiagnosticsVisible(false)} />
+      )}
     </section>
   );
 };

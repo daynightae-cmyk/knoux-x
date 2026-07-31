@@ -971,6 +971,23 @@
   gap: 6px;
 }
 
+.studio-preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--knoux-accent) 24%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--knoux-accent) 5%, transparent);
+}
+
+.studio-preset-bar select {
+  min-width: 160px;
+  min-height: 36px;
+}
+
 .capture-toolbar select,
 .playback-rate-select {
   min-height: 34px;

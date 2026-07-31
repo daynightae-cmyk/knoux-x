@@ -1,281 +1,235 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Settings Manager
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * مدير الإعدادات - يدير حفظ واسترجاع إعدادات التطبيق
- * 
- * @module Services/Settings
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import EventEmitter from 'events';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// أنواع البيانات
-// ═══════════════════════════════════════════════════════════════════════════
+import { app } from 'electron';
 
-export interface AppSettings {
-  // General
-  language: string;
-  theme: 'light' | 'dark' | 'auto';
-  accentColor: string;
-  
-  // Playback
-  autoPlay: boolean;
-  resumePlayback: boolean;
-  defaultVolume: number;
-  muted: boolean;
-  playbackRate: number;
-  
-  // Audio
-  audioDevice: string;
-  equalizer: number[];
-  enableDSP: boolean;
-  
-  // Video
-  hardwareAcceleration: boolean;
-  deinterlace: boolean;
-  aspectRatio: string;
-  
-  // Subtitles
-  subtitleEnabled: boolean;
-  subtitleLanguage: string;
-  subtitleSize: number;
-  subtitleColor: string;
-  
-  // Library
-  libraryPaths: string[];
-  autoScan: boolean;
-  
-  // Interface
-  minimizeToTray: boolean;
-  showNotifications: boolean;
-  
-  // Advanced
-  cacheSize: number;
-  logLevel: 'debug' | 'info' | 'warn' | 'error';
+import {
+  APPLICATION_SETTING_KEYS,
+  APPLICATION_SETTINGS_SCHEMA_VERSION,
+  createApplicationSettingsExport,
+  DEFAULT_APPLICATION_SETTINGS,
+  parseApplicationSettings,
+  parseApplicationSettingsExport,
+  validateApplicationSetting,
+  type ApplicationSettingKey,
+  type ApplicationSettings,
+} from '../../settings/applicationSettings';
+
+export type AppSettings = ApplicationSettings;
+export const defaultSettings = DEFAULT_APPLICATION_SETTINGS;
+
+interface StoredSettingsDocument {
+  schemaVersion: number;
+  settings: ApplicationSettings;
 }
 
-export const defaultSettings: AppSettings = {
-  language: 'en',
-  theme: 'dark',
-  accentColor: '#00f0ff',
-  
-  autoPlay: true,
-  resumePlayback: true,
-  defaultVolume: 0.8,
-  muted: false,
-  playbackRate: 1.0,
-  
-  audioDevice: 'default',
-  equalizer: new Array(10).fill(0),
-  enableDSP: true,
-  
-  hardwareAcceleration: true,
-  deinterlace: false,
-  aspectRatio: 'auto',
-  
-  subtitleEnabled: true,
-  subtitleLanguage: 'en',
-  subtitleSize: 24,
-  subtitleColor: '#ffffff',
-  
-  libraryPaths: [],
-  autoScan: false,
-  
-  minimizeToTray: true,
-  showNotifications: true,
-  
-  cacheSize: 512,
-  logLevel: 'info',
-};
+const MAX_SETTINGS_BYTES = 2 * 1024 * 1024;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// فئة مدير الإعدادات
-// ═══════════════════════════════════════════════════════════════════════════
+function resolveSettingKey(value: string): ApplicationSettingKey | null {
+  if (value === 'volume') return 'defaultVolume';
+  return APPLICATION_SETTING_KEYS.has(value as ApplicationSettingKey) ? value as ApplicationSettingKey : null;
+}
+
+function safeTimestamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
 
 export class SettingsManager extends EventEmitter {
-  private settings: Map<string, unknown> = new Map();
+  private settings: ApplicationSettings = structuredClone(DEFAULT_APPLICATION_SETTINGS);
   private isInitialized = false;
+  private storagePath: string | null;
+  private writeChain: Promise<void> = Promise.resolve();
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // التهيئة والإغلاق
-  // ═════════════════════════════════════════════════════════════════════════
+  constructor(storagePath?: string) {
+    super();
+    this.storagePath = storagePath ? path.resolve(storagePath) : null;
+  }
 
   public async initialize(): Promise<void> {
     if (this.isInitialized) return;
-
-    try {
-      console.log('Initializing Settings Manager...');
-      await this.loadSettings();
-      this.isInitialized = true;
-      console.log('Settings Manager initialized');
-    } catch (error) {
-      console.error('Failed to initialize Settings Manager:', error);
-      throw error;
-    }
+    this.storagePath ??= path.join(app.getPath('userData'), 'settings', 'application-settings.json');
+    await this.loadSettings();
+    this.isInitialized = true;
   }
 
   public async shutdown(): Promise<void> {
-    await this.saveSettings();
+    if (!this.isInitialized) return;
+    await this.persist();
+    await this.writeChain;
     this.isInitialized = false;
-    console.log('Settings Manager shutdown');
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // إدارة الإعدادات
-  // ═════════════════════════════════════════════════════════════════════════
-
   public async get<T>(key: string, defaultValue?: T): Promise<T> {
-    try {
-      const value = await window.knouxAPI.settings.get<T>(key, defaultValue);
-      this.settings.set(key, value);
-      return value;
-    } catch {
-      return defaultValue as T;
+    const resolvedKey = resolveSettingKey(key);
+    if (!resolvedKey) {
+      if (defaultValue !== undefined) return structuredClone(defaultValue);
+      throw new TypeError(`Unsupported application setting: ${key}`);
     }
+    return structuredClone(this.settings[resolvedKey]) as T;
   }
 
   public async set<T>(key: string, value: T): Promise<void> {
-    const oldValue = this.settings.get(key);
-    this.settings.set(key, value);
-    
-    try {
-      await window.knouxAPI.settings.set(key, value);
-      this.emit('change', key, value, oldValue);
-    } catch (error) {
-      console.error('Failed to save setting:', key, error);
-      throw error;
-    }
+    const resolvedKey = resolveSettingKey(key);
+    if (!resolvedKey) throw new TypeError(`Unsupported application setting: ${key}`);
+    const validated = validateApplicationSetting(resolvedKey, value);
+    const oldValue = structuredClone(this.settings[resolvedKey]);
+    if (JSON.stringify(oldValue) === JSON.stringify(validated)) return;
+    this.settings[resolvedKey] = structuredClone(validated) as never;
+    await this.persist();
+    this.emit('change', resolvedKey, structuredClone(validated), oldValue);
   }
 
-  public async getAll(): Promise<Record<string, unknown>> {
-    return window.knouxAPI.settings.getAll();
+  public async getAll(): Promise<ApplicationSettings & { volume: number }> {
+    return {
+      ...structuredClone(this.settings),
+      volume: this.settings.defaultVolume,
+    };
   }
 
   public async reset(key?: string): Promise<void> {
-    if (key) {
-      const defaultValue = (defaultSettings as unknown as Record<string, unknown>)[key];
-      await this.set(key, defaultValue);
-    } else {
-      // Reset all settings
-      for (const [k, v] of Object.entries(defaultSettings)) {
-        await this.set(k, v);
+    if (key !== undefined) {
+      const resolvedKey = resolveSettingKey(key);
+      if (!resolvedKey) throw new TypeError(`Unsupported application setting: ${key}`);
+      const previous = structuredClone(this.settings[resolvedKey]);
+      this.settings[resolvedKey] = structuredClone(DEFAULT_APPLICATION_SETTINGS[resolvedKey]) as never;
+      await this.persist();
+      this.emit('change', resolvedKey, structuredClone(this.settings[resolvedKey]), previous);
+      this.emit('reset', resolvedKey);
+      return;
+    }
+
+    const previous = structuredClone(this.settings);
+    this.settings = structuredClone(DEFAULT_APPLICATION_SETTINGS);
+    await this.persist();
+    for (const settingKey of APPLICATION_SETTING_KEYS) {
+      if (JSON.stringify(previous[settingKey]) !== JSON.stringify(this.settings[settingKey])) {
+        this.emit('change', settingKey, structuredClone(this.settings[settingKey]), previous[settingKey]);
       }
     }
-    this.emit('reset', key);
+    this.emit('reset');
   }
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // تحميل وحفظ الإعدادات
-  // ═════════════════════════════════════════════════════════════════════════
-
-  private async loadSettings(): Promise<void> {
-    try {
-      const allSettings = await this.getAll();
-      for (const [key, value] of Object.entries(allSettings)) {
-        this.settings.set(key, value);
-      }
-    } catch (error) {
-      console.warn('Failed to load settings:', error);
-    }
-  }
-
-  private async saveSettings(): Promise<void> {
-    // Settings are saved individually via set()
-    console.log('Settings saved');
-  }
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // استيراد وتصدير
-  // ═════════════════════════════════════════════════════════════════════════
 
   public async export(): Promise<string> {
-    const allSettings = await this.getAll();
-    return JSON.stringify(allSettings, null, 2);
+    return `${JSON.stringify(createApplicationSettingsExport(this.settings), null, 2)}\n`;
   }
 
   public async import(data: string): Promise<void> {
+    if (typeof data !== 'string' || data.length === 0 || data.length > MAX_SETTINGS_BYTES || data.includes('\u0000')) {
+      throw new TypeError('Settings import data is invalid.');
+    }
+    let decoded: unknown;
     try {
-      const settings = JSON.parse(data);
-      
-      for (const [key, value] of Object.entries(settings)) {
-        await this.set(key, value);
+      decoded = JSON.parse(data);
+    } catch {
+      throw new Error('Settings file is not valid JSON.');
+    }
+    const next = parseApplicationSettingsExport(decoded);
+    const previous = structuredClone(this.settings);
+    this.settings = next;
+    await this.persist();
+    for (const settingKey of APPLICATION_SETTING_KEYS) {
+      if (JSON.stringify(previous[settingKey]) !== JSON.stringify(next[settingKey])) {
+        this.emit('change', settingKey, structuredClone(next[settingKey]), previous[settingKey]);
       }
-      
-      this.emit('import', settings);
+    }
+    this.emit('import', structuredClone(next));
+  }
+
+  public async getPlaybackSettings(): Promise<Pick<ApplicationSettings, 'autoPlay' | 'resumePlayback' | 'defaultVolume' | 'muted' | 'playbackRate'>> {
+    return {
+      autoPlay: this.settings.autoPlay,
+      resumePlayback: this.settings.resumePlayback,
+      defaultVolume: this.settings.defaultVolume,
+      muted: this.settings.muted,
+      playbackRate: this.settings.playbackRate,
+    };
+  }
+
+  public async getAudioSettings(): Promise<Pick<ApplicationSettings, 'audioDevice' | 'equalizer' | 'enableDSP'>> {
+    return {
+      audioDevice: this.settings.audioDevice,
+      equalizer: structuredClone(this.settings.equalizer),
+      enableDSP: this.settings.enableDSP,
+    };
+  }
+
+  public async getVideoSettings(): Promise<Pick<ApplicationSettings, 'hardwareAcceleration' | 'deinterlace' | 'aspectRatio'>> {
+    return {
+      hardwareAcceleration: this.settings.hardwareAcceleration,
+      deinterlace: this.settings.deinterlace,
+      aspectRatio: this.settings.aspectRatio,
+    };
+  }
+
+  public async getSubtitleSettings(): Promise<Pick<ApplicationSettings, 'subtitleEnabled' | 'subtitleLanguage' | 'subtitleSize' | 'subtitleColor' | 'subtitleBackground' | 'subtitlePosition'>> {
+    return {
+      subtitleEnabled: this.settings.subtitleEnabled,
+      subtitleLanguage: this.settings.subtitleLanguage,
+      subtitleSize: this.settings.subtitleSize,
+      subtitleColor: this.settings.subtitleColor,
+      subtitleBackground: this.settings.subtitleBackground,
+      subtitlePosition: this.settings.subtitlePosition,
+    };
+  }
+
+  public onChange(callback: (key: ApplicationSettingKey, value: unknown, oldValue: unknown) => void): () => void {
+    this.on('change', callback);
+    return () => this.off('change', callback);
+  }
+
+  private async loadSettings(): Promise<void> {
+    const storagePath = this.requireStoragePath();
+    try {
+      const raw = await fs.readFile(storagePath, 'utf8');
+      if (raw.length > MAX_SETTINGS_BYTES) throw new Error('Settings file is too large.');
+      const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
+      if ('settings' in decoded) {
+        if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
+        this.settings = parseApplicationSettings(decoded.settings);
+      } else {
+        this.settings = parseApplicationSettings(decoded);
+      }
     } catch (error) {
-      console.error('Failed to import settings:', error);
-      throw new Error('Invalid settings file');
+      const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+      if (code !== 'ENOENT') {
+        try {
+          await fs.mkdir(path.dirname(storagePath), { recursive: true });
+          await fs.rename(storagePath, `${storagePath}.corrupt-${safeTimestamp()}`);
+        } catch {
+          // Preserve startup even when a corrupt settings file cannot be renamed.
+        }
+      }
+      this.settings = structuredClone(DEFAULT_APPLICATION_SETTINGS);
+      await this.persist();
     }
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // إعدادات محددة
-  // ═════════════════════════════════════════════════════════════════════════
-
-  public async getPlaybackSettings(): Promise<{
-    autoPlay: boolean;
-    resumePlayback: boolean;
-    defaultVolume: number;
-    muted: boolean;
-    playbackRate: number;
-  }> {
-    return {
-      autoPlay: await this.get('autoPlay', defaultSettings.autoPlay),
-      resumePlayback: await this.get('resumePlayback', defaultSettings.resumePlayback),
-      defaultVolume: await this.get('defaultVolume', defaultSettings.defaultVolume),
-      muted: await this.get('muted', defaultSettings.muted),
-      playbackRate: await this.get('playbackRate', defaultSettings.playbackRate),
+  private persist(): Promise<void> {
+    const snapshot: StoredSettingsDocument = {
+      schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION,
+      settings: structuredClone(this.settings),
     };
+    const serialized = `${JSON.stringify(snapshot, null, 2)}\n`;
+    const storagePath = this.requireStoragePath();
+    this.writeChain = this.writeChain.then(async () => {
+      await fs.mkdir(path.dirname(storagePath), { recursive: true });
+      const temporaryPath = `${storagePath}.${process.pid}.tmp`;
+      await fs.writeFile(temporaryPath, serialized, { encoding: 'utf8', mode: 0o600 });
+      try {
+        await fs.rename(temporaryPath, storagePath);
+      } catch (error) {
+        const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+        if (!['EEXIST', 'EPERM'].includes(code)) throw error;
+        await fs.rm(storagePath, { force: true });
+        await fs.rename(temporaryPath, storagePath);
+      }
+    });
+    return this.writeChain;
   }
 
-  public async getAudioSettings(): Promise<{
-    audioDevice: string;
-    equalizer: number[];
-    enableDSP: boolean;
-  }> {
-    return {
-      audioDevice: await this.get('audioDevice', defaultSettings.audioDevice),
-      equalizer: await this.get('equalizer', defaultSettings.equalizer),
-      enableDSP: await this.get('enableDSP', defaultSettings.enableDSP),
-    };
-  }
-
-  public async getVideoSettings(): Promise<{
-    hardwareAcceleration: boolean;
-    deinterlace: boolean;
-    aspectRatio: string;
-  }> {
-    return {
-      hardwareAcceleration: await this.get('hardwareAcceleration', defaultSettings.hardwareAcceleration),
-      deinterlace: await this.get('deinterlace', defaultSettings.deinterlace),
-      aspectRatio: await this.get('aspectRatio', defaultSettings.aspectRatio),
-    };
-  }
-
-  public async getSubtitleSettings(): Promise<{
-    subtitleEnabled: boolean;
-    subtitleLanguage: string;
-    subtitleSize: number;
-    subtitleColor: string;
-  }> {
-    return {
-      subtitleEnabled: await this.get('subtitleEnabled', defaultSettings.subtitleEnabled),
-      subtitleLanguage: await this.get('subtitleLanguage', defaultSettings.subtitleLanguage),
-      subtitleSize: await this.get('subtitleSize', defaultSettings.subtitleSize),
-      subtitleColor: await this.get('subtitleColor', defaultSettings.subtitleColor),
-    };
-  }
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // الاشتراك في التغييرات
-  // ═════════════════════════════════════════════════════════════════════════
-
-  public onChange(callback: (key: string, value: unknown, oldValue: unknown) => void): () => void {
-    this.on('change', callback);
-    return () => this.off('change', callback);
+  private requireStoragePath(): string {
+    if (!this.storagePath) throw new Error('Settings Manager is not initialized.');
+    return this.storagePath;
   }
 }

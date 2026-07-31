@@ -1,0 +1,50 @@
+name: Integrate KNOUX Clip Runtime
+
+on:
+  push:
+    branches:
+      - codex/knoux-professional-media-suite-completion
+    paths:
+      - 'electron/ipc/clip-extraction-runtime.ts'
+      - '.github/workflows/integrate-clip-runtime.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: integrate-knoux-clip-runtime
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/knoux-professional-media-suite-completion
+          fetch-depth: 0
+
+      - name: Import secure clip runtime once
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'electron/main-entry.ts';
+          const source = fs.readFileSync(file, 'utf8');
+          const runtimeImport = "import './ipc/clip-extraction-runtime';";
+          if (source.includes(runtimeImport)) process.exit(0);
+          const anchor = "import './main';";
+          if (!source.includes(anchor)) throw new Error('electron/main-entry.ts does not contain the expected main import.');
+          fs.writeFileSync(file, source.replace(anchor, `${runtimeImport}\n${anchor}`));
+          NODE
+
+      - name: Commit integration when changed
+        run: |
+          if git diff --quiet -- electron/main-entry.ts; then
+            echo 'Clip runtime already integrated.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add electron/main-entry.ts
+          git commit -m 'build: load secure clip extraction runtime'
+          git push origin HEAD:codex/knoux-professional-media-suite-completion

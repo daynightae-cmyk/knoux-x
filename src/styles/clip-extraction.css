@@ -1,0 +1,294 @@
+.clip-extraction-panel {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 43;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100% - 28px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: #f8f7ff;
+  background: rgba(5, 3, 13, 0.96);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.58), 0 0 28px color-mix(in srgb, var(--knoux-accent) 16%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+[dir='rtl'] .clip-extraction-panel {
+  right: auto;
+  left: 14px;
+}
+
+.clip-extraction-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--knoux-accent) 8%, rgba(0, 0, 0, 0.22));
+}
+
+.clip-extraction-panel > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clip-extraction-panel > header button {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.clip-extraction-content {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.clip-extraction-content section,
+.clip-progress,
+.clip-result,
+.clip-error {
+  padding: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.clip-range-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.clip-time-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.clip-time-card > span,
+.clip-duration-readout > span,
+.clip-options-section label > span,
+.clip-number-grid label > span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.68rem;
+}
+
+.clip-time-card > strong,
+.clip-duration-readout > strong {
+  color: #fff;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.clip-duration-readout {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.clip-number-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.clip-number-grid label,
+.clip-options-section label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.clip-number-grid input,
+.clip-number-grid select,
+.clip-options-section select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8f7ff;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.clip-options-section input[type='range'] {
+  width: 100%;
+  accent-color: var(--knoux-accent);
+}
+
+.clip-extraction-content h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.clip-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.clip-mode-grid button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 7px;
+  align-items: center;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  color: rgba(255, 255, 255, 0.64);
+  background: rgba(0, 0, 0, 0.22);
+  text-align: start;
+  cursor: pointer;
+}
+
+.clip-mode-grid button.active,
+.clip-mode-grid button:hover,
+.clip-mode-grid button:focus-visible {
+  border-color: var(--knoux-accent);
+  color: #fff;
+  background: color-mix(in srgb, var(--knoux-accent) 12%, rgba(0, 0, 0, 0.24));
+}
+
+.clip-mode-grid button svg {
+  grid-row: 1 / 3;
+}
+
+.clip-mode-grid button strong {
+  font-size: 0.73rem;
+}
+
+.clip-mode-grid button span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.62rem;
+  line-height: 1.35;
+}
+
+.clip-options-section {
+  display: grid;
+  gap: 9px;
+}
+
+.clip-progress {
+  display: grid;
+  gap: 7px;
+}
+
+.clip-progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.clip-progress progress {
+  width: 100%;
+  accent-color: var(--knoux-accent);
+}
+
+.clip-progress small {
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.clip-error {
+  color: #ff8b96;
+  border-color: rgba(255, 70, 91, 0.3);
+}
+
+.clip-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  color: #55f49a;
+}
+
+.clip-result > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.clip-result span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.68rem;
+}
+
+.clip-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clip-empty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  color: rgba(255, 255, 255, 0.48);
+  text-align: center;
+}
+
+.player-viewport-toolbar .clip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 700px) {
+  .clip-extraction-panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+  }
+
+  [dir='rtl'] .clip-extraction-panel {
+    right: 8px;
+    left: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .clip-range-section,
+  .clip-number-grid,
+  .clip-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clip-duration-readout,
+  .clip-number-grid {
+    grid-column: auto;
+  }
+
+  .clip-result {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .clip-result > button {
+    grid-column: 1 / -1;
+  }
+}

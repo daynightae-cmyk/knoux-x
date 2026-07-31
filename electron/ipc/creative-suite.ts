@@ -17,6 +17,8 @@ import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-
 import { ProjectService } from '../creative/project-service';
 import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
+import type { DesktopCaptureRequest } from '../creative/region-capture-service';
+import { RegionCaptureService } from '../creative/region-capture-service';
 import type { LibraryQuery } from '../library/library-service';
 import { LibraryService } from '../library/library-service';
 import { authorizedMediaPaths } from '../security/path-registry';
@@ -27,8 +29,12 @@ export interface CreativeSuiteController {
 
 const creativePaths = authorizedMediaPaths;
 const mediaFilters = [{
-  name: 'Media Files',
-  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus'],
+  name: 'Media and Image Files',
+  extensions: [
+    'mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v',
+    'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus',
+    'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff',
+  ],
 }];
 
 function isTrustedRendererUrl(value: string): boolean {
@@ -63,6 +69,7 @@ function requireCreativePath(filePath: string): string {
 
 export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteController {
   const capture = new CaptureService();
+  const regionCapture = new RegionCaptureService(ipc, capture);
   const recording = new RecordingService();
   const projects = new ProjectService();
   const exports = new ExportService();
@@ -171,6 +178,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
       appIcon: source.appIcon?.toDataURL() ?? null,
     }));
   }));
+  ipc.handle('capture:desktop', trusted(async (_event, request: DesktopCaptureRequest) => regionCapture.capture(request)));
 
   ipc.handle('recording:begin', trusted(async (_event, request: BeginRecordingRequest) => recording.begin(request)));
   ipc.handle('recording:append', trusted(async (_event, sessionId: string, chunk: ArrayBuffer | Uint8Array) =>
@@ -219,6 +227,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
 
   return {
     async shutdown(): Promise<void> {
+      regionCapture.close();
       exports.shutdown();
       await recording.shutdown();
       library.close();

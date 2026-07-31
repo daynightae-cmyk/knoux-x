@@ -17,7 +17,24 @@ function optionalBinary(moduleName) {
 const projectNodeModules = path.resolve(__dirname, 'node_modules');
 
 function packageRoot(packageName, searchPath = __dirname) {
-  return path.dirname(require.resolve(`${packageName}/package.json`, { paths: [searchPath] }));
+  try {
+    return path.dirname(require.resolve(`${packageName}/package.json`, { paths: [searchPath] }));
+  } catch (manifestError) {
+    try {
+      let current = path.dirname(require.resolve(packageName, { paths: [searchPath] }));
+      while (current !== path.dirname(current)) {
+        const manifestPath = path.join(current, 'package.json');
+        if (fs.existsSync(manifestPath)) {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (manifest.name === packageName) return current;
+        }
+        current = path.dirname(current);
+      }
+    } catch {
+      // Preserve the original, more precise resolution error below.
+    }
+    throw manifestError;
+  }
 }
 
 function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set(), searchPath) {
@@ -51,14 +68,71 @@ function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set
   }
 }
 
-function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, callback) {
-  try {
-    copyRuntimeDependencyTree('better-sqlite3', buildPath);
-    const packagedManifest = path.join(buildPath, 'node_modules', 'better-sqlite3', 'package.json');
-    if (!fs.existsSync(packagedManifest)) {
-      throw new Error(`better-sqlite3 was not copied into the packaged application: ${packagedManifest}`);
+function copyInstalledScope(scopeName, buildPath) {
+  const source = path.join(projectNodeModules, scopeName);
+  if (!fs.existsSync(source)) return [];
+  const destination = path.join(buildPath, 'node_modules', scopeName);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.cpSync(source, destination, { recursive: true, force: true, dereference: true });
+  return fs.readdirSync(destination, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
+
+function requirePackagedManifest(buildPath, packageName) {
+  const manifestPath = path.join(buildPath, 'node_modules', ...packageName.split('/'), 'package.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`${packageName} was not copied into the packaged application: ${manifestPath}`);
+  }
+  return manifestPath;
+}
+
+function listRuntimeFiles(directory) {
+  if (!fs.existsSync(directory)) return [];
+  const results = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...listRuntimeFiles(fullPath));
+    } else {
+      results.push(fullPath);
     }
-    console.log(`[KNOUX package] Native SQLite runtime copied to ${packagedManifest}`);
+  }
+  return results;
+}
+
+function packageNativeRuntime(buildPath, _electronVersion, platform, arch, callback) {
+  try {
+    const copiedRoots = new Set();
+    copyRuntimeDependencyTree('better-sqlite3', buildPath, copiedRoots);
+    copyRuntimeDependencyTree('sharp', buildPath, copiedRoots);
+    const installedImagePackages = copyInstalledScope('@img', buildPath)
+      .filter((name) => name.startsWith('sharp-'));
+
+    const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
+    const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
+    const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
+    const expectedRuntime = platform === 'win32' ? `sharp-win32-${arch}` : null;
+    const windowsRuntime = expectedRuntime && installedImagePackages.includes(expectedRuntime)
+      ? expectedRuntime
+      : null;
+    if (!windowsRuntime) {
+      throw new Error(`Sharp Windows ${arch} runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
+    }
+
+    const windowsRuntimeRoot = path.join(sharpPlatformRoot, windowsRuntime);
+    const runtimeFiles = listRuntimeFiles(windowsRuntimeRoot);
+    const nativeBinaries = runtimeFiles.filter((filePath) => filePath.endsWith('.node'));
+    const runtimeLibraries = runtimeFiles.filter((filePath) => filePath.toLowerCase().endsWith('.dll'));
+    if (nativeBinaries.length === 0) {
+      throw new Error(`Sharp Windows native binary is missing from ${windowsRuntimeRoot}`);
+    }
+
+    console.log(`[KNOUX package] Native SQLite runtime copied to ${sqliteManifest}`);
+    console.log(`[KNOUX package] Sharp runtime copied to ${sharpManifest}`);
+    console.log(`[KNOUX package] Sharp platform packages: ${installedImagePackages.join(', ')}`);
+    console.log(`[KNOUX package] Sharp native binaries: ${nativeBinaries.map((filePath) => path.basename(filePath)).join(', ')}`);
+    console.log(`[KNOUX package] Sharp runtime libraries: ${runtimeLibraries.map((filePath) => path.basename(filePath)).join(', ') || 'embedded'}`);
     callback();
   } catch (error) {
     callback(error);
@@ -84,7 +158,7 @@ if (fs.existsSync(`${icon}.ico`)) squirrel.setupIcon = `${icon}.ico`;
 module.exports = {
   packagerConfig: {
     asar: {
-      unpack: '**/*.node',
+      unpack: '**/*.{node,dll}',
     },
     name: 'KNOUX Player X',
     executableName: 'knoux-player-x',

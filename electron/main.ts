@@ -311,6 +311,22 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
 } {
   if (applicationStarted) throw new Error('The KNOUX primary runtime can only be started once.');
   applicationStarted = true;
+
+  const settingsSelfTest = initialArgv.includes('--settings-self-test');
+  if (settingsSelfTest) {
+    const evidenceArgument = initialArgv.find((argument) => argument.startsWith('--settings-evidence='));
+    const evidencePath = evidenceArgument?.slice('--settings-evidence='.length) ?? '';
+    app.whenReady().then(async () => {
+      const { runSettingsPersistenceSelfTest } = await import('./startup/settings-persistence-self-test');
+      await runSettingsPersistenceSelfTest(evidencePath);
+      app.exit(0);
+    }).catch((error) => {
+      log.error('Settings persistence self-test failed', error);
+      app.exit(1);
+    });
+    return { handleSecondInstance: () => undefined };
+  }
+
   pendingMediaPaths = mediaPathsFromArguments(initialArgv);
 
   app.on('web-contents-created', (_event, contents) => {

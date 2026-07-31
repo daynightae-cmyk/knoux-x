@@ -30,6 +30,18 @@ export function authorizeMediaPaths(paths: readonly string[]): string[] {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function setupFileHandlers(ipc: typeof ipcMain, _orchestrator: SystemOrchestrator): void {
+  ipc.handle('file:authorize-dropped', async (_, filePath: string) => {
+    if (typeof filePath !== 'string' || filePath.length === 0 || filePath.length > 4096 || filePath.includes('\u0000')) {
+      throw new TypeError('Dropped media path is invalid.');
+    }
+    const resolved = path.resolve(filePath);
+    const allowed = new Set(['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.opus']);
+    if (!allowed.has(path.extname(resolved).toLowerCase())) throw new TypeError('Dropped file type is unsupported.');
+    const stats = await fs.stat(resolved);
+    if (!stats.isFile() || stats.size <= 0) throw new TypeError('Dropped media must be a non-empty file.');
+    return authorizedPaths.authorizeFile(resolved);
+  });
+
   ipc.handle('file:open', async (_, options) => {
     const result = await dialog.showOpenDialog({
       title: options?.title || 'Open File',

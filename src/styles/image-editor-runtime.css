@@ -1,0 +1,30 @@
+.image-editor-stage-panel .image-editor-stage {
+  position: relative;
+}
+
+.image-editor-canvas-stack.is-empty {
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.image-editor-canvas-stack.has-document {
+  visibility: visible;
+}
+
+.image-editor-stage > .image-editor-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  min-height: 0;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--knoux-accent) 13%, transparent), transparent 58%),
+    rgba(5, 4, 10, 0.93);
+}
+
+.capture-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

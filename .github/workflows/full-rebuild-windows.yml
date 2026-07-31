@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: full-rebuild-windows-${{ github.ref }}
@@ -32,29 +32,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Apply pending final quality repairs
+      - name: Validate historical quality repairs are committed
         shell: pwsh
         run: |
           if (Test-Path tools/fix-final-quality-gates.cjs) {
             node tools/fix-final-quality-gates.cjs
-            if ($LASTEXITCODE -ne 0) { throw 'Final quality repair migration failed.' }
+            if ($LASTEXITCODE -ne 0) { throw 'Historical quality repair validation failed.' }
           } else {
-            Write-Host 'No pending final quality repair migration.'
+            Write-Host 'No historical quality repair validator.'
           }
-
-      - name: Persist final quality repairs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
-        shell: pwsh
-        run: |
-          git add -A
-          git diff --cached --quiet
+          git diff --exit-code
           if ($LASTEXITCODE -ne 0) {
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m 'fix: close final TypeScript and ESLint quality gates'
-            git push origin HEAD:codex/knoux-player-x-full-rebuild
-          } else {
-            Write-Host 'Source quality repairs are already committed.'
+            throw 'Quality repair validation modified committed source.'
           }
 
       - name: Configure native toolchain
@@ -99,7 +88,7 @@ jobs:
           git diff --exit-code -- assets/icons
           if ($LASTEXITCODE -ne 0) { throw 'Committed icon assets are not reproducible from the generator.' }
 
-      - name: Validate official KNOUX branding and first-run slides
+      - name: Validate official KNOUX branding and installer slides
         shell: pwsh
         run: |
           npm run brand:verify
@@ -108,7 +97,7 @@ jobs:
       - name: Rebuild Electron native modules
         shell: pwsh
         run: |
-          npm exec electron-rebuild -- -f -w better-sqlite3,sharp
+          npm exec electron-rebuild -- -f --only better-sqlite3,sharp
           if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
 
       - name: Validate dependency graph
@@ -126,19 +115,50 @@ jobs:
           npm test -- --runInBand
           if ($LASTEXITCODE -ne 0) { throw 'Jest gate failed.' }
 
-      - name: Package and make installer
+      - name: Package and make Squirrel installer
         shell: pwsh
         run: |
           npm run package -- --arch=x64
           npm run make -- --arch=x64
 
+      - name: Build bilingual nine-slide visual installer
+        shell: pwsh
+        run: |
+          $squirrelCandidates = @(Get-ChildItem 'out\make\squirrel.windows\x64' -File -Filter '*Setup.exe')
+          if ($squirrelCandidates.Count -ne 1) {
+            throw "Expected exactly one Squirrel Setup.exe payload; found $($squirrelCandidates.Count)."
+          }
+          $squirrelSetup = $squirrelCandidates[0]
+          if ($squirrelSetup.Length -le 1MB) { throw 'Squirrel Setup.exe payload is unexpectedly small.' }
+
+          $visualDirectory = Join-Path $PWD 'out\make\visual.windows\x64'
+          $visualInstaller = Join-Path $visualDirectory 'KNOUX-Player-X-Visual-Installer.exe'
+          $evidenceDirectory = Join-Path $PWD 'out\visual-installer-evidence'
+          New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
+          $selfTestEvidence = Join-Path $evidenceDirectory 'self-test.json'
+
+          & .\tools\build-visual-installer.ps1 `
+            -SetupPath $squirrelSetup.FullName `
+            -OutputPath $visualInstaller `
+            -EvidencePath $selfTestEvidence
+          if ($LASTEXITCODE -ne 0) { throw 'Visual installer build or self-test failed.' }
+          if (-not (Test-Path $visualInstaller) -or (Get-Item $visualInstaller).Length -le $squirrelSetup.Length) {
+            throw 'Visual installer is missing or does not contain the embedded payload.'
+          }
+
+          "KNOUX_SQUIRREL_SETUP=$($squirrelSetup.FullName)" >> $env:GITHUB_ENV
+          "KNOUX_VISUAL_INSTALLER=$visualInstaller" >> $env:GITHUB_ENV
+          "KNOUX_VISUAL_EVIDENCE=$evidenceDirectory" >> $env:GITHUB_ENV
+
       - name: Verify package, media tools, Open With, single instance, smoke, and cleanup
         shell: pwsh
         run: |
-          $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          $exe = Get-Item -LiteralPath 'out\KNOUX Player X-win32-x64\knoux-player-x.exe'
           if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
-          $installer = Get-ChildItem out\make -Recurse -Include '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
-          if (-not $installer -or $installer.Length -le 0) { throw 'Installer is missing or empty.' }
+          $squirrelInstaller = Get-Item -LiteralPath $env:KNOUX_SQUIRREL_SETUP
+          $visualInstaller = Get-Item -LiteralPath $env:KNOUX_VISUAL_INSTALLER
+          if (-not $squirrelInstaller -or $squirrelInstaller.Length -le 0) { throw 'Squirrel installer is missing or empty.' }
+          if (-not $visualInstaller -or $visualInstaller.Length -le 0) { throw 'Visual installer is missing or empty.' }
           $resources = Join-Path $exe.Directory.FullName 'resources'
           $ffmpeg = Get-ChildItem $resources -Recurse -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -153,6 +173,23 @@ jobs:
           $ffprobeExit = $LASTEXITCODE
           Write-Host ($ffprobeVersion | Select-Object -First 1)
           if ($ffprobeExit -ne 0) { throw "Packaged ffprobe.exe did not execute: $ffprobeExit" }
+
+          $settingsEvidence = Join-Path $env:KNOUX_VISUAL_EVIDENCE 'packaged-settings-persistence.json'
+          $settingsTest = Start-Process -FilePath $exe.FullName -ArgumentList @('--settings-self-test', "--settings-evidence=$settingsEvidence") -Wait -PassThru
+          if ($settingsTest.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $settingsEvidence)) {
+            throw "Packaged settings persistence self-test failed with exit code $($settingsTest.ExitCode)."
+          }
+          $settingsDocument = Get-Content -LiteralPath $settingsEvidence -Raw | ConvertFrom-Json
+          $requiredSettingsChecks = @('atomic-save', 'restart-restore', 'reset-defaults', 'import-export-round-trip', 'corrupt-settings-recovery', 'no-temporary-files')
+          if ($settingsDocument.product -ne 'KNOUX Player X' -or $settingsDocument.success -ne $true -or
+              $settingsDocument.mode -ne 'settings-persistence' -or $settingsDocument.packaged -ne $true -or
+              $settingsDocument.schemaVersion -ne 2 -or $settingsDocument.corruptBackups -ne 1) {
+            Get-Content -LiteralPath $settingsEvidence | Write-Host
+            throw 'Packaged settings evidence metadata is invalid.'
+          }
+          foreach ($check in $requiredSettingsChecks) {
+            if ($check -notin @($settingsDocument.checks)) { throw "Packaged settings evidence is missing check: $check" }
+          }
 
           $fixture = Join-Path $env:RUNNER_TEMP 'knoux-open-with-smoke.mp4'
           & $ffmpeg.FullName -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=320x180:rate=15:duration=2' -c:v mpeg4 -q:v 5 $fixture
@@ -232,11 +269,76 @@ jobs:
           }
 
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
-          Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $squirrelInstaller.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $visualInstaller.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffprobe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          foreach ($log in @($primaryOut, $primaryErr, $secondaryOut, $secondaryErr, $startupTrace, $electronLog)) {
+            if (Test-Path -LiteralPath $log) {
+              Copy-Item -LiteralPath $log -Destination (Join-Path $env:KNOUX_VISUAL_EVIDENCE (Split-Path -Leaf $log)) -Force
+            }
+          }
           Write-Host '--- SHA256 release evidence ---'
           Get-Content artifact-hashes.txt | Write-Host
+
+      - name: Verify visual installer install, repair, and uninstall
+        shell: pwsh
+        run: |
+          $visualInstaller = Get-Item -LiteralPath $env:KNOUX_VISUAL_INSTALLER
+          $evidenceDirectory = $env:KNOUX_VISUAL_EVIDENCE
+          New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
+
+          function Invoke-VisualAcceptance {
+            param([string]$Mode, [string]$Argument, [string]$EvidenceName)
+            $evidence = Join-Path $evidenceDirectory $EvidenceName
+            Remove-Item -LiteralPath $evidence -Force -ErrorAction SilentlyContinue
+            $acceptanceProcess = Start-Process -FilePath $visualInstaller.FullName -ArgumentList @($Argument, "--evidence=$evidence") -Wait -PassThru -WindowStyle Hidden
+            $exitCode = $acceptanceProcess.ExitCode
+            if ($exitCode -ne 0) { throw "Visual installer $Mode test failed with exit code $exitCode." }
+            if (-not (Test-Path $evidence) -or (Get-Item $evidence).Length -le 0) {
+              throw "Visual installer $Mode evidence is missing."
+            }
+            $document = Get-Content -LiteralPath $evidence -Raw | ConvertFrom-Json
+            if ($document.success -ne $true -or $document.mode -ne $Mode) {
+              Get-Content -LiteralPath $evidence | Write-Host
+              throw "Visual installer $Mode evidence did not report success."
+            }
+            $details = @($document.details)
+            if ($Mode -in @('install', 'repair')) {
+              if ('runtime-verified=True' -notin $details -or 'expected-prior-state=True' -notin $details) {
+                throw "Visual installer $Mode evidence did not verify the installed runtime."
+              }
+            } elseif ('removed=True' -notin $details -or 'shortcut-removed=True' -notin $details -or 'uninstall-finalized=True' -notin $details) {
+              throw 'Visual installer uninstall evidence did not verify complete removal.'
+            }
+            Get-Content -LiteralPath $evidence | Write-Host
+          }
+
+          Invoke-VisualAcceptance -Mode 'install' -Argument '--install-silent-test' -EvidenceName 'install.json'
+          Invoke-VisualAcceptance -Mode 'repair' -Argument '--repair-silent-test' -EvidenceName 'repair.json'
+          $repairDocument = Get-Content -LiteralPath (Join-Path $evidenceDirectory 'repair.json') -Raw | ConvertFrom-Json
+          $installedDetail = @($repairDocument.details | Where-Object { $_ -like 'installed-executable=*' } | Select-Object -First 1)
+          $installedExecutable = if ($installedDetail.Count -eq 1) { $installedDetail[0].Substring('installed-executable='.Length) } else { '' }
+          if (-not (Test-Path -LiteralPath $installedExecutable -PathType Leaf)) { throw 'Repair evidence did not identify an installed executable.' }
+          $installedSettingsEvidence = Join-Path $evidenceDirectory 'installed-settings-persistence.json'
+          $installedSettingsTest = Start-Process -FilePath $installedExecutable -ArgumentList @('--settings-self-test', "--settings-evidence=$installedSettingsEvidence") -Wait -PassThru -WindowStyle Hidden
+          if ($installedSettingsTest.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $installedSettingsEvidence)) {
+            throw "Installed settings persistence self-test failed with exit code $($installedSettingsTest.ExitCode)."
+          }
+          $installedSettingsDocument = Get-Content -LiteralPath $installedSettingsEvidence -Raw | ConvertFrom-Json
+          if ($installedSettingsDocument.success -ne $true -or $installedSettingsDocument.packaged -ne $true -or
+              $installedSettingsDocument.mode -ne 'settings-persistence') {
+            throw 'Installed settings persistence evidence is invalid.'
+          }
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          Invoke-VisualAcceptance -Mode 'uninstall' -Argument '--uninstall-silent-test' -EvidenceName 'uninstall.json'
+
+          $updateProcesses = @(Get-Process -Name 'Update' -ErrorAction SilentlyContinue)
+          if ($updateProcesses.Count -gt 0) {
+            $updateProcesses | Stop-Process -Force
+            throw 'Squirrel Update.exe remained after visual installer acceptance.'
+          }
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -256,3 +358,6 @@ jobs:
             artifact-hashes.txt
             package-lock.json
             assets/icons/**
+            assets/branding/asset-manifest.json
+            out/visual-installer-evidence/*.json
+            out/visual-installer-evidence/*.log

@@ -4,6 +4,7 @@ import { Ban, FileVideo, RefreshCw, Share2 } from 'lucide-react';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
+import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from '../../../electron/creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from '../../../electron/creative/ffmpeg-service';
@@ -116,6 +117,15 @@ export const ExportView: React.FC = () => {
       </header>
 
       <RuntimeModeNotice feature="Verified FFmpeg export" featureAr="التصدير المتحقق منه عبر FFmpeg" />
+      <StudioPresetBar
+        kind="export"
+        values={{ presetId, startSeconds, endSeconds: endSeconds ?? null }}
+        onApply={(values) => {
+          if (presets.some((preset) => preset.id === values.presetId)) setPresetId(values.presetId as ExportPresetId);
+          if (typeof values.startSeconds === 'number') setStartSeconds(Math.max(0, values.startSeconds));
+          if (typeof values.endSeconds === 'number') setEndSeconds(Math.max(0, values.endSeconds));
+        }}
+      />
 
       {error && <div className="creative-error" role="alert">{error}</div>}
 

@@ -15,6 +15,7 @@ on:
       - 'tests/player-viewport-contract.test.ts'
       - 'tools/test-player-viewport.cjs'
       - '.github/workflows/player-viewport-windows.yml'
+      - '.github/workflows/full-rebuild-windows.yml'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
@@ -63,7 +64,7 @@ jobs:
       - name: Rebuild Electron native modules
         shell: pwsh
         run: |
-          npm exec electron-rebuild -- -f -w better-sqlite3,sharp
+          npm exec electron-rebuild -- -f --only better-sqlite3,sharp
           if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
 
       - name: Doctor

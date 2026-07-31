@@ -93,6 +93,7 @@ function createCoreBridge(): Window['knouxAPI'] {
         size: 0,
         format: filePath.split('.').pop() ?? '',
       }),
+      authorizeDroppedFile: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
     },
     player: {
       load: async () => undefined,

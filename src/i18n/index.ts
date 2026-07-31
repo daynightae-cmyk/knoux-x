@@ -1,13 +1,33 @@
 import { useCallback } from 'react';
 
-import en from '../locales/en.json';
 import ar from '../locales/ar.json';
-import { LocaleType, useAppStore } from '../store/appStore';
+import {
+  captureStudioArabic,
+  captureStudioEnglish,
+} from '../locales/captureStudio';
+import en from '../locales/en.json';
+import { useAppStore } from '../store/appStore';
+import type { LocaleType } from '../store/appStore';
 
 export const TRANSLATED_LOCALES = ['en', 'ar'] as const;
 export const FUTURE_LOCALES = ['fr', 'es', 'de', 'it', 'pt', 'tr', 'ur', 'hi', 'ru', 'zh-CN', 'ja', 'ko'] as const;
 
-const dictionaries: Record<LocaleType, unknown> = { en, ar };
+const dictionaries: Record<LocaleType, unknown> = {
+  en: {
+    ...en,
+    capture: {
+      ...en.capture,
+      ...captureStudioEnglish,
+    },
+  },
+  ar: {
+    ...ar,
+    capture: {
+      ...ar.capture,
+      ...captureStudioArabic,
+    },
+  },
+};
 
 function resolveKey(dictionary: unknown, key: string): unknown {
   return key.split('.').reduce<unknown>((value, segment) => {
@@ -61,7 +81,7 @@ export function localeCoverage(): Record<LocaleType, { total: number; translated
     });
     return output;
   };
-  const english = flatten(en);
+  const english = flatten(dictionaries.en);
   const total = english.size;
   return TRANSLATED_LOCALES.reduce<Record<LocaleType, { total: number; translated: number; percentage: number }>>((result, locale) => {
     const target = flatten(dictionaries[locale]);

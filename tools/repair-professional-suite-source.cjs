@@ -74,4 +74,16 @@ changed = replaceExact(
   "import { dialog, powerSaveBlocker } from 'electron';\n",
 ) || changed;
 
+changed = replaceExact(
+  'src/features/settings/SettingsView.tsx',
+  '<Globe2 size={18} />',
+  '<MonitorCog size={18} />',
+) || changed;
+
+changed = replaceExact(
+  'src/features/settings/SettingsView.tsx',
+  "              {toggle('deinterlace', 'settings.deinterlace')}\n              <div className=\"setting-card\"><div><strong>{t('settings.aspectRatio')}</strong></div><select value={settings.aspectRatio} onChange={(event) => void updateSetting('aspectRatio', event.target.value as ApplicationSettings['aspectRatio'])}>{['auto', '16:9', '4:3', '21:9', '1:1'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}</select></div>\n",
+  "              {toggle('deinterlace', 'settings.deinterlace')}\n              <label className=\"settings-range-card\"><span>{t('settings.brightness')} · {settings.brightness}%</span><input type=\"range\" min=\"0\" max=\"200\" step=\"1\" value={settings.brightness} onChange={(event) => void updateSetting('brightness', Number(event.target.value))} /></label>\n              <label className=\"settings-range-card\"><span>{t('settings.contrast')} · {settings.contrast}%</span><input type=\"range\" min=\"0\" max=\"200\" step=\"1\" value={settings.contrast} onChange={(event) => void updateSetting('contrast', Number(event.target.value))} /></label>\n              <div className=\"setting-card\"><div><strong>{t('settings.aspectRatio')}</strong></div><select value={settings.aspectRatio} onChange={(event) => void updateSetting('aspectRatio', event.target.value as ApplicationSettings['aspectRatio'])}>{['auto', '16:9', '4:3', '21:9', '1:1'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}</select></div>\n",
+) || changed;
+
 console.log(changed ? '[PASS] Professional suite source repairs applied.' : '[PASS] No pending professional suite source repairs.');

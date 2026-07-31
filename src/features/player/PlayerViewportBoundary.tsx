@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usePlayerStore } from '../../store/playerStore';
+
 import { PlayerView } from './PlayerView';
 
 type FitMode = 'contain' | 'cover' | 'fill' | 'original';

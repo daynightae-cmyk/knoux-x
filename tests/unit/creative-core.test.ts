@@ -1,6 +1,7 @@
 import { createCaptureFileName, dataUrlByteLength, formatCaptureTime, sanitizeWindowsFileStem } from '../../src/core/creative/capture';
 import {
   EditHistory,
+  EDIT_PROJECT_VERSION,
   clampTimelineZoom,
   clipDuration,
   moveClip,
@@ -44,12 +45,18 @@ describe('creative media core', () => {
   });
 
   test('validates projects and provides isolated undo/redo history', () => {
-    const project = { version: 1 as const, id: 'p', name: 'Project', createdAt: '2026-07-30T20:00:00Z', updatedAt: '2026-07-30T20:00:00Z', clips: [], markers: [] };
-    expect(parseEditProject(project)).toEqual(project);
+    const legacyProject = { version: 1 as const, id: 'p', name: 'Project', createdAt: '2026-07-30T20:00:00Z', updatedAt: '2026-07-30T20:00:00Z', clips: [], markers: [] };
+    const project = parseEditProject(legacyProject);
+    expect(project).toEqual({
+      ...legacyProject,
+      version: EDIT_PROJECT_VERSION,
+      settings: { timelineZoom: 1 },
+    });
     const history = new EditHistory(project);
     history.apply({ ...project, name: 'Renamed' });
     expect(history.undo().name).toBe('Project');
     expect(history.redo().name).toBe('Renamed');
+    expect(() => parseEditProject({ ...project, settings: { timelineZoom: 1.1 } })).toThrow('settings');
   });
 
   test('reorders clips and deterministically reflows the timeline', () => {

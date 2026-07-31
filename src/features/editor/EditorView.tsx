@@ -135,7 +135,7 @@ export const EditorView: React.FC = () => {
     setSelectedClipId(next.clips[0]?.id ?? null);
     setSelectedMarkerId(null);
     setPlayhead(0);
-    setTimelineZoom(1);
+    setTimelineZoom(next.settings.timelineZoom);
     setDirty(hasUnsavedRecovery);
   }, []);
 
@@ -414,8 +414,12 @@ export const EditorView: React.FC = () => {
   }, [project, replaceProject, selectedMarker, t]);
 
   const changeTimelineZoom = useCallback((next: number): void => {
-    setTimelineZoom(clampTimelineZoom(next));
-  }, []);
+    const zoom = clampTimelineZoom(next);
+    setTimelineZoom(zoom);
+    if (project && project.settings.timelineZoom !== zoom) {
+      replaceProject({ ...project, settings: { ...project.settings, timelineZoom: zoom } });
+    }
+  }, [project, replaceProject]);
 
   const togglePreview = useCallback(async (): Promise<void> => {
     const media = previewRef.current;

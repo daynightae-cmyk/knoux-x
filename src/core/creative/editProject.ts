@@ -1,4 +1,5 @@
-export const EDIT_PROJECT_VERSION = 1 as const;
+export const EDIT_PROJECT_VERSION = 2 as const;
+const LEGACY_EDIT_PROJECT_VERSION = 1 as const;
 
 export interface EditClip {
   id: string;
@@ -24,6 +25,9 @@ export interface EditProject {
   updatedAt: string;
   clips: EditClip[];
   markers: EditMarker[];
+  settings: {
+    timelineZoom: number;
+  };
 }
 
 function assertFiniteRange(start: number, end: number): void {
@@ -140,12 +144,34 @@ export function clampTimelineZoom(value: number): number {
 
 export function parseEditProject(value: unknown): EditProject {
   if (typeof value !== 'object' || value === null) throw new TypeError('Edit project must be an object.');
-  const candidate = value as Partial<EditProject>;
-  if (candidate.version !== EDIT_PROJECT_VERSION || typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
+  const rawVersion = (value as { version?: unknown }).version;
+  if (
+    rawVersion !== EDIT_PROJECT_VERSION
+    && rawVersion !== LEGACY_EDIT_PROJECT_VERSION
+  ) {
+    throw new TypeError('Unsupported or malformed edit project.');
+  }
+  const source = value as Partial<EditProject>;
+  const candidate: Partial<EditProject> = rawVersion === LEGACY_EDIT_PROJECT_VERSION
+    ? {
+      ...source,
+      version: EDIT_PROJECT_VERSION,
+      settings: { timelineZoom: 1 },
+    }
+    : source;
+  if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
     throw new TypeError('Unsupported or malformed edit project.');
   }
   if (!Array.isArray(candidate.clips) || !Array.isArray(candidate.markers)) {
     throw new TypeError('Edit project timeline collections are malformed.');
+  }
+  if (
+    typeof candidate.settings !== 'object'
+    || candidate.settings === null
+    || typeof candidate.settings.timelineZoom !== 'number'
+    || clampTimelineZoom(candidate.settings.timelineZoom) !== candidate.settings.timelineZoom
+  ) {
+    throw new TypeError('Edit project settings are malformed.');
   }
   candidate.clips.forEach((clip) => clipDuration(clip));
   candidate.markers.forEach((marker) => normalizeMarker(marker, Number.POSITIVE_INFINITY));

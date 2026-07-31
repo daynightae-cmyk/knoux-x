@@ -65,6 +65,7 @@ export class ProjectService {
       updatedAt: now,
       clips: [],
       markers: [],
+      settings: { timelineZoom: 1 },
     };
   }
 

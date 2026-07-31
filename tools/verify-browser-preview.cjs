@@ -67,8 +67,13 @@ async function main() {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
     stage('BROWSER_PREVIEW_STAGE page-loaded');
     await page.waitForFunction(() => document.documentElement.dataset.runtime === 'web-preview', null, { timeout: 30000 });
-    const skipTour = page.getByRole('button', { name: /Skip tour/i });
-    if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
+    const onboarding = page.locator('.first-run-backdrop');
+    if (await onboarding.isVisible().catch(() => false)) {
+      const skipTour = onboarding.locator('.tour-skip');
+      await skipTour.waitFor({ state: 'visible', timeout: 30000 });
+      await skipTour.click();
+      await onboarding.waitFor({ state: 'hidden', timeout: 30000 });
+    }
     const editionNoticeLocator = page.getByText('Browser preview', { exact: true }).first();
     await editionNoticeLocator.waitFor({ state: 'visible', timeout: 30000 });
     const editionNotice = await editionNoticeLocator.evaluate((element) => {

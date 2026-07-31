@@ -4,7 +4,6 @@ import path from 'node:path';
 import { app, BrowserWindow } from 'electron';
 
 import type { IpcHealthReport } from '../ipc/registry';
-import { authorizeMediaPaths } from '../ipc/setup';
 import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from '../window-security';
 
 const EXPECTED_NAMESPACES = [
@@ -23,6 +22,7 @@ interface PackagedSmokeOptions {
   mainWindow: BrowserWindow;
   health: IpcHealthReport;
   manifest: Array<Record<string, unknown>>;
+  authorizeFixture: (paths: readonly string[]) => string[];
 }
 
 async function atomicJson(filePath: string, value: unknown): Promise<void> {
@@ -54,7 +54,7 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
   const htmlPath = path.join(syntheticRoot, 'ipc-smoke.html');
   await fs.writeFile(fixturePath, 'KNOUX synthetic fixture only\n', 'utf8');
   await fs.writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"></head><body>KNOUX packaged IPC smoke</body></html>', 'utf8');
-  authorizeMediaPaths([fixturePath]);
+  options.authorizeFixture([fixturePath]);
 
   const smokeWindow = new BrowserWindow({
     show: false,

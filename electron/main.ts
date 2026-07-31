@@ -320,6 +320,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
         mainWindow: window,
         health,
         manifest: authoritativeIpc.manifest(),
+        authorizeFixture: authorizeMediaPaths,
       });
       await systemOrchestrator.services.settings.shutdown();
       if (!window.isDestroyed()) window.destroy();

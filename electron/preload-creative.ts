@@ -1,12 +1,14 @@
 import { ipcRenderer } from 'electron';
 
 import type { CaptureFormat } from '../src/core/creative/capture';
+import type { ClipExtractionOptions } from '../src/core/creative/clipExtraction';
 import type { EditProject } from '../src/core/creative/editProject';
 
 import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/ai-service';
-import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
+import type { ClipExtractionResult } from './creative/clip-extraction-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';
-import type { FFmpegCapabilities, ProbeResult } from './creative/ffmpeg-service';
+import type { FFmpegCapabilities, FFmpegProgress, ProbeResult } from './creative/ffmpeg-service';
+import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type {
   DesktopCaptureRequest,
   DesktopCaptureResult,
@@ -87,6 +89,17 @@ export const creativeAPI = {
       ipcRenderer.send('capture:selector-complete', payload),
     cancelRegionSelection: (token: string): void =>
       ipcRenderer.send('capture:selector-cancel', token),
+  },
+  clip: {
+    extract: (inputPath: string, options: ClipExtractionOptions): Promise<ClipExtractionResult | null> =>
+      ipcRenderer.invoke('clip:extract', inputPath, options),
+    cancel: (jobId: string): Promise<boolean> => ipcRenderer.invoke('clip:cancel', jobId),
+    showItem: (outputPath: string): Promise<void> => ipcRenderer.invoke('clip:show-item', outputPath),
+    onProgress: (callback: (progress: FFmpegProgress) => void): (() => void) => {
+      const listener = (_event: unknown, progress: FFmpegProgress) => callback(progress);
+      ipcRenderer.on('clip:progress', listener);
+      return () => ipcRenderer.removeListener('clip:progress', listener);
+    },
   },
   recording: {
     begin: (request: {

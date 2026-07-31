@@ -18,6 +18,7 @@ import './styles/player-creative.css';
 import './styles/ai-creative.css';
 import './styles/first-run.css';
 import './styles/player-viewport.css';
+import './styles/capture-studio.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');

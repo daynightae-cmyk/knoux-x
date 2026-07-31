@@ -268,80 +268,104 @@
   pointer-events: none;
 }
 
-/* ═════════════════════════════════════════════════════════════════════════
-   Neon Button (Enhanced)
-   ═════════════════════════════════════════════════════════════════════════ */
-
+/* Shared KNOUX button primitive (public legacy class name retained). */
 .neon-button {
+  --knoux-control-accent: var(--knoux-accent);
   position: relative;
+  min-width: var(--knoux-control-md);
+  min-height: var(--knoux-control-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  border: none;
-  border-radius: 10px;
+  gap: var(--knoux-space-2);
+  border: 1px solid var(--knoux-border);
+  border-radius: var(--knoux-radius-sm);
+  color: var(--knoux-text);
+  background: var(--knoux-surface-raised);
+  box-shadow: var(--knoux-shadow-xs);
+  font: 650 var(--knoux-text-sm)/1 var(--knoux-font-sans);
+  letter-spacing: 0.01em;
   cursor: pointer;
-  overflow: hidden;
-  transition: all 0.3s ease;
+  transition:
+    color var(--knoux-duration-fast) var(--knoux-ease-standard),
+    border-color var(--knoux-duration-fast) var(--knoux-ease-standard),
+    background var(--knoux-duration-fast) var(--knoux-ease-standard),
+    box-shadow var(--knoux-duration-fast) var(--knoux-ease-standard);
 }
 
-.neon-button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--glow-color), var(--glow-color)dd);
-  opacity: 0.2;
-  transition: opacity 0.3s ease;
+.neon-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--knoux-control-accent) 60%, var(--knoux-border));
+  background: color-mix(in srgb, var(--knoux-control-accent) 11%, var(--knoux-surface-raised));
 }
 
-.neon-button:hover::before {
-  opacity: 0.4;
+.neon-button:focus-visible {
+  outline: 2px solid var(--knoux-focus);
+  outline-offset: 2px;
+  box-shadow: var(--knoux-glow-focus);
 }
 
-.neon-button-border {
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--glow-color), transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
+.neon-button:disabled {
+  color: var(--knoux-disabled);
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
-.neon-button:hover .neon-button-border {
-  opacity: 1;
+.neon-button--primary {
+  border-color: color-mix(in srgb, var(--knoux-control-accent) 70%, white 10%);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--knoux-accent-strong), var(--knoux-control-accent));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--knoux-control-accent) 22%, transparent);
 }
 
-.neon-button-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.neon-button--primary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--knoux-control-accent) 58%, white);
+  background: linear-gradient(135deg, var(--knoux-control-accent), var(--knoux-accent-strong));
+  box-shadow: 0 11px 30px color-mix(in srgb, var(--knoux-control-accent) 30%, transparent);
 }
 
-.neon-button-glow {
-  position: absolute;
-  inset: -2px;
-  border-radius: 12px;
-  background: var(--glow-color);
-  filter: blur(15px);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: -1;
+.neon-button--secondary {
+  border-color: color-mix(in srgb, var(--knoux-control-accent) 42%, var(--knoux-border));
+  color: color-mix(in srgb, var(--knoux-control-accent) 72%, var(--knoux-text));
+  background: color-mix(in srgb, var(--knoux-control-accent) 9%, var(--knoux-surface-raised));
 }
 
-.neon-button:hover .neon-button-glow {
-  opacity: 0.5;
+.neon-button--ghost {
+  border-color: transparent;
+  color: var(--knoux-text-secondary);
+  background: transparent;
+  box-shadow: none;
 }
+
+.neon-button--danger {
+  --knoux-control-accent: var(--knoux-danger);
+  border-color: color-mix(in srgb, var(--knoux-danger) 48%, transparent);
+  color: #fff1f3;
+  background: color-mix(in srgb, var(--knoux-danger) 16%, var(--knoux-surface-raised));
+}
+
+.neon-button--success {
+  --knoux-control-accent: var(--knoux-success);
+  border-color: color-mix(in srgb, var(--knoux-success) 45%, transparent);
+  color: color-mix(in srgb, var(--knoux-success) 68%, var(--knoux-text));
+  background: color-mix(in srgb, var(--knoux-success) 12%, var(--knoux-surface-raised));
+}
+
+.neon-button--sm { min-height: var(--knoux-control-sm); padding: 7px 11px; font-size: var(--knoux-text-xs); }
+.neon-button--md { min-height: var(--knoux-control-md); padding: 9px 15px; }
+.neon-button--lg { min-height: var(--knoux-control-lg); padding: 12px 20px; font-size: var(--knoux-text-md); }
+.neon-button--full { width: 100%; }
+.neon-button__icon { display: inline-flex; flex: 0 0 auto; }
+.neon-button__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.neon-button__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: knoux-button-spin 720ms linear infinite;
+}
+
+@keyframes knoux-button-spin { to { transform: rotate(360deg); } }
 
 /* ═════════════════════════════════════════════════════════════════════════
    Neon Slider (Enhanced)
@@ -466,6 +490,32 @@
     text-shadow: none;
   }
 }
+
+/* Shared KNOUX surface primitive (public legacy class name retained). */
+.neon-panel {
+  --knoux-panel-accent: var(--knoux-accent);
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--knoux-border);
+  color: var(--knoux-text);
+  background: var(--knoux-surface);
+  box-shadow: var(--knoux-shadow-sm);
+}
+
+.neon-panel--glass { backdrop-filter: blur(var(--knoux-glass-blur)); }
+.neon-panel--bordered { border-color: color-mix(in srgb, var(--knoux-panel-accent) 24%, var(--knoux-border)); }
+.neon-panel--glow-high { box-shadow: var(--knoux-shadow-md), var(--knoux-glow-subtle); }
+.neon-panel--primary { background: color-mix(in srgb, var(--knoux-panel-accent) 8%, var(--knoux-surface)); }
+.neon-panel--secondary { background: color-mix(in srgb, var(--knoux-accent-secondary) 7%, var(--knoux-surface)); }
+.neon-panel--dark { background: color-mix(in srgb, var(--knoux-bg-0) 32%, var(--knoux-surface)); }
+.neon-panel--radius-sm { border-radius: var(--knoux-radius-sm); }
+.neon-panel--radius-md { border-radius: var(--knoux-radius-md); }
+.neon-panel--radius-lg { border-radius: var(--knoux-radius-lg); }
+.neon-panel--radius-xl { border-radius: var(--knoux-radius-xl); }
+.neon-panel--padding-none { padding: 0; }
+.neon-panel--padding-sm { padding: var(--knoux-space-3); }
+.neon-panel--padding-md { padding: var(--knoux-space-5); }
+.neon-panel--padding-lg { padding: var(--knoux-space-7); }
 
 @keyframes borderRotate {
   0% {

@@ -4,7 +4,6 @@ import {
   Camera,
   Captions,
   Clipboard,
-  FolderOpen,
   Images,
   LayoutGrid,
   Maximize,
@@ -25,6 +24,7 @@ import {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSlider } from '../../components/neon/NeonSlider';
+import { BrandMark } from '../../components/brand/BrandMark';
 import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 import type { CaptureFormat } from '../../core/creative/capture';
@@ -455,7 +455,8 @@ export const PlayerView: React.FC = () => {
         ) : (
           <div className="empty-state">
             <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="empty-content">
-              <FolderOpen size={64} className="empty-icon" />
+              <BrandMark size={104} />
+              <span className="player-empty-kicker">KNOUX CINEMA ENGINE</span>
               <h2>{t('player.openLocalMedia')}</h2>
               <p>{t('player.localPrivacy')}</p>
               <NeonButton variant="primary" onClick={() => void openMedia()}>{t('player.openFile')}</NeonButton>

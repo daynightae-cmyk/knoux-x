@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+  AppWindow,
   Maximize2,
   Minus,
   Pin,
@@ -10,7 +11,8 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from '../../i18n';
-import { hasCoreDesktopBridge } from '../../platform/runtime';
+import { hasCoreDesktopBridge, isBrowserPreviewRuntime } from '../../platform/runtime';
+import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { BrandMark } from '../brand/BrandMark';
 
@@ -18,8 +20,10 @@ export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
   const currentMedia = usePlayerStore((state) => state.currentMedia);
+  const currentView = useAppStore((state) => state.currentView);
   const { t } = useTranslation();
   const desktopControlsAvailable = hasCoreDesktopBridge();
+  const browserPreview = isBrowserPreviewRuntime();
 
   const checkMaximized = useCallback(async (): Promise<void> => {
     if (!hasCoreDesktopBridge()) {
@@ -66,7 +70,10 @@ export const TitleBar: React.FC = () => {
   const mediaLabel = currentMedia?.split(/[\\/]/).pop() ?? null;
 
   return (
-    <div className="title-bar">
+    <div
+      className="title-bar"
+      onDoubleClick={() => { if (desktopControlsAvailable) void handleMaximize(); }}
+    >
       <div className="title-bar-left">
         <motion.div
           className="app-logo"
@@ -82,10 +89,22 @@ export const TitleBar: React.FC = () => {
             <span className="media-title" dir="auto">{mediaLabel}</span>
           </div>
         )}
+        {!mediaLabel && (
+          <div className="title-bar-context">
+            <AppWindow size={13} aria-hidden="true" />
+            <span>{t(`nav.${currentView === 'recording' ? 'recorder' : currentView === 'capture' ? 'captures' : currentView}`)}</span>
+          </div>
+        )}
       </div>
 
+      {browserPreview && (
+        <div className="runtime-badge" role="status" title={t('app.browserPreviewDescription')}>
+          <span /> {t('app.browserPreview')}
+        </div>
+      )}
+
       {desktopControlsAvailable && (
-        <div className="title-bar-right">
+        <div className="title-bar-right" onDoubleClick={(event) => event.stopPropagation()}>
           <motion.button
             type="button"
             className={`window-control always-on-top ${isAlwaysOnTop ? 'active' : ''}`}

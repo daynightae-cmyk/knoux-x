@@ -25,6 +25,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import {
   clipDuration,
   clampTimelineZoom,
@@ -569,6 +570,8 @@ export const EditorView: React.FC = () => {
           <NeonButton variant="primary" onClick={() => void saveProject(true)} disabled={!project || busy}>{t('common.saveAs')}</NeonButton>
         </div>
       </header>
+
+      <RuntimeModeNotice feature="Persistent .knouxedit projects" featureAr="مشروعات .knouxedit الدائمة" />
 
       {error && <div className="creative-error" role="alert">{error}</div>}
 

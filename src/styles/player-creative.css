@@ -1,3 +1,93 @@
+.player-view {
+  padding: 12px;
+  background:
+    radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--knoux-accent) 8%, transparent), transparent 48%),
+    var(--knoux-bg-0);
+}
+
+.player-view .video-container {
+  border: 1px solid var(--knoux-divider);
+  border-radius: var(--knoux-radius-lg);
+  background:
+    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--knoux-accent) 7%, #08060c), var(--knoux-bg-player) 68%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.58), var(--knoux-shadow-md);
+}
+
+.player-view .video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.player-view .empty-state {
+  width: 100%;
+  height: 100%;
+}
+
+.player-view .empty-content {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(560px, 90%);
+  padding: clamp(28px, 5vw, 58px);
+  border: 1px solid var(--knoux-border);
+  border-radius: var(--knoux-radius-xl);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--knoux-accent) 6%, var(--knoux-surface)), var(--knoux-surface));
+  box-shadow: var(--knoux-shadow-md), var(--knoux-glow-subtle);
+}
+
+.player-empty-kicker {
+  margin-top: 5px;
+  color: color-mix(in srgb, var(--knoux-accent) 76%, var(--knoux-text));
+  font-size: var(--knoux-text-xs);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.player-view .empty-state h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.45rem, 2.5vw, 2.15rem);
+  letter-spacing: -0.03em;
+}
+
+.player-view .empty-state p {
+  margin: 0 0 11px;
+  color: var(--knoux-muted);
+}
+
+.player-view .controls-overlay {
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 24%, transparent 58%, rgba(0, 0, 0, 0.54));
+}
+
+.player-view .controls-top {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.player-view .controls-bottom > .neon-panel {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(8, 6, 12, 0.82);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.38);
+}
+
+.player-view .control-btn {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: none;
+}
+
+.player-view .control-btn:hover:not(:disabled),
+.player-view .control-btn.active {
+  border-color: color-mix(in srgb, var(--knoux-accent) 64%, white 12%);
+  color: white;
+  background: color-mix(in srgb, var(--knoux-accent) 16%, rgba(255, 255, 255, 0.06));
+  box-shadow: none;
+}
+
 .subtitle-delay-control {
   display: flex;
   align-items: center;

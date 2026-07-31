@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Accessibility,
   BotOff,
   Copy,
   ExternalLink,
@@ -14,7 +15,9 @@ import {
   Music2,
   Palette,
   Phone,
+  Search,
   ShieldCheck,
+  UserRound,
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
@@ -23,8 +26,11 @@ import { NeonPanel } from '../../components/neon/NeonPanel';
 import { KNOUX_BRAND } from '../../config/brand';
 import { localeCoverage, useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
+import { KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
 
-type SettingsCategory = 'general' | 'appearance' | 'privacy' | 'media' | 'about';
+type SettingsCategory = 'general' | 'appearance' | 'accessibility' | 'privacy' | 'media' | 'about' | 'developer';
+
+type RuntimeInfo = Awaited<ReturnType<Window['knouxAPI']['system']['getInfo']>>;
 
 interface Category {
   id: SettingsCategory;
@@ -36,7 +42,9 @@ const accentPresets = ['#8b5cf6', '#6d28d9', '#00d4ff', '#d4af37', '#f472b6', '#
 
 export const SettingsView: React.FC = () => {
   const [category, setCategory] = useState<SettingsCategory>('general');
+  const [searchQuery, setSearchQuery] = useState('');
   const [captureDirectory, setCaptureDirectory] = useState<string | null>(null);
+  const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const {
     theme,
@@ -45,16 +53,26 @@ export const SettingsView: React.FC = () => {
     setAccentColor,
     locale,
     setLocale,
+    motionEnabled,
+    setMotionEnabled,
   } = useAppStore();
   const { t } = useTranslation();
 
   const categories = useMemo<Category[]>(() => [
     { id: 'general', labelKey: 'settings.general', icon: <Globe2 size={18} /> },
     { id: 'appearance', labelKey: 'settings.appearance', icon: <Palette size={18} /> },
+    { id: 'accessibility', labelKey: 'settings.accessibility', icon: <Accessibility size={18} /> },
     { id: 'privacy', labelKey: 'settings.privacy', icon: <ShieldCheck size={18} /> },
     { id: 'media', labelKey: 'settings.media', icon: <MonitorCog size={18} /> },
     { id: 'about', labelKey: 'settings.about', icon: <Info size={18} /> },
+    { id: 'developer', labelKey: 'settings.developer', icon: <UserRound size={18} /> },
   ], []);
+
+  const visibleCategories = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase(locale);
+    if (!query) return categories;
+    return categories.filter((entry) => t(entry.labelKey).toLocaleLowerCase(locale).includes(query));
+  }, [categories, locale, searchQuery, t]);
 
   const loadCaptureDirectory = useCallback(async (): Promise<void> => {
     try {
@@ -77,7 +95,9 @@ export const SettingsView: React.FC = () => {
   const openExternal = useCallback(async (url: string): Promise<void> => {
     setError(null);
     try {
-      await window.knouxAPI.system.openExternal(url);
+      const target = new URL(url);
+      if (!['https:', 'http:'].includes(target.protocol)) throw new Error('Unsupported link protocol.');
+      await window.knouxAPI.system.openExternal(target.toString());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The official link could not be opened.');
     }
@@ -92,7 +112,20 @@ export const SettingsView: React.FC = () => {
     }
   }, [locale]);
 
-  useEffect(() => { void loadCaptureDirectory(); }, [loadCaptureDirectory]);
+  const copyDiagnostics = useCallback(async (): Promise<void> => {
+    if (!runtimeInfo) return;
+    await copyContact(JSON.stringify({ product: 'KNOUX Player X', ...runtimeInfo }, null, 2));
+  }, [copyContact, runtimeInfo]);
+
+  useEffect(() => {
+    void loadCaptureDirectory();
+    void window.knouxAPI.system.getInfo().then(setRuntimeInfo).catch(() => setRuntimeInfo(null));
+  }, [loadCaptureDirectory]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || visibleCategories.length === 0) return;
+    if (!visibleCategories.some((entry) => entry.id === category)) setCategory(visibleCategories[0].id);
+  }, [category, searchQuery, visibleCategories]);
 
   return (
     <section className="creative-view settings-view" aria-labelledby="settings-title">
@@ -106,9 +139,19 @@ export const SettingsView: React.FC = () => {
 
       {error && <div className="creative-error" role="alert">{error}</div>}
 
+      <label className="settings-search-box">
+        <Search size={18} aria-hidden="true" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder={t('settings.search')}
+        />
+      </label>
+
       <div className="settings-creative-layout">
         <NeonPanel variant="dark" padding="sm" className="settings-creative-nav">
-          {categories.map((entry) => (
+          {visibleCategories.map((entry) => (
             <button
               key={entry.id}
               type="button"
@@ -118,6 +161,7 @@ export const SettingsView: React.FC = () => {
               {entry.icon}<span>{t(entry.labelKey)}</span>
             </button>
           ))}
+          {visibleCategories.length === 0 && <p className="settings-no-results">{t('settings.noResults')}</p>}
         </NeonPanel>
 
         <div className="settings-creative-content">
@@ -142,13 +186,25 @@ export const SettingsView: React.FC = () => {
           {category === 'appearance' && (
             <NeonPanel variant="dark" padding="lg">
               <h2>{t('settings.appearance')}</h2>
-              <div className="setting-card">
-                <div><strong>{t('settings.theme')}</strong><span>{t('settings.themeDescription')}</span></div>
-                <div className="theme-choice-row">
-                  {(['dark', 'light', 'auto'] as const).map((value) => (
-                    <button key={value} type="button" className={theme === value ? 'active' : ''} onClick={() => setTheme(value)}>{t(`settings.${value}`)}</button>
-                  ))}
-                </div>
+              <div className="setting-heading">
+                <strong>{t('settings.theme')}</strong>
+                <span>{t('settings.themeDescription')}</span>
+              </div>
+              <div className="theme-preview-grid">
+                {KNOUX_THEME_CATALOG.map((preset) => (
+                  <button
+                    type="button"
+                    key={preset.id}
+                    className={theme === preset.id ? 'active' : ''}
+                    onClick={() => { setTheme(preset.id); setAccentColor(preset.accent); }}
+                    aria-pressed={theme === preset.id}
+                  >
+                    <span className="theme-preview-art" style={{ background: `linear-gradient(145deg, ${preset.background}, ${preset.surface} 62%, ${preset.accent})` }}>
+                      <i style={{ backgroundColor: preset.accent }} />
+                    </span>
+                    <span><strong>{locale === 'ar' ? preset.labelAr : preset.label}</strong><small>{locale === 'ar' ? preset.descriptionAr : preset.description}</small></span>
+                  </button>
+                ))}
               </div>
               <div className="setting-card">
                 <div><strong>{t('settings.accent')}</strong><span>{accentColor}</span></div>
@@ -157,6 +213,36 @@ export const SettingsView: React.FC = () => {
                     <button key={color} type="button" aria-label={color} className={accentColor === color ? 'active' : ''} style={{ backgroundColor: color }} onClick={() => setAccentColor(color)} />
                   ))}
                 </div>
+              </div>
+            </NeonPanel>
+          )}
+
+          {category === 'accessibility' && (
+            <NeonPanel variant="dark" padding="lg">
+              <h2>{t('settings.accessibility')}</h2>
+              <div className="setting-card">
+                <div><strong>{t('settings.motion')}</strong><span>{t('settings.motionDescription')}</span></div>
+                <button
+                  type="button"
+                  className={`settings-toggle ${motionEnabled ? 'active' : ''}`}
+                  role="switch"
+                  aria-checked={motionEnabled}
+                  onClick={() => setMotionEnabled(!motionEnabled)}
+                >
+                  <span /> {motionEnabled ? t('settings.enabled') : t('settings.disabled')}
+                </button>
+              </div>
+              <div className="setting-card">
+                <div><strong>{t('settings.highContrast')}</strong><span>{t('settings.highContrastDescription')}</span></div>
+                <NeonButton
+                  variant="secondary"
+                  onClick={() => {
+                    const preset = KNOUX_THEME_CATALOG.find((entry) => entry.id === 'high-contrast');
+                    if (preset) { setTheme(preset.id); setAccentColor(preset.accent); }
+                  }}
+                >
+                  {t('settings.apply')}
+                </NeonButton>
               </div>
             </NeonPanel>
           )}
@@ -198,11 +284,30 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
               <dl className="about-grid">
-                <div><dt>{t('settings.version')}</dt><dd>2.0.0</dd></div>
-                <div><dt>{t('settings.developer')}</dt><dd>{KNOUX_BRAND.developer}</dd></div>
-                <div><dt>{t('settings.website')}</dt><dd><button type="button" onClick={() => void openExternal(KNOUX_BRAND.website)}>knoux.store</button></dd></div>
-                <div><dt>{t('settings.runtime')}</dt><dd>{navigator.userAgent}</dd></div>
+                <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? '2.0.0'}</dd></div>
+                <div><dt>Electron</dt><dd>{runtimeInfo?.electronVersion ?? t('common.unavailable')}</dd></div>
+                <div><dt>Chromium</dt><dd>{runtimeInfo?.chromeVersion ?? t('common.unknown')}</dd></div>
+                <div><dt>Node.js</dt><dd>{runtimeInfo?.nodeVersion ?? t('common.unavailable')}</dd></div>
+                <div><dt>{t('settings.runtime')}</dt><dd>{runtimeInfo ? `${runtimeInfo.platform} · ${runtimeInfo.arch}` : navigator.userAgent}</dd></div>
               </dl>
+              <div className="developer-actions">
+                <NeonButton variant="secondary" leftIcon={<Copy size={16} />} onClick={() => void copyDiagnostics()} disabled={!runtimeInfo}>{t('settings.copyDiagnostics')}</NeonButton>
+                <NeonButton variant="secondary" onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}>{t('settings.productTour')}</NeonButton>
+              </div>
+            </NeonPanel>
+          )}
+
+          {category === 'developer' && (
+            <NeonPanel variant="dark" padding="lg">
+              <h2>{t('settings.developer')}</h2>
+              <div className="developer-hero-card">
+                <BrandMark size={84} />
+                <div>
+                  <span>CRAFTED BY KNOUX</span>
+                  <h3>{KNOUX_BRAND.developer}</h3>
+                  <p>{t('settings.developerRoles')}</p>
+                </div>
+              </div>
               <div className="developer-actions" aria-label={locale === 'ar' ? 'روابط المطور الرسمية' : 'Official developer links'}>
                 <NeonButton variant="secondary" leftIcon={<ExternalLink size={16} />} onClick={() => void openExternal(KNOUX_BRAND.website)}>Website</NeonButton>
                 <NeonButton variant="secondary" leftIcon={<Github size={16} />} onClick={() => void openExternal(KNOUX_BRAND.github)}>GitHub</NeonButton>
@@ -210,12 +315,7 @@ export const SettingsView: React.FC = () => {
                 <NeonButton variant="secondary" leftIcon={<Instagram size={16} />} onClick={() => void openExternal(KNOUX_BRAND.instagram)}>Instagram</NeonButton>
                 <NeonButton variant="secondary" leftIcon={<MessageCircle size={16} />} onClick={() => void openExternal(KNOUX_BRAND.whatsapp)}>WhatsApp</NeonButton>
               </div>
-              <p className="social-snapshot">
-                {locale === 'ar'
-                  ? 'لقطة TikTok المقدمة لشهر يوليو 2026: أكثر من 138.2 ألف متابع و2.8 مليون إعجاب. هذه ليست أرقامًا حية.'
-                  : 'Provided TikTok snapshot for July 2026: 138.2K+ followers and 2.8M+ likes. These are not live counts.'}
-              </p>
-              <h3>{locale === 'ar' ? 'مستودعات مختارة' : 'Selected repositories'}</h3>
+              <h3>{t('settings.repositories')}</h3>
               <div className="developer-repositories">
                 {KNOUX_BRAND.repositories.map((repository) => (
                   <button type="button" key={repository.url} onClick={() => void openExternal(repository.url)}>
@@ -233,12 +333,6 @@ export const SettingsView: React.FC = () => {
                   <Phone size={17} /><span>{KNOUX_BRAND.phone}</span><Copy size={14} />
                 </button>
               </div>
-              <NeonButton
-                variant="secondary"
-                onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}
-              >
-                {locale === 'ar' ? 'عرض جولة المنتج' : 'View product tour'}
-              </NeonButton>
             </NeonPanel>
           )}
         </div>

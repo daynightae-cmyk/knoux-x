@@ -165,9 +165,9 @@ function createCoreBridge(): Window['knouxAPI'] {
       scan: async () => undefined,
       getMedia: async () => [],
       getPlaylists: async () => [],
-      createPlaylist: async () => `web-${Date.now()}`,
-      updatePlaylist: async () => undefined,
-      deletePlaylist: async () => undefined,
+      createPlaylist: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
+      updatePlaylist: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
+      deletePlaylist: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
       addToHistory: async () => undefined,
       getHistory: async () => [],
       getFavorites: async () => [],
@@ -307,23 +307,11 @@ function createCreativeBridge(): Window['knouxCreativeAPI'] {
       reload: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
     },
     editor: {
-      createProject: async (name: string) => {
-        const now = new Date().toISOString();
-        return {
-          version: 2 as const,
-          id: `web-${window.crypto?.randomUUID?.() ?? Date.now()}`,
-          name,
-          createdAt: now,
-          updatedAt: now,
-          clips: [],
-          markers: [],
-          settings: { timelineZoom: 1 },
-        };
-      },
+      createProject: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
       openProject: async () => null,
       openRecent: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
       saveProject: async () => null,
-      autosave: async () => 'web-preview',
+      autosave: async () => { throw new Error(WEB_PREVIEW_MESSAGE); },
       recoverAutosaves: async () => [],
       recentProjects: async () => [],
       clearRecentProjects: async () => undefined,

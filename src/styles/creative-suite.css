@@ -1,21 +1,10 @@
-:root {
-  --knoux-accent: #8b5cf6;
-  --knoux-accent-soft: color-mix(in srgb, var(--knoux-accent) 24%, transparent);
-  --knoux-surface: rgba(13, 8, 28, 0.88);
-  --knoux-surface-raised: rgba(25, 14, 52, 0.9);
-  --knoux-border: rgba(167, 139, 250, 0.24);
-  --knoux-text: #f8f7ff;
-  --knoux-muted: #aaa4bd;
-  --knoux-danger: #fb7185;
-  --knoux-success: #34d399;
-}
-
 .app-shell {
   min-width: 920px;
   min-height: 640px;
+  color: var(--knoux-text);
   background:
-    radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--knoux-accent) 18%, transparent), transparent 42%),
-    linear-gradient(145deg, #07040f 0%, #0d071d 48%, #080511 100%);
+    radial-gradient(circle at 84% 0%, color-mix(in srgb, var(--knoux-accent) 13%, transparent), transparent 38%),
+    linear-gradient(145deg, var(--knoux-bg-0), var(--knoux-bg-1) 48%, var(--knoux-bg-0));
 }
 
 .app-body,
@@ -87,6 +76,53 @@
   color: #ffe4e9;
   background: color-mix(in srgb, var(--knoux-danger) 14%, #120711);
   overflow-wrap: anywhere;
+}
+
+.runtime-mode-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  margin: -8px 0 20px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--knoux-info) 28%, var(--knoux-border));
+  border-radius: var(--knoux-radius-md);
+  color: var(--knoux-text);
+  background: color-mix(in srgb, var(--knoux-info) 6%, var(--knoux-surface));
+}
+
+.runtime-mode-notice__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--knoux-info);
+  background: color-mix(in srgb, var(--knoux-info) 13%, transparent);
+}
+
+.runtime-mode-notice > div {
+  display: grid;
+  gap: 3px;
+}
+
+.runtime-mode-notice p {
+  margin: 0;
+  color: var(--knoux-muted);
+  font-size: var(--knoux-text-sm);
+  line-height: 1.5;
+}
+
+.runtime-mode-notice__safe {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: var(--knoux-radius-round);
+  color: var(--knoux-success);
+  background: color-mix(in srgb, var(--knoux-success) 9%, transparent);
+  font-size: var(--knoux-text-xs);
+  white-space: nowrap;
 }
 
 .creative-loading,
@@ -1050,6 +1086,8 @@
   .creative-form-grid { grid-template-columns: 1fr; }
   .creative-form-grid .full-row,
   .creative-check { grid-column: auto; }
+  .runtime-mode-notice { grid-template-columns: auto minmax(0, 1fr); }
+  .runtime-mode-notice__safe { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

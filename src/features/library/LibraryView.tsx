@@ -15,6 +15,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import type {
@@ -147,6 +148,8 @@ export const LibraryView: React.FC = () => {
           <NeonButton variant="primary" leftIcon={<FolderOpen size={16} />} onClick={() => void addFolderAndScan()} disabled={Boolean(scan && !scan.done)}>Add Folder</NeonButton>
         </div>
       </header>
+
+      <RuntimeModeNotice feature="Native folder indexing and SQLite library persistence" featureAr="فهرسة المجلدات الأصلية وحفظ المكتبة في SQLite" />
 
       {error && <div className="creative-error" role="alert">{error}</div>}
 

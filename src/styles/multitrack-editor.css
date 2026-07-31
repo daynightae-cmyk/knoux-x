@@ -1,0 +1,504 @@
+.multitrack-editor-view {
+  min-width: 0;
+}
+
+.multitrack-header {
+  align-items: flex-start;
+}
+
+.multitrack-start-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.multitrack-start-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.multitrack-project-link {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  text-align: start;
+  color: var(--knoux-text);
+  background: color-mix(in srgb, var(--knoux-surface-muted) 75%, transparent);
+  border: 1px solid var(--knoux-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.multitrack-project-link span {
+  overflow: hidden;
+  color: var(--knoux-text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multitrack-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding: 9px;
+  background: color-mix(in srgb, var(--knoux-surface) 92%, transparent);
+  border: 1px solid var(--knoux-border);
+  border-radius: 12px;
+}
+
+.multitrack-toolbar > button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--knoux-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.multitrack-toolbar > button:hover:not(:disabled) {
+  color: var(--knoux-text);
+  background: var(--knoux-surface-muted);
+  border-color: var(--knoux-border);
+}
+
+.multitrack-toolbar > button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.multitrack-divider {
+  width: 1px;
+  height: 26px;
+  margin-inline: 3px;
+  background: var(--knoux-border);
+}
+
+.multitrack-main-grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.5fr) minmax(290px, 0.7fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.multitrack-preview-panel,
+.multitrack-inspector,
+.multitrack-timeline-panel {
+  min-width: 0;
+}
+
+.multitrack-preview-stage {
+  position: relative;
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--knoux-accent) 10%, transparent), transparent 63%),
+    #020104;
+}
+
+.multitrack-preview-stage video,
+.multitrack-preview-stage img {
+  width: 100%;
+  height: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  background: #000;
+}
+
+.multitrack-audio-preview {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  color: var(--knoux-text-secondary);
+}
+
+.multitrack-text-preview {
+  max-width: 85%;
+  padding: 14px 20px;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: none;
+}
+
+.multitrack-preview-play {
+  position: absolute;
+  inset-inline-end: 14px;
+  bottom: 14px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: white;
+  background: rgba(4, 3, 13, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.multitrack-playhead-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--knoux-border);
+}
+
+.multitrack-playhead-controls input {
+  width: 100%;
+}
+
+.multitrack-playhead-controls strong,
+.multitrack-timeline-header > strong {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.multitrack-inspector {
+  max-height: 620px;
+  overflow: auto;
+}
+
+.multitrack-inspector h2 {
+  margin-top: 0;
+}
+
+.multitrack-inspector-fields,
+.multitrack-inspector-fields label {
+  display: grid;
+  gap: 7px;
+}
+
+.multitrack-inspector-fields {
+  gap: 12px;
+}
+
+.multitrack-inspector-fields label > span {
+  color: var(--knoux-text-muted);
+  font-size: 11px;
+}
+
+.multitrack-inspector-fields input,
+.multitrack-inspector-fields select,
+.multitrack-inspector-fields textarea,
+.multitrack-track-add select,
+.multitrack-timeline-header select {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  color: var(--knoux-text);
+  background: var(--knoux-surface-muted);
+  border: 1px solid var(--knoux-border);
+  border-radius: 8px;
+}
+
+.multitrack-inspector-fields textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.multitrack-two-columns,
+.multitrack-transition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.multitrack-keyframe-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.multitrack-keyframe-list {
+  display: grid;
+  gap: 5px;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.multitrack-keyframe-list span {
+  padding: 6px 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--knoux-text-secondary);
+  background: var(--knoux-surface-muted);
+  border-radius: 7px;
+  font-size: 10px;
+}
+
+.multitrack-timeline-header {
+  display: grid;
+  grid-template-columns: minmax(250px, auto) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--knoux-border);
+}
+
+.multitrack-track-add {
+  display: grid;
+  grid-template-columns: 140px auto;
+  gap: 8px;
+}
+
+.multitrack-timeline-header > label {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: var(--knoux-text-muted);
+  font-size: 11px;
+}
+
+.multitrack-timeline-scroll {
+  max-width: 100%;
+  max-height: 520px;
+  overflow: auto;
+  background: #05040a;
+}
+
+.multitrack-ruler {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  height: 30px;
+  margin-inline-start: 238px;
+  background: rgba(8, 6, 17, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.multitrack-ruler span {
+  position: absolute;
+  top: 5px;
+  padding-inline-start: 4px;
+  color: rgba(255, 255, 255, 0.48);
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+}
+
+.multitrack-ruler > i {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ff2bd6;
+  box-shadow: 0 0 8px #ff2bd6;
+}
+
+.multitrack-track-stack {
+  min-width: 100%;
+}
+
+.multitrack-track-row {
+  display: grid;
+  grid-template-columns: 238px minmax(900px, 1fr);
+  min-height: 90px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.multitrack-track-row.selected .multitrack-track-controls {
+  box-shadow: inset 3px 0 0 var(--knoux-accent);
+}
+
+[dir="rtl"] .multitrack-track-row.selected .multitrack-track-controls {
+  box-shadow: inset -3px 0 0 var(--knoux-accent);
+}
+
+.multitrack-track-controls {
+  position: sticky;
+  z-index: 10;
+  inset-inline-start: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 8px;
+  background: rgba(12, 9, 25, 0.98);
+  border-inline-end: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.multitrack-track-controls > button:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  color: var(--knoux-text);
+  text-align: start;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.multitrack-track-controls > button:first-child strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multitrack-track-controls > div:not(.multitrack-track-mixer) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.multitrack-track-controls > div > button {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: var(--knoux-text-muted);
+  background: var(--knoux-surface-muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.multitrack-track-controls > div > button.active {
+  color: var(--knoux-accent);
+  border-color: color-mix(in srgb, var(--knoux-accent) 50%, transparent);
+}
+
+.multitrack-track-mixer {
+  display: grid;
+  gap: 4px;
+}
+
+.multitrack-track-mixer label {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+}
+
+.multitrack-track-mixer input {
+  width: 100%;
+}
+
+.multitrack-track-mixer small {
+  color: var(--knoux-text-muted);
+  font-size: 9px;
+}
+
+.multitrack-track-lane {
+  position: relative;
+  min-height: 90px;
+  overflow: hidden;
+  background-image: linear-gradient(to right, rgba(255,255,255,.045) 1px, transparent 1px);
+  background-size: 54px 100%;
+}
+
+.multitrack-track-row[data-kind="video"] .multitrack-track-lane { background-color: rgba(0, 239, 255, 0.025); }
+.multitrack-track-row[data-kind="audio"] .multitrack-track-lane { background-color: rgba(64, 220, 130, 0.025); }
+.multitrack-track-row[data-kind="image"] .multitrack-track-lane { background-color: rgba(255, 180, 40, 0.025); }
+.multitrack-track-row[data-kind="text"] .multitrack-track-lane,
+.multitrack-track-row[data-kind="subtitle"] .multitrack-track-lane { background-color: rgba(255, 43, 214, 0.025); }
+
+.multitrack-item {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 30px;
+  overflow: hidden;
+  padding: 7px 9px;
+  color: #f8f6ff;
+  text-align: start;
+  background: linear-gradient(135deg, rgba(56, 32, 105, 0.95), rgba(22, 14, 48, 0.96));
+  border: 1px solid rgba(180, 145, 255, 0.38);
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.24);
+  cursor: grab;
+}
+
+.multitrack-item[data-kind="video"] { border-color: rgba(0, 239, 255, 0.5); }
+.multitrack-item[data-kind="audio"] { border-color: rgba(70, 232, 140, 0.5); }
+.multitrack-item[data-kind="image"] { border-color: rgba(255, 182, 56, 0.55); }
+.multitrack-item[data-kind="text"],
+.multitrack-item[data-kind="subtitle"] { border-color: rgba(255, 43, 214, 0.55); }
+
+.multitrack-item.selected {
+  border-color: white;
+  box-shadow: 0 0 0 2px var(--knoux-accent), 0 8px 22px rgba(0,0,0,.35);
+}
+
+.multitrack-item strong,
+.multitrack-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multitrack-item strong { font-size: 11px; }
+.multitrack-item span { color: rgba(255,255,255,.62); font-size: 9px; }
+.multitrack-item em {
+  position: absolute;
+  inset-inline-end: 5px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 8px;
+}
+
+.multitrack-item .transition-in,
+.multitrack-item .transition-out {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.34) 0 2px, transparent 2px 5px);
+}
+
+.multitrack-item .transition-in { inset-inline-start: 0; }
+.multitrack-item .transition-out { inset-inline-end: 0; }
+
+.multitrack-playhead {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  background: #ff2bd6;
+  box-shadow: 0 0 8px #ff2bd6;
+}
+
+@media (max-width: 1250px) {
+  .multitrack-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .multitrack-inspector {
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .multitrack-start-grid {
+    grid-template-columns: 1fr;
+  }
+  .multitrack-timeline-header {
+    grid-template-columns: 1fr;
+  }
+  .multitrack-two-columns,
+  .multitrack-transition-grid {
+    grid-template-columns: 1fr;
+  }
+}

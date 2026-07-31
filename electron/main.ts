@@ -26,7 +26,7 @@ log.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
-const pendingMediaPaths = mediaPathsFromArguments(process.argv);
+let pendingMediaPaths: string[] = [];
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -164,8 +164,12 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 const gotTheLock = !started && app.requestSingleInstanceLock();
 if (!gotTheLock) {
+  log.info('Secondary instance detected - exiting immediately');
   app.exit(0);
 } else {
+  // Initialize pending media paths only in primary instance
+  pendingMediaPaths = mediaPathsFromArguments(process.argv);
+  
   app.on('second-instance', (_event, argv) => {
     const forwardedPaths = authorizeMediaPaths(mediaPathsFromArguments(argv));
     if (forwardedPaths.length > 0) {
@@ -216,13 +220,13 @@ if (!gotTheLock) {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
+  
+  app.on('before-quit', () => {
+    isQuitting = true;
+    destroyTray();
+    cleanupCreativeRuntime();
+  });
+  app.on('will-quit', () => {
+    if (!isQuitting) destroyTray();
+  });
 }
-
-app.on('before-quit', () => {
-  isQuitting = true;
-  destroyTray();
-  cleanupCreativeRuntime();
-});
-app.on('will-quit', () => {
-  if (!isQuitting) destroyTray();
-});

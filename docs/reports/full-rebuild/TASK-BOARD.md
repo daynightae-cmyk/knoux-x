@@ -1,28 +1,28 @@
 # KNOUX Player X Full Rebuild Task Board
 
-Updated: 2026-07-30 20:50 UTC
+Updated: 2026-07-31 06:37 UTC
 
 This board is the authoritative phase ledger. A phase advances only after every required gate passes. Engineering foundations may proceed in parallel when they do not bypass P0/P1 acceptance gates.
 
 | Phase | Task | Priority | Status | Dependencies | Remaining errors |
 |---:|---|---|---|---|---|
-| 01 | TASK-01: Repository Audit and Verified Baseline | P0 | **PARTIAL** | None | Authoritative Windows install, package, executable, launch, and clean-exit evidence pending |
-| 02 | TASK-02: Dependency and Native Module Stabilization | P0 | **IN_PROGRESS** | PHASE 01 PASS | Lockfile generation and Windows native/package evidence pending |
-| 03 | TASK-03: Electron Architecture and Security Foundation | P0 | **PARTIAL** | PHASE 02 PASS | Remaining IPC payload validation, safeStorage, CSP, trusted-frame checks, and Windows evidence |
-| 04 | TASK-04: KNOUX Design System and Visual Shell | P3 | **PENDING** | PHASE 03 PASS | None |
-| 05 | TASK-05: Production Video and Audio Playback | P1 | **PENDING** | PHASE 03 PASS, PHASE 04 PASS | None |
-| 06 | TASK-06: Local Media Library and Database | P1 | **PENDING** | PHASE 05 PASS | None |
+| 01 | TASK-01: Repository Audit and Verified Baseline | P0 | **PARTIAL** | None | Automated Windows package/runtime evidence is green; clean-install evidence remains |
+| 02 | TASK-02: Dependency and Native Module Stabilization | P0 | **PASS** | PHASE 01 | Deterministic Windows install, native rebuild, packaging, and runtime loading passed |
+| 03 | TASK-03: Electron Architecture and Security Foundation | P0 | **PARTIAL** | PHASE 02 PASS | Remaining full IPC payload audit and manual security review |
+| 04 | TASK-04: KNOUX Design System and Visual Shell | P3 | **IN_PROGRESS** | PHASE 03 | Visual/keyboard/high-DPI automation pending |
+| 05 | TASK-05: Production Video and Audio Playback | P1 | **IN_PROGRESS** | PHASE 03, PHASE 04 | Full codec and long-playback regression pending |
+| 06 | TASK-06: Local Media Library and Database | P1 | **IN_PROGRESS** | PHASE 05 | Migration, restart persistence, and large-scan regression pending |
 | 07 | TASK-07: Queue, Playlists, History and Favorites | P2 | **PENDING** | PHASE 05 PASS, PHASE 06 PASS | None |
 | 08 | TASK-08: Subtitles, Audio Tracks and Chapters | P2 | **PENDING** | PHASE 05 PASS, PHASE 06 PASS | None |
 | 09 | TASK-09: KNOUX AI and Smart Tools | P2/P4 | **PENDING** | PHASE 06 PASS, PHASE 08 PASS | None |
-| 10 | TASK-10: Settings, Arabic, English and Accessibility | P3 | **PENDING** | PHASE 04 PASS, PHASE 05 PASS, PHASE 06 PASS, PHASE 07 PASS, PHASE 08 PASS, PHASE 09 PASS | None |
+| 10 | TASK-10: Settings, Arabic, English and Accessibility | P3 | **IN_PROGRESS** | PHASE 04–09 | Arabic/English creative UI is wired; keyboard, overflow, and persisted-switch regression pending |
 | 11 | TASK-11: Performance, Stability and Runtime Modernization | P1/P2 | **PENDING** | PHASE 05 PASS, PHASE 06 PASS, PHASE 07 PASS, PHASE 08 PASS, PHASE 09 PASS, PHASE 10 PASS | None |
-| 12 | TASK-12: Windows Installer and System Integration | P0 | **PENDING** | PHASE 01–11 PASS | None |
+| 12 | TASK-12: Windows Installer and System Integration | P0 | **IN_PROGRESS** | PHASE 01–11 | Squirrel package/make and Open With pass; clean install, upgrade, uninstall, and reinstall pending |
 | 13 | TASK-13: Full Regression Testing and Final Cleanup | P0 | **PENDING** | PHASE 01–12 PASS | None |
 | 14 | TASK-14: Original Main Merge Gate | P0 | **PENDING (SUPERSEDED)** | TASK-19 is the authoritative release gate | Release cannot occur before Creative Suite tasks pass |
-| 15 | TASK-15: Iconography, Accessories and Desktop Experience | P2 | **PENDING** | PHASE 04, PHASE 05 | Verified icon generation and operational accessory integration pending |
-| 16 | TASK-16: Screenshot, Frame Capture and Media Recording | P1/P2 | **IN_PROGRESS** | PHASE 03, PHASE 05 | Renderer integration, permissions, output, and packaged runtime evidence pending |
-| 17 | TASK-17: KNOUX Smart Editor and Export Pipeline | P1/P2 | **IN_PROGRESS** | PHASE 05, PHASE 06 | Persistence, timeline UI, FFmpeg worker, export probing, and packaging pending |
+| 15 | TASK-15: Iconography, Accessories and Desktop Experience | P2 | **IN_PROGRESS** | PHASE 04, PHASE 05 | Icon reproducibility passes; remaining accessory and high-DPI verification pending |
+| 16 | TASK-16: Screenshot, Frame Capture and Media Recording | P1/P2 | **IN_PROGRESS** | PHASE 03, PHASE 05 | Real capture/recording UI exists; advanced capture controls and Windows recording automation pending |
+| 17 | TASK-17: KNOUX Smart Editor and Export Pipeline | P1/P2 | **IN_PROGRESS** | PHASE 05, PHASE 06 | Persistence/recovery/timeline/export exist; preview, markers/zoom, composition export, and Windows UI automation pending |
 | 18 | TASK-18: Extended Languages and Global UX | P3 | **PENDING** | PHASE 10, TASK-16, TASK-17 | Begins after Arabic/English and creative UI stabilize |
 | 19 | TASK-19: Creative Suite Regression and Final Release Merge | P0 | **PENDING** | TASK-01 through TASK-18 PASS | Final regression, installer, merge, and RC tag pending |
 
@@ -54,3 +54,14 @@ The final merge and release-candidate gate is **TASK-19**. TASK-14 is retained o
 - TASK-17: non-destructive editor and export pipeline.
 - TASK-18: extended languages and global UX.
 - TASK-19: creative-suite regression, final merge, and release candidate.
+
+## Windows and creative workspace checkpoint — 2026-07-31
+
+- Branch commit: `c72112aa2fc5ffb9cc2927adb9bee5f1bd3d3fc4`.
+- Windows workflow: `KNOUX Full Rebuild Windows`, run `30609881686`, conclusion `success`.
+- Automated quality: 9 Jest suites / 36 tests, TypeScript PASS, ESLint zero warnings.
+- Packaged runtime: Electron 32.3.3 x64, Squirrel installer, FFmpeg/FFprobe 6.1.1, SQLite native runtime, Open With/single-instance, launch, and cleanup PASS.
+- Artifact: ID `8785124651`, digest `sha256:53ea22079ff25bce14b1a11da209ba94b83d9c24f23737544ec407675a90a4e2`.
+- Creative UI: Arabic/English Capture, Recording, Editor, and Export workspaces are connected to local services.
+- Editor: recent projects, autosave recovery, relink, deterministic reorder/reflow, trim/split, undo/redo, and Save/Save As are operational.
+- Release decision: PR #9 remains Draft. Clean install/upgrade/uninstall/reinstall, high-DPI, and remaining creative UI automation are still required.

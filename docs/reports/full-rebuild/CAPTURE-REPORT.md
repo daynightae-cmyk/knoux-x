@@ -1,16 +1,25 @@
 # Capture Implementation Report
 
+Updated: 2026-07-31
+
 ## Implemented
 
-The first production-safe capture foundation is implemented without exposing an unfinished UI control:
+- Unicode NFC and Windows-safe capture naming with exact millisecond timestamps.
+- PNG, JPEG, and WebP frame extraction from the decoded Player video element.
+- Save As, clipboard copy, a persisted default directory, recent capture history, and history-authorized Show in Folder.
+- Main-process payload limits, decoded format validation, and path normalization.
+- Burst and contact-sheet services with bounded frame counts; contact sheets use Electron `nativeImage` and no packaged `sharp` startup dependency.
+- Arabic and English capture workspace.
 
-- Unicode NFC filename normalization.
-- Windows-invalid character and reserved device-name protection.
-- Exact millisecond timestamp formatting.
-- Deterministic PNG/JPEG/WebP filename extension handling.
-- Strict supported-image data URL validation and decoded-size calculation.
-- Explicit recording state transitions with invalid transition rejection and cancellation.
+## Verification
 
-## Remaining
+- Capture naming, time conversion, and payload helpers have focused unit coverage.
+- Windows workflow run `30609881686` passed 9 Jest suites / 36 tests, packaged launch, native dependency packaging, and cleanup on commit `c72112aa2fc5ffb9cc2927adb9bee5f1bd3d3fc4`.
 
-Frame extraction already exists in the renderer video engine, but Save As, default-folder authorization, clipboard, capture gallery, burst/contact sheets, MediaRecorder adapters, and resource cleanup still require integration and packaged runtime evidence. Until those pass, TASK-16 remains `IN_PROGRESS` and no recording capability is advertised.
+## Remaining before release certification
+
+- Surface burst interval/count and contact-sheet layout controls in the production UI.
+- Add Windows UI automation for Save As, clipboard pixels, original resolution, Unicode/Arabic names, stale history, burst, and contact-sheet output.
+- Verify high-DPI and multiple-display capture behavior.
+
+TASK-16 remains `IN_PROGRESS` until these UI and Windows output checks pass.

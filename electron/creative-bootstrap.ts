@@ -5,12 +5,15 @@ import { AIService } from './creative/ai-service';
 import { SubtitleService } from './creative/subtitle-service';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
+import type { RecordingRegionRuntimeController } from './ipc/recording-region-runtime';
+import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
 let aiService: AIService | null = null;
 let subtitleService: SubtitleService | null = null;
 let controller: CreativeSuiteController | null = null;
+let recordingRegionController: RecordingRegionRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -36,11 +39,12 @@ function validateDelay(value: unknown): number {
 function registerCreativeRuntime(): void {
   if (registered) return;
   registered = true;
-  
-  // Lazy-instantiate services only in primary instance
+
+  // Lazy-instantiate services only in primary instance.
   aiService = new AIService();
   subtitleService = new SubtitleService();
   controller = setupCreativeSuiteHandlers(ipcMain);
+  recordingRegionController = setupRecordingRegionRuntime();
 
   ipcMain.handle('creative:request-media-permission', (event) => {
     requireTrustedEvent(event);
@@ -86,12 +90,12 @@ function registerCreativeRuntime(): void {
   });
 }
 
-// Export registration function to be called explicitly by main.ts after lock acquisition
+// Export registration function to be called explicitly by main.ts after lock acquisition.
 export function registerCreativeRuntimeIfPrimary(): void {
   registerCreativeRuntime();
 }
 
-// Export permission and cleanup handlers for main.ts to call
+// Export permission and cleanup handlers for main.ts to call.
 export function setupCreativePermissionHandlers(): void {
   app.on('web-contents-created', (_event, contents) => {
     contents.session.setPermissionRequestHandler((requestingContents, permission, callback) => {
@@ -112,5 +116,6 @@ export function setupCreativePermissionHandlers(): void {
 export function cleanupCreativeRuntime(): void {
   permissionExpiry.clear();
   aiService?.cancel();
+  recordingRegionController?.close();
   void controller?.shutdown();
 }

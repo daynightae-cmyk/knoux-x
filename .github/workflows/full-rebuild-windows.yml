@@ -162,15 +162,28 @@ jobs:
 
           Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 2
-          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
+          $primaryOut = Join-Path $env:RUNNER_TEMP 'knoux-primary-out.log'
+          $primaryErr = Join-Path $env:RUNNER_TEMP 'knoux-primary-err.log'
+          $secondaryOut = Join-Path $env:RUNNER_TEMP 'knoux-secondary-out.log'
+          $secondaryErr = Join-Path $env:RUNNER_TEMP 'knoux-secondary-err.log'
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $primaryOut -RedirectStandardError $primaryErr -PassThru
           Start-Sleep -Seconds 20
           if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
 
           $primaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
           if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
 
-          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -PassThru
+          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $secondaryOut -RedirectStandardError $secondaryErr -PassThru
           if (-not $second.WaitForExit(15000)) {
+            Write-Host "Primary PID: $($process.Id); secondary PID: $($second.Id)"
+            Get-CimInstance Win32_Process |
+              Where-Object { $_.Name -match '^(knoux-player-x|electron|ffmpeg|ffprobe)\.exe$' } |
+              Select-Object ProcessId, ParentProcessId, Name, CommandLine |
+              Format-List
+            Write-Host '--- primary stderr ---'
+            if (Test-Path $primaryErr) { Get-Content $primaryErr }
+            Write-Host '--- secondary stderr ---'
+            if (Test-Path $secondaryErr) { Get-Content $secondaryErr }
             Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
             throw 'Second launcher process did not exit after forwarding the media request.'
           }

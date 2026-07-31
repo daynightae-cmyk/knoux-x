@@ -35,7 +35,11 @@ function extensionPath(filePath: string, extension: string): string {
 }
 
 function safeOutputName(sourcePath: string, extension: string): string {
-  const base = path.basename(sourcePath, path.extname(sourcePath)).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120) || 'knoux-audio';
+  const raw = path.basename(sourcePath, path.extname(sourcePath));
+  const base = [...raw]
+    .map((character) => '<>:"/\\|?*'.includes(character) || character.charCodeAt(0) < 32 ? '_' : character)
+    .join('')
+    .slice(0, 120) || 'knoux-audio';
   return `${base}-processed.${extension}`;
 }
 

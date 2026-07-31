@@ -62,4 +62,10 @@ changed = replaceExact(
   "  }, [duration, previewPlaying, previewTime]);\n",
 ) || changed;
 
+changed = replaceExact(
+  'src/features/audio-tools/AudioToolsView.tsx',
+  '<input type="range" orient="vertical" min="-20" max="20" step="0.5"',
+  '<input type="range" min="-20" max="20" step="0.5"',
+) || changed;
+
 console.log(changed ? '[PASS] Professional suite source repairs applied.' : '[PASS] No pending professional suite source repairs.');

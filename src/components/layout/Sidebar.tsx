@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Play,
+  Presentation,
   Settings,
   Share2,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ const navGroups: NavGroup[] = [
       { id: 'recording', labelKey: 'nav.recorder', icon: <Circle size={19} /> },
       { id: 'editor', labelKey: 'nav.editor', icon: <Clapperboard size={19} /> },
       { id: 'image-editor', labelKey: 'nav.imageEditor', icon: <ImageIcon size={19} /> },
+      { id: 'slideshow', labelKey: 'nav.slideshow', icon: <Presentation size={19} /> },
       { id: 'export', labelKey: 'nav.export', icon: <Share2 size={19} /> },
     ],
   },

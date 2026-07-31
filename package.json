@@ -25,6 +25,8 @@
     "analyze": "webpack-bundle-analyzer dist/stats.json",
     "check": "npm run typecheck && npm run lint",
     "doctor": "node tools/doctor.cjs",
+    "verify:packaged-ipc": "node tools/run-packaged-ipc-smoke.cjs",
+    "verify:browser-preview": "node tools/verify-browser-preview.cjs",
     "brand:manifest": "node tools/validate-brand-assets.cjs --write",
     "brand:verify": "node tools/validate-brand-assets.cjs",
     "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"

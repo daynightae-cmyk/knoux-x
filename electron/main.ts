@@ -345,6 +345,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     const window = await createMainWindow();
     systemOrchestrator.setMainWindow(window);
   }).catch((error) => {
+    if (ipcSmokeTest) log.error(`KNOUX_IPC_DIAGNOSTICS ${JSON.stringify(authoritativeIpc.diagnosticEvents())}`);
     log.error('Failed to start KNOUX Player X', error);
     closeSplash();
     app.exit(1);

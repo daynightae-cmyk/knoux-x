@@ -6,6 +6,7 @@ import {
   Circle,
   Clapperboard,
   FolderOpen,
+  Image as ImageIcon,
   Library,
   ListMusic,
   PanelLeftClose,
@@ -16,7 +17,8 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from '../../i18n';
-import { useAppStore, ViewType } from '../../store/appStore';
+import { useAppStore } from '../../store/appStore';
+import type { ViewType } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { BrandMark } from '../brand/BrandMark';
 import { NeonButton } from '../neon/NeonButton';
@@ -47,6 +49,7 @@ const navGroups: NavGroup[] = [
       { id: 'capture', labelKey: 'nav.captures', icon: <Camera size={19} /> },
       { id: 'recording', labelKey: 'nav.recorder', icon: <Circle size={19} /> },
       { id: 'editor', labelKey: 'nav.editor', icon: <Clapperboard size={19} /> },
+      { id: 'image-editor', labelKey: 'nav.imageEditor', icon: <ImageIcon size={19} /> },
       { id: 'export', labelKey: 'nav.export', icon: <Share2 size={19} /> },
     ],
   },

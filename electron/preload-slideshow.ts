@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { SlideshowRecovery } from './creative/slideshow-project-service';
-import type { SlideshowRenderSnapshot } from './creative/slideshow-render-service';
 import type { SlideshowRenderFormat } from '../src/core/creative/slideshowRender';
 import type { SlideshowProject, SlideshowTemplate } from '../src/core/creative/slideshowProject';
+
+import type { SlideshowRecovery } from './creative/slideshow-project-service';
+import type { SlideshowRenderSnapshot } from './creative/slideshow-render-service';
 
 const slideshowAPI = {
   create: (name: string, template: SlideshowTemplate): Promise<SlideshowProject> =>

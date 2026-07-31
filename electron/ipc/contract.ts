@@ -1,5 +1,12 @@
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 
+import type {
+  InboundPayloadMap,
+  InvokeArgumentMap,
+  InvokeResultMap,
+  OutboundPayloadMap,
+} from './channel-types';
+
 export interface FileDialogFilter { name: string; extensions: string[]; }
 export interface FileDialogOptions { title?: string; defaultPath?: string; buttonLabel?: string; filters?: FileDialogFilter[]; }
 export interface BuildIdentity { product: 'KNOUX Player X'; version: string; sha: string; branch: string; builtAt: string; packaged: boolean; electronVersion: string; }
@@ -206,45 +213,17 @@ export const IPC_OUTBOUND = {
 } as const;
 export type IpcOutboundChannel = typeof IPC_OUTBOUND[keyof typeof IPC_OUTBOUND];
 
-export interface SprintInvokeArguments {
-  [IPC_INVOKE.SETTINGS_GET]: [key: string, defaultValue?: unknown];
-  [IPC_INVOKE.SETTINGS_SET]: [key: string, value: unknown];
-  [IPC_INVOKE.SETTINGS_GET_ALL]: [];
-  [IPC_INVOKE.SETTINGS_RESET]: [key?: string];
-  [IPC_INVOKE.SETTINGS_EXPORT]: [];
-  [IPC_INVOKE.SETTINGS_IMPORT]: [data: string];
-  [IPC_INVOKE.FILE_OPEN]: [options?: FileDialogOptions];
-  [IPC_INVOKE.FILE_OPEN_MULTIPLE]: [options?: FileDialogOptions];
-  [IPC_INVOKE.FILE_OPEN_DIRECTORY]: [options?: FileDialogOptions];
-  [IPC_INVOKE.FILE_SAVE]: [options?: FileDialogOptions];
-  [IPC_INVOKE.FILE_EXISTS]: [filePath: string];
-  [IPC_INVOKE.SYSTEM_INFO]: [];
-  [IPC_INVOKE.SYSTEM_GET_BUILD_INFO]: [];
-  [IPC_INVOKE.SYSTEM_GET_IPC_HEALTH]: [];
-}
-export interface SprintInvokeResults {
-  [IPC_INVOKE.SETTINGS_GET]: unknown;
-  [IPC_INVOKE.SETTINGS_SET]: void;
-  [IPC_INVOKE.SETTINGS_GET_ALL]: Record<string, unknown>;
-  [IPC_INVOKE.SETTINGS_RESET]: void;
-  [IPC_INVOKE.SETTINGS_EXPORT]: string;
-  [IPC_INVOKE.SETTINGS_IMPORT]: void;
-  [IPC_INVOKE.FILE_OPEN]: string | null;
-  [IPC_INVOKE.FILE_OPEN_MULTIPLE]: string[];
-  [IPC_INVOKE.FILE_OPEN_DIRECTORY]: string | null;
-  [IPC_INVOKE.FILE_SAVE]: string | null;
-  [IPC_INVOKE.FILE_EXISTS]: boolean;
-  [IPC_INVOKE.SYSTEM_INFO]: DesktopSystemInfo;
-  [IPC_INVOKE.SYSTEM_GET_BUILD_INFO]: BuildIdentity;
-  [IPC_INVOKE.SYSTEM_GET_IPC_HEALTH]: unknown;
-}
-export type InvokeArguments<C extends IpcInvokeChannel> = C extends keyof SprintInvokeArguments ? SprintInvokeArguments[C] : unknown[];
-export type InvokeResult<C extends IpcInvokeChannel> = C extends keyof SprintInvokeResults ? SprintInvokeResults[C] : unknown;
+export type InvokeArguments<C extends IpcInvokeChannel> = InvokeArgumentMap[C];
+export type InvokeResult<C extends IpcInvokeChannel> = InvokeResultMap[C];
+export type InboundPayload<C extends IpcInboundChannel> = InboundPayloadMap[C];
+export type OutboundPayload<C extends IpcOutboundChannel> = OutboundPayloadMap[C];
 export type TypedInvokeHandler<C extends IpcInvokeChannel = IpcInvokeChannel> = (event: IpcMainInvokeEvent, ...args: InvokeArguments<C>) => InvokeResult<C> | Promise<InvokeResult<C>>;
-export type TypedInboundListener = (event: IpcMainEvent, ...args: unknown[]) => void;
+export type TypedInboundListener<C extends IpcInboundChannel = IpcInboundChannel> = (event: IpcMainEvent, ...args: InboundPayload<C>) => void;
 
-export interface IpcChannelDefinition { channel: string; direction: 'invoke' | 'inbound-listener' | 'outbound-event'; owner: string; exposedBy: string; arguments: string; result: string; basic: boolean; dynamic?: boolean; }
-export const IPC_CHANNEL_DEFINITIONS: readonly IpcChannelDefinition[] = [
+export interface IpcShapeReference { schema: 'typescript'; typeId: string; }
+export interface IpcChannelDefinition { channel: string; direction: 'invoke' | 'inbound-listener' | 'outbound-event'; owner: string; exposedBy: string; arguments: IpcShapeReference; result: IpcShapeReference; sourceRoots: string[]; basic: boolean; dynamic?: boolean; }
+interface RawIpcChannelDefinition { channel: string; direction: IpcChannelDefinition['direction']; owner: string; exposedBy: string; arguments: string; result: string; basic: boolean; dynamic?: boolean; }
+const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'ai-secure:cancel', direction: 'invoke', owner: 'secure-ai', exposedBy: 'preload-creative', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
   { channel: 'ai-secure:chat', direction: 'invoke', owner: 'secure-ai', exposedBy: 'preload-creative', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
   { channel: 'ai-secure:clear', direction: 'invoke', owner: 'secure-ai', exposedBy: 'preload-creative', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
@@ -434,6 +413,74 @@ export const IPC_CHANNEL_DEFINITIONS: readonly IpcChannelDefinition[] = [
   { channel: 'window:resize', direction: 'outbound-event', owner: 'core-window', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
 ] as const;
 
-export const BASIC_INVOKE_CHANNELS = [IPC_INVOKE.SETTINGS_GET, IPC_INVOKE.SETTINGS_SET, IPC_INVOKE.SETTINGS_GET_ALL, IPC_INVOKE.FILE_OPEN, IPC_INVOKE.FILE_SAVE, IPC_INVOKE.FILE_EXISTS, IPC_INVOKE.SYSTEM_INFO, IPC_INVOKE.SYSTEM_GET_BUILD_INFO, IPC_INVOKE.SYSTEM_GET_IPC_HEALTH] as const;
+function preloadSource(channel: string, exposedBy: string): string {
+  if (exposedBy.includes('audio-tools')) return 'electron/preload-audio-tools.ts';
+  if (exposedBy.includes('slideshow')) return 'electron/preload-slideshow.ts';
+  if (exposedBy.includes('multitrack')) return 'electron/preload-multitrack.ts';
+  if (exposedBy.includes('recording')) return 'electron/preload-recording.ts';
+  if (exposedBy.includes('creative-expose')) return 'electron/preload-creative-expose.ts';
+  if (exposedBy.includes('creative')) return 'electron/preload-creative.ts';
+  if (channel.startsWith('audio-tools:')) return 'electron/preload-audio-tools.ts';
+  if (channel.startsWith('slideshow:')) return 'electron/preload-slideshow.ts';
+  if (channel.startsWith('clip:') || channel.startsWith('capture:') || channel.startsWith('editor:') || channel.startsWith('export:') || channel.startsWith('recording:') || channel === 'library:scan-progress') return 'electron/preload-creative.ts';
+  return 'electron/preload.ts';
+}
+
+function mainSource(channel: string, direction: IpcChannelDefinition['direction']): string {
+  if (direction === 'inbound-listener') {
+    if (channel.startsWith('capture:selector')) return 'electron/creative/region-capture-service.ts';
+    if (channel.startsWith('recording:selector')) return 'electron/creative/recording-region-service.ts';
+    return 'electron/main.ts';
+  }
+  if (channel.startsWith('audio-tools:')) return 'electron/ipc/audio-tools-runtime.ts';
+  if (channel.startsWith('clip:')) return 'electron/ipc/clip-extraction-runtime.ts';
+  if (channel.startsWith('multitrack:')) return 'electron/ipc/multitrack-runtime.ts';
+  if (channel.startsWith('slideshow:')) return 'electron/ipc/slideshow-runtime.ts';
+  if (channel === 'recording-region:select') return 'electron/ipc/recording-region-runtime.ts';
+  if (channel.startsWith('capture:') || channel.startsWith('editor:') || channel.startsWith('export:') || channel.startsWith('recording:')) return 'electron/ipc/creative-suite.ts';
+  if (channel.startsWith('creative:') || channel.startsWith('ai-secure:') || channel === 'subtitle:select' || channel === 'subtitle:reload') return channel === 'creative:open-media' || channel === 'creative:path-to-media-url' ? 'electron/ipc/creative-suite.ts' : 'electron/creative-bootstrap.ts';
+  if (channel.startsWith('library:') && ['library:choose-folder', 'library:folders', 'library:query', 'library:scan', 'library:cancel-scan', 'library:remove-folder', 'library:open-item', 'library:set-favorite', 'library:update-playback', 'library:scan-progress'].includes(channel)) return 'electron/ipc/creative-suite.ts';
+  if (direction === 'outbound-event' && (channel === 'system:resume' || channel === 'system:suspend' || channel.startsWith('window:') || channel === 'app:open-media')) return 'electron/main.ts';
+  return 'electron/ipc/setup.ts';
+}
+
+export const IPC_CHANNEL_DEFINITIONS: readonly IpcChannelDefinition[] = RAW_IPC_CHANNEL_DEFINITIONS.map((definition) => ({
+  channel: definition.channel,
+  direction: definition.direction,
+  owner: definition.owner,
+  exposedBy: definition.exposedBy,
+  arguments: {
+    schema: 'typescript',
+    typeId: definition.direction === 'invoke'
+      ? `InvokeArgumentMap["${definition.channel}"]`
+      : definition.direction === 'inbound-listener'
+        ? `InboundPayloadMap["${definition.channel}"]`
+        : `OutboundPayloadMap["${definition.channel}"]`,
+  },
+  result: {
+    schema: 'typescript',
+    typeId: definition.direction === 'invoke' ? `InvokeResultMap["${definition.channel}"]` : 'void',
+  },
+  sourceRoots: [preloadSource(definition.channel, definition.exposedBy), mainSource(definition.channel, definition.direction)],
+  basic: definition.basic,
+  ...(definition.dynamic === undefined ? {} : { dynamic: definition.dynamic }),
+}));
+
+export const BASIC_INVOKE_CHANNELS = [
+  IPC_INVOKE.SETTINGS_GET,
+  IPC_INVOKE.SETTINGS_SET,
+  IPC_INVOKE.SETTINGS_GET_ALL,
+  IPC_INVOKE.SETTINGS_RESET,
+  IPC_INVOKE.SETTINGS_EXPORT,
+  IPC_INVOKE.SETTINGS_IMPORT,
+  IPC_INVOKE.FILE_OPEN,
+  IPC_INVOKE.FILE_OPEN_MULTIPLE,
+  IPC_INVOKE.FILE_OPEN_DIRECTORY,
+  IPC_INVOKE.FILE_SAVE,
+  IPC_INVOKE.FILE_EXISTS,
+  IPC_INVOKE.SYSTEM_INFO,
+  IPC_INVOKE.SYSTEM_GET_BUILD_INFO,
+  IPC_INVOKE.SYSTEM_GET_IPC_HEALTH,
+] as const;
 export const EXPOSED_INVOKE_CHANNELS = Object.freeze(Object.values(IPC_INVOKE)) as readonly IpcInvokeChannel[];
 export const DESKTOP_RUNTIME_DESCRIPTOR = Object.freeze({ edition: 'desktop' as const, product: 'KNOUX Player X' as const, bridgeVersion: 1 as const });

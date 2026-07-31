@@ -4,7 +4,11 @@ import {
   type IpcInboundChannel,
   type IpcInvokeChannel,
   type IpcOutboundChannel,
+  type InboundPayload,
+  type InvokeArguments,
+  type InvokeResult,
   type IpcResult,
+  type OutboundPayload,
 } from './contract';
 
 const MAX_ERROR_MESSAGE = 512;
@@ -31,10 +35,10 @@ function isResultEnvelope(value: unknown): value is IpcResult<unknown> {
     && Boolean(error && typeof error === 'object' && 'code' in error && 'channel' in error && 'message' in error);
 }
 
-export async function invokeDesktop<T = unknown>(
-  channel: IpcInvokeChannel,
-  ...args: unknown[]
-): Promise<T> {
+export async function invokeDesktop<
+  C extends IpcInvokeChannel,
+  T extends InvokeResult<C> = InvokeResult<C>,
+>(channel: C, ...args: InvokeArguments<C>): Promise<T> {
   let response: unknown;
   try {
     response = await ipcRenderer.invoke(channel, ...args);
@@ -50,25 +54,25 @@ export async function invokeDesktop<T = unknown>(
   return response.value as T;
 }
 
-export function sendDesktop(channel: IpcInboundChannel, ...args: unknown[]): void {
+export function sendDesktop<C extends IpcInboundChannel>(channel: C, ...args: InboundPayload<C>): void {
   ipcRenderer.send(channel, ...args);
 }
 
-export function onDesktop<T extends unknown[]>(
-  channel: IpcOutboundChannel,
-  callback: (...args: T) => void,
+export function onDesktop<C extends IpcOutboundChannel>(
+  channel: C,
+  callback: (...args: OutboundPayload<C>) => void,
 ): () => void {
-  const listener = (_event: IpcRendererEvent, ...args: unknown[]): void => callback(...args as T);
+  const listener = (_event: IpcRendererEvent, ...args: unknown[]): void => callback(...args as OutboundPayload<C>);
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
 export type DesktopEventListener = { listen(event: IpcRendererEvent, ...args: never[]): void }['listen'];
 
-export function onDesktopEvent(channel: IpcOutboundChannel, listener: DesktopEventListener): void {
+export function onDesktopEvent<C extends IpcOutboundChannel>(channel: C, listener: (event: IpcRendererEvent, ...args: OutboundPayload<C>) => void): void {
   ipcRenderer.on(channel, listener as Parameters<typeof ipcRenderer.on>[1]);
 }
 
-export function offDesktopEvent(channel: IpcOutboundChannel, listener: DesktopEventListener): void {
+export function offDesktopEvent<C extends IpcOutboundChannel>(channel: C, listener: (event: IpcRendererEvent, ...args: OutboundPayload<C>) => void): void {
   ipcRenderer.removeListener(channel, listener as Parameters<typeof ipcRenderer.removeListener>[1]);
 }

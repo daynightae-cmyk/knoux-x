@@ -12,6 +12,9 @@
 
 import { contextBridge, webUtils } from 'electron';
 
+import type { ChatContext } from '../src/core/services/ai/GeminiService';
+
+import type { StructuredValue } from './ipc/channel-types';
 import { IPC_INBOUND, IPC_INVOKE, IPC_OUTBOUND } from './ipc/contract';
 import type { BuildIdentity } from './ipc/contract';
 import { invokeDesktop, offDesktopEvent, onDesktopEvent, sendDesktop } from './ipc/preload-client';
@@ -210,7 +213,7 @@ const audioAPI = {
   setEqualizer: (bands: number[]): Promise<void> =>
     invokeDesktop(IPC_INVOKE.AUDIO_EQUALIZER, bands),
 
-  setEffect: (effect: string, params: unknown): Promise<void> =>
+  setEffect: (effect: string, params: StructuredValue): Promise<void> =>
     invokeDesktop(IPC_INVOKE.AUDIO_EFFECT, effect, params),
 
   enableDSP: (enabled: boolean): Promise<void> =>
@@ -297,19 +300,19 @@ const subtitleAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const libraryAPI = {
-  scan: (paths: string[]): Promise<void> =>
-    invokeDesktop(IPC_INVOKE.LIBRARY_SCAN, paths),
+  scan: (folderPath: string): Promise<void | object> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_SCAN, folderPath),
 
-  getMedia: (filters?: unknown): Promise<unknown[]> =>
+  getMedia: (filters?: object): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_GET_MEDIA, filters),
 
-  getPlaylists: (): Promise<unknown[]> =>
+  getPlaylists: (): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_GET_PLAYLISTS),
 
   createPlaylist: (name: string, items?: string[]): Promise<string> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_CREATE_PLAYLIST, name, items),
 
-  updatePlaylist: (id: string, updates: unknown): Promise<void> =>
+  updatePlaylist: (id: string, updates: object): Promise<void> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_UPDATE_PLAYLIST, id, updates),
 
   deletePlaylist: (id: string): Promise<void> =>
@@ -318,16 +321,16 @@ const libraryAPI = {
   addToHistory: (mediaPath: string, position: number): Promise<void> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_ADD_HISTORY, mediaPath, position),
 
-  getHistory: (limit?: number): Promise<unknown[]> =>
+  getHistory: (limit?: number): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_GET_HISTORY, limit),
 
-  getFavorites: (): Promise<unknown[]> =>
+  getFavorites: (): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_GET_FAVORITES),
 
   toggleFavorite: (mediaPath: string): Promise<boolean> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_TOGGLE_FAVORITE, mediaPath),
 
-  search: (query: string): Promise<unknown[]> =>
+  search: (query: string): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.LIBRARY_SEARCH, query),
 
   getStatistics: (): Promise<{
@@ -343,10 +346,10 @@ const libraryAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const settingsAPI = {
-  get: <T>(key: string, defaultValue?: T): Promise<T> =>
-    invokeDesktop(IPC_INVOKE.SETTINGS_GET, key, defaultValue),
+  get: <T extends StructuredValue>(key: string, defaultValue?: T): Promise<T> =>
+    invokeDesktop<typeof IPC_INVOKE.SETTINGS_GET, T>(IPC_INVOKE.SETTINGS_GET, key, defaultValue),
 
-  set: <T>(key: string, value: T): Promise<void> =>
+  set: <T extends StructuredValue>(key: string, value: T): Promise<void> =>
     invokeDesktop(IPC_INVOKE.SETTINGS_SET, key, value),
 
   getAll: (): Promise<Record<string, unknown>> =>
@@ -471,7 +474,7 @@ const appAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const aiAPI = {
-  chat: (message: string, context?: unknown[]): Promise<string> =>
+  chat: (message: string, context?: ChatContext): Promise<string> =>
     invokeDesktop(IPC_INVOKE.AI_CHAT, message, context),
 
   analyzeMedia: (filePath: string): Promise<{
@@ -484,7 +487,7 @@ const aiAPI = {
   generatePlaylist: (mood: string, count?: number): Promise<string[]> =>
     invokeDesktop(IPC_INVOKE.AI_GENERATE_PLAYLIST, mood, count),
 
-  getRecommendations: (basedOn: string[]): Promise<unknown[]> =>
+  getRecommendations: (basedOn: string[]): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.AI_RECOMMENDATIONS, basedOn),
 
   onStream: (callback: (chunk: string) => void): () => void => {

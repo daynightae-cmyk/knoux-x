@@ -18,16 +18,19 @@ import {
   type IpcInvokeChannel,
   type IpcOutboundChannel,
   type IpcResult,
+  type OutboundPayload,
+  type TypedInboundListener,
+  type TypedInvokeHandler,
 } from './contract';
 
 type InvokeHandler = { invoke(event: IpcMainInvokeEvent, ...args: unknown[]): unknown }['invoke'];
 type InboundListener = { listen(event: IpcMainEvent, ...args: unknown[]): void }['listen'];
 
 export interface IpcRegistrar {
-  handle(channel: IpcInvokeChannel, listener: InvokeHandler): void;
-  on(channel: IpcInboundChannel, listener: InboundListener): void;
-  removeListener(channel: IpcInboundChannel, listener: InboundListener): void;
-  send(contents: WebContents, channel: IpcOutboundChannel, ...args: unknown[]): void;
+  handle<C extends IpcInvokeChannel>(channel: C, listener: TypedInvokeHandler<C>): void;
+  on<C extends IpcInboundChannel>(channel: C, listener: TypedInboundListener<C>): void;
+  removeListener<C extends IpcInboundChannel>(channel: C, listener: TypedInboundListener<C>): void;
+  send<C extends IpcOutboundChannel>(contents: WebContents, channel: C, ...args: OutboundPayload<C>): void;
 }
 
 export interface IpcRegistrationRecord {
@@ -78,13 +81,108 @@ function classifyFailure(channel: string, error: unknown): IpcFailure {
   };
 }
 
-function validateBasicArguments(channel: IpcInvokeChannel, args: unknown[]): void {
-  if (channel === 'settings:get' || channel === 'settings:set') {
-    if (typeof args[0] !== 'string' || args[0].length === 0 || args[0].length > 128) throw new TypeError('Settings key is invalid.');
+function assertArgumentCount(channel: string, args: unknown[], minimum: number, maximum = minimum): void {
+  if (args.length < minimum || args.length > maximum) throw new TypeError(`${channel} received an invalid argument count.`);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isSafeString(value: unknown, maximum = 4096): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= maximum && !value.includes('\u0000');
+}
+
+function validateDialogOptions(channel: string, args: unknown[]): void {
+  assertArgumentCount(channel, args, 0, 1);
+  if (args.length === 0 || args[0] === undefined) return;
+  if (!isPlainRecord(args[0])) throw new TypeError(`${channel} dialog options are invalid.`);
+  const options = args[0];
+  for (const key of ['title', 'defaultPath', 'buttonLabel'] as const) {
+    if (options[key] !== undefined && (typeof options[key] !== 'string' || String(options[key]).length > 4096 || String(options[key]).includes('\u0000'))) {
+      throw new TypeError(`${channel} dialog option ${key} is invalid.`);
+    }
   }
-  if (channel === 'settings:import' && (typeof args[0] !== 'string' || args[0].length === 0)) throw new TypeError('Settings import data is invalid.');
-  if (channel === 'file:exists' && (typeof args[0] !== 'string' || args[0].length === 0 || args[0].length > 4096 || args[0].includes('\u0000'))) {
-    throw new TypeError('File path is invalid.');
+  if (options.filters !== undefined) {
+    if (!Array.isArray(options.filters) || options.filters.length > 32) throw new TypeError(`${channel} dialog filters are invalid.`);
+    for (const filter of options.filters) {
+      if (!isPlainRecord(filter) || !isSafeString(filter.name, 128) || !Array.isArray(filter.extensions) || filter.extensions.length === 0 || filter.extensions.length > 64) {
+        throw new TypeError(`${channel} dialog filter is invalid.`);
+      }
+      if (filter.extensions.some((extension) => typeof extension !== 'string' || !/^(\*|[a-z0-9]{1,12})$/i.test(extension))) throw new TypeError(`${channel} dialog extension is invalid.`);
+    }
+  }
+}
+
+function isBuildIdentity(value: unknown): value is BuildIdentity {
+  if (!isPlainRecord(value)) return false;
+  return value.product === 'KNOUX Player X'
+    && isSafeString(value.version, 128)
+    && typeof value.sha === 'string' && /^[0-9a-f]{40}$/i.test(value.sha)
+    && isSafeString(value.branch, 512)
+    && typeof value.builtAt === 'string' && Number.isFinite(Date.parse(value.builtAt))
+    && typeof value.packaged === 'boolean'
+    && isSafeString(value.electronVersion, 128);
+}
+
+function isHealthReport(value: unknown): value is IpcHealthReport {
+  if (!isPlainRecord(value)) return false;
+  const registrationsValid = (entries: unknown): boolean => Array.isArray(entries) && entries.every((entry) => (
+    isPlainRecord(entry) && isSafeString(entry.channel, 256) && isSafeString(entry.owner, 256) && Number.isInteger(entry.count) && Number(entry.count) >= 0
+  ));
+  return value.schemaVersion === 1
+    && (value.status === 'ready' || value.status === 'failed')
+    && Array.isArray(value.exposed) && value.exposed.every((entry) => typeof entry === 'string')
+    && registrationsValid(value.registered)
+    && registrationsValid(value.listeners)
+    && Array.isArray(value.missing) && value.missing.every((entry) => typeof entry === 'string')
+    && registrationsValid(value.duplicates)
+    && isSafeString(value.preloadPath, 32767)
+    && typeof value.preloadExists === 'boolean'
+    && typeof value.packaged === 'boolean'
+    && isSafeString(value.version, 128)
+    && typeof value.sha === 'string' && /^[0-9a-f]{40}$/i.test(value.sha)
+    && isSafeString(value.branch, 512)
+    && typeof value.buildTimestamp === 'string' && Number.isFinite(Date.parse(value.buildTimestamp))
+    && isSafeString(value.electronVersion, 128);
+}
+
+function validateBasicArguments(channel: IpcInvokeChannel, args: unknown[]): void {
+  switch (channel) {
+    case 'settings:get':
+      assertArgumentCount(channel, args, 1, 2);
+      if (!isSafeString(args[0], 128)) throw new TypeError('Settings key is invalid.');
+      return;
+    case 'settings:set':
+      assertArgumentCount(channel, args, 2);
+      if (!isSafeString(args[0], 128)) throw new TypeError('Settings key is invalid.');
+      try { structuredClone(args[1]); } catch { throw new TypeError('Settings value is not serializable.'); }
+      return;
+    case 'settings:get-all':
+    case 'settings:export':
+    case 'system:info':
+    case 'system:get-build-info':
+    case 'system:get-ipc-health':
+      assertArgumentCount(channel, args, 0);
+      return;
+    case 'settings:reset':
+      assertArgumentCount(channel, args, 0, 1);
+      if (args[0] !== undefined && !isSafeString(args[0], 128)) throw new TypeError('Settings reset key is invalid.');
+      return;
+    case 'settings:import':
+      assertArgumentCount(channel, args, 1);
+      if (!isSafeString(args[0], 16 * 1024 * 1024)) throw new TypeError('Settings import data is invalid.');
+      return;
+    case 'file:open':
+    case 'file:open-multiple':
+    case 'file:open-directory':
+    case 'file:save':
+      validateDialogOptions(channel, args);
+      return;
+    case 'file:exists':
+      assertArgumentCount(channel, args, 1);
+      if (!isSafeString(args[0], 4096)) throw new TypeError('File path is invalid.');
+      return;
   }
 }
 
@@ -96,7 +194,19 @@ function validateBasicResult(channel: IpcInvokeChannel, value: unknown): void {
     throw new TypeError('file:open-multiple returned an invalid path list.');
   }
   if (channel === 'file:exists' && typeof value !== 'boolean') throw new TypeError('file:exists returned an invalid result.');
-  if (channel === 'settings:export' && typeof value !== 'string') throw new TypeError('settings:export returned an invalid result.');
+  if (channel === 'settings:get') {
+    try { structuredClone(value); } catch { throw new TypeError('settings:get returned a non-serializable result.'); }
+  }
+  if (channel === 'settings:get-all' && !isPlainRecord(value)) throw new TypeError('settings:get-all returned an invalid settings object.');
+  if (channel === 'settings:export' && !isSafeString(value, 16 * 1024 * 1024)) throw new TypeError('settings:export returned an invalid document.');
+  if (['settings:set', 'settings:reset', 'settings:import'].includes(channel) && value !== undefined) throw new TypeError(`${channel} returned an invalid non-void result.`);
+  if (channel === 'system:get-build-info' && !isBuildIdentity(value)) throw new TypeError('system:get-build-info returned an invalid identity.');
+  if (channel === 'system:info') {
+    if (!isBuildIdentity(value) || !isPlainRecord(value) || !isSafeString(value.platform, 128) || !isSafeString(value.arch, 128) || !isSafeString(value.chromeVersion, 128) || !isSafeString(value.nodeVersion, 128)) {
+      throw new TypeError('system:info returned an invalid system identity.');
+    }
+  }
+  if (channel === 'system:get-ipc-health' && !isHealthReport(value)) throw new TypeError('system:get-ipc-health returned an invalid health report.');
 }
 
 export class AuthoritativeIpcRegistry {
@@ -190,14 +300,14 @@ export class AuthoritativeIpcRegistry {
     return this.diagnostics.map((event) => ({ ...event }));
   }
 
-  private registerHandler(channel: IpcInvokeChannel, owner: string, listener: InvokeHandler): void {
+  private registerHandler<C extends IpcInvokeChannel>(channel: C, owner: string, listener: TypedInvokeHandler<C>): void {
     if (!EXPOSED_INVOKE_CHANNELS.includes(channel)) throw new Error(`IPC_UNDECLARED_CHANNEL ${channel}`);
     const existing = this.handlers.get(channel);
     if (existing) {
       this.duplicates.push({ channel, owner: `${existing.owner} -> ${owner}`, count: 2 });
       throw new Error(`IPC_DUPLICATE_HANDLER ${channel} owned by ${existing.owner} and ${owner}`);
     }
-    this.handlers.set(channel, { owner, listener });
+    this.handlers.set(channel, { owner, listener: listener as InvokeHandler });
     this.ipc.handle(channel, async (event, ...args): Promise<IpcResult<unknown>> => {
       try {
         if (!this.trustedSender || !this.trustedSender(event)) throw new Error('IPC request was rejected from an untrusted renderer.');
@@ -213,25 +323,26 @@ export class AuthoritativeIpcRegistry {
     });
   }
 
-  private registerListener(channel: IpcInboundChannel, owner: string, listener: InboundListener): void {
+  private registerListener<C extends IpcInboundChannel>(channel: C, owner: string, listener: TypedInboundListener<C>): void {
     const existing = this.listeners.get(channel);
     if (existing) {
       this.duplicates.push({ channel, owner: `${existing.owner} -> ${owner}`, count: 2, active: true });
       throw new Error(`IPC_DUPLICATE_LISTENER ${channel} owned by ${existing.owner} and ${owner}`);
     }
-    const wrapped: InboundListener = (event, ...args) => Reflect.apply(listener, undefined, [event, ...args]);
-    this.listeners.set(channel, { owner, original: listener, wrapped });
+    const original = listener as InboundListener;
+    const wrapped: InboundListener = (event, ...args) => Reflect.apply(original, undefined, [event, ...args]);
+    this.listeners.set(channel, { owner, original, wrapped });
     this.ipc.on(channel, wrapped as Parameters<IpcMain['on']>[1]);
   }
 
-  private removeRegisteredListener(channel: IpcInboundChannel, owner: string, listener: InboundListener): void {
+  private removeRegisteredListener<C extends IpcInboundChannel>(channel: C, owner: string, listener: TypedInboundListener<C>): void {
     const existing = this.listeners.get(channel);
-    if (!existing || existing.owner !== owner || existing.original !== listener) return;
+    if (!existing || existing.owner !== owner || existing.original !== listener as InboundListener) return;
     this.ipc.removeListener(channel, existing.wrapped as Parameters<IpcMain['removeListener']>[1]);
     this.listeners.delete(channel);
   }
 
-  private send(contents: WebContents, channel: IpcOutboundChannel, ...args: unknown[]): void {
+  private send<C extends IpcOutboundChannel>(contents: WebContents, channel: C, ...args: OutboundPayload<C>): void {
     if (contents.isDestroyed()) return;
     contents.send(channel, ...args);
   }

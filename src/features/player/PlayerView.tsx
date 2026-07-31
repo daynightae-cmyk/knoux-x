@@ -5,6 +5,8 @@ import {
   Captions,
   Clipboard,
   FolderOpen,
+  Images,
+  LayoutGrid,
   Maximize,
   Minus,
   Pause,
@@ -28,6 +30,13 @@ import { usePlayerStore } from '../../store/playerStore';
 import type { CaptureFormat } from '../../core/creative/capture';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
+interface CapturedFrame {
+  dataUrl: string;
+  mediaName: string;
+  timestampSeconds: number;
+  format: CaptureFormat;
+}
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const hours = Math.floor(seconds / 3600);
@@ -40,6 +49,35 @@ function formatTime(seconds: number): string {
 
 function mediaName(filePath: string | null): string {
   return filePath?.split(/[\\/]/).pop() ?? 'No media';
+}
+
+async function seekMedia(video: HTMLVideoElement, targetSeconds: number): Promise<void> {
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  const target = Math.max(0, Math.min(Math.max(0, duration - 0.001), targetSeconds));
+  if (Math.abs(video.currentTime - target) < 0.01 && video.readyState >= video.HAVE_CURRENT_DATA) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out while seeking to a capture frame.'));
+    }, 5000);
+    const cleanup = (): void => {
+      window.clearTimeout(timeout);
+      video.removeEventListener('seeked', handleSeeked);
+      video.removeEventListener('error', handleError);
+    };
+    const handleSeeked = (): void => {
+      cleanup();
+      resolve();
+    };
+    const handleError = (): void => {
+      cleanup();
+      reject(new Error('The media could not seek to the requested capture frame.'));
+    };
+    video.addEventListener('seeked', handleSeeked, { once: true });
+    video.addEventListener('error', handleError, { once: true });
+    video.currentTime = target;
+  });
 }
 
 export const PlayerView: React.FC = () => {
@@ -220,11 +258,11 @@ export const PlayerView: React.FC = () => {
         format: captureFormat,
       });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Frame capture failed.');
+      setError(reason instanceof Error ? reason.message : t('player.captureFailed'));
     } finally {
       setCapturing(false);
     }
-  }, [captureDataUrl, captureFormat, capturing, currentMedia]);
+  }, [captureDataUrl, captureFormat, capturing, currentMedia, t]);
 
   const copyCurrentFrame = useCallback(async (): Promise<void> => {
     if (capturing) return;
@@ -233,11 +271,82 @@ export const PlayerView: React.FC = () => {
     try {
       await window.knouxCreativeAPI.capture.copyFrame(captureDataUrl());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Frame copy failed.');
+      setError(reason instanceof Error ? reason.message : t('player.copyFailed'));
     } finally {
       setCapturing(false);
     }
-  }, [captureDataUrl, capturing]);
+  }, [captureDataUrl, capturing, t]);
+
+  const captureFrameSequence = useCallback(async (positions: number[]): Promise<CapturedFrame[]> => {
+    const video = videoRef.current;
+    if (!video || !currentMedia || !Number.isFinite(video.duration) || video.duration <= 0) {
+      throw new Error(t('player.frameUnavailable'));
+    }
+    const originalTime = video.currentTime;
+    const resumeAfterCapture = !video.paused;
+    video.pause();
+    const frames: CapturedFrame[] = [];
+    try {
+      for (const position of positions) {
+        await seekMedia(video, position);
+        frames.push({
+          dataUrl: captureDataUrl(),
+          mediaName: mediaName(currentMedia),
+          timestampSeconds: video.currentTime,
+          format: captureFormat,
+        });
+      }
+    } finally {
+      try { await seekMedia(video, originalTime); } catch { /* restore is best effort */ }
+      if (resumeAfterCapture) {
+        try { await video.play(); } catch { /* user can resume manually */ }
+      }
+    }
+    return frames;
+  }, [captureDataUrl, captureFormat, currentMedia, t]);
+
+  const saveBurstCapture = useCallback(async (): Promise<void> => {
+    const video = videoRef.current;
+    if (!video || !currentMedia || capturing || !Number.isFinite(video.duration)) return;
+    setCapturing(true);
+    setError(null);
+    try {
+      const limit = Math.max(0, video.duration - 0.001);
+      const positions = Array.from(new Set(
+        Array.from({ length: 8 }, (_, index) => Math.min(limit, video.currentTime + index * 0.25).toFixed(3)),
+      )).map(Number);
+      const frames = await captureFrameSequence(positions);
+      await window.knouxCreativeAPI.capture.saveBurst(frames);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('player.burstFailed'));
+    } finally {
+      setCapturing(false);
+    }
+  }, [captureFrameSequence, capturing, currentMedia, t]);
+
+  const saveContactSheet = useCallback(async (): Promise<void> => {
+    const video = videoRef.current;
+    if (!video || !currentMedia || capturing || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    setCapturing(true);
+    setError(null);
+    try {
+      const count = 8;
+      const positions = Array.from({ length: count }, (_, index) => ((index + 1) / (count + 1)) * video.duration);
+      const frames = await captureFrameSequence(positions);
+      await window.knouxCreativeAPI.capture.createContactSheet({
+        mediaName: mediaName(currentMedia),
+        columns: 4,
+        frames: frames.map((frame) => ({
+          dataUrl: frame.dataUrl,
+          label: formatTime(frame.timestampSeconds),
+        })),
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('player.contactSheetFailed'));
+    } finally {
+      setCapturing(false);
+    }
+  }, [captureFrameSequence, capturing, currentMedia, t]);
 
   const selectSubtitle = useCallback(async (): Promise<void> => {
     setError(null);
@@ -382,6 +491,8 @@ export const PlayerView: React.FC = () => {
                   </select>
                   <button type="button" className="control-btn" onClick={() => void saveCurrentFrame()} title={`${t('player.saveFrame')} (S)`} aria-label={t('player.saveFrame')} disabled={capturing}><Camera size={18} /></button>
                   <button type="button" className="control-btn" onClick={() => void copyCurrentFrame()} title={t('player.copyFrame')} aria-label={t('player.copyFrame')} disabled={capturing}><Clipboard size={18} /></button>
+                  <button type="button" className="control-btn" onClick={() => void saveBurstCapture()} title={t('player.burstCapture')} aria-label={t('player.burstCapture')} disabled={capturing}><Images size={18} /></button>
+                  <button type="button" className="control-btn" onClick={() => void saveContactSheet()} title={t('player.contactSheet')} aria-label={t('player.contactSheet')} disabled={capturing}><LayoutGrid size={18} /></button>
                 </div>
               )}
             </div>

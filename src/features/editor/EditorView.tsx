@@ -9,9 +9,13 @@ import {
   History,
   Link,
   MapPin,
+  Pause,
+  Play,
   Redo2,
   Save,
   Scissors,
+  SkipBack,
+  SkipForward,
   Trash2,
   Undo2,
   Video,
@@ -30,7 +34,9 @@ import {
   moveClip,
   reflowTimeline,
   removeMarker,
+  sourceTimeToTimelineTime,
   splitClip,
+  timelineTimeToSourceTime,
   trimClip,
   upsertMarker,
 } from '../../core/creative/editProject';
@@ -82,6 +88,9 @@ export const EditorView: React.FC = () => {
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [timelineZoom, setTimelineZoom] = useState(1);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +98,7 @@ export const EditorView: React.FC = () => {
   const [recoverableProjects, setRecoverableProjects] = useState<RecoverableProject[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const historyRef = useRef<EditHistory<EditProject> | null>(null);
+  const previewRef = useRef<HTMLVideoElement | null>(null);
   const { t } = useTranslation();
 
   const totalDuration = useMemo(() => projectDuration(project), [project]);
@@ -104,6 +114,7 @@ export const EditorView: React.FC = () => {
     () => project?.markers.find((marker) => marker.id === selectedMarkerId) ?? null,
     [project, selectedMarkerId],
   );
+  const selectedSourcePath = selectedClip?.sourcePath ?? null;
 
   const replaceProject = useCallback((next: EditProject, recordHistory = true): void => {
     const stamped = { ...next, updatedAt: new Date().toISOString() };
@@ -145,6 +156,31 @@ export const EditorView: React.FC = () => {
   }, [t]);
 
   useEffect(() => { void refreshStartWorkspace(); }, [refreshStartWorkspace]);
+
+  useEffect(() => {
+    let active = true;
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setIsPreviewPlaying(false);
+    if (!selectedSourcePath) return () => { active = false; };
+    void window.knouxCreativeAPI.media.toUrl(selectedSourcePath)
+      .then((mediaUrl) => {
+        if (active) setPreviewUrl(mediaUrl);
+      })
+      .catch((reason: unknown) => {
+        if (active) setPreviewError(reason instanceof Error ? reason.message : t('editor.previewLoadFailed'));
+      });
+    return () => { active = false; };
+  }, [selectedSourcePath, t]);
+
+  useEffect(() => {
+    const media = previewRef.current;
+    if (!media || !selectedClip || !previewUrl || media.readyState === 0) return;
+    const sourceTime = timelineTimeToSourceTime(selectedClip, playhead);
+    if (Math.abs(media.currentTime - sourceTime) > 0.12) media.currentTime = sourceTime;
+    media.playbackRate = selectedClip.playbackRate;
+    media.volume = Math.min(1, Math.max(0, selectedClip.volume));
+  }, [playhead, previewUrl, selectedClip]);
 
   const createNewProject = useCallback(async (): Promise<void> => {
     setError(null);
@@ -381,6 +417,44 @@ export const EditorView: React.FC = () => {
     setTimelineZoom(clampTimelineZoom(next));
   }, []);
 
+  const togglePreview = useCallback(async (): Promise<void> => {
+    const media = previewRef.current;
+    if (!media || !selectedClip) return;
+    try {
+      if (!media.paused) {
+        media.pause();
+        return;
+      }
+      if (media.currentTime >= selectedClip.sourceOut - 0.01) {
+        media.currentTime = selectedClip.sourceIn;
+        setPlayhead(selectedClip.timelineStart);
+      }
+      await media.play();
+    } catch (reason) {
+      setPreviewError(reason instanceof Error ? reason.message : t('editor.previewPlayFailed'));
+    }
+  }, [selectedClip, t]);
+
+  const nudgePreview = useCallback((seconds: number): void => {
+    if (!selectedClip) return;
+    const start = selectedClip.timelineStart;
+    const end = start + clipDuration(selectedClip);
+    setPlayhead((current) => Math.min(end, Math.max(start, current + seconds)));
+  }, [selectedClip]);
+
+  const handlePreviewTimeUpdate = useCallback((): void => {
+    const media = previewRef.current;
+    if (!media || !selectedClip) return;
+    if (media.currentTime >= selectedClip.sourceOut - 0.01) {
+      media.pause();
+      media.currentTime = selectedClip.sourceOut;
+      setPlayhead(selectedClip.timelineStart + clipDuration(selectedClip));
+      setIsPreviewPlaying(false);
+      return;
+    }
+    setPlayhead(sourceTimeToTimelineTime(selectedClip, media.currentTime));
+  }, [selectedClip]);
+
   const undo = useCallback((): void => {
     if (!historyRef.current?.canUndo) return;
     const previous = historyRef.current.undo();
@@ -436,6 +510,11 @@ export const EditorView: React.FC = () => {
         splitSelected();
         return;
       }
+      if (!modifier && event.code === 'Space') {
+        event.preventDefault();
+        void togglePreview();
+        return;
+      }
       if (!modifier && (event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault();
         if (selectedMarker) deleteSelectedMarker();
@@ -467,6 +546,7 @@ export const EditorView: React.FC = () => {
     selectedMarker,
     splitSelected,
     timelineZoom,
+    togglePreview,
     undo,
   ]);
 
@@ -594,6 +674,54 @@ export const EditorView: React.FC = () => {
           </div>
 
           <div className="editor-workspace">
+            <NeonPanel variant="dark" padding="md" className="editor-preview">
+              <div className="editor-preview-heading">
+                <div>
+                  <h2><Play size={18} /> {t('editor.preview')}</h2>
+                  <span>{t('editor.previewDescription')}</span>
+                </div>
+                {selectedClip && <strong dir="auto">{selectedClip.sourcePath.split(/[\\/]/).pop()}</strong>}
+              </div>
+              {selectedClip ? (
+                <div className="editor-preview-stage">
+                  {previewUrl ? (
+                    <video
+                      ref={previewRef}
+                      src={previewUrl}
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={(event) => {
+                        event.currentTarget.currentTime = timelineTimeToSourceTime(selectedClip, playhead);
+                        event.currentTarget.playbackRate = selectedClip.playbackRate;
+                        event.currentTarget.volume = Math.min(1, Math.max(0, selectedClip.volume));
+                      }}
+                      onTimeUpdate={handlePreviewTimeUpdate}
+                      onPlay={() => setIsPreviewPlaying(true)}
+                      onPause={() => setIsPreviewPlaying(false)}
+                      onError={() => setPreviewError(t('editor.previewDecodeFailed'))}
+                    />
+                  ) : (
+                    <div className="editor-preview-loading">{previewError ?? t('editor.previewLoading')}</div>
+                  )}
+                  <div className="editor-preview-controls">
+                    <button type="button" onClick={() => nudgePreview(-1)} aria-label={t('editor.previewBack')} title={t('editor.previewBack')}>
+                      <SkipBack size={17} />
+                    </button>
+                    <button type="button" className="primary" onClick={() => void togglePreview()} disabled={!previewUrl} aria-label={isPreviewPlaying ? t('editor.previewPause') : t('editor.previewPlay')}>
+                      {isPreviewPlaying ? <Pause size={19} /> : <Play size={19} />}
+                    </button>
+                    <button type="button" onClick={() => nudgePreview(1)} aria-label={t('editor.previewForward')} title={t('editor.previewForward')}>
+                      <SkipForward size={17} />
+                    </button>
+                    <span dir="ltr">{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
+                  </div>
+                  {previewError && <div className="editor-preview-error" role="alert">{previewError}</div>}
+                </div>
+              ) : (
+                <div className="creative-empty">{t('editor.previewSelectClip')}</div>
+              )}
+            </NeonPanel>
+
             <NeonPanel variant="dark" padding="md" className="editor-inspector">
               <h2>{t('editor.inspector')}</h2>
               {selectedClip ? (

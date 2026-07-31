@@ -61,6 +61,19 @@ export function trimClip(clip: EditClip, sourceIn: number, sourceOut: number): E
   return { ...clip, sourceIn, sourceOut };
 }
 
+export function timelineTimeToSourceTime(clip: EditClip, timelineTime: number): number {
+  const duration = clipDuration(clip);
+  if (!Number.isFinite(timelineTime)) throw new RangeError('Timeline position must be finite.');
+  const offset = Math.min(duration, Math.max(0, timelineTime - clip.timelineStart));
+  return clip.sourceIn + offset * clip.playbackRate;
+}
+
+export function sourceTimeToTimelineTime(clip: EditClip, sourceTime: number): number {
+  if (!Number.isFinite(sourceTime)) throw new RangeError('Source position must be finite.');
+  const sourcePosition = Math.min(clip.sourceOut, Math.max(clip.sourceIn, sourceTime));
+  return clip.timelineStart + (sourcePosition - clip.sourceIn) / clip.playbackRate;
+}
+
 export function reflowTimeline(clips: EditClip[]): EditClip[] {
   let timelineStart = 0;
   return clips.map((clip) => {

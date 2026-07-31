@@ -7,7 +7,9 @@ import {
   parseEditProject,
   reflowTimeline,
   removeMarker,
+  sourceTimeToTimelineTime,
   splitClip,
+  timelineTimeToSourceTime,
   trimClip,
   upsertMarker,
   type EditClip,
@@ -84,5 +86,22 @@ describe('creative media core', () => {
     expect(clampTimelineZoom(2.14)).toBe(2.25);
     expect(clampTimelineZoom(99)).toBe(8);
     expect(clampTimelineZoom(Number.NaN)).toBe(1);
+  });
+
+  test('maps preview source time to the non-destructive timeline at playback rate', () => {
+    const clip: EditClip = {
+      id: 'preview',
+      sourcePath: 'C:\\media\\preview.mp4',
+      sourceIn: 10,
+      sourceOut: 30,
+      timelineStart: 5,
+      playbackRate: 2,
+      volume: 1,
+    };
+    expect(timelineTimeToSourceTime(clip, 7)).toBe(14);
+    expect(timelineTimeToSourceTime(clip, -1)).toBe(10);
+    expect(timelineTimeToSourceTime(clip, 99)).toBe(30);
+    expect(sourceTimeToTimelineTime(clip, 18)).toBe(9);
+    expect(sourceTimeToTimelineTime(clip, 99)).toBe(15);
   });
 });

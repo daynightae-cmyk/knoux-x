@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export type ViewType =
   | 'player'
   | 'library'
+  | 'queue'
   | 'capture'
   | 'recording'
   | 'editor'
@@ -77,6 +78,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'knoux-app-store',
+      version: 2,
       partialize: (state) => ({
         theme: state.theme,
         accentColor: state.accentColor,

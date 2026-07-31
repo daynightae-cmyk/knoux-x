@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
+  AudioLines,
   Bot,
   Camera,
   Circle,
@@ -52,6 +53,7 @@ const navGroups: NavGroup[] = [
       { id: 'editor', labelKey: 'nav.editor', icon: <Clapperboard size={19} /> },
       { id: 'image-editor', labelKey: 'nav.imageEditor', icon: <ImageIcon size={19} /> },
       { id: 'slideshow', labelKey: 'nav.slideshow', icon: <Presentation size={19} /> },
+      { id: 'audio-tools', labelKey: 'nav.audioTools', icon: <AudioLines size={19} /> },
       { id: 'export', labelKey: 'nav.export', icon: <Share2 size={19} /> },
     ],
   },

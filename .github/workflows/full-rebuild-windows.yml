@@ -99,7 +99,7 @@ jobs:
           git diff --exit-code -- assets/icons
           if ($LASTEXITCODE -ne 0) { throw 'Committed icon assets are not reproducible from the generator.' }
 
-      - name: Validate official KNOUX branding and first-run slides
+      - name: Validate official KNOUX branding and installer slides
         shell: pwsh
         run: |
           npm run brand:verify
@@ -126,19 +126,51 @@ jobs:
           npm test -- --runInBand
           if ($LASTEXITCODE -ne 0) { throw 'Jest gate failed.' }
 
-      - name: Package and make installer
+      - name: Package and make Squirrel installer
         shell: pwsh
         run: |
           npm run package -- --arch=x64
           npm run make -- --arch=x64
+
+      - name: Build bilingual nine-slide visual installer
+        shell: pwsh
+        run: |
+          $squirrelSetup = Get-ChildItem 'out\make\squirrel.windows\x64' -File -Filter '*.exe' |
+            Where-Object { $_.Name -match 'Setup' } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+          if (-not $squirrelSetup -or $squirrelSetup.Length -le 0) {
+            throw 'Squirrel Setup.exe payload was not found.'
+          }
+
+          $visualDirectory = Join-Path $PWD 'out\make\visual.windows\x64'
+          $visualInstaller = Join-Path $visualDirectory 'KNOUX-Player-X-Visual-Installer.exe'
+          $evidenceDirectory = Join-Path $PWD 'out\visual-installer-evidence'
+          New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
+          $selfTestEvidence = Join-Path $evidenceDirectory 'self-test.json'
+
+          & .\tools\build-visual-installer.ps1 `
+            -SetupPath $squirrelSetup.FullName `
+            -OutputPath $visualInstaller `
+            -EvidencePath $selfTestEvidence
+          if ($LASTEXITCODE -ne 0) { throw 'Visual installer build or self-test failed.' }
+          if (-not (Test-Path $visualInstaller) -or (Get-Item $visualInstaller).Length -le $squirrelSetup.Length) {
+            throw 'Visual installer is missing or does not contain the embedded payload.'
+          }
+
+          "KNOUX_SQUIRREL_SETUP=$($squirrelSetup.FullName)" >> $env:GITHUB_ENV
+          "KNOUX_VISUAL_INSTALLER=$visualInstaller" >> $env:GITHUB_ENV
+          "KNOUX_VISUAL_EVIDENCE=$evidenceDirectory" >> $env:GITHUB_ENV
 
       - name: Verify package, media tools, Open With, single instance, smoke, and cleanup
         shell: pwsh
         run: |
           $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
-          $installer = Get-ChildItem out\make -Recurse -Include '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
-          if (-not $installer -or $installer.Length -le 0) { throw 'Installer is missing or empty.' }
+          $squirrelInstaller = Get-Item -LiteralPath $env:KNOUX_SQUIRREL_SETUP
+          $visualInstaller = Get-Item -LiteralPath $env:KNOUX_VISUAL_INSTALLER
+          if (-not $squirrelInstaller -or $squirrelInstaller.Length -le 0) { throw 'Squirrel installer is missing or empty.' }
+          if (-not $visualInstaller -or $visualInstaller.Length -le 0) { throw 'Visual installer is missing or empty.' }
           $resources = Join-Path $exe.Directory.FullName 'resources'
           $ffmpeg = Get-ChildItem $resources -Recurse -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -232,11 +264,49 @@ jobs:
           }
 
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
-          Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $squirrelInstaller.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $visualInstaller.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Get-FileHash $ffprobe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
           Write-Host '--- SHA256 release evidence ---'
           Get-Content artifact-hashes.txt | Write-Host
+
+      - name: Verify visual installer install, repair, and uninstall
+        shell: pwsh
+        run: |
+          $visualInstaller = Get-Item -LiteralPath $env:KNOUX_VISUAL_INSTALLER
+          $evidenceDirectory = $env:KNOUX_VISUAL_EVIDENCE
+          New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null
+
+          function Invoke-VisualAcceptance {
+            param([string]$Mode, [string]$Argument, [string]$EvidenceName)
+            $evidence = Join-Path $evidenceDirectory $EvidenceName
+            Remove-Item -LiteralPath $evidence -Force -ErrorAction SilentlyContinue
+            & $visualInstaller.FullName $Argument "--evidence=$evidence"
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) { throw "Visual installer $Mode test failed with exit code $exitCode." }
+            if (-not (Test-Path $evidence) -or (Get-Item $evidence).Length -le 0) {
+              throw "Visual installer $Mode evidence is missing."
+            }
+            $document = Get-Content -LiteralPath $evidence -Raw | ConvertFrom-Json
+            if ($document.success -ne $true -or $document.mode -ne $Mode) {
+              Get-Content -LiteralPath $evidence | Write-Host
+              throw "Visual installer $Mode evidence did not report success."
+            }
+            Get-Content -LiteralPath $evidence | Write-Host
+          }
+
+          Invoke-VisualAcceptance -Mode 'install' -Argument '--install-silent-test' -EvidenceName 'install.json'
+          Invoke-VisualAcceptance -Mode 'repair' -Argument '--repair-silent-test' -EvidenceName 'repair.json'
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          Invoke-VisualAcceptance -Mode 'uninstall' -Argument '--uninstall-silent-test' -EvidenceName 'uninstall.json'
+
+          $updateProcesses = @(Get-Process -Name 'Update' -ErrorAction SilentlyContinue)
+          if ($updateProcesses.Count -gt 0) {
+            $updateProcesses | Stop-Process -Force
+            throw 'Squirrel Update.exe remained after visual installer acceptance.'
+          }
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -256,3 +326,5 @@ jobs:
             artifact-hashes.txt
             package-lock.json
             assets/icons/**
+            assets/branding/asset-manifest.json
+            out/visual-installer-evidence/*.json

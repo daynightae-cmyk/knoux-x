@@ -3,6 +3,7 @@ import { Ban, FileVideo, RefreshCw, Share2 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { useTranslation } from '../../i18n';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from '../../../electron/creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from '../../../electron/creative/ffmpeg-service';
 
@@ -24,6 +25,7 @@ export const ExportView: React.FC = () => {
   const [activeJob, setActiveJob] = useState<ExportJobSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const duration = useMemo(() => durationFromProbe(probe), [probe]);
 
@@ -41,11 +43,11 @@ export const ExportView: React.FC = () => {
         setPresetId(nextPresets[0].id);
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Export capabilities could not be loaded.');
+      setError(reason instanceof Error ? reason.message : t('export.capabilitiesFailed'));
     } finally {
       setLoading(false);
     }
-  }, [presetId]);
+  }, [presetId, t]);
 
   useEffect(() => { void refreshCapabilities(); }, [refreshCapabilities]);
 
@@ -67,9 +69,9 @@ export const ExportView: React.FC = () => {
       const nextDuration = durationFromProbe(nextProbe);
       if (nextDuration) setEndSeconds(nextDuration);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Media metadata could not be inspected.');
+      setError(reason instanceof Error ? reason.message : t('export.probeFailed'));
     }
-  }, []);
+  }, [t]);
 
   const startExport = useCallback(async (): Promise<void> => {
     if (!sourcePath || activeJob?.status === 'running' || activeJob?.status === 'queued') return;
@@ -85,9 +87,9 @@ export const ExportView: React.FC = () => {
       });
       if (result) setActiveJob(result);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Export failed.');
+      setError(reason instanceof Error ? reason.message : t('export.startFailed'));
     }
-  }, [activeJob?.status, endSeconds, presetId, sourcePath, startSeconds]);
+  }, [activeJob?.status, endSeconds, presetId, sourcePath, startSeconds, t]);
 
   const cancelExport = useCallback(async (): Promise<void> => {
     if (!activeJob) return;
@@ -97,17 +99,18 @@ export const ExportView: React.FC = () => {
 
   const running = activeJob?.status === 'running' || activeJob?.status === 'queued';
   const selectedPreset = presets.find((preset) => preset.id === presetId);
+  const unknown = t('common.unknown');
 
   return (
     <section className="creative-view export-view" aria-labelledby="export-title">
       <header className="creative-header">
         <div>
-          <span className="creative-eyebrow">Verified media pipeline</span>
-          <h1 id="export-title"><Share2 size={30} /> Export Manager</h1>
-          <p>Encode selected ranges through an argument-array FFmpeg process, validate output with FFprobe, and clean partial files on failure.</p>
+          <span className="creative-eyebrow">{t('export.eyebrow')}</span>
+          <h1 id="export-title"><Share2 size={30} /> {t('export.title')}</h1>
+          <p>{t('export.description')}</p>
         </div>
         <NeonButton variant="secondary" leftIcon={<RefreshCw size={16} />} onClick={() => void refreshCapabilities()} disabled={loading}>
-          Refresh capabilities
+          {t('export.refreshCapabilities')}
         </NeonButton>
       </header>
 
@@ -115,10 +118,10 @@ export const ExportView: React.FC = () => {
 
       <NeonPanel variant="dark" padding="md">
         <div className={`capability-banner ${capabilities?.available ? 'available' : 'unavailable'}`}>
-          <strong>{capabilities?.available ? 'FFmpeg runtime ready' : 'FFmpeg runtime unavailable'}</strong>
-          <span>{capabilities?.version ?? 'This build will not claim codecs or containers until a packaged runtime is detected.'}</span>
+          <strong>{capabilities?.available ? t('export.runtimeReady') : t('export.runtimeUnavailable')}</strong>
+          <span>{capabilities?.version ?? t('export.noRuntimeClaim')}</span>
           {capabilities?.available && (
-            <small>{capabilities.encoders.length} encoders · {capabilities.formats.length} formats · {capabilities.hardwareAccelerators.length} hardware accelerators</small>
+            <small>{capabilities.encoders.length} {t('export.encoders')} · {capabilities.formats.length} {t('export.formats')} · {capabilities.hardwareAccelerators.length} {t('export.accelerators')}</small>
           )}
         </div>
       </NeonPanel>
@@ -127,72 +130,72 @@ export const ExportView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg">
           <div className="creative-form-grid">
             <label className="full-row">
-              <span>Source media</span>
+              <span>{t('export.sourceMedia')}</span>
               <div className="path-picker-row">
-                <input value={sourcePath ?? ''} readOnly placeholder="Select a media source" />
-                <NeonButton variant="secondary" leftIcon={<FileVideo size={16} />} onClick={() => void selectSource()} disabled={running}>Browse</NeonButton>
+                <input value={sourcePath ?? ''} readOnly placeholder={t('export.selectSource')} dir="auto" />
+                <NeonButton variant="secondary" leftIcon={<FileVideo size={16} />} onClick={() => void selectSource()} disabled={running}>{t('common.browse')}</NeonButton>
               </div>
             </label>
 
             <label>
-              <span>Export preset</span>
+              <span>{t('export.preset')}</span>
               <select value={presetId} onChange={(event) => setPresetId(event.target.value as ExportPresetId)} disabled={running}>
                 {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
               </select>
             </label>
             <label>
-              <span>Container</span>
-              <input value={selectedPreset?.extension.toUpperCase() ?? ''} readOnly />
+              <span>{t('export.container')}</span>
+              <input value={selectedPreset?.extension.toUpperCase() ?? ''} readOnly dir="ltr" />
             </label>
             <label>
-              <span>Range start (seconds)</span>
-              <input type="number" min={0} max={duration ?? undefined} step="0.001" value={startSeconds} onChange={(event) => setStartSeconds(Number(event.target.value))} disabled={running} />
+              <span>{t('export.rangeStart')}</span>
+              <input type="number" min={0} max={duration ?? undefined} step="0.001" value={startSeconds} onChange={(event) => setStartSeconds(Number(event.target.value))} disabled={running} dir="ltr" />
             </label>
             <label>
-              <span>Range end (seconds)</span>
-              <input type="number" min={0} max={duration ?? undefined} step="0.001" value={endSeconds ?? ''} onChange={(event) => setEndSeconds(event.target.value === '' ? undefined : Number(event.target.value))} disabled={running} />
+              <span>{t('export.rangeEnd')}</span>
+              <input type="number" min={0} max={duration ?? undefined} step="0.001" value={endSeconds ?? ''} onChange={(event) => setEndSeconds(event.target.value === '' ? undefined : Number(event.target.value))} disabled={running} dir="ltr" />
             </label>
           </div>
 
           <div className="creative-actions">
             <NeonButton variant="primary" onClick={() => void startExport()} disabled={!sourcePath || !capabilities?.available || running}>
-              Start verified export
+              {t('export.start')}
             </NeonButton>
             {running && (
               <NeonButton variant="ghost" leftIcon={<Ban size={16} />} onClick={() => void cancelExport()}>
-                Cancel export
+                {t('export.cancel')}
               </NeonButton>
             )}
           </div>
         </NeonPanel>
 
         <NeonPanel variant="dark" padding="lg">
-          <h2>Media inspection</h2>
+          <h2>{t('export.inspection')}</h2>
           {probe ? (
             <dl className="media-inspector">
-              <div><dt>Duration</dt><dd>{duration?.toFixed(3) ?? 'Unknown'} s</dd></div>
-              <div><dt>Format</dt><dd>{probe.format?.format_name ?? 'Unknown'}</dd></div>
-              <div><dt>Size</dt><dd>{probe.format?.size ? `${(Number(probe.format.size) / 1_048_576).toFixed(2)} MB` : 'Unknown'}</dd></div>
+              <div><dt>{t('export.duration')}</dt><dd dir="ltr">{duration?.toFixed(3) ?? unknown} s</dd></div>
+              <div><dt>{t('export.format')}</dt><dd dir="ltr">{probe.format?.format_name ?? unknown}</dd></div>
+              <div><dt>{t('export.size')}</dt><dd dir="ltr">{probe.format?.size ? `${(Number(probe.format.size) / 1_048_576).toFixed(2)} MB` : unknown}</dd></div>
               {(probe.streams ?? []).map((stream, index) => (
                 <div key={`${stream.codec_type}-${index}`}>
-                  <dt>{stream.codec_type ?? 'stream'} {index + 1}</dt>
-                  <dd>{stream.codec_name ?? 'unknown'}{stream.width ? ` · ${stream.width}×${stream.height}` : ''}{stream.sample_rate ? ` · ${stream.sample_rate} Hz` : ''}</dd>
+                  <dt dir="ltr">{stream.codec_type ?? 'stream'} {index + 1}</dt>
+                  <dd dir="ltr">{stream.codec_name ?? unknown}{stream.width ? ` · ${stream.width}×${stream.height}` : ''}{stream.sample_rate ? ` · ${stream.sample_rate} Hz` : ''}</dd>
                 </div>
               ))}
             </dl>
-          ) : <div className="creative-empty">Select a source to inspect its real streams.</div>}
+          ) : <div className="creative-empty">{t('export.inspectionEmpty')}</div>}
         </NeonPanel>
       </div>
 
       {activeJob && (
         <NeonPanel variant="dark" padding="md">
           <div className="export-job-card">
-            <div><strong>{activeJob.status.toUpperCase()}</strong><span>{activeJob.outputPath ?? 'Waiting for destination'}</span></div>
+            <div><strong>{activeJob.status.toUpperCase()}</strong><span dir="auto">{activeJob.outputPath ?? t('export.waitingDestination')}</span></div>
             <div className="export-progress-track"><span style={{ width: `${duration && activeJob.progress?.timeSeconds ? Math.min(100, (activeJob.progress.timeSeconds / duration) * 100) : 0}%` }} /></div>
-            <div className="export-job-meta">
-              <span>Time {activeJob.progress?.timeSeconds?.toFixed(2) ?? '0.00'} s</span>
-              <span>FPS {activeJob.progress?.fps?.toFixed(1) ?? '—'}</span>
-              <span>Speed {activeJob.progress?.speed?.toFixed(2) ?? '—'}×</span>
+            <div className="export-job-meta" dir="ltr">
+              <span>{t('export.time')} {activeJob.progress?.timeSeconds?.toFixed(2) ?? '0.00'} s</span>
+              <span>{t('export.fps')} {activeJob.progress?.fps?.toFixed(1) ?? '—'}</span>
+              <span>{t('export.speed')} {activeJob.progress?.speed?.toFixed(2) ?? '—'}×</span>
             </div>
             {activeJob.error && <div className="creative-error">{activeJob.error}</div>}
           </div>

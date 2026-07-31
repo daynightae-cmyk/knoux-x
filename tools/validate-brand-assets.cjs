@@ -57,7 +57,7 @@ const manifest = {
   schemaVersion: 1,
   product: 'KNOUX Player X',
   policy: 'Official source PNG files are bundled without recompression.',
-  installerExperience: 'Nine slides are shown one at a time in the first-run setup tour (installer fallback option C).',
+  installerExperience: 'Nine official slides are embedded and shown one at a time inside the bilingual Windows visual installer during install, upgrade, and repair.',
   assets,
 };
 const serialized = `${JSON.stringify(manifest, null, 2)}\n`;

@@ -1,0 +1,44 @@
+name: KNOUX Professional Suite Source Repair
+
+on:
+  push:
+    branches:
+      - codex/knoux-professional-media-suite-completion
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: professional-suite-source-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/knoux-professional-media-suite-completion
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      - name: Apply deterministic source repair
+        run: node tools/repair-professional-suite-source.cjs
+
+      - name: Commit repaired source
+        run: |
+          git add src/features/editor/MultitrackEditorView.tsx src/core/creative/multitrackProject.ts
+          if git diff --cached --quiet; then
+            echo "No source repairs were required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: close multitrack TypeScript and keyframe gates"
+          git push origin HEAD:codex/knoux-professional-media-suite-completion

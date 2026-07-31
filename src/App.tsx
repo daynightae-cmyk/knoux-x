@@ -8,7 +8,8 @@ import { LibraryView } from './features/library/LibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
-import { useAppStore, ViewType } from './store/appStore';
+import { useAppStore } from './store/appStore';
+import type { ViewType } from './store/appStore';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/creative-suite.css';
@@ -19,6 +20,7 @@ import './styles/ai-creative.css';
 import './styles/first-run.css';
 import './styles/player-viewport.css';
 import './styles/capture-studio.css';
+import './styles/image-editor.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -31,6 +33,10 @@ const RecordingView = lazy(async () => {
 const EditorView = lazy(async () => {
   const module = await import('./features/editor/EditorView');
   return { default: module.EditorView };
+});
+const ImageEditorView = lazy(async () => {
+  const module = await import('./features/image-editor/ImageEditorView');
+  return { default: module.ImageEditorView };
 });
 const ExportView = lazy(async () => {
   const module = await import('./features/export/ExportView');
@@ -53,6 +59,7 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
     case 'editor': return <EditorView />;
+    case 'image-editor': return <ImageEditorView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;
     default: return <PlayerViewportBoundary />;

@@ -29,6 +29,10 @@ import {
   recordingStudioEnglish,
 } from '../locales/recordingStudio';
 import {
+  settingsStudioArabic,
+  settingsStudioEnglish,
+} from '../locales/settingsStudio';
+import {
   slideshowStudioArabic,
   slideshowStudioEnglish,
 } from '../locales/slideshowStudio';
@@ -51,6 +55,10 @@ const dictionaries: Record<LocaleType, unknown> = {
       imageEditor: 'Image Editor',
       slideshow: 'Slideshow',
       audioTools: 'Audio Tools',
+    },
+    settings: {
+      ...en.settings,
+      ...settingsStudioEnglish,
     },
     capture: {
       ...en.capture,
@@ -79,6 +87,10 @@ const dictionaries: Record<LocaleType, unknown> = {
       imageEditor: 'محرر الصور',
       slideshow: 'عروض الشرائح',
       audioTools: 'أدوات الصوت',
+    },
+    settings: {
+      ...ar.settings,
+      ...settingsStudioArabic,
     },
     capture: {
       ...ar.capture,

@@ -2,6 +2,10 @@ import { useCallback } from 'react';
 
 import ar from '../locales/ar.json';
 import {
+  audioToolsArabic,
+  audioToolsEnglish,
+} from '../locales/audioTools';
+import {
   captureStudioArabic,
   captureStudioEnglish,
 } from '../locales/captureStudio';
@@ -46,6 +50,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...en.nav,
       imageEditor: 'Image Editor',
       slideshow: 'Slideshow',
+      audioTools: 'Audio Tools',
     },
     capture: {
       ...en.capture,
@@ -58,6 +63,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     imageEditor: imageEditorEnglish,
     multitrack: multitrackEditorEnglish,
     slideshow: slideshowStudioEnglish,
+    audioTools: audioToolsEnglish,
     playerViewport: playerViewportEnglish,
     diagnostics: diagnosticsEnglish,
   },
@@ -72,6 +78,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...ar.nav,
       imageEditor: 'محرر الصور',
       slideshow: 'عروض الشرائح',
+      audioTools: 'أدوات الصوت',
     },
     capture: {
       ...ar.capture,
@@ -84,6 +91,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     imageEditor: imageEditorArabic,
     multitrack: multitrackEditorArabic,
     slideshow: slideshowStudioArabic,
+    audioTools: audioToolsArabic,
     playerViewport: playerViewportArabic,
     diagnostics: diagnosticsArabic,
   },

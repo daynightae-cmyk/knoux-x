@@ -22,3 +22,9 @@
     radial-gradient(circle at center, color-mix(in srgb, var(--knoux-accent) 13%, transparent), transparent 58%),
     rgba(5, 4, 10, 0.93);
 }
+
+.capture-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,6 +1,6 @@
 # KNOUX Player X Full Rebuild Task Board
 
-Updated: 2026-07-31 06:37 UTC
+Updated: 2026-07-31 08:00 UTC
 
 This board is the authoritative phase ledger. A phase advances only after every required gate passes. Engineering foundations may proceed in parallel when they do not bypass P0/P1 acceptance gates.
 
@@ -12,7 +12,7 @@ This board is the authoritative phase ledger. A phase advances only after every 
 | 04 | TASK-04: KNOUX Design System and Visual Shell | P3 | **IN_PROGRESS** | PHASE 03 | Visual/keyboard/high-DPI automation pending |
 | 05 | TASK-05: Production Video and Audio Playback | P1 | **IN_PROGRESS** | PHASE 03, PHASE 04 | Full codec and long-playback regression pending |
 | 06 | TASK-06: Local Media Library and Database | P1 | **IN_PROGRESS** | PHASE 05 | Migration, restart persistence, and large-scan regression pending |
-| 07 | TASK-07: Queue, Playlists, History and Favorites | P2 | **PENDING** | PHASE 05 PASS, PHASE 06 PASS | None |
+| 07 | TASK-07: Queue, Playlists, History and Favorites | P2 | **IN_PROGRESS** | PHASE 05 PASS, PHASE 06 PASS | Persistent queue workspace exists; playlists/history/favorites integration and persistence regression remain |
 | 08 | TASK-08: Subtitles, Audio Tracks and Chapters | P2 | **PENDING** | PHASE 05 PASS, PHASE 06 PASS | None |
 | 09 | TASK-09: KNOUX AI and Smart Tools | P2/P4 | **PENDING** | PHASE 06 PASS, PHASE 08 PASS | None |
 | 10 | TASK-10: Settings, Arabic, English and Accessibility | P3 | **IN_PROGRESS** | PHASE 04–09 | Arabic/English creative UI is wired; keyboard, overflow, and persisted-switch regression pending |
@@ -21,8 +21,8 @@ This board is the authoritative phase ledger. A phase advances only after every 
 | 13 | TASK-13: Full Regression Testing and Final Cleanup | P0 | **PENDING** | PHASE 01–12 PASS | None |
 | 14 | TASK-14: Original Main Merge Gate | P0 | **PENDING (SUPERSEDED)** | TASK-19 is the authoritative release gate | Release cannot occur before Creative Suite tasks pass |
 | 15 | TASK-15: Iconography, Accessories and Desktop Experience | P2 | **IN_PROGRESS** | PHASE 04, PHASE 05 | Icon reproducibility passes; remaining accessory and high-DPI verification pending |
-| 16 | TASK-16: Screenshot, Frame Capture and Media Recording | P1/P2 | **IN_PROGRESS** | PHASE 03, PHASE 05 | Real capture/recording UI exists; advanced capture controls and Windows recording automation pending |
-| 17 | TASK-17: KNOUX Smart Editor and Export Pipeline | P1/P2 | **IN_PROGRESS** | PHASE 05, PHASE 06 | Persistence/recovery/timeline/export exist; preview, markers/zoom, composition export, and Windows UI automation pending |
+| 16 | TASK-16: Screenshot, Frame Capture and Media Recording | P1/P2 | **IN_PROGRESS** | PHASE 03, PHASE 05 | Frame, burst, contact sheet, and recording services exist; player-area recording and Windows UI automation pending |
+| 17 | TASK-17: KNOUX Smart Editor and Export Pipeline | P1/P2 | **IN_PROGRESS** | PHASE 05, PHASE 06 | Preview, markers, zoom, shortcuts, persistence, and range export exist; drag/resize, composition export, migration, and Windows UI automation pending |
 | 18 | TASK-18: Extended Languages and Global UX | P3 | **PENDING** | PHASE 10, TASK-16, TASK-17 | Begins after Arabic/English and creative UI stabilize |
 | 19 | TASK-19: Creative Suite Regression and Final Release Merge | P0 | **PENDING** | TASK-01 through TASK-18 PASS | Final regression, installer, merge, and RC tag pending |
 
@@ -57,11 +57,11 @@ The final merge and release-candidate gate is **TASK-19**. TASK-14 is retained o
 
 ## Windows and creative workspace checkpoint — 2026-07-31
 
-- Branch commit: `c72112aa2fc5ffb9cc2927adb9bee5f1bd3d3fc4`.
-- Windows workflow: `KNOUX Full Rebuild Windows`, run `30609881686`, conclusion `success`.
-- Automated quality: 9 Jest suites / 36 tests, TypeScript PASS, ESLint zero warnings.
+- Branch commit: `610c1ce81137616638a967f9fbf9740591f6d9de`.
+- Windows workflow: `KNOUX Full Rebuild Windows`, run `30614286539`, conclusion `success`.
+- Automated quality: 10 Jest suites / 43 tests, TypeScript PASS, ESLint zero warnings.
 - Packaged runtime: Electron 32.3.3 x64, Squirrel installer, FFmpeg/FFprobe 6.1.1, SQLite native runtime, Open With/single-instance, launch, and cleanup PASS.
-- Artifact: ID `8785124651`, digest `sha256:53ea22079ff25bce14b1a11da209ba94b83d9c24f23737544ec407675a90a4e2`.
+- Installer artifact: ID `8786797516`, 224,499,477 bytes, digest `sha256:c24c926d574ebf609f73475afe2e234f1c5cef62c392485e5c1a8bcaaa892f93`; inner setup SHA-256 `7E1A3AFC0769F403AFCFB2D5A4AD0AD670DCDE77929821FEA153826FE56C98CE`.
 - Creative UI: Arabic/English Capture, Recording, Editor, and Export workspaces are connected to local services.
-- Editor: recent projects, autosave recovery, relink, deterministic reorder/reflow, trim/split, undo/redo, and Save/Save As are operational.
+- Editor: recent projects, autosave recovery, relink, deterministic reorder/reflow, trim/split, preview, markers, zoom, keyboard shortcuts, undo/redo, and Save/Save As are operational.
 - Release decision: PR #9 remains Draft. Clean install/upgrade/uninstall/reinstall, high-DPI, and remaining creative UI automation are still required.

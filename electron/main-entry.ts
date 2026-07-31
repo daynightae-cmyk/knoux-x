@@ -1,4 +1,6 @@
 /* eslint-disable import/order -- startup imports are intentionally kept explicit and minimal before the instance lock. */
+import fs from 'node:fs';
+
 import { app } from 'electron';
 import log from 'electron-log';
 
@@ -10,6 +12,14 @@ function reportStartup(event: string, detail = ''): void {
   const message = `[knoux-startup] pid=${process.pid} event=${event}${detail ? ` ${detail}` : ''}`;
   process.stderr.write(`${message}\n`);
   log.info(message);
+  const traceFile = process.env.KNOUX_STARTUP_TRACE_FILE;
+  if (traceFile) {
+    try {
+      fs.appendFileSync(traceFile, `${new Date().toISOString()} ${message}\n`, 'utf8');
+    } catch {
+      // Startup tracing is diagnostic-only and must never block the application.
+    }
+  }
 }
 
 function terminateProcess(exitCode: number): never {
@@ -20,6 +30,7 @@ function terminateProcess(exitCode: number): never {
 startSingleInstanceEntry({
   squirrelStartup: started,
   requestLock: () => {
+    reportStartup('single-instance-lock-attempt');
     const acquired = app.requestSingleInstanceLock();
     reportStartup('single-instance-lock', `acquired=${acquired} argv=${JSON.stringify(process.argv)}`);
     return acquired;

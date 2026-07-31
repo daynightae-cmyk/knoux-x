@@ -166,6 +166,8 @@ jobs:
           $primaryErr = Join-Path $env:RUNNER_TEMP 'knoux-primary-err.log'
           $secondaryOut = Join-Path $env:RUNNER_TEMP 'knoux-secondary-out.log'
           $secondaryErr = Join-Path $env:RUNNER_TEMP 'knoux-secondary-err.log'
+          $startupTrace = Join-Path $env:RUNNER_TEMP 'knoux-startup-trace.log'
+          $env:KNOUX_STARTUP_TRACE_FILE = $startupTrace
           $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $primaryOut -RedirectStandardError $primaryErr -PassThru
           Start-Sleep -Seconds 20
           if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
@@ -184,6 +186,8 @@ jobs:
             if (Test-Path $primaryErr) { Get-Content $primaryErr }
             Write-Host '--- secondary stderr ---'
             if (Test-Path $secondaryErr) { Get-Content $secondaryErr }
+            Write-Host '--- startup trace ---'
+            if (Test-Path $startupTrace) { Get-Content $startupTrace }
             Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
             throw 'Second launcher process did not exit after forwarding the media request.'
           }

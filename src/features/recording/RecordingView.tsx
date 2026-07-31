@@ -3,6 +3,7 @@ import { Circle, Monitor, Pause, Play, Square, Volume2 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { useTranslation } from '../../i18n';
 import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 
 interface LegacyDesktopTrackConstraints {
@@ -15,6 +16,8 @@ interface LegacyDesktopTrackConstraints {
   };
 }
 
+type RecordingStatus = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping';
+
 function supportedMimeType(): string | null {
   const candidates = [
     'video/webm;codecs=vp9,opus',
@@ -24,11 +27,22 @@ function supportedMimeType(): string | null {
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? null;
 }
 
+function statusKey(status: RecordingStatus): string {
+  const keys: Record<RecordingStatus, string> = {
+    idle: 'recording.statusIdle',
+    starting: 'recording.statusStarting',
+    recording: 'recording.statusRecording',
+    paused: 'recording.statusPaused',
+    stopping: 'recording.statusStopping',
+  };
+  return keys[status];
+}
+
 export const RecordingView: React.FC = () => {
   const [sources, setSources] = useState<DesktopCaptureSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [includeMicrophone, setIncludeMicrophone] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'starting' | 'recording' | 'paused' | 'stopping'>('idle');
+  const [status, setStatus] = useState<RecordingStatus>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -37,17 +51,18 @@ export const RecordingView: React.FC = () => {
   const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   const startedAtRef = useRef(0);
   const cancelRequestedRef = useRef(false);
+  const { t } = useTranslation();
 
-  const loadSources = useCallback(async () => {
+  const loadSources = useCallback(async (): Promise<void> => {
     setError(null);
     try {
       const next = await window.knouxCreativeAPI.capture.getDesktopSources();
       setSources(next);
       setSelectedSourceId((current) => current || next[0]?.id || '');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to enumerate capture sources.');
+      setError(reason instanceof Error ? reason.message : t('recording.loadSourcesFailed'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void loadSources(); }, [loadSources]);
 
@@ -59,7 +74,7 @@ export const RecordingView: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [status]);
 
-  const cleanupStreams = useCallback(() => {
+  const cleanupStreams = useCallback((): void => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     recorderRef.current = null;
@@ -73,11 +88,11 @@ export const RecordingView: React.FC = () => {
     cleanupStreams();
   }, [cleanupStreams]);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (): Promise<void> => {
     if (!selectedSourceId || status !== 'idle') return;
     const mimeType = supportedMimeType();
     if (!mimeType) {
-      setError('This Chromium build does not provide a supported WebM MediaRecorder encoder.');
+      setError(t('recording.unsupported'));
       return;
     }
 
@@ -86,7 +101,7 @@ export const RecordingView: React.FC = () => {
     cancelRequestedRef.current = false;
     try {
       const granted = await window.knouxCreativeAPI.recording.requestMediaPermission();
-      if (!granted) throw new Error('Recording permission was not granted.');
+      if (!granted) throw new Error(t('recording.permissionDenied'));
 
       const desktopVideo = {
         mandatory: {
@@ -150,7 +165,7 @@ export const RecordingView: React.FC = () => {
       });
       recorder.addEventListener('error', (event) => {
         const mediaError = event as Event & { error?: DOMException };
-        setError(mediaError.error?.message ?? 'MediaRecorder reported an error.');
+        setError(mediaError.error?.message ?? t('recording.mediaRecorderFailed'));
       });
       combinedStream.getVideoTracks()[0]?.addEventListener('ended', () => {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -165,7 +180,7 @@ export const RecordingView: React.FC = () => {
               await window.knouxCreativeAPI.recording.finish(sessionId);
             }
           } catch (reason) {
-            setError(reason instanceof Error ? reason.message : 'Recording could not be finalized.');
+            setError(reason instanceof Error ? reason.message : t('recording.finalizeFailed'));
           } finally {
             cleanupStreams();
             setStatus('idle');
@@ -180,11 +195,11 @@ export const RecordingView: React.FC = () => {
     } catch (reason) {
       cleanupStreams();
       setStatus('idle');
-      setError(reason instanceof Error ? reason.message : 'Recording could not start.');
+      setError(reason instanceof Error ? reason.message : t('recording.startFailed'));
     }
-  }, [cleanupStreams, includeMicrophone, selectedSourceId, sources, status]);
+  }, [cleanupStreams, includeMicrophone, selectedSourceId, sources, status, t]);
 
-  const pauseRecording = useCallback(async () => {
+  const pauseRecording = useCallback(async (): Promise<void> => {
     const recorder = recorderRef.current;
     const sessionId = sessionIdRef.current;
     if (!recorder || !sessionId || recorder.state !== 'recording') return;
@@ -193,7 +208,7 @@ export const RecordingView: React.FC = () => {
     setStatus('paused');
   }, []);
 
-  const resumeRecording = useCallback(async () => {
+  const resumeRecording = useCallback(async (): Promise<void> => {
     const recorder = recorderRef.current;
     const sessionId = sessionIdRef.current;
     if (!recorder || !sessionId || recorder.state !== 'paused') return;
@@ -203,12 +218,12 @@ export const RecordingView: React.FC = () => {
     setStatus('recording');
   }, [elapsed]);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback((): void => {
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== 'inactive') recorder.stop();
   }, []);
 
-  const cancelRecording = useCallback(async () => {
+  const cancelRecording = useCallback(async (): Promise<void> => {
     cancelRequestedRef.current = true;
     const sessionId = sessionIdRef.current;
     const recorder = recorderRef.current;
@@ -224,16 +239,18 @@ export const RecordingView: React.FC = () => {
     setStatus('idle');
   }, [cleanupStreams]);
 
+  const statusLabel = t(statusKey(status));
+
   return (
     <section className="creative-view" aria-labelledby="recording-title">
       <header className="creative-header">
         <div>
-          <span className="creative-eyebrow">KNOUX Creative Suite</span>
-          <h1 id="recording-title"><Circle size={30} /> Screen Recording</h1>
-          <p>Select a display or window, record to a streamed WebM file, and keep a visible recording indicator at all times.</p>
+          <span className="creative-eyebrow">{t('recording.eyebrow')}</span>
+          <h1 id="recording-title"><Circle size={30} /> {t('recording.title')}</h1>
+          <p>{t('recording.description')}</p>
         </div>
-        <div className={`recording-indicator ${status === 'recording' ? 'active' : ''}`}>
-          <span /> {status === 'recording' || status === 'paused' ? `${status.toUpperCase()} ${elapsed}s` : status.toUpperCase()}
+        <div className={`recording-indicator ${status === 'recording' ? 'active' : ''}`} role="status">
+          <span /> {status === 'recording' || status === 'paused' ? `${statusLabel} ${elapsed}s` : statusLabel}
         </div>
       </header>
 
@@ -243,7 +260,7 @@ export const RecordingView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg">
           <div className="creative-form-grid">
             <label>
-              <span>Capture source</span>
+              <span>{t('recording.source')}</span>
               <select value={selectedSourceId} onChange={(event) => setSelectedSourceId(event.target.value)} disabled={status !== 'idle'}>
                 {sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}
               </select>
@@ -255,30 +272,30 @@ export const RecordingView: React.FC = () => {
                 onChange={(event) => setIncludeMicrophone(event.target.checked)}
                 disabled={status !== 'idle'}
               />
-              <Volume2 size={16} /> Include microphone after an explicit permission request
+              <Volume2 size={16} /> {t('recording.microphone')}
             </label>
           </div>
 
           <div className="creative-actions">
             {status === 'idle' && (
               <NeonButton variant="primary" leftIcon={<Circle size={16} />} onClick={() => void startRecording()} disabled={!selectedSourceId}>
-                Start recording
+                {t('recording.start')}
               </NeonButton>
             )}
             {status === 'recording' && (
               <>
-                <NeonButton variant="secondary" leftIcon={<Pause size={16} />} onClick={() => void pauseRecording()}>Pause</NeonButton>
-                <NeonButton variant="primary" leftIcon={<Square size={16} />} onClick={stopRecording}>Stop and save</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<Pause size={16} />} onClick={() => void pauseRecording()}>{t('recording.pause')}</NeonButton>
+                <NeonButton variant="primary" leftIcon={<Square size={16} />} onClick={stopRecording}>{t('recording.stop')}</NeonButton>
               </>
             )}
             {status === 'paused' && (
               <>
-                <NeonButton variant="secondary" leftIcon={<Play size={16} />} onClick={() => void resumeRecording()}>Resume</NeonButton>
-                <NeonButton variant="primary" leftIcon={<Square size={16} />} onClick={stopRecording}>Stop and save</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<Play size={16} />} onClick={() => void resumeRecording()}>{t('recording.resume')}</NeonButton>
+                <NeonButton variant="primary" leftIcon={<Square size={16} />} onClick={stopRecording}>{t('recording.stop')}</NeonButton>
               </>
             )}
             {status !== 'idle' && status !== 'stopping' && (
-              <NeonButton variant="ghost" onClick={() => void cancelRecording()}>Cancel and delete</NeonButton>
+              <NeonButton variant="ghost" onClick={() => void cancelRecording()}>{t('recording.cancelDelete')}</NeonButton>
             )}
           </div>
         </NeonPanel>
@@ -290,6 +307,7 @@ export const RecordingView: React.FC = () => {
               type="button"
               className={`source-card ${selectedSourceId === source.id ? 'selected' : ''}`}
               onClick={() => status === 'idle' && setSelectedSourceId(source.id)}
+              aria-pressed={selectedSourceId === source.id}
             >
               <img src={source.thumbnail} alt="" />
               <span><Monitor size={15} /> {source.name}</span>

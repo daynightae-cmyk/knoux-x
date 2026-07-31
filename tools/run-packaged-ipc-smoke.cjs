@@ -36,7 +36,8 @@ function requireFile(filePath, label) {
 
 function extractEntry(entryPath, outputPath) {
   const normalized = entryPath.replace(/^[/\\]+/, '').replace(/\\/g, '/');
-  const buffer = asar.extractFile(asarPath, normalized);
+  const archiveKey = normalized.split('/').join(path.sep);
+  const buffer = asar.extractFile(asarPath, archiveKey);
   if (!buffer || buffer.length === 0) throw new Error(`ASAR_ENTRY_EMPTY ${normalized}`);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buffer);

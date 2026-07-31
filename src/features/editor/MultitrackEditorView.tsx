@@ -168,7 +168,6 @@ export const MultitrackEditorView: React.FC = () => {
   const orderedTracks = useMemo(() => project
     ? [...project.tracks].sort((left, right) => left.order - right.order)
     : [], [project]);
-  const selectedTrack = useMemo(() => project?.tracks.find((track) => track.id === selectedTrackId) ?? null, [project, selectedTrackId]);
   const selectedItem = useMemo(() => project?.tracks.flatMap((track) => track.items).find((item) => item.id === selectedItemId) ?? null, [project, selectedItemId]);
   const anySoloTrack = useMemo(() => project?.tracks.some((track) => track.solo) ?? false, [project]);
   const activeMix = useMemo(() => project ? mixAudioAtTime(project, playhead) : [], [playhead, project]);

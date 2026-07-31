@@ -496,7 +496,12 @@ export function interpolateKeyframes(
     .map((keyframe) => ({ ...keyframe }))
     .sort((left, right) => left.time - right.time || left.id.localeCompare(right.id));
   if (sorted.length === 0) return fallback;
-  if (position <= sorted[0].time) return sorted[0].value;
+  if (position <= sorted[0].time) {
+    const first = sorted[0];
+    if (first.time <= 0) return first.value;
+    const progress = easingProgress(position / first.time, first.easing);
+    return fallback + (first.value - fallback) * progress;
+  }
   if (position >= sorted[sorted.length - 1].time) return sorted[sorted.length - 1].value;
   for (let index = 1; index < sorted.length; index += 1) {
     const right = sorted[index];

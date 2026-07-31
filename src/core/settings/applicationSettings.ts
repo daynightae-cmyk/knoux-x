@@ -20,6 +20,8 @@ export interface ApplicationSettings {
   hardwareAcceleration: boolean;
   deinterlace: boolean;
   aspectRatio: AspectRatioMode;
+  brightness: number;
+  contrast: number;
   subtitleEnabled: boolean;
   subtitleLanguage: string;
   subtitleSize: number;
@@ -58,6 +60,8 @@ export const DEFAULT_APPLICATION_SETTINGS: ApplicationSettings = {
   hardwareAcceleration: true,
   deinterlace: false,
   aspectRatio: 'auto',
+  brightness: 100,
+  contrast: 100,
   subtitleEnabled: true,
   subtitleLanguage: 'auto',
   subtitleSize: 24,
@@ -157,6 +161,12 @@ export function validateApplicationSetting<K extends ApplicationSettingKey>(key:
     case 'aspectRatio':
       if (!['auto', '16:9', '4:3', '21:9', '1:1'].includes(String(value))) throw new TypeError('Aspect ratio is unsupported.');
       validated = value;
+      break;
+    case 'brightness':
+      validated = finiteNumber(value, 'Brightness', 0, 200);
+      break;
+    case 'contrast':
+      validated = finiteNumber(value, 'Contrast', 0, 200);
       break;
     case 'subtitleLanguage':
       validated = stringValue(value, 'Subtitle language', 32);

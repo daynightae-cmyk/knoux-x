@@ -92,7 +92,7 @@
     "@google/generative-ai": "^0.24.1",
     "@tensorflow/tfjs": "^4.15.0",
     "@tensorflow/tfjs-node": "^4.15.0",
-    "better-sqlite3": "^9.4.0",
+    "better-sqlite3": "11.10.0",
     "electron-log": "^5.0.1",
     "electron-squirrel-startup": "^1.0.0",
     "electron-store": "^8.1.0",

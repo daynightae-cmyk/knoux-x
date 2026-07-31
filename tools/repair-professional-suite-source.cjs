@@ -68,4 +68,10 @@ changed = replaceExact(
   '<input type="range" min="-20" max="20" step="0.5"',
 ) || changed;
 
+changed = replaceExact(
+  'electron/creative/audio-tools-service.ts',
+  "import { app, dialog, powerSaveBlocker } from 'electron';\n",
+  "import { dialog, powerSaveBlocker } from 'electron';\n",
+) || changed;
+
 console.log(changed ? '[PASS] Professional suite source repairs applied.' : '[PASS] No pending professional suite source repairs.');

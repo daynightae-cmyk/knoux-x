@@ -26,6 +26,7 @@ import './styles/multitrack-editor.css';
 import './styles/image-editor.css';
 import './styles/image-editor-runtime.css';
 import './styles/slideshow-studio.css';
+import './styles/audio-tools.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -46,6 +47,10 @@ const ImageEditorView = lazy(async () => {
 const SlideshowView = lazy(async () => {
   const module = await import('./features/slideshow/SlideshowView');
   return { default: module.SlideshowView };
+});
+const AudioToolsView = lazy(async () => {
+  const module = await import('./features/audio-tools/AudioToolsView');
+  return { default: module.AudioToolsView };
 });
 const ExportView = lazy(async () => {
   const module = await import('./features/export/ExportView');
@@ -70,6 +75,7 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'editor': return <MultitrackEditorView />;
     case 'image-editor': return <ImageEditorView />;
     case 'slideshow': return <SlideshowView />;
+    case 'audio-tools': return <AudioToolsView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;
     default: return <PlayerViewportBoundary />;

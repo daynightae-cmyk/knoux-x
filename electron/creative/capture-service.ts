@@ -2,10 +2,8 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import { clipboard, dialog, nativeImage, shell } from 'electron';
-import type { FileFilter } from 'electron';
+import type { FileFilter, NativeImage } from 'electron';
 import Store from 'electron-store';
-import sharp from 'sharp';
-import type { OverlayOptions } from 'sharp';
 
 import {
   CaptureFormat,
@@ -17,6 +15,8 @@ import {
 const MAX_CAPTURE_BYTES = 64 * 1024 * 1024;
 const MAX_BURST_FRAMES = 120;
 const MAX_RECENT_CAPTURES = 50;
+const BITMAP_CHANNELS = 4;
+const CONTACT_SHEET_BACKGROUND = { red: 8, green: 5, blue: 20, alpha: 255 };
 
 export interface SaveFrameRequest {
   dataUrl: string;
@@ -64,6 +64,90 @@ function normalizeSelectedExtension(filePath: string, format: CaptureFormat): st
   const extension = path.extname(filePath).toLowerCase();
   if (format === 'jpeg' && (extension === '.jpg' || extension === '.jpeg')) return filePath;
   return extension === expected ? filePath : `${filePath}${expected}`;
+}
+
+function cropForCover(image: NativeImage, targetWidth: number, targetHeight: number): NativeImage {
+  const size = image.getSize();
+  if (size.width <= 0 || size.height <= 0) throw new Error('Capture frame has invalid dimensions.');
+
+  const sourceRatio = size.width / size.height;
+  const targetRatio = targetWidth / targetHeight;
+  if (Math.abs(sourceRatio - targetRatio) < 0.0001) return image;
+
+  if (sourceRatio > targetRatio) {
+    const width = Math.max(1, Math.round(size.height * targetRatio));
+    return image.crop({
+      x: Math.max(0, Math.floor((size.width - width) / 2)),
+      y: 0,
+      width,
+      height: size.height,
+    });
+  }
+
+  const height = Math.max(1, Math.round(size.width / targetRatio));
+  return image.crop({
+    x: 0,
+    y: Math.max(0, Math.floor((size.height - height) / 2)),
+    width: size.width,
+    height,
+  });
+}
+
+function frameBitmap(dataUrl: string, width: number, height: number): Buffer {
+  const source = nativeImage.createFromDataURL(dataUrl);
+  if (source.isEmpty()) throw new Error('A contact-sheet frame could not be decoded.');
+
+  const resized = cropForCover(source, width, height).resize({ width, height, quality: 'best' });
+  if (resized.isEmpty()) throw new Error('A contact-sheet frame could not be resized.');
+
+  const bitmap = resized.toBitmap();
+  const requiredBytes = width * height * BITMAP_CHANNELS;
+  if (bitmap.length < requiredBytes) throw new Error('A contact-sheet frame produced an incomplete bitmap.');
+  return bitmap.subarray(0, requiredBytes);
+}
+
+function createContactSheetImage(
+  frames: ContactSheetRequest['frames'],
+  columns: number,
+  cellWidth: number,
+  cellHeight: number,
+  gap: number,
+): Buffer {
+  const rows = Math.ceil(frames.length / columns);
+  const sheetWidth = columns * cellWidth + (columns + 1) * gap;
+  const sheetHeight = rows * cellHeight + (rows + 1) * gap;
+  const target = Buffer.alloc(sheetWidth * sheetHeight * BITMAP_CHANNELS);
+
+  for (let offset = 0; offset < target.length; offset += BITMAP_CHANNELS) {
+    target[offset] = CONTACT_SHEET_BACKGROUND.blue;
+    target[offset + 1] = CONTACT_SHEET_BACKGROUND.green;
+    target[offset + 2] = CONTACT_SHEET_BACKGROUND.red;
+    target[offset + 3] = CONTACT_SHEET_BACKGROUND.alpha;
+  }
+
+  const targetStride = sheetWidth * BITMAP_CHANNELS;
+  const sourceStride = cellWidth * BITMAP_CHANNELS;
+  frames.forEach((frame, index) => {
+    const source = frameBitmap(frame.dataUrl, cellWidth, cellHeight);
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const left = gap + column * (cellWidth + gap);
+    const top = gap + row * (cellHeight + gap);
+
+    for (let y = 0; y < cellHeight; y += 1) {
+      const sourceStart = y * sourceStride;
+      const targetStart = (top + y) * targetStride + left * BITMAP_CHANNELS;
+      source.copy(target, targetStart, sourceStart, sourceStart + sourceStride);
+    }
+  });
+
+  const sheet = nativeImage.createFromBitmap(target, {
+    width: sheetWidth,
+    height: sheetHeight,
+    scaleFactor: 1,
+  });
+  if (sheet.isEmpty()) throw new Error('The contact sheet could not be created.');
+  return sheet.toPNG();
 }
 
 export class CaptureService {
@@ -149,35 +233,8 @@ export class CaptureService {
     const columns = Math.max(1, Math.min(10, Math.round(request.columns ?? 4)));
     const cellWidth = Math.max(160, Math.min(1920, Math.round(request.cellWidth ?? 480)));
     const cellHeight = Math.max(90, Math.min(1080, Math.round(request.cellHeight ?? 270)));
-    const rows = Math.ceil(request.frames.length / columns);
     const gap = 12;
-    const sheetWidth = columns * cellWidth + (columns + 1) * gap;
-    const sheetHeight = rows * cellHeight + (rows + 1) * gap;
-
-    const composite: OverlayOptions[] = [];
-    for (let index = 0; index < request.frames.length; index += 1) {
-      const decoded = decodeCaptureDataUrl(request.frames[index].dataUrl);
-      const input = await sharp(decoded.bytes)
-        .resize(cellWidth, cellHeight, { fit: 'cover', position: 'centre' })
-        .png()
-        .toBuffer();
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      composite.push({
-        input,
-        left: gap + column * (cellWidth + gap),
-        top: gap + row * (cellHeight + gap),
-      });
-    }
-
-    const output = await sharp({
-      create: {
-        width: sheetWidth,
-        height: sheetHeight,
-        channels: 4,
-        background: { r: 8, g: 5, b: 20, alpha: 1 },
-      },
-    }).composite(composite).png().toBuffer();
+    const output = createContactSheetImage(request.frames, columns, cellWidth, cellHeight, gap);
 
     const fileName = createCaptureFileName(request.mediaName, 0, 'png');
     const result = await dialog.showSaveDialog({

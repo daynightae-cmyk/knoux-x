@@ -354,9 +354,10 @@ export const MultitrackEditorView: React.FC = () => {
       if (!selected) return;
       const extension = selected.filePath.split('.').pop()?.toLowerCase() ?? '';
       const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
+      const audioExtensions = new Set(['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus']);
       const actualKind: 'video' | 'audio' | 'image' = imageExtensions.has(extension)
         ? 'image'
-        : targetKind;
+        : audioExtensions.has(extension) ? 'audio' : 'video';
       if (targetKind === 'image' && actualKind !== 'image') throw new Error(t('multitrack.selectImageFile'));
       const track = compatibleTrack(project, actualKind);
       if (!track) throw new Error(t('multitrack.noCompatibleTrack'));
@@ -616,8 +617,10 @@ export const MultitrackEditorView: React.FC = () => {
             {selectedItem?.sourcePath && previewUrl ? (
               selectedItem.kind === 'audio' ? (
                 <div className="multitrack-audio-preview"><AudioLines size={58} /><strong>{selectedItem.name}</strong><audio ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} /></div>
+              ) : selectedItem.kind === 'image' ? (
+                <img src={previewUrl} alt={selectedItem.name} />
               ) : (
-                <video ref={(node) => { previewRef.current = node; }} src={previewUrl} muted={selectedItem.kind === 'image'} onEnded={() => setPreviewPlaying(false)} />
+                <video ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} />
               )
             ) : selectedItem?.text ? (
               <div className="multitrack-text-preview" dir={selectedItem.text.direction} style={{

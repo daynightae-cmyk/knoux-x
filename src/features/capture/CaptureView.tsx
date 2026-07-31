@@ -72,14 +72,11 @@ export const CaptureView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const tasks: [Promise<string[]>, Promise<string | null>, Promise<DesktopCaptureSource[]>] = [
+      const [nextCaptures, directory, nextSources] = await Promise.all([
         window.knouxCreativeAPI.capture.getRecent(),
         window.knouxCreativeAPI.capture.getDefaultDirectory(),
-        desktopRuntime
-          ? window.knouxCreativeAPI.capture.getDesktopSources()
-          : Promise.resolve([]),
-      ];
-      const [nextCaptures, directory, nextSources] = await Promise.all(tasks);
+        desktopRuntime ? window.knouxCreativeAPI.capture.getDesktopSources() : Promise.resolve([]),
+      ]);
       setCaptures(nextCaptures);
       setDefaultDirectory(directory);
       setSources(nextSources);
@@ -106,13 +103,13 @@ export const CaptureView: React.FC = () => {
   }, [t]);
 
   const runCapture = useCallback(async (): Promise<void> => {
-    if (!desktopRuntime || !selectedSourceId || capturing || (!save && !copyToClipboard)) return;
+    if (!desktopRuntime || !selectedSource || capturing || (!save && !copyToClipboard)) return;
     setCapturing(true);
     setError(null);
     setResult(null);
     try {
       const next = await window.knouxCreativeAPI.capture.captureDesktop({
-        sourceId: selectedSourceId,
+        sourceId: selectedSource.id,
         mode,
         format,
         save,
@@ -124,8 +121,7 @@ export const CaptureView: React.FC = () => {
       if (!next) return;
       setResult(next);
       if (next.outputPath) {
-        const nextCaptures = await window.knouxCreativeAPI.capture.getRecent();
-        setCaptures(nextCaptures);
+        setCaptures(await window.knouxCreativeAPI.capture.getRecent());
         setDefaultDirectory(next.outputPath.replace(/[\\/][^\\/]+$/, ''));
       }
     } catch (reason) {
@@ -143,7 +139,7 @@ export const CaptureView: React.FC = () => {
     jpegQuality,
     mode,
     save,
-    selectedSourceId,
+    selectedSource,
     t,
   ]);
 
@@ -166,12 +162,8 @@ export const CaptureView: React.FC = () => {
           <p>{t('capture.description')}</p>
         </div>
         <div className="creative-actions">
-          <NeonButton variant="ghost" leftIcon={<FolderCog size={16} />} onClick={() => void chooseDirectory()}>
-            {t('capture.folder')}
-          </NeonButton>
-          <NeonButton variant="secondary" leftIcon={<RefreshCw size={16} />} onClick={() => void refresh()} disabled={loading || capturing}>
-            {t('common.refresh')}
-          </NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FolderCog size={16} />} onClick={() => void chooseDirectory()}>{t('capture.folder')}</NeonButton>
+          <NeonButton variant="secondary" leftIcon={<RefreshCw size={16} />} onClick={() => void refresh()} disabled={loading || capturing}>{t('common.refresh')}</NeonButton>
         </div>
       </header>
 
@@ -182,125 +174,37 @@ export const CaptureView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg" className="capture-control-panel">
           <div className="creative-section-heading compact-heading">
             <h2><ScanLine size={20} /> {t('capture.desktopStudio')}</h2>
-            <span>{sources.length} {t('capture.sources')}</span>
+            <span title={selectedSource?.name}>{selectedSource?.name ?? `${sources.length} ${t('capture.sources')}`}</span>
           </div>
 
           <div className="capture-mode-switch" role="group" aria-label={t('capture.captureMode')}>
-            <button
-              type="button"
-              className={mode === 'source' ? 'active' : ''}
-              onClick={() => setMode('source')}
-              disabled={capturing}
-              aria-pressed={mode === 'source'}
-            >
-              <Monitor size={17} /> {t('capture.fullSource')}
-            </button>
-            <button
-              type="button"
-              className={mode === 'region' ? 'active' : ''}
-              onClick={() => setMode('region')}
-              disabled={capturing}
-              aria-pressed={mode === 'region'}
-            >
-              <Crop size={17} /> {t('capture.region')}
-            </button>
+            <button type="button" className={mode === 'source' ? 'active' : ''} onClick={() => setMode('source')} disabled={capturing} aria-pressed={mode === 'source'}><Monitor size={17} /> {t('capture.fullSource')}</button>
+            <button type="button" className={mode === 'region' ? 'active' : ''} onClick={() => setMode('region')} disabled={capturing} aria-pressed={mode === 'region'}><Crop size={17} /> {t('capture.region')}</button>
           </div>
 
           <div className="creative-form-grid capture-options-grid">
-            <label>
-              <span>{t('capture.format')}</span>
-              <select value={format} onChange={(event) => setFormat(event.target.value as CaptureFormat)} disabled={capturing}>
-                {formats.map((entry) => <option key={entry} value={entry}>{entry.toUpperCase()}</option>)}
-              </select>
-            </label>
-            <label>
-              <span><Timer size={14} /> {t('capture.delay')}</span>
-              <select
-                value={delaySeconds}
-                onChange={(event) => setDelaySeconds(Number(event.target.value) as (typeof delays)[number])}
-                disabled={capturing}
-              >
-                {delays.map((entry) => (
-                  <option key={entry} value={entry}>{entry === 0 ? t('capture.noDelay') : `${entry} ${t('common.seconds')}`}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{t('capture.aspect')}</span>
-              <select
-                value={aspectPreset}
-                onChange={(event) => setAspectPreset(event.target.value as RegionAspectPreset)}
-                disabled={capturing || mode !== 'region'}
-              >
-                {aspectPresets.map((entry) => <option key={entry} value={entry}>{entry === 'free' ? t('capture.freeAspect') : entry}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>{t('capture.quality')} · {jpegQuality}%</span>
-              <input
-                type="range"
-                min="40"
-                max="100"
-                step="1"
-                value={jpegQuality}
-                onChange={(event) => setJpegQuality(Number(event.target.value))}
-                disabled={capturing || format === 'png'}
-              />
-            </label>
+            <label><span>{t('capture.format')}</span><select value={format} onChange={(event) => setFormat(event.target.value as CaptureFormat)} disabled={capturing}>{formats.map((entry) => <option key={entry} value={entry}>{entry.toUpperCase()}</option>)}</select></label>
+            <label><span><Timer size={14} /> {t('capture.delay')}</span><select value={delaySeconds} onChange={(event) => setDelaySeconds(Number(event.target.value) as (typeof delays)[number])} disabled={capturing}>{delays.map((entry) => <option key={entry} value={entry}>{entry === 0 ? t('capture.noDelay') : `${entry} ${t('common.seconds')}`}</option>)}</select></label>
+            <label><span>{t('capture.aspect')}</span><select value={aspectPreset} onChange={(event) => setAspectPreset(event.target.value as RegionAspectPreset)} disabled={capturing || mode !== 'region'}>{aspectPresets.map((entry) => <option key={entry} value={entry}>{entry === 'free' ? t('capture.freeAspect') : entry}</option>)}</select></label>
+            <label><span>{t('capture.quality')} · {jpegQuality}%</span><input type="range" min="40" max="100" step="1" value={jpegQuality} onChange={(event) => setJpegQuality(Number(event.target.value))} disabled={capturing || format === 'png'} /></label>
           </div>
 
           <div className="capture-destination-options">
-            <label className="creative-check">
-              <input type="checkbox" checked={save} onChange={(event) => setSave(event.target.checked)} disabled={capturing} />
-              <Save size={16} /> {t('capture.saveFile')}
-            </label>
-            <label className="creative-check">
-              <input
-                type="checkbox"
-                checked={copyToClipboard}
-                onChange={(event) => setCopyToClipboard(event.target.checked)}
-                disabled={capturing}
-              />
-              <Clipboard size={16} /> {t('capture.copyClipboard')}
-            </label>
+            <label className="creative-check"><input type="checkbox" checked={save} onChange={(event) => setSave(event.target.checked)} disabled={capturing} /><Save size={16} /> {t('capture.saveFile')}</label>
+            <label className="creative-check"><input type="checkbox" checked={copyToClipboard} onChange={(event) => setCopyToClipboard(event.target.checked)} disabled={capturing} /><Clipboard size={16} /> {t('capture.copyClipboard')}</label>
           </div>
 
-          <div className="capture-path" title={defaultDirectory ?? undefined} dir="auto">
-            {defaultDirectory
-              ? `${t('capture.defaultFolder')}: ${defaultDirectory}`
-              : t('capture.chooseOnFirst')}
-          </div>
+          <div className="capture-path" title={defaultDirectory ?? undefined} dir="auto">{defaultDirectory ? `${t('capture.defaultFolder')}: ${defaultDirectory}` : t('capture.chooseOnFirst')}</div>
 
-          <NeonButton
-            variant="primary"
-            size="lg"
-            leftIcon={mode === 'region' ? <Crop size={18} /> : <Camera size={18} />}
-            onClick={() => void runCapture()}
-            disabled={!desktopRuntime || !selectedSourceId || capturing || (!save && !copyToClipboard)}
-            fullWidth
-          >
-            {capturing
-              ? (delaySeconds > 0 ? t('capture.countdown') : t('capture.capturing'))
-              : mode === 'region' ? t('capture.selectRegion') : t('capture.captureSource')}
+          <NeonButton variant="primary" size="lg" leftIcon={mode === 'region' ? <Crop size={18} /> : <Camera size={18} />} onClick={() => void runCapture()} disabled={!desktopRuntime || !selectedSource || capturing || (!save && !copyToClipboard)} fullWidth>
+            {capturing ? (delaySeconds > 0 ? t('capture.countdown') : t('capture.capturing')) : mode === 'region' ? t('capture.selectRegion') : t('capture.captureSource')}
           </NeonButton>
         </NeonPanel>
 
         <NeonPanel variant="dark" padding="lg" className="capture-source-panel">
-          <div className="creative-section-heading compact-heading">
-            <h2><Monitor size={20} /> {t('capture.availableSources')}</h2>
-            <NeonButton variant="ghost" size="sm" leftIcon={<RefreshCw size={14} />} onClick={() => void refresh()} disabled={capturing}>
-              {t('common.refresh')}
-            </NeonButton>
-          </div>
-
+          <div className="creative-section-heading compact-heading"><h2><Monitor size={20} /> {t('capture.availableSources')}</h2><NeonButton variant="ghost" size="sm" leftIcon={<RefreshCw size={14} />} onClick={() => void refresh()} disabled={capturing}>{t('common.refresh')}</NeonButton></div>
           {!desktopRuntime ? (
-            <div className="creative-empty-hint capture-desktop-only">
-              <Monitor size={34} />
-              <div>
-                <strong>{t('capture.windowsOnlyTitle')}</strong>
-                <span>{t('capture.windowsOnlyDescription')}</span>
-              </div>
-            </div>
+            <div className="creative-empty-hint capture-desktop-only"><Monitor size={34} /><div><strong>{t('capture.windowsOnlyTitle')}</strong><span>{t('capture.windowsOnlyDescription')}</span></div></div>
           ) : loading ? (
             <div className="creative-loading">{t('capture.loadingSources')}</div>
           ) : sources.length === 0 ? (
@@ -308,19 +212,9 @@ export const CaptureView: React.FC = () => {
           ) : (
             <div className="desktop-source-grid">
               {sources.map((source) => (
-                <button
-                  key={source.id}
-                  type="button"
-                  className={`desktop-source-card ${selectedSourceId === source.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedSourceId(source.id)}
-                  disabled={capturing}
-                  aria-pressed={selectedSourceId === source.id}
-                >
+                <button key={source.id} type="button" className={`desktop-source-card ${selectedSourceId === source.id ? 'selected' : ''}`} onClick={() => setSelectedSourceId(source.id)} disabled={capturing} aria-pressed={selectedSourceId === source.id}>
                   <img src={source.thumbnail} alt="" />
-                  <span className="desktop-source-card__label">
-                    {sourceKind(source) === 'screen' ? <Monitor size={15} /> : <ImageIcon size={15} />}
-                    <strong title={source.name}>{source.name}</strong>
-                  </span>
+                  <span className="desktop-source-card__label">{sourceKind(source) === 'screen' ? <Monitor size={15} /> : <ImageIcon size={15} />}<strong title={source.name}>{source.name}</strong></span>
                   <small>{sourceKind(source) === 'screen' ? t('capture.screen') : t('capture.window')}</small>
                 </button>
               ))}
@@ -333,14 +227,7 @@ export const CaptureView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg" className="capture-result-panel">
           <div className="creative-section-heading compact-heading">
             <h2><ImageIcon size={20} /> {t('capture.lastResult')}</h2>
-            <div className="capture-result-actions">
-              <NeonButton variant="secondary" size="sm" leftIcon={<Edit3 size={15} />} onClick={editResult}>
-                {t('capture.editImage')}
-              </NeonButton>
-              <button type="button" className="capture-result-close" onClick={() => setResult(null)} aria-label={t('common.cancel')}>
-                <X size={17} />
-              </button>
-            </div>
+            <div className="capture-result-actions"><NeonButton variant="secondary" size="sm" leftIcon={<Edit3 size={15} />} onClick={editResult}>{t('capture.editImage')}</NeonButton><button type="button" className="capture-result-close" onClick={() => setResult(null)} aria-label={t('common.cancel')}><X size={17} /></button></div>
           </div>
           <div className="capture-result-grid">
             <div className="capture-result-preview"><img src={result.dataUrl} alt={t('capture.lastResult')} /></div>
@@ -356,31 +243,11 @@ export const CaptureView: React.FC = () => {
         </NeonPanel>
       )}
 
-      <div className="creative-section-heading">
-        <h2>{t('capture.recent')}</h2>
-        <span>{captures.length} {t('common.items')}</span>
-      </div>
-
-      {loading ? (
-        <div className="creative-loading">{t('capture.loading')}</div>
-      ) : captures.length === 0 ? (
-        <div className="creative-empty">{t('capture.empty')}</div>
-      ) : (
+      <div className="creative-section-heading"><h2>{t('capture.recent')}</h2><span>{captures.length} {t('common.items')}</span></div>
+      {loading ? <div className="creative-loading">{t('capture.loading')}</div> : captures.length === 0 ? <div className="creative-empty">{t('capture.empty')}</div> : (
         <div className="capture-grid">
           {captures.map((filePath) => (
-            <NeonPanel key={filePath} variant="dark" padding="sm">
-              <div className="capture-card">
-                <div className="capture-path" title={filePath} dir="auto">{displayPath(filePath)}</div>
-                <NeonButton
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<FolderOpen size={14} />}
-                  onClick={() => void window.knouxCreativeAPI.capture.showItem(filePath)}
-                >
-                  {t('capture.showFolder')}
-                </NeonButton>
-              </div>
-            </NeonPanel>
+            <NeonPanel key={filePath} variant="dark" padding="sm"><div className="capture-card"><div className="capture-path" title={filePath} dir="auto">{displayPath(filePath)}</div><NeonButton variant="ghost" size="sm" leftIcon={<FolderOpen size={14} />} onClick={() => void window.knouxCreativeAPI.capture.showItem(filePath)}>{t('capture.showFolder')}</NeonButton></div></NeonPanel>
           ))}
         </div>
       )}

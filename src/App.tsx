@@ -5,7 +5,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
 import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
 import { LibraryView } from './features/library/LibraryView';
-import { PlayerView } from './features/player/PlayerView';
+import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
 import { useAppStore, ViewType } from './store/appStore';
@@ -17,6 +17,7 @@ import './styles/settings-creative.css';
 import './styles/player-creative.css';
 import './styles/ai-creative.css';
 import './styles/first-run.css';
+import './styles/player-viewport.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -45,7 +46,7 @@ const AIAssistant = lazy(async () => {
 
 function viewFor(currentView: ViewType): React.ReactNode {
   switch (currentView) {
-    case 'player': return <PlayerView />;
+    case 'player': return <PlayerViewportBoundary />;
     case 'queue': return <QueueView />;
     case 'library': return <LibraryView />;
     case 'capture': return <CaptureView />;
@@ -53,7 +54,7 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'editor': return <EditorView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;
-    default: return <PlayerView />;
+    default: return <PlayerViewportBoundary />;
   }
 }
 
@@ -84,7 +85,7 @@ const App: React.FC = () => {
   }, [accentColor, locale, motionEnabled, theme]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-current-view={currentView}>
       <TitleBar />
       <div className="app-body">
         {isSidebarOpen && <Sidebar />}

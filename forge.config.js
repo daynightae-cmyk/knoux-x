@@ -71,6 +71,7 @@ const ffprobe = optionalBinary('@derhuerst/ffprobe-static');
 const bundledBrandAssets = [
   path.resolve(__dirname, 'assets/branding'),
   path.resolve(__dirname, 'assets/installer'),
+  path.resolve(__dirname, 'splash.html'),
 ];
 const extraResource = [ffmpeg, ffprobe, ...bundledBrandAssets].filter(Boolean);
 const squirrel = {

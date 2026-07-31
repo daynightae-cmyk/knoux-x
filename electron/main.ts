@@ -1,9 +1,11 @@
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 import {
   app,
   BrowserWindow,
   ipcMain,
+  nativeTheme,
   powerMonitor,
   screen,
   shell,
@@ -25,6 +27,7 @@ log.transports.file.level = 'info';
 log.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 
 let mainWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let rendererReady = false;
 let pendingMediaPaths: string[] = [];
@@ -162,6 +165,68 @@ function registerCoreHandlers(): void {
   });
 }
 
+function splashCopy(english: string, arabic: string): string {
+  return app.getLocale().toLowerCase().startsWith('ar') ? arabic : english;
+}
+
+async function createSplashWindow(): Promise<void> {
+  const splashPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'splash.html')
+    : path.join(app.getAppPath(), 'splash.html');
+  const logoFilename = nativeTheme.shouldUseDarkColors ? 'knoux-logo-night.png' : 'knoux-logo-day.png';
+  const logoPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'branding', logoFilename)
+    : path.join(app.getAppPath(), 'assets', 'branding', logoFilename);
+
+  const window = new BrowserWindow({
+    width: 680,
+    height: 430,
+    show: false,
+    frame: false,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#050409',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+    },
+  });
+  splashWindow = window;
+  window.once('ready-to-show', () => window.show());
+  window.on('closed', () => { if (splashWindow === window) splashWindow = null; });
+
+  try {
+    await window.loadFile(splashPath, {
+      query: {
+        logo: pathToFileURL(logoPath).toString(),
+        version: app.getVersion(),
+        locale: app.getLocale(),
+        appearance: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+      },
+    });
+  } catch (error) {
+    log.warn('Branded splash could not be loaded; continuing startup without it.', error);
+    window.destroy();
+  }
+}
+
+function updateSplash(label: string, progress: number): void {
+  const window = splashWindow;
+  if (!window || window.isDestroyed()) return;
+  const payload = JSON.stringify({ label, progress: Math.max(0, Math.min(100, progress)) });
+  void window.webContents.executeJavaScript(`window.setKnouxStage?.(${payload})`, true).catch(() => undefined);
+}
+
+function closeSplash(): void {
+  const window = splashWindow;
+  splashWindow = null;
+  if (window && !window.isDestroyed()) window.close();
+}
+
 async function createMainWindow(): Promise<BrowserWindow> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const preloadPath = path.join(__dirname, 'preload-entry.js');
@@ -188,16 +253,22 @@ async function createMainWindow(): Promise<BrowserWindow> {
   mainWindow = window;
   rendererReady = false;
 
+  window.once('ready-to-show', () => {
+    updateSplash(splashCopy('Ready', 'جاهز'), 100);
+    window.show();
+    window.focus();
+    window.setAlwaysOnTop(false);
+    window.setSkipTaskbar(false);
+    window.setTitle('KNOUX Player X');
+    setTimeout(closeSplash, 180);
+  });
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     await window.loadFile(path.join(__dirname, '../renderer', MAIN_WINDOW_VITE_NAME, 'index.html'));
   }
 
-  window.once('ready-to-show', () => {
-    window.show();
-    window.focus();
-  });
   window.on('resize', () => {
     const [windowWidth, windowHeight] = window.getSize();
     window.webContents.send('window:resize', { width: windowWidth, height: windowHeight });
@@ -256,8 +327,11 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
   });
 
   app.whenReady().then(async () => {
+    await createSplashWindow();
+    updateSplash(splashCopy('Securing desktop services', 'تأمين خدمات سطح المكتب'), 18);
     registerCreativeRuntimeIfPrimary();
     setupCreativePermissionHandlers();
+    updateSplash(splashCopy('Opening local library', 'فتح المكتبة المحلية'), 40);
     registerCoreHandlers();
     createApplicationMenu();
     powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
@@ -267,9 +341,11 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     } catch (error) {
       log.warn('System tray is unavailable', error);
     }
+    updateSplash(splashCopy('Loading the KNOUX interface', 'تحميل واجهة KNOUX'), 68);
     await createMainWindow();
   }).catch((error) => {
     log.error('Failed to start KNOUX Player X', error);
+    closeSplash();
     app.exit(1);
   });
 
@@ -282,6 +358,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
 
   app.on('before-quit', () => {
     isQuitting = true;
+    closeSplash();
     destroyTray();
     cleanupCreativeRuntime();
   });

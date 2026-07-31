@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Languages, Palette, X } from 'lucide-react';
 
 import { useAppStore } from '../../store/appStore';
+import { KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
 import { BrandMark } from '../brand/BrandMark';
 
 const FIRST_RUN_KEY = 'knoux-player-x:first-run-tour:v1';
@@ -69,10 +70,12 @@ function hasCompletedTour(): boolean {
 }
 
 export const FirstRunExperience: React.FC = () => {
-  const locale = useAppStore((state) => state.locale);
+  const { locale, setLocale, theme, setTheme, setAccentColor } = useAppStore();
   const [visible, setVisible] = useState(() => !hasCompletedTour());
-  const [index, setIndex] = useState(0);
-  const slide = slides[index];
+  const [step, setStep] = useState(0);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const totalSteps = slides.length + 2;
+  const slide = step >= 2 ? slides[step - 2] : null;
   const rtl = locale === 'ar';
 
   const labels = useMemo(() => rtl ? {
@@ -98,12 +101,14 @@ export const FirstRunExperience: React.FC = () => {
       // A locked-down profile may keep the tour non-persistent.
     }
     setVisible(false);
-    setIndex(0);
+    setStep(0);
+    window.setTimeout(() => restoreFocusRef.current?.focus(), 0);
   };
 
   useEffect(() => {
     const show = (): void => {
-      setIndex(0);
+      restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setStep(0);
       setVisible(true);
     };
     window.addEventListener('knoux:show-product-tour', show);
@@ -112,16 +117,17 @@ export const FirstRunExperience: React.FC = () => {
 
   useEffect(() => {
     if (!visible) return undefined;
+    restoreFocusRef.current ??= document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') finish();
-      if (event.key === 'ArrowRight' && !rtl) setIndex((value) => Math.min(slides.length - 1, value + 1));
-      if (event.key === 'ArrowLeft' && !rtl) setIndex((value) => Math.max(0, value - 1));
-      if (event.key === 'ArrowLeft' && rtl) setIndex((value) => Math.min(slides.length - 1, value + 1));
-      if (event.key === 'ArrowRight' && rtl) setIndex((value) => Math.max(0, value - 1));
+      if (event.key === 'ArrowRight' && !rtl) setStep((value) => Math.min(totalSteps - 1, value + 1));
+      if (event.key === 'ArrowLeft' && !rtl) setStep((value) => Math.max(0, value - 1));
+      if (event.key === 'ArrowLeft' && rtl) setStep((value) => Math.min(totalSteps - 1, value + 1));
+      if (event.key === 'ArrowRight' && rtl) setStep((value) => Math.max(0, value - 1));
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rtl, visible]);
+  }, [rtl, totalSteps, visible]);
 
   if (!visible) return null;
 
@@ -134,40 +140,77 @@ export const FirstRunExperience: React.FC = () => {
           <button type="button" onClick={finish} aria-label={labels.skip}><X size={20} /></button>
         </header>
 
-        <div className="first-run-image-frame">
-          <img
-            key={slide.image}
-            src={slide.image}
-            alt={slide.title[locale]}
-            draggable={false}
-          />
-        </div>
+        {step === 0 && (
+          <div className="first-run-setup-panel">
+            <div className="first-run-setup-icon"><Languages size={28} /></div>
+            <span className="first-run-kicker">01 · LANGUAGE / اللغة</span>
+            <h2 id="first-run-title">Choose your language · اختر لغتك</h2>
+            <p>KNOUX applies the interface direction immediately. Technical paths and timecodes stay left-to-right.</p>
+            <div className="first-run-language-grid">
+              <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')}>
+                <strong>English</strong><span>Left-to-right interface</span>
+              </button>
+              <button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => setLocale('ar')}>
+                <strong>العربية</strong><span>واجهة كاملة من اليمين إلى اليسار</span>
+              </button>
+            </div>
+          </div>
+        )}
 
-        <div className="first-run-copy">
-          <span>{String(index + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
-          <h2 id="first-run-title">{slide.title[locale]}</h2>
-          <p>{slide.description[locale]}</p>
-        </div>
+        {step === 1 && (
+          <div className="first-run-setup-panel">
+            <div className="first-run-setup-icon"><Palette size={28} /></div>
+            <span className="first-run-kicker">02 · {rtl ? 'المظهر' : 'APPEARANCE'}</span>
+            <h2 id="first-run-title">{rtl ? 'اختر طابع KNOUX' : 'Choose your KNOUX atmosphere'}</h2>
+            <p>{rtl ? 'يمكنك معاينة الأنماط التسعة وتغييرها لاحقًا من الإعدادات.' : 'Preview all nine product themes. You can change this later in Settings.'}</p>
+            <div className="first-run-theme-grid">
+              {KNOUX_THEME_CATALOG.map((preset) => (
+                <button
+                  type="button"
+                  key={preset.id}
+                  className={theme === preset.id ? 'active' : ''}
+                  onClick={() => { setTheme(preset.id); setAccentColor(preset.accent); }}
+                >
+                  <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${preset.background}, ${preset.surface} 64%, ${preset.accent})` }} />
+                  <strong>{rtl ? preset.labelAr : preset.label}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {slide && (
+          <>
+            <div className="first-run-image-frame">
+              <img key={slide.image} src={slide.image} alt={slide.title[locale]} draggable={false} />
+            </div>
+            <div className="first-run-copy">
+              <span>{String(step - 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
+              <h2 id="first-run-title">{slide.title[locale]}</h2>
+              <p>{slide.description[locale]}</p>
+            </div>
+          </>
+        )}
 
         <div
           className="first-run-progress"
           role="progressbar"
           aria-label={labels.progress}
           aria-valuemin={1}
-          aria-valuemax={slides.length}
-          aria-valuenow={index + 1}
+          aria-valuemax={totalSteps}
+          aria-valuenow={step + 1}
         >
-          <span style={{ width: `${((index + 1) / slides.length) * 100}%` }} />
+          <span style={{ width: `${((step + 1) / totalSteps) * 100}%` }} />
         </div>
 
         <footer className="first-run-actions">
           <button type="button" className="tour-skip" onClick={finish}>{labels.skip}</button>
           <div>
-            <button type="button" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, value - 1))}>
+            <button type="button" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>
               {rtl ? <ArrowRight size={17} /> : <ArrowLeft size={17} />} {labels.back}
             </button>
-            {index < slides.length - 1 ? (
-              <button type="button" className="tour-primary" onClick={() => setIndex((value) => value + 1)}>
+            {step < totalSteps - 1 ? (
+              <button type="button" className="tour-primary" onClick={() => setStep((value) => value + 1)}>
                 {labels.next} {rtl ? <ArrowLeft size={17} /> : <ArrowRight size={17} />}
               </button>
             ) : (

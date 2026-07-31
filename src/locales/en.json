@@ -94,7 +94,9 @@
     "recent": "Recent captures",
     "loading": "Loading capture history…",
     "empty": "No captures have been saved yet.",
-    "showFolder": "Show in folder"
+    "showFolder": "Show in folder",
+    "loadFailed": "Unable to load capture history.",
+    "folderFailed": "Capture folder could not be changed."
   },
   "recording": {
     "eyebrow": "KNOUX Creative Suite",
@@ -108,7 +110,16 @@
     "stop": "Stop and save",
     "cancelDelete": "Cancel and delete",
     "permissionDenied": "Recording permission was not granted.",
-    "unsupported": "This Chromium build does not provide a supported WebM MediaRecorder encoder."
+    "unsupported": "This Chromium build does not provide a supported WebM MediaRecorder encoder.",
+    "loadSourcesFailed": "Unable to enumerate capture sources.",
+    "startFailed": "Recording could not start.",
+    "finalizeFailed": "Recording could not be finalized.",
+    "mediaRecorderFailed": "MediaRecorder reported an error.",
+    "statusIdle": "Idle",
+    "statusStarting": "Starting",
+    "statusRecording": "Recording",
+    "statusPaused": "Paused",
+    "statusStopping": "Stopping"
   },
   "editor": {
     "eyebrow": "Non-destructive workflow",

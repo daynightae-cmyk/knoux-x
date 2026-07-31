@@ -2,7 +2,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-import { dialog } from 'electron';
+import { dialog, shell } from 'electron';
+import Store from 'electron-store';
 
 import {
   initialRecordingState,
@@ -12,6 +13,7 @@ import {
 import { sanitizeWindowsFileStem } from '../../src/core/creative/capture';
 
 const MAX_CHUNK_BYTES = 16 * 1024 * 1024;
+const MAX_RECORDING_HISTORY = 100;
 
 export type RecordingSourceKind = 'player' | 'window' | 'display';
 
@@ -29,6 +31,7 @@ export interface RecordingSessionSnapshot {
   state: RecordingState;
   outputPath: string;
   startedAt: string;
+  completedAt?: string;
   bytesWritten: number;
 }
 
@@ -36,6 +39,10 @@ interface RecordingSession extends RecordingSessionSnapshot {
   partialPath: string;
   handle: fs.FileHandle;
   writeChain: Promise<void>;
+}
+
+interface RecordingStoreSchema {
+  history: RecordingSessionSnapshot[];
 }
 
 function extensionForMimeType(mimeType: string): string {
@@ -55,9 +62,14 @@ function validateCountdown(seconds: number | undefined): number {
 
 export class RecordingService {
   private readonly sessions = new Map<string, RecordingSession>();
+  private readonly store = new Store<RecordingStoreSchema>({
+    name: 'creative-recordings',
+    defaults: { history: [] },
+  });
 
   listSessions(): RecordingSessionSnapshot[] {
-    return [...this.sessions.values()].map((session) => this.snapshot(session));
+    const active = [...this.sessions.values()].map((session) => this.snapshot(session));
+    return [...active, ...this.store.get('history')];
   }
 
   async begin(request: BeginRecordingRequest): Promise<RecordingSessionSnapshot | null> {
@@ -138,7 +150,9 @@ export class RecordingService {
       if (session.bytesWritten <= 0) throw new Error('Recording produced an empty output file.');
       await fs.rename(session.partialPath, session.outputPath);
       session.state = reduceRecordingState(session.state, { type: 'COMPLETE' });
+      session.completedAt = new Date().toISOString();
       const snapshot = this.snapshot(session);
+      this.remember(snapshot);
       this.sessions.delete(sessionId);
       return snapshot;
     } catch (error) {
@@ -167,11 +181,24 @@ export class RecordingService {
     return this.snapshot(session);
   }
 
+  async showRecordingInFolder(filePath: string): Promise<void> {
+    const resolved = path.resolve(filePath);
+    const stored = this.store.get('history').find((entry) => path.resolve(entry.outputPath) === resolved);
+    if (!stored) throw new Error('Recording path is not in the KNOUX recording history.');
+    await fs.access(resolved);
+    shell.showItemInFolder(resolved);
+  }
+
   async shutdown(): Promise<void> {
     const ids = [...this.sessions.keys()];
     await Promise.all(ids.map(async (id) => {
       try { await this.cancel(id); } catch { /* best-effort cleanup */ }
     }));
+  }
+
+  private remember(snapshot: RecordingSessionSnapshot): void {
+    const history = this.store.get('history').filter((entry) => entry.outputPath !== snapshot.outputPath);
+    this.store.set('history', [snapshot, ...history].slice(0, MAX_RECORDING_HISTORY));
   }
 
   private requireSession(sessionId: string): RecordingSession {
@@ -188,6 +215,7 @@ export class RecordingService {
       state: { ...session.state },
       outputPath: session.outputPath,
       startedAt: session.startedAt,
+      completedAt: session.completedAt,
       bytesWritten: session.bytesWritten,
     };
   }

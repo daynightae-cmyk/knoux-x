@@ -192,6 +192,7 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    await import('./creative-bootstrap');
     registerCoreHandlers();
     createApplicationMenu();
     powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));

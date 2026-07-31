@@ -1,7 +1,7 @@
 {
   "name": "knoux-player-x",
   "version": "2.0.0",
-  "description": "KNOUX Player X Ultimate â€” premium next-generation desktop media experience with AI-assisted playback.",
+  "description": "KNOUX Player X Ultimate — premium next-generation desktop media experience with AI-assisted playback.",
   "main": ".vite/build/main.js",
   "author": "Eng. Sadek Elgazar (Knoux)",
   "license": "Proprietary",
@@ -114,7 +114,7 @@
     "lucide-react": "^0.563.0"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": "20.x",
     "npm": ">=9.0.0"
   },
   "keywords": [

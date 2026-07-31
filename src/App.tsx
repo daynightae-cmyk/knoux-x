@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { TitleBar } from './components/layout/TitleBar';
@@ -21,6 +22,7 @@ import { SettingsView } from './features/settings/SettingsView';
 import { AIAssistant } from './features/ai/AIAssistant';
 import { useAppStore } from './store/appStore';
 import { openRouterService } from './core/services/ai/OpenRouterService';
+
 import './styles/global.css';
 import './styles/splash.css';
 
@@ -449,6 +451,9 @@ const App: React.FC = () => {
             Initializing services...
           </motion.div>
         )}
+
+        {/* Vercel Web Analytics */}
+        <Analytics />
       </motion.div>
     </AnimatePresence>
   );

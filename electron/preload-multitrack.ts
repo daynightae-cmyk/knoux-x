@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { MultitrackRecovery } from './creative/multitrack-project-service';
 import type { MultitrackProject } from '../src/core/creative/multitrackProject';
+
+import type { MultitrackRecovery } from './creative/multitrack-project-service';
 
 const multitrackAPI = {
   create: (name: string): Promise<MultitrackProject> =>

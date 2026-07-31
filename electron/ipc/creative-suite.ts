@@ -180,6 +180,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcMain): CreativeSuiteControlle
   ipc.handle('recording:finish', trusted(async (_event, sessionId: string) => recording.finish(validateString(sessionId, 'Recording session ID', 128))));
   ipc.handle('recording:cancel', trusted(async (_event, sessionId: string) => recording.cancel(validateString(sessionId, 'Recording session ID', 128))));
   ipc.handle('recording:list', trusted(async () => recording.listSessions()));
+  ipc.handle('recording:show-item', trusted(async (_event, filePath: string) => recording.showRecordingInFolder(validateString(filePath, 'Recording path'))));
 
   ipc.handle('editor:new-project', trusted(async (_event, request: NewProjectRequest) => projects.createProject(request)));
   ipc.handle('editor:open-project', trusted(async () => projects.openProject()));

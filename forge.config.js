@@ -155,7 +155,7 @@ if (fs.existsSync(`${icon}.ico`)) squirrel.setupIcon = `${icon}.ico`;
 module.exports = {
   packagerConfig: {
     asar: {
-      unpack: '**/*.node',
+      unpack: '**/*.{node,dll}',
     },
     name: 'KNOUX Player X',
     executableName: 'knoux-player-x',

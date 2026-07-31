@@ -65,6 +65,10 @@ export const ClipExtractionPanel: React.FC<ClipExtractionPanelProps> = ({ onClos
   }), []);
 
   const rangeDuration = useMemo(() => Math.max(0, markOut - markIn), [markIn, markOut]);
+  const progressPercent = useMemo(() => {
+    if (!progress || rangeDuration <= 0 || progress.timeSeconds === undefined) return null;
+    return Math.max(0, Math.min(100, (progress.timeSeconds / rangeDuration) * 100));
+  }, [progress, rangeDuration]);
   const validRange = Boolean(currentMedia) && markIn >= 0 && markOut > markIn && markOut <= Math.max(duration, markOut);
 
   const setInFromPlayhead = useCallback((): void => {
@@ -186,8 +190,8 @@ export const ClipExtractionPanel: React.FC<ClipExtractionPanelProps> = ({ onClos
 
             {progress && running && (
               <div className="clip-progress">
-                <div><span>{t('clip.processing')}</span><strong>{progress.percent === undefined ? '—' : `${progress.percent.toFixed(1)}%`}</strong></div>
-                <progress max="100" value={progress.percent ?? 0} />
+                <div><span>{t('clip.processing')}</span><strong>{progressPercent === null ? '—' : `${progressPercent.toFixed(1)}%`}</strong></div>
+                <progress max="100" value={progressPercent ?? 0} />
                 <small>{progress.fps ? `${progress.fps.toFixed(1)} FPS` : ''} {progress.speed ? `· ${progress.speed.toFixed(2)}x` : ''}</small>
               </div>
             )}

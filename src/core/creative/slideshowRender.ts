@@ -6,6 +6,7 @@ import {
   type SlideshowProject,
   type SlideshowSlide,
   type SlideshowTransition,
+  type SlideshowWatermark,
 } from './slideshowProject';
 
 export type SlideshowRenderFormat = 'mp4' | 'webm' | 'gif';
@@ -46,6 +47,15 @@ function xfadeTransition(transition: SlideshowTransition): string {
   if (transition === 'zoom') return 'zoomin';
   if (transition === 'blur') return 'fadegrays';
   return 'fade';
+}
+
+function watermarkPosition(watermark: SlideshowWatermark): { x: string; y: string } {
+  const margin = 24;
+  if (watermark.position === 'top-left') return { x: String(margin), y: String(margin) };
+  if (watermark.position === 'top-right') return { x: `W-w-${margin}`, y: String(margin) };
+  if (watermark.position === 'bottom-left') return { x: String(margin), y: `H-h-${margin}` };
+  if (watermark.position === 'center') return { x: '(W-w)/2', y: '(H-h)/2' };
+  return { x: `W-w-${margin}`, y: `H-h-${margin}` };
 }
 
 function imageMotionFilter(slide: SlideshowSlide, width: number, height: number, fps: number): string {
@@ -107,6 +117,9 @@ function validateAssets(project: SlideshowProject, assets: SlideshowRenderAssets
       throw new Error(`Slideshow audio metadata is missing for track ${track.id}.`);
     }
   }
+  if (project.watermark && (!project.watermark.sourcePath || project.watermark.sourcePath.includes('\u0000'))) {
+    throw new Error('Slideshow watermark source is invalid.');
+  }
 }
 
 export function buildSlideshowRenderPlan(
@@ -141,6 +154,10 @@ export function buildSlideshowRenderPlan(
     args.push('-ss', seconds(track.sourceIn), '-t', seconds(renderDuration), '-i', track.sourcePath);
   });
 
+  if (project.watermark) {
+    args.push('-loop', '1', '-framerate', String(project.fps), '-t', seconds(totalDuration), '-i', project.watermark.sourcePath);
+  }
+
   project.slides.forEach((slide, index) => {
     filters.push(...fitFilter(slide, `[${index}:v]`, `[v${index}]`, width, height, project.fps));
     const metadata = assets.slideMetadata[slide.id];
@@ -171,6 +188,15 @@ export function buildSlideshowRenderPlan(
       accumulatedDuration += slide.duration;
     }
     currentVideoLabel = nextLabel;
+  }
+
+  if (project.watermark) {
+    const watermarkInputIndex = project.slides.length + project.audioTracks.length;
+    const watermarkWidth = Math.max(16, Math.round(width * Math.max(0.02, Math.min(1, project.watermark.scale))));
+    const position = watermarkPosition(project.watermark);
+    filters.push(`[${watermarkInputIndex}:v]scale=${watermarkWidth}:-1,format=rgba,colorchannelmixer=aa=${filterNumber(Math.max(0, Math.min(1, project.watermark.opacity)))},trim=duration=${seconds(totalDuration)},setpts=PTS-STARTPTS[watermark]`);
+    filters.push(`${currentVideoLabel}[watermark]overlay=${position.x}:${position.y}:format=auto:shortest=1[vwatermarked]`);
+    currentVideoLabel = '[vwatermarked]';
   }
 
   project.audioTracks.forEach((track, audioIndex) => {

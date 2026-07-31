@@ -22,6 +22,7 @@ import './styles/player-viewport.css';
 import './styles/player-diagnostics.css';
 import './styles/capture-studio.css';
 import './styles/recording-studio.css';
+import './styles/multitrack-editor.css';
 import './styles/image-editor.css';
 import './styles/image-editor-runtime.css';
 
@@ -33,9 +34,9 @@ const RecordingView = lazy(async () => {
   const module = await import('./features/recording/RecordingView');
   return { default: module.RecordingView };
 });
-const EditorView = lazy(async () => {
-  const module = await import('./features/editor/EditorView');
-  return { default: module.EditorView };
+const MultitrackEditorView = lazy(async () => {
+  const module = await import('./features/editor/MultitrackEditorView');
+  return { default: module.MultitrackEditorView };
 });
 const ImageEditorView = lazy(async () => {
   const module = await import('./features/image-editor/ImageEditorView');
@@ -61,7 +62,7 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'library': return <LibraryView />;
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
-    case 'editor': return <EditorView />;
+    case 'editor': return <MultitrackEditorView />;
     case 'image-editor': return <ImageEditorView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;

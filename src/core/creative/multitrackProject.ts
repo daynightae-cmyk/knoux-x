@@ -336,7 +336,7 @@ export function reorderTrack(tracks: TimelineTrack[], trackId: string, destinati
   const destination = Math.max(0, Math.min(normalized.length - 1, Math.round(destinationOrder)));
   const [selected] = normalized.splice(index, 1);
   normalized.splice(destination, 0, selected);
-  return normalizeTrackOrder(normalized);
+  return normalized.map((track, order) => ({ ...track, order }));
 }
 
 export function addTrack(project: MultitrackProject, track: TimelineTrack): MultitrackProject {

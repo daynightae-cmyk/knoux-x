@@ -19,13 +19,13 @@ import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
 import type { LibraryQuery } from '../library/library-service';
 import { LibraryService } from '../library/library-service';
-import { AuthorizedPathRegistry } from '../security/validation';
+import { authorizedMediaPaths } from '../security/path-registry';
 
 export interface CreativeSuiteController {
   shutdown(): Promise<void>;
 }
 
-const creativePaths = new AuthorizedPathRegistry();
+const creativePaths = authorizedMediaPaths;
 const mediaFilters = [{
   name: 'Media Files',
   extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v', 'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus'],

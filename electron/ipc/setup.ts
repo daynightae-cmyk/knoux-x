@@ -16,9 +16,10 @@ import path from 'path';
 import { ipcMain, dialog, shell } from 'electron';
 
 import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrchestrator';
-import { AuthorizedPathRegistry, validateExternalUrl } from '../security/validation';
+import { authorizedMediaPaths } from '../security/path-registry';
+import { validateExternalUrl } from '../security/validation';
 
-const authorizedPaths = new AuthorizedPathRegistry();
+const authorizedPaths = authorizedMediaPaths;
 
 export function authorizeMediaPaths(paths: readonly string[]): string[] {
   return paths.map((filePath) => authorizedPaths.authorizeFile(filePath));

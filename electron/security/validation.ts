@@ -2,7 +2,8 @@ import path from 'node:path';
 
 const EXTERNAL_PROTOCOLS = new Set(['https:', 'mailto:']);
 const MEDIA_EXTENSIONS = new Set([
-  '.aac', '.flac', '.m4a', '.mp3', '.ogg', '.wav', '.webm', '.mp4',
+  '.aac', '.avi', '.flac', '.flv', '.m4a', '.m4v', '.mkv', '.mov',
+  '.mp3', '.mp4', '.ogg', '.opus', '.wav', '.webm', '.wmv',
 ]);
 
 export function validateExternalUrl(value: unknown): URL {

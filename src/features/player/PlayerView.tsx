@@ -81,13 +81,17 @@ export const PlayerView: React.FC = () => {
     previous,
   } = usePlayerStore();
 
-  useEffect(() => window.knouxAPI.app.onOpenMedia((paths) => {
-    const firstPath = paths[0];
-    if (!firstPath) return;
-    setCurrentMedia(firstPath);
-    setSubtitle(null);
-    setError(null);
-  }), [setCurrentMedia]);
+  useEffect(() => {
+    const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
+      const firstPath = paths[0];
+      if (!firstPath) return;
+      setCurrentMedia(firstPath);
+      setSubtitle(null);
+      setError(null);
+    });
+    window.knouxAPI.app.ready();
+    return unsubscribe;
+  }, [setCurrentMedia]);
 
   useEffect(() => {
     let active = true;

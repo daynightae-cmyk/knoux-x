@@ -7,9 +7,9 @@ import {
   powerMonitor,
   screen,
   shell,
+  type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from 'electron';
-import started from 'electron-squirrel-startup';
 import log from 'electron-log';
 
 import { authorizeMediaPaths } from './ipc/setup';
@@ -26,7 +26,9 @@ log.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+let rendererReady = false;
 let pendingMediaPaths: string[] = [];
+let applicationStarted = false;
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -45,6 +47,21 @@ function windowForEvent(event: IpcMainInvokeEvent): BrowserWindow {
     throw new Error('Core desktop request was rejected from an untrusted renderer.');
   }
   return window;
+}
+
+function isMainRendererEvent(event: IpcMainEvent): boolean {
+  return Boolean(
+    mainWindow
+    && !mainWindow.isDestroyed()
+    && event.sender === mainWindow.webContents
+    && isTrustedRendererUrl(event.senderFrame.url),
+  );
+}
+
+function flushPendingMediaPaths(): void {
+  if (!rendererReady || !mainWindow || mainWindow.isDestroyed() || pendingMediaPaths.length === 0) return;
+  const authorized = authorizeMediaPaths(pendingMediaPaths.splice(0));
+  if (authorized.length > 0) mainWindow.webContents.send('app:open-media', authorized);
 }
 
 function registerCoreHandlers(): void {
@@ -102,6 +119,11 @@ function registerCoreHandlers(): void {
     windowForEvent(event);
     return app.getAppMetrics();
   });
+  ipcMain.on('app:renderer-ready', (event) => {
+    if (!isMainRendererEvent(event)) return;
+    rendererReady = true;
+    flushPendingMediaPaths();
+  });
 }
 
 async function createMainWindow(): Promise<BrowserWindow> {
@@ -128,6 +150,7 @@ async function createMainWindow(): Promise<BrowserWindow> {
     },
   });
   mainWindow = window;
+  rendererReady = false;
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -138,17 +161,16 @@ async function createMainWindow(): Promise<BrowserWindow> {
   window.once('ready-to-show', () => {
     window.show();
     window.focus();
-    if (pendingMediaPaths.length > 0) {
-      const authorized = authorizeMediaPaths(pendingMediaPaths.splice(0));
-      if (authorized.length > 0) window.webContents.send('app:open-media', authorized);
-    }
   });
   window.on('resize', () => {
     const [windowWidth, windowHeight] = window.getSize();
     window.webContents.send('window:resize', { width: windowWidth, height: windowHeight });
   });
   window.on('closed', () => {
-    if (mainWindow === window) mainWindow = null;
+    if (mainWindow === window) {
+      mainWindow = null;
+      rendererReady = false;
+    }
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
@@ -162,26 +184,25 @@ async function createMainWindow(): Promise<BrowserWindow> {
   return window;
 }
 
-const gotTheLock = !started && app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  log.info('Secondary instance detected - exiting immediately');
-  app.exit(0);
-} else {
-  // Initialize pending media paths only in primary instance
-  pendingMediaPaths = mediaPathsFromArguments(process.argv);
-  
-  app.on('second-instance', (_event, argv) => {
-    const forwardedPaths = authorizeMediaPaths(mediaPathsFromArguments(argv));
-    if (forwardedPaths.length > 0) {
-      if (mainWindow) mainWindow.webContents.send('app:open-media', forwardedPaths);
-      else pendingMediaPaths.push(...forwardedPaths);
-    }
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  });
+function handleSecondInstance(argv: readonly string[]): void {
+  const forwardedPaths = mediaPathsFromArguments(argv);
+  if (forwardedPaths.length > 0) {
+    pendingMediaPaths.push(...forwardedPaths);
+    flushPendingMediaPaths();
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+export function startPrimaryApplication(initialArgv: readonly string[]): {
+  handleSecondInstance(argv: readonly string[]): void;
+} {
+  if (applicationStarted) throw new Error('The KNOUX primary runtime can only be started once.');
+  applicationStarted = true;
+  pendingMediaPaths = mediaPathsFromArguments(initialArgv);
 
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-navigate', (event, navigationUrl) => {
@@ -229,4 +250,6 @@ if (!gotTheLock) {
   app.on('will-quit', () => {
     if (!isQuitting) destroyTray();
   });
+
+  return { handleSecondInstance };
 }

@@ -15,6 +15,7 @@ on:
       - 'tests/player-viewport-contract.test.ts'
       - 'tools/test-player-viewport.cjs'
       - '.github/workflows/player-viewport-windows.yml'
+      - '.github/workflows/full-rebuild-windows.yml'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:

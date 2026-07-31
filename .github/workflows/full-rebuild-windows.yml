@@ -292,8 +292,8 @@ jobs:
             param([string]$Mode, [string]$Argument, [string]$EvidenceName)
             $evidence = Join-Path $evidenceDirectory $EvidenceName
             Remove-Item -LiteralPath $evidence -Force -ErrorAction SilentlyContinue
-            & $visualInstaller.FullName $Argument "--evidence=$evidence"
-            $exitCode = $LASTEXITCODE
+            $acceptanceProcess = Start-Process -FilePath $visualInstaller.FullName -ArgumentList @($Argument, "--evidence=$evidence") -Wait -PassThru -WindowStyle Hidden
+            $exitCode = $acceptanceProcess.ExitCode
             if ($exitCode -ne 0) { throw "Visual installer $Mode test failed with exit code $exitCode." }
             if (-not (Test-Path $evidence) -or (Get-Item $evidence).Length -le 0) {
               throw "Visual installer $Mode evidence is missing."
@@ -321,7 +321,7 @@ jobs:
           $installedExecutable = if ($installedDetail.Count -eq 1) { $installedDetail[0].Substring('installed-executable='.Length) } else { '' }
           if (-not (Test-Path -LiteralPath $installedExecutable -PathType Leaf)) { throw 'Repair evidence did not identify an installed executable.' }
           $installedSettingsEvidence = Join-Path $evidenceDirectory 'installed-settings-persistence.json'
-          $installedSettingsTest = Start-Process -FilePath $installedExecutable -ArgumentList @('--settings-self-test', "--settings-evidence=$installedSettingsEvidence") -Wait -PassThru
+          $installedSettingsTest = Start-Process -FilePath $installedExecutable -ArgumentList @('--settings-self-test', "--settings-evidence=$installedSettingsEvidence") -Wait -PassThru -WindowStyle Hidden
           if ($installedSettingsTest.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $installedSettingsEvidence)) {
             throw "Installed settings persistence self-test failed with exit code $($installedSettingsTest.ExitCode)."
           }

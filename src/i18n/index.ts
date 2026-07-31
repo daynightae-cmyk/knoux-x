@@ -6,6 +6,10 @@ import {
   captureStudioEnglish,
 } from '../locales/captureStudio';
 import en from '../locales/en.json';
+import {
+  imageEditorArabic,
+  imageEditorEnglish,
+} from '../locales/imageEditor';
 import { useAppStore } from '../store/appStore';
 import type { LocaleType } from '../store/appStore';
 
@@ -15,17 +19,27 @@ export const FUTURE_LOCALES = ['fr', 'es', 'de', 'it', 'pt', 'tr', 'ur', 'hi', '
 const dictionaries: Record<LocaleType, unknown> = {
   en: {
     ...en,
+    nav: {
+      ...en.nav,
+      imageEditor: 'Image Editor',
+    },
     capture: {
       ...en.capture,
       ...captureStudioEnglish,
     },
+    imageEditor: imageEditorEnglish,
   },
   ar: {
     ...ar,
+    nav: {
+      ...ar.nav,
+      imageEditor: 'محرر الصور',
+    },
     capture: {
       ...ar.capture,
       ...captureStudioArabic,
     },
+    imageEditor: imageEditorArabic,
   },
 };
 

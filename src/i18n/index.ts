@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import en from '../locales/en.json';
 import ar from '../locales/ar.json';
 import { LocaleType, useAppStore } from '../store/appStore';
@@ -38,10 +40,14 @@ export function useTranslation(): {
   t(key: string, variables?: Record<string, string | number>): string;
 } {
   const locale = useAppStore((state) => state.locale);
+  const t = useCallback(
+    (key: string, variables?: Record<string, string | number>) => translate(locale, key, variables),
+    [locale],
+  );
   return {
     locale,
     dir: locale === 'ar' ? 'rtl' : 'ltr',
-    t: (key, variables) => translate(locale, key, variables),
+    t,
   };
 }
 

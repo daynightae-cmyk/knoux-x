@@ -249,11 +249,17 @@ export function validateApplicationSetting<K extends ApplicationSettingKey>(key:
 export function parseApplicationSettings(value: unknown): ApplicationSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Application settings must be an object.');
   const source = value as Record<string, unknown>;
+  for (const key of Object.keys(source)) {
+    if (!APPLICATION_SETTING_KEYS.has(key as ApplicationSettingKey) && key !== 'volume') throw new TypeError(`Unsupported application setting: ${key}`);
+  }
   const result = structuredClone(DEFAULT_APPLICATION_SETTINGS);
   for (const key of keys) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       result[key] = validateApplicationSetting(key, source[key]) as never;
     }
+  }
+  if (!Object.prototype.hasOwnProperty.call(source, 'defaultVolume') && Object.prototype.hasOwnProperty.call(source, 'volume')) {
+    result.defaultVolume = validateApplicationSetting('defaultVolume', source.volume);
   }
   return result;
 }

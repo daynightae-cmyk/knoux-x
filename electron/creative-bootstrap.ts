@@ -131,12 +131,12 @@ export function setupCreativePermissionHandlers(): void {
   });
 }
 
-export function cleanupCreativeRuntime(): void {
+export async function cleanupCreativeRuntime(): Promise<void> {
   permissionExpiry.clear();
   aiService?.cancel();
   recordingRegionController?.close();
   multitrackController?.close();
   slideshowController?.close();
   audioToolsController?.close();
-  void controller?.shutdown();
+  await controller?.shutdown();
 }

@@ -39,6 +39,24 @@ let rendererReady = false;
 let pendingMediaPaths: string[] = [];
 let applicationStarted = false;
 let systemOrchestrator: SystemOrchestrator | null = null;
+let cleanupComplete = false;
+let cleanupPromise: Promise<void> | null = null;
+
+async function cleanupApplication(reason: 'startup-failure' | 'normal-quit' | 'smoke-complete'): Promise<void> {
+  cleanupPromise ??= (async () => {
+    isQuitting = true;
+    closeSplash();
+    destroyTray();
+    await cleanupCreativeRuntime();
+    await systemOrchestrator?.services.settings.shutdown();
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.destroy();
+    }
+    cleanupComplete = true;
+    log.info(`KNOUX_RUNTIME_CLEANUP ${JSON.stringify({ reason, complete: true })}`);
+  })();
+  await cleanupPromise;
+}
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -303,6 +321,9 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
       return Boolean(owner && !owner.isDestroyed() && isTrustedRendererUrl(event.senderFrame.url));
     });
     systemOrchestrator = createSystemOrchestrator(systemConfiguration());
+    systemOrchestrator.services.settings.on('recovery', (recovery) => {
+      log.warn(`KNOUX_SETTINGS_RECOVERY ${JSON.stringify(recovery)}`);
+    });
     await systemOrchestrator.services.settings.initialize();
     setupIPCHandlers(authoritativeIpc, systemOrchestrator);
     registerCreativeRuntimeIfPrimary();
@@ -322,8 +343,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
         manifest: authoritativeIpc.manifest(),
         authorizeFixture: authorizeMediaPaths,
       });
-      await systemOrchestrator.services.settings.shutdown();
-      if (!window.isDestroyed()) window.destroy();
+      await cleanupApplication('smoke-complete');
       app.exit(0);
       return;
     }
@@ -345,10 +365,10 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     updateSplash(splashCopy('Loading the KNOUX interface', 'تحميل واجهة KNOUX'), 68);
     const window = await createMainWindow();
     systemOrchestrator.setMainWindow(window);
-  }).catch((error) => {
+  }).catch(async (error) => {
     if (ipcSmokeTest) log.error(`KNOUX_IPC_DIAGNOSTICS ${JSON.stringify(authoritativeIpc.diagnosticEvents())}`);
     log.error('Failed to start KNOUX Player X', error);
-    closeSplash();
+    await cleanupApplication('startup-failure').catch((cleanupError) => log.error('KNOUX_RUNTIME_CLEANUP_FAILED', cleanupError));
     app.exit(1);
   });
 
@@ -359,12 +379,15 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('before-quit', () => {
-    isQuitting = true;
-    closeSplash();
-    destroyTray();
-    cleanupCreativeRuntime();
-    void systemOrchestrator?.services.settings.shutdown();
+  app.on('before-quit', (event) => {
+    if (cleanupComplete) return;
+    event.preventDefault();
+    void cleanupApplication('normal-quit')
+      .then(() => app.quit())
+      .catch((error) => {
+        log.error('KNOUX_RUNTIME_CLEANUP_FAILED', error);
+        app.exit(1);
+      });
   });
   app.on('will-quit', () => {
     if (!isQuitting) destroyTray();

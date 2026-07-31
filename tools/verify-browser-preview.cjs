@@ -67,6 +67,24 @@ async function main() {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
     stage('BROWSER_PREVIEW_STAGE page-loaded');
     await page.waitForFunction(() => document.documentElement.dataset.runtime === 'web-preview', null, { timeout: 30000 });
+    const skipTour = page.getByRole('button', { name: /Skip tour/i });
+    if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
+    const editionNoticeLocator = page.getByText('Browser preview', { exact: true }).first();
+    await editionNoticeLocator.waitFor({ state: 'visible', timeout: 30000 });
+    const editionNotice = await editionNoticeLocator.evaluate((element) => {
+      const rectangle = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      const x = rectangle.left + rectangle.width / 2;
+      const y = rectangle.top + rectangle.height / 2;
+      const topElement = document.elementFromPoint(x, y);
+      return {
+        text: element.textContent?.trim(),
+        visible: rectangle.width > 0 && rectangle.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0,
+        occluded: !topElement || (topElement !== element && !element.contains(topElement)),
+        topElement: topElement ? `${topElement.tagName.toLowerCase()}${topElement.id ? `#${topElement.id}` : ''}${topElement.className ? `.${String(topElement.className).trim().replace(/\s+/g, '.')}` : ''}` : null,
+        rectangle: { x: rectangle.x, y: rectangle.y, width: rectangle.width, height: rectangle.height },
+      };
+    });
     const runtime = await page.evaluate(() => ({
       descriptor: window.knouxRuntime,
       dataset: document.documentElement.dataset.runtime,
@@ -79,6 +97,7 @@ async function main() {
     runtime.systemInfo = await page.evaluate(() => window.knouxAPI.system.getInfo());
     const allErrors = [...consoleErrors, ...pageErrors];
     if (runtime.descriptor?.edition !== 'web-preview' || runtime.dataset !== 'web-preview') throw new Error('BROWSER_PREVIEW_LABEL_MISSING');
+    if (!editionNotice.visible || editionNotice.occluded || editionNotice.text !== 'Browser preview') throw new Error(`BROWSER_PREVIEW_NOTICE_NOT_VISIBLE ${JSON.stringify(editionNotice)}`);
     if (!runtime.hasPreviewCore || !runtime.hasPreviewCreative || runtime.hasElectronProcess) throw new Error('BROWSER_PREVIEW_BRIDGE_OWNERSHIP_FAILED');
     if (runtime.systemInfo.packaged !== false || runtime.systemInfo.electronVersion !== 'not-applicable') throw new Error('BROWSER_PREVIEW_NATIVE_CLAIM');
     if (allErrors.some((value) => /electron|contextBridge|ipcRenderer/i.test(value))) throw new Error(`BROWSER_PREVIEW_ELECTRON_ERROR ${allErrors.join(' | ')}`);
@@ -93,6 +112,7 @@ async function main() {
       buildRoot,
       browserExecutable,
       runtime,
+      editionNotice,
       consoleErrors,
       pageErrors,
       screenshotPath,

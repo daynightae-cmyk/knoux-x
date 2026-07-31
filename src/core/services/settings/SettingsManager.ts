@@ -183,7 +183,9 @@ export class SettingsManager extends EventEmitter {
     const storagePath = this.requireStoragePath();
     try {
       const raw = await fs.readFile(storagePath, 'utf8');
-      this.settings = this.parseStoredDocument(raw);
+      const parsed = this.parseStoredDocumentWithMetadata(raw);
+      this.settings = parsed.settings;
+      if (parsed.migrated) await this.persist();
     } catch (error) {
       const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
       if (code !== 'ENOENT') {
@@ -250,14 +252,18 @@ export class SettingsManager extends EventEmitter {
   }
 
   private parseStoredDocument(raw: string): ApplicationSettings {
+    return this.parseStoredDocumentWithMetadata(raw).settings;
+  }
+
+  private parseStoredDocumentWithMetadata(raw: string): { settings: ApplicationSettings; migrated: boolean } {
     if (raw.length === 0 || raw.length > MAX_SETTINGS_BYTES || raw.includes('\u0000')) throw new Error('Settings file is invalid or too large.');
     const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) throw new Error('Settings document must be an object.');
     if ('settings' in decoded) {
       if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
-      return parseApplicationSettings(decoded.settings);
+      return { settings: parseApplicationSettings(decoded.settings), migrated: decoded.schemaVersion !== APPLICATION_SETTINGS_SCHEMA_VERSION };
     }
-    return parseApplicationSettings(decoded);
+    return { settings: parseApplicationSettings(decoded), migrated: true };
   }
 
   private async loadNewestValidBackup(): Promise<{ filePath: string; settings: ApplicationSettings } | null> {

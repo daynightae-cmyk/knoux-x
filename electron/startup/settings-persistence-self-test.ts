@@ -24,6 +24,9 @@ interface SettingsSelfTestEvidence {
   exportHash: string;
   checks: string[];
   corruptBackups: number;
+  temporaryRoot: string;
+  temporaryRootRemoved: boolean;
+  error?: string;
   completedAt: string;
 }
 
@@ -45,8 +48,7 @@ async function writeEvidence(evidencePath: string, evidence: SettingsSelfTestEvi
   await fs.rename(temporaryPath, evidencePath);
 }
 
-export async function runSettingsPersistenceSelfTest(evidencePath: string): Promise<void> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-settings-persistence-'));
+async function executeSettingsPersistenceScenario(root: string): Promise<SettingsSelfTestEvidence> {
   const storagePath = path.join(root, 'settings', 'application-settings.json');
   const customized: Pick<ApplicationSettings,
     'language' | 'theme' | 'defaultVolume' | 'brightness' | 'contrast'
@@ -135,7 +137,7 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
   checks.push('no-temporary-files');
 
   const persisted = await fs.readFile(storagePath, 'utf8');
-  await writeEvidence(evidencePath, {
+  return {
     product: 'KNOUX Player X',
     success: true,
     mode: 'settings-persistence',
@@ -147,7 +149,49 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
     exportHash: digest(exported),
     checks,
     corruptBackups,
+    temporaryRoot: root,
+    temporaryRootRemoved: false,
     completedAt: new Date().toISOString(),
-  });
-  await fs.rm(root, { recursive: true, force: true });
+  };
+}
+
+export async function runSettingsPersistenceSelfTest(evidencePath: string): Promise<void> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-settings-persistence-'));
+  let evidence: SettingsSelfTestEvidence;
+  let scenarioError: unknown;
+  let cleanupError: unknown;
+  try {
+    evidence = await executeSettingsPersistenceScenario(root);
+  } catch (error) {
+    scenarioError = error;
+    evidence = {
+      product: 'KNOUX Player X',
+      success: false,
+      mode: 'settings-persistence',
+      packaged: app.isPackaged,
+      applicationVersion: app.getVersion(),
+      executable: app.getPath('exe'),
+      schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION,
+      settingsHash: '',
+      exportHash: '',
+      checks: [],
+      corruptBackups: 0,
+      temporaryRoot: root,
+      temporaryRootRemoved: false,
+      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      completedAt: new Date().toISOString(),
+    };
+  } finally {
+    try {
+      await fs.rm(root, { recursive: true, force: true });
+    } catch (error) {
+      cleanupError = error;
+    }
+  }
+  evidence.temporaryRootRemoved = cleanupError === undefined;
+  if (cleanupError !== undefined) evidence.error = `${evidence.error ? `${evidence.error}; ` : ''}cleanup: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`;
+  evidence.completedAt = new Date().toISOString();
+  await writeEvidence(evidencePath, evidence);
+  if (scenarioError) throw scenarioError;
+  if (cleanupError) throw cleanupError;
 }

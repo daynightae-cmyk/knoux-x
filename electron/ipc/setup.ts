@@ -21,43 +21,17 @@ import { authorizedMediaPaths } from '../security/path-registry';
 import { validateExternalUrl } from '../security/validation';
 
 import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
+import type { StructuredValue } from './channel-types';
 import type { AuthoritativeIpcRegistry, IpcRegistrar } from './registry';
+import { cancelledDialogResult, validateFileDialogOptions } from './file-dialog-policy';
 
 const authorizedPaths = authorizedMediaPaths;
 const deterministicDialogCancellation = process.argv.includes('--ipc-smoke-test');
-
-interface DialogOptions {
-  title?: string;
-  defaultPath?: string;
-  buttonLabel?: string;
-  filters?: Array<{ name: string; extensions: string[] }>;
-}
 
 function dialogOwner(event: IpcMainInvokeEvent): BrowserWindow {
   const owner = BrowserWindow.fromWebContents(event.sender);
   if (!owner || owner.isDestroyed()) throw new Error('File dialog request has no trusted desktop window.');
   return owner;
-}
-
-function validateDialogOptions(value: unknown): DialogOptions {
-  if (value === undefined) return {};
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('File dialog options are invalid.');
-  const options = value as DialogOptions;
-  for (const text of [options.title, options.defaultPath, options.buttonLabel]) {
-    if (text !== undefined && (typeof text !== 'string' || text.length > 4096 || text.includes('\u0000'))) throw new TypeError('File dialog text is invalid.');
-  }
-  if (options.filters !== undefined) {
-    if (!Array.isArray(options.filters) || options.filters.length > 32) throw new TypeError('File dialog filters are invalid.');
-    for (const filter of options.filters) {
-      if (!filter || typeof filter.name !== 'string' || filter.name.length === 0 || filter.name.length > 128 || !Array.isArray(filter.extensions)) {
-        throw new TypeError('File dialog filter is invalid.');
-      }
-      if (filter.extensions.length === 0 || filter.extensions.length > 64 || filter.extensions.some((extension) => (
-        typeof extension !== 'string' || !/^(\*|[a-z0-9]{1,12})$/i.test(extension)
-      ))) throw new TypeError('File dialog extension is invalid.');
-    }
-  }
-  return structuredClone(options);
 }
 
 export function authorizeMediaPaths(paths: readonly string[]): string[] {
@@ -82,7 +56,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
   });
 
   ipc.handle(IPC_INVOKE.FILE_OPEN, async (event, rawOptions) => {
-    const options = validateDialogOptions(rawOptions);
+    const options = validateFileDialogOptions(rawOptions);
     const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] } : await dialog.showOpenDialog(dialogOwner(event), {
       title: options.title || 'Open File',
       defaultPath: options.defaultPath,
@@ -96,11 +70,11 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
       ],
       properties: ['openFile'],
     });
-    return result.canceled ? null : authorizedPaths.authorizeFile(result.filePaths[0]);
+    return result.canceled ? cancelledDialogResult('open') : authorizedPaths.authorizeFile(result.filePaths[0]);
   });
 
   ipc.handle(IPC_INVOKE.FILE_OPEN_MULTIPLE, async (event, rawOptions) => {
-    const options = validateDialogOptions(rawOptions);
+    const options = validateFileDialogOptions(rawOptions);
     const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] } : await dialog.showOpenDialog(dialogOwner(event), {
       title: options.title || 'Open Files',
       defaultPath: options.defaultPath,
@@ -110,28 +84,28 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
       ],
       properties: ['openFile', 'multiSelections'],
     });
-    return result.canceled ? [] : result.filePaths.map((filePath) => authorizedPaths.authorizeFile(filePath));
+    return result.canceled ? cancelledDialogResult('open-multiple') : result.filePaths.map((filePath) => authorizedPaths.authorizeFile(filePath));
   });
 
   ipc.handle(IPC_INVOKE.FILE_OPEN_DIRECTORY, async (event, rawOptions) => {
-    const options = validateDialogOptions(rawOptions);
+    const options = validateFileDialogOptions(rawOptions);
     const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] } : await dialog.showOpenDialog(dialogOwner(event), {
       title: options.title || 'Select Folder',
       defaultPath: options.defaultPath,
       properties: ['openDirectory'],
     });
-    return result.canceled ? null : authorizedPaths.authorizeRoot(result.filePaths[0]);
+    return result.canceled ? cancelledDialogResult('open-directory') : authorizedPaths.authorizeRoot(result.filePaths[0]);
   });
 
   ipc.handle(IPC_INVOKE.FILE_SAVE, async (event, rawOptions) => {
-    const options = validateDialogOptions(rawOptions);
+    const options = validateFileDialogOptions(rawOptions);
     const result = deterministicDialogCancellation ? { canceled: true, filePath: undefined } : await dialog.showSaveDialog(dialogOwner(event), {
       title: options.title || 'Save File',
       defaultPath: options.defaultPath,
       buttonLabel: options.buttonLabel,
       filters: options.filters,
     });
-    return result.canceled || !result.filePath ? null : authorizedPaths.authorizeFile(result.filePath);
+    return result.canceled || !result.filePath ? cancelledDialogResult('save') : authorizedPaths.authorizeFile(result.filePath);
   });
 
   ipc.handle(IPC_INVOKE.FILE_READ, async (_, filePath: string) => {
@@ -469,7 +443,13 @@ function setupSettingsHandlers(ipc: IpcRegistrar, orchestrator: SystemOrchestrat
 
   orchestrator.services.settings.onChange((key, value, oldValue) => {
     const mainWindow = orchestrator.getMainWindow();
-    if (mainWindow && !mainWindow.isDestroyed()) ipc.send(mainWindow.webContents, IPC_OUTBOUND.SETTINGS_CHANGE, key, value, oldValue);
+    if (mainWindow && !mainWindow.isDestroyed()) ipc.send(
+      mainWindow.webContents,
+      IPC_OUTBOUND.SETTINGS_CHANGE,
+      key,
+      value as StructuredValue | undefined,
+      oldValue as StructuredValue | undefined,
+    );
   });
 }
 

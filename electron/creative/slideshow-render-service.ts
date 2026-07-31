@@ -13,6 +13,7 @@ import {
 } from '../../src/core/creative/slideshowRender';
 import {
   parseSlideshowProject,
+  slideshowOutputSize,
   type SlideshowProject,
   type SlideshowSlide,
 } from '../../src/core/creative/slideshowProject';
@@ -48,22 +49,72 @@ function escapeXml(value: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function wrapText(value: string, maxCharacters: number, maxLines: number): string[] {
+  const normalized = value.normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const words = normalized.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharacters || current.length === 0) {
+      current = candidate;
+      continue;
+    }
+    lines.push(current);
+    current = word;
+    if (lines.length === maxLines - 1) break;
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  const consumed = lines.join(' ').length;
+  if (consumed < normalized.length && lines.length > 0) {
+    const last = lines.length - 1;
+    lines[last] = `${lines[last].slice(0, Math.max(1, maxCharacters - 1)).trimEnd()}…`;
+  }
+  return lines;
+}
+
+function svgTextLines(
+  lines: string[],
+  centerX: number,
+  startY: number,
+  lineHeight: number,
+  fontSize: number,
+  fontWeight: number,
+  fill: string,
+  rtl: boolean,
+): string {
+  if (lines.length === 0) return '';
+  const direction = rtl ? 'rtl' : 'ltr';
+  return `<text x="${centerX}" y="${startY}" text-anchor="middle" direction="${direction}" unicode-bidi="plaintext" font-family="Segoe UI,Tahoma,Arial,sans-serif" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}">${lines.map((line, index) => `<tspan x="${centerX}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('')}</text>`;
+}
+
 function titleCardSvg(slide: SlideshowSlide, width: number, height: number): string {
-  const title = escapeXml(slide.title || (slide.kind === 'end-card' ? 'Thank you' : 'KNOUX Slideshow'));
-  const caption = escapeXml(slide.caption || '');
+  const rawTitle = slide.title || (slide.kind === 'end-card' ? 'Thank you' : 'KNOUX Slideshow');
+  const rawCaption = slide.caption || '';
+  const rtl = /[\u0590-\u08ff]/.test(`${rawTitle}${rawCaption}`);
   const titleSize = Math.max(42, Math.round(width * 0.055));
   const captionSize = Math.max(24, Math.round(width * 0.025));
-  const direction = /[\u0590-\u08ff]/.test(`${title}${caption}`) ? 'rtl' : 'ltr';
+  const titleLines = wrapText(rawTitle, rtl ? 34 : 42, 3);
+  const captionLines = wrapText(rawCaption, rtl ? 58 : 72, 4);
+  const titleLineHeight = Math.round(titleSize * 1.18);
+  const captionLineHeight = Math.round(captionSize * 1.35);
+  const titleHeight = Math.max(titleLineHeight, titleLines.length * titleLineHeight);
+  const captionHeight = captionLines.length * captionLineHeight;
+  const gap = captionLines.length > 0 ? Math.max(24, Math.round(height * 0.035)) : 0;
+  const blockHeight = titleHeight + gap + captionHeight;
+  const titleY = Math.round((height - blockHeight) / 2 + titleSize);
+  const captionY = titleY + titleHeight + gap;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="${escapeXml(slide.backgroundColor)}"/>
-  <defs><radialGradient id="glow"><stop offset="0" stop-color="#7d4cff" stop-opacity="0.34"/><stop offset="1" stop-color="#030207" stop-opacity="0"/></radialGradient></defs>
+  <defs>
+    <radialGradient id="glow"><stop offset="0" stop-color="#7d4cff" stop-opacity="0.34"/><stop offset="1" stop-color="#030207" stop-opacity="0"/></radialGradient>
+    <filter id="shadow"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>
   <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.48}" fill="url(#glow)"/>
-  <foreignObject x="${width * 0.08}" y="${height * 0.22}" width="${width * 0.84}" height="${height * 0.56}">
-    <div xmlns="http://www.w3.org/1999/xhtml" dir="${direction}" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;font-family:Segoe UI,Tahoma,Arial,sans-serif;">
-      <div style="font-size:${titleSize}px;font-weight:700;line-height:1.16;text-shadow:0 0 28px rgba(125,76,255,.55);">${title}</div>
-      <div style="margin-top:${Math.max(20, height * 0.035)}px;font-size:${captionSize}px;line-height:1.4;color:rgba(255,255,255,.76);">${caption}</div>
-    </div>
-  </foreignObject>
+  <text x="${width / 2}" y="${titleY}" text-anchor="middle" font-family="Segoe UI,Tahoma,Arial,sans-serif" font-size="${titleSize}" font-weight="700" fill="#7d4cff" opacity="0.58" filter="url(#shadow)">${escapeXml(titleLines[0] ?? '')}</text>
+  ${svgTextLines(titleLines, width / 2, titleY, titleLineHeight, titleSize, 700, '#ffffff', rtl)}
+  ${svgTextLines(captionLines, width / 2, captionY, captionLineHeight, captionSize, 400, 'rgba(255,255,255,0.76)', rtl)}
 </svg>`;
 }
 
@@ -199,7 +250,7 @@ export class SlideshowRenderService {
   }
 
   private async prepareAssets(project: SlideshowProject, temporaryDirectory: string): Promise<SlideshowRenderAssets> {
-    const { width, height } = await import('../../src/core/creative/slideshowProject').then(({ slideshowOutputSize }) => slideshowOutputSize(project));
+    const { width, height } = slideshowOutputSize(project);
     const slideSources: Record<string, string> = {};
     const slideMetadata: Record<string, SlideshowMediaMetadata> = {};
     const audioMetadata: Record<string, SlideshowMediaMetadata> = {};

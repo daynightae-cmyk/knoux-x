@@ -3,6 +3,8 @@ import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 import type { AIChatMessage, AIConfigureRequest } from './creative/ai-service';
 import { AIService } from './creative/ai-service';
 import { SubtitleService } from './creative/subtitle-service';
+import type { AudioToolsRuntimeController } from './ipc/audio-tools-runtime';
+import { setupAudioToolsRuntime } from './ipc/audio-tools-runtime';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
 import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
@@ -20,6 +22,7 @@ let controller: CreativeSuiteController | null = null;
 let recordingRegionController: RecordingRegionRuntimeController | null = null;
 let multitrackController: MultitrackRuntimeController | null = null;
 let slideshowController: SlideshowRuntimeController | null = null;
+let audioToolsController: AudioToolsRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -53,6 +56,7 @@ function registerCreativeRuntime(): void {
   recordingRegionController = setupRecordingRegionRuntime();
   multitrackController = setupMultitrackRuntime();
   slideshowController = setupSlideshowRuntime();
+  audioToolsController = setupAudioToolsRuntime();
 
   ipcMain.handle('creative:request-media-permission', (event) => {
     requireTrustedEvent(event);
@@ -127,5 +131,6 @@ export function cleanupCreativeRuntime(): void {
   recordingRegionController?.close();
   multitrackController?.close();
   slideshowController?.close();
+  audioToolsController?.close();
   void controller?.shutdown();
 }

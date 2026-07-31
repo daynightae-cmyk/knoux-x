@@ -9,6 +9,8 @@ import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
 import { setupMultitrackRuntime } from './ipc/multitrack-runtime';
 import type { RecordingRegionRuntimeController } from './ipc/recording-region-runtime';
 import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
+import type { SlideshowRuntimeController } from './ipc/slideshow-runtime';
+import { setupSlideshowRuntime } from './ipc/slideshow-runtime';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
@@ -17,6 +19,7 @@ let subtitleService: SubtitleService | null = null;
 let controller: CreativeSuiteController | null = null;
 let recordingRegionController: RecordingRegionRuntimeController | null = null;
 let multitrackController: MultitrackRuntimeController | null = null;
+let slideshowController: SlideshowRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -49,6 +52,7 @@ function registerCreativeRuntime(): void {
   controller = setupCreativeSuiteHandlers(ipcMain);
   recordingRegionController = setupRecordingRegionRuntime();
   multitrackController = setupMultitrackRuntime();
+  slideshowController = setupSlideshowRuntime();
 
   ipcMain.handle('creative:request-media-permission', (event) => {
     requireTrustedEvent(event);
@@ -122,5 +126,6 @@ export function cleanupCreativeRuntime(): void {
   aiService?.cancel();
   recordingRegionController?.close();
   multitrackController?.close();
+  slideshowController?.close();
   void controller?.shutdown();
 }

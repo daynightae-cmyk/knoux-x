@@ -17,7 +17,24 @@ function optionalBinary(moduleName) {
 const projectNodeModules = path.resolve(__dirname, 'node_modules');
 
 function packageRoot(packageName, searchPath = __dirname) {
-  return path.dirname(require.resolve(`${packageName}/package.json`, { paths: [searchPath] }));
+  try {
+    return path.dirname(require.resolve(`${packageName}/package.json`, { paths: [searchPath] }));
+  } catch (manifestError) {
+    try {
+      let current = path.dirname(require.resolve(packageName, { paths: [searchPath] }));
+      while (current !== path.dirname(current)) {
+        const manifestPath = path.join(current, 'package.json');
+        if (fs.existsSync(manifestPath)) {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (manifest.name === packageName) return current;
+        }
+        current = path.dirname(current);
+      }
+    } catch {
+      // Preserve the original, more precise resolution error below.
+    }
+    throw manifestError;
+  }
 }
 
 function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set(), searchPath) {
@@ -51,6 +68,17 @@ function copyRuntimeDependencyTree(packageName, buildPath, copiedRoots = new Set
   }
 }
 
+function copyInstalledScope(scopeName, buildPath) {
+  const source = path.join(projectNodeModules, scopeName);
+  if (!fs.existsSync(source)) return [];
+  const destination = path.join(buildPath, 'node_modules', scopeName);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.cpSync(source, destination, { recursive: true, force: true, dereference: true });
+  return fs.readdirSync(destination, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
+
 function requirePackagedManifest(buildPath, packageName) {
   const manifestPath = path.join(buildPath, 'node_modules', ...packageName.split('/'), 'package.json');
   if (!fs.existsSync(manifestPath)) {
@@ -64,20 +92,30 @@ function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, cal
     const copiedRoots = new Set();
     copyRuntimeDependencyTree('better-sqlite3', buildPath, copiedRoots);
     copyRuntimeDependencyTree('sharp', buildPath, copiedRoots);
+    const installedImagePackages = copyInstalledScope('@img', buildPath)
+      .filter((name) => name.startsWith('sharp-'));
 
     const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
     const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
     const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
-    const sharpPlatformPackages = fs.existsSync(sharpPlatformRoot)
-      ? fs.readdirSync(sharpPlatformRoot).filter((name) => name.startsWith('sharp-'))
+    const windowsRuntime = installedImagePackages.find((name) => /^sharp-win32-(x64|ia32|arm64)$/.test(name));
+    const windowsLibvips = installedImagePackages.find((name) => /^sharp-libvips-win32-(x64|ia32|arm64)$/.test(name));
+    if (!windowsRuntime || !windowsLibvips) {
+      throw new Error(`Sharp Windows runtime packages are incomplete in ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
+    }
+
+    const nativeBinaryRoot = path.join(sharpPlatformRoot, windowsRuntime, 'lib');
+    const nativeBinaries = fs.existsSync(nativeBinaryRoot)
+      ? fs.readdirSync(nativeBinaryRoot).filter((name) => name.endsWith('.node'))
       : [];
-    if (sharpPlatformPackages.length === 0) {
-      throw new Error(`Sharp platform runtime packages were not copied into ${sharpPlatformRoot}`);
+    if (nativeBinaries.length === 0) {
+      throw new Error(`Sharp Windows native binary is missing from ${nativeBinaryRoot}`);
     }
 
     console.log(`[KNOUX package] Native SQLite runtime copied to ${sqliteManifest}`);
     console.log(`[KNOUX package] Sharp runtime copied to ${sharpManifest}`);
-    console.log(`[KNOUX package] Sharp platform packages: ${sharpPlatformPackages.join(', ')}`);
+    console.log(`[KNOUX package] Sharp platform packages: ${installedImagePackages.join(', ')}`);
+    console.log(`[KNOUX package] Sharp native binaries: ${nativeBinaries.join(', ')}`);
     callback();
   } catch (error) {
     callback(error);

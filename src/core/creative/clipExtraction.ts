@@ -89,6 +89,10 @@ function subtitleFilter(filePath: string): string {
   return `subtitles='${escaped}'`;
 }
 
+function supportsFastStart(outputPath: string): boolean {
+  return /\.(?:mp4|m4v|mov)$/i.test(outputPath);
+}
+
 export function buildClipExtractionArguments(
   inputPath: string,
   outputPath: string,
@@ -107,7 +111,9 @@ export function buildClipExtractionArguments(
       '-map', '0:v:0?',
     );
     if (options.includeAudio) args.push('-map', '0:a:0?');
-    args.push('-c', 'copy', '-avoid_negative_ts', 'make_zero', '-movflags', '+faststart', outputPath);
+    args.push('-c', 'copy', '-avoid_negative_ts', 'make_zero');
+    if (supportsFastStart(outputPath)) args.push('-movflags', '+faststart');
+    args.push(outputPath);
     return args;
   }
 
@@ -135,12 +141,14 @@ export function buildClipExtractionArguments(
   } else {
     args.push('-an');
   }
-  args.push('-movflags', '+faststart', outputPath);
+  if (supportsFastStart(outputPath)) args.push('-movflags', '+faststart');
+  args.push(outputPath);
   return args;
 }
 
 export function suggestedClipExtension(options: ClipExtractionOptions): string {
   const validated = validateClipExtractionOptions(options);
+  if (validated.mode === 'lossless') return 'mkv';
   if (validated.mode === 'audio-only') return validated.audioCodec === 'pcm' ? 'wav' : validated.audioCodec === 'opus' ? 'opus' : 'm4a';
   if (validated.mode === 'frames') return 'png';
   if (validated.videoCodec === 'vp9') return 'webm';

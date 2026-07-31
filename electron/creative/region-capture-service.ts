@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -8,7 +7,6 @@ import {
   nativeImage,
   screen,
   type Display,
-  type IpcMain,
   type IpcMainEvent,
   type NativeImage,
   type Rectangle,
@@ -16,6 +14,9 @@ import {
 import sharp from 'sharp';
 
 import type { CaptureFormat } from '../../src/core/creative/capture';
+import { IPC_INBOUND } from '../ipc/contract';
+import type { IpcRegistrar } from '../ipc/registry';
+import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from '../window-security';
 
 import type { CaptureService } from './capture-service';
 
@@ -51,8 +52,8 @@ interface SelectorPayload extends Rectangle {
   token: string;
 }
 
-const COMPLETE_CHANNEL = 'capture:selector-complete';
-const CANCEL_CHANNEL = 'capture:selector-cancel';
+const COMPLETE_CHANNEL = IPC_INBOUND.CAPTURE_SELECTOR_COMPLETE;
+const CANCEL_CHANNEL = IPC_INBOUND.CAPTURE_SELECTOR_CANCEL;
 const MAX_CAPTURE_EDGE = 16_384;
 const MAX_CAPTURE_AREA = 134_217_728;
 
@@ -176,7 +177,7 @@ export class RegionCaptureService {
   private selectorWindow: BrowserWindow | null = null;
 
   constructor(
-    private readonly ipc: IpcMain,
+    private readonly ipc: IpcRegistrar,
     private readonly captureService: CaptureService,
   ) {}
 
@@ -258,7 +259,7 @@ export class RegionCaptureService {
 
   private async selectRegion(display: Display, imageDataUrl: string, aspectPreset: RegionAspectPreset): Promise<Rectangle | null> {
     const token = randomUUID();
-    const preloadPath = path.join(__dirname, 'preload-entry.js');
+    const preloadPath = resolveTrustedPreloadPath();
     const window = new BrowserWindow({
       x: display.bounds.x,
       y: display.bounds.y,
@@ -277,11 +278,8 @@ export class RegionCaptureService {
       hasShadow: false,
       backgroundColor: '#05030b',
       webPreferences: {
+        ...SECURE_RENDERER_PREFERENCES,
         preload: preloadPath,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webSecurity: true,
         spellcheck: false,
       },
     });

@@ -1,7 +1,10 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import type { RegionAspectPreset } from '../creative/region-capture-service';
 import { RecordingRegionService } from '../creative/recording-region-service';
+
+import { IPC_INVOKE } from './contract';
+import type { IpcRegistrar } from './registry';
 
 export interface RecordingRegionRuntimeController {
   close(): void;
@@ -25,9 +28,9 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   }
 }
 
-export function setupRecordingRegionRuntime(): RecordingRegionRuntimeController {
-  const service = new RecordingRegionService(ipcMain);
-  ipcMain.handle('recording-region:select', async (
+export function setupRecordingRegionRuntime(ipc: IpcRegistrar): RecordingRegionRuntimeController {
+  const service = new RecordingRegionService(ipc);
+  ipc.handle(IPC_INVOKE.RECORDING_REGION_SELECT, async (
     event,
     sourceId: string,
     aspectPreset: RegionAspectPreset = 'free',
@@ -41,7 +44,6 @@ export function setupRecordingRegionRuntime(): RecordingRegionRuntimeController 
 
   return {
     close(): void {
-      ipcMain.removeHandler('recording-region:select');
       service.close();
     },
   };

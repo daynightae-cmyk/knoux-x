@@ -1,38 +1,40 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge } from 'electron';
 
 import type { SlideshowRenderFormat } from '../src/core/creative/slideshowRender';
 import type { SlideshowProject, SlideshowTemplate } from '../src/core/creative/slideshowProject';
 
 import type { SlideshowRecovery } from './creative/slideshow-project-service';
 import type { SlideshowRenderSnapshot } from './creative/slideshow-render-service';
+import { IPC_INVOKE, IPC_OUTBOUND } from './ipc/contract';
+import { invokeDesktop, offDesktopEvent, onDesktopEvent } from './ipc/preload-client';
 
 const slideshowAPI = {
   create: (name: string, template: SlideshowTemplate): Promise<SlideshowProject> =>
-    ipcRenderer.invoke('slideshow:create', name, template),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_CREATE, name, template),
   open: (): Promise<{ project: SlideshowProject; filePath: string } | null> =>
-    ipcRenderer.invoke('slideshow:open'),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_OPEN),
   openRecent: (filePath: string): Promise<{ project: SlideshowProject; filePath: string }> =>
-    ipcRenderer.invoke('slideshow:open-recent', filePath),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_OPEN_RECENT, filePath),
   save: (project: SlideshowProject, filePath?: string, saveAs = false): Promise<string | null> =>
-    ipcRenderer.invoke('slideshow:save', project, filePath, saveAs),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_SAVE, project, filePath, saveAs),
   autosave: (project: SlideshowProject): Promise<string> =>
-    ipcRenderer.invoke('slideshow:autosave', project),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_AUTOSAVE, project),
   recoveries: (): Promise<SlideshowRecovery[]> =>
-    ipcRenderer.invoke('slideshow:recoveries'),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_RECOVERIES),
   recent: (): Promise<string[]> =>
-    ipcRenderer.invoke('slideshow:recent'),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_RECENT),
   clearRecent: (): Promise<void> =>
-    ipcRenderer.invoke('slideshow:clear-recent'),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_CLEAR_RECENT),
   render: (project: SlideshowProject, format: SlideshowRenderFormat): Promise<SlideshowRenderSnapshot | null> =>
-    ipcRenderer.invoke('slideshow:render', project, format),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_RENDER, project, format),
   renderJobs: (): Promise<SlideshowRenderSnapshot[]> =>
-    ipcRenderer.invoke('slideshow:render-jobs'),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_RENDER_JOBS),
   cancelRender: (jobId: string): Promise<boolean> =>
-    ipcRenderer.invoke('slideshow:cancel-render', jobId),
+    invokeDesktop(IPC_INVOKE.SLIDESHOW_CANCEL_RENDER, jobId),
   onRenderProgress: (callback: (snapshot: SlideshowRenderSnapshot) => void): (() => void) => {
     const listener = (_event: unknown, snapshot: SlideshowRenderSnapshot) => callback(snapshot);
-    ipcRenderer.on('slideshow:render-progress', listener);
-    return () => ipcRenderer.removeListener('slideshow:render-progress', listener);
+    onDesktopEvent(IPC_OUTBOUND.SLIDESHOW_RENDER_PROGRESS, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.SLIDESHOW_RENDER_PROGRESS, listener);
   },
 };
 

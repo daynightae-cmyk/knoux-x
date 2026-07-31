@@ -211,12 +211,34 @@ function createCoreBridge(): Window['knouxAPI'] {
     },
     system: {
       getInfo: async () => ({
+        product: 'KNOUX Player X' as const,
         version: 'web-preview',
         platform: navigator.platform || 'web',
         arch: 'browser',
+        sha: 'not-applicable',
+        branch: 'browser-preview',
+        builtAt: new Date(0).toISOString(),
+        packaged: false,
         electronVersion: 'not-applicable',
         chromeVersion: navigator.userAgent,
         nodeVersion: 'not-applicable',
+      }),
+      getBuildInfo: async () => ({
+        product: 'KNOUX Player X' as const,
+        version: 'web-preview',
+        sha: 'not-applicable',
+        branch: 'browser-preview',
+        builtAt: new Date(0).toISOString(),
+        packaged: false,
+        electronVersion: 'not-applicable',
+      }),
+      getIpcHealth: async () => ({
+        schemaVersion: 1 as const,
+        status: 'failed' as const,
+        exposed: [], registered: [], listeners: [], missing: [], duplicates: [],
+        preloadPath: '', preloadExists: false, packaged: false,
+        version: 'web-preview', sha: 'not-applicable', branch: 'browser-preview',
+        buildTimestamp: new Date(0).toISOString(), electronVersion: 'not-applicable',
       }),
       getMemoryUsage: async () => ({ used: 0, total: 0, percentage: 0 }),
       openExternal: async (url: string) => {
@@ -343,11 +365,20 @@ export function installBrowserPreviewBridge(): void {
   if (typeof window === 'undefined') return;
   const hasCoreBridge = typeof window.knouxAPI === 'object' && window.knouxAPI !== null;
   const hasCreativeBridge = typeof window.knouxCreativeAPI === 'object' && window.knouxCreativeAPI !== null;
-  if (hasCoreBridge && hasCreativeBridge) {
+  if (window.knouxRuntime?.edition === 'desktop') {
+    const complete = hasCoreBridge
+      && hasCreativeBridge
+      && typeof window.knouxRecordingAPI === 'object'
+      && typeof window.knouxMultitrackAPI === 'object'
+      && typeof window.knouxSlideshowAPI === 'object'
+      && typeof window.knouxAudioToolsAPI === 'object';
+    if (!complete) throw new Error('DESKTOP_BRIDGE_INCOMPLETE');
     document.documentElement.dataset.runtime = 'electron';
     return;
   }
-  if (!hasCoreBridge) window.knouxAPI = createCoreBridge();
-  if (!hasCreativeBridge) window.knouxCreativeAPI = createCreativeBridge();
+  if (window.knouxRuntime || hasCoreBridge || hasCreativeBridge) throw new Error('RUNTIME_BRIDGE_OWNERSHIP_CONFLICT');
+  window.knouxAPI = createCoreBridge();
+  window.knouxCreativeAPI = createCreativeBridge();
+  window.knouxRuntime = Object.freeze({ edition: 'web-preview', product: 'KNOUX Player X', bridgeVersion: 1 });
   document.documentElement.dataset.runtime = 'web-preview';
 }

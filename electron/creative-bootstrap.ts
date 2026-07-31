@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 import type { AIChatMessage, AIConfigureRequest } from './creative/ai-service';
 import { AIService } from './creative/ai-service';
 import { SubtitleService } from './creative/subtitle-service';
 import type { AudioToolsRuntimeController } from './ipc/audio-tools-runtime';
 import { setupAudioToolsRuntime } from './ipc/audio-tools-runtime';
+import { setupClipExtractionRuntime } from './ipc/clip-extraction-runtime';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
 import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
@@ -13,6 +14,8 @@ import type { RecordingRegionRuntimeController } from './ipc/recording-region-ru
 import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
 import type { SlideshowRuntimeController } from './ipc/slideshow-runtime';
 import { setupSlideshowRuntime } from './ipc/slideshow-runtime';
+import { IPC_INVOKE } from './ipc/contract';
+import { authoritativeIpc } from './ipc/runtime';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
@@ -46,29 +49,32 @@ function validateDelay(value: unknown): number {
 }
 
 function registerCreativeRuntime(): void {
-  if (registered) return;
+  if (registered) throw new Error('Creative runtime registration was attempted twice.');
   registered = true;
 
   // Lazy-instantiate services only in primary instance.
   aiService = new AIService();
   subtitleService = new SubtitleService();
-  controller = setupCreativeSuiteHandlers(ipcMain);
-  recordingRegionController = setupRecordingRegionRuntime();
-  multitrackController = setupMultitrackRuntime();
-  slideshowController = setupSlideshowRuntime();
-  audioToolsController = setupAudioToolsRuntime();
+  controller = setupCreativeSuiteHandlers(authoritativeIpc.forOwner('creative-suite'));
+  recordingRegionController = setupRecordingRegionRuntime(authoritativeIpc.forOwner('recording-region'));
+  multitrackController = setupMultitrackRuntime(authoritativeIpc.forOwner('multitrack'));
+  slideshowController = setupSlideshowRuntime(authoritativeIpc.forOwner('slideshow'));
+  audioToolsController = setupAudioToolsRuntime(authoritativeIpc.forOwner('audio-tools'));
+  setupClipExtractionRuntime(authoritativeIpc.forOwner('clip-extraction'));
 
-  ipcMain.handle('creative:request-media-permission', (event) => {
+  const ipc = authoritativeIpc.forOwner('creative-bootstrap');
+
+  ipc.handle(IPC_INVOKE.CREATIVE_REQUEST_MEDIA_PERMISSION, (event) => {
     requireTrustedEvent(event);
     permissionExpiry.set(event.sender.id, Date.now() + MEDIA_PERMISSION_WINDOW_MS);
     return true;
   });
 
-  ipcMain.handle('subtitle:select', async (event, delaySeconds = 0) => {
+  ipc.handle(IPC_INVOKE.SUBTITLE_SELECT, async (event, delaySeconds = 0) => {
     requireTrustedEvent(event);
     return subtitleService!.select(validateDelay(delaySeconds));
   });
-  ipcMain.handle('subtitle:reload', async (event, filePath: string, delaySeconds = 0) => {
+  ipc.handle(IPC_INVOKE.SUBTITLE_RELOAD, async (event, filePath: string, delaySeconds = 0) => {
     requireTrustedEvent(event);
     if (typeof filePath !== 'string' || filePath.length === 0 || filePath.length > 4096) {
       throw new TypeError('Subtitle path is invalid.');
@@ -76,27 +82,27 @@ function registerCreativeRuntime(): void {
     return subtitleService!.load(filePath, validateDelay(delaySeconds));
   });
 
-  ipcMain.handle('ai-secure:settings', (event) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_SETTINGS, (event) => {
     requireTrustedEvent(event);
     return aiService!.getSettings();
   });
-  ipcMain.handle('ai-secure:configure', (event, request: AIConfigureRequest) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_CONFIGURE, (event, request: AIConfigureRequest) => {
     requireTrustedEvent(event);
     return aiService!.configure(request);
   });
-  ipcMain.handle('ai-secure:clear', (event) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_CLEAR, (event) => {
     requireTrustedEvent(event);
     return aiService!.clearCredential();
   });
-  ipcMain.handle('ai-secure:test', async (event) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_TEST, async (event) => {
     requireTrustedEvent(event);
     return aiService!.testConnection();
   });
-  ipcMain.handle('ai-secure:chat', async (event, message: string, history: AIChatMessage[] = []) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_CHAT, async (event, message: string, history: AIChatMessage[] = []) => {
     requireTrustedEvent(event);
     return aiService!.chat(message, history);
   });
-  ipcMain.handle('ai-secure:cancel', (event) => {
+  ipc.handle(IPC_INVOKE.AI_SECURE_CANCEL, (event) => {
     requireTrustedEvent(event);
     return aiService!.cancel();
   });

@@ -50,6 +50,9 @@ interface CapabilityState {
   powerEfficient: boolean | null;
 }
 
+type BuildInfo = Awaited<ReturnType<Window['knouxAPI']['system']['getBuildInfo']>>;
+type IpcHealth = Awaited<ReturnType<Window['knouxAPI']['system']['getIpcHealth']>>;
+
 function parseFrameRate(value: string | undefined): number | null {
   if (!value) return null;
   const [numerator, denominator] = value.split('/').map(Number);
@@ -90,6 +93,8 @@ export const PlayerDiagnosticsPanel: React.FC<PlayerDiagnosticsPanelProps> = ({ 
   const [probeError, setProbeError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<RuntimeMetrics | null>(null);
   const [capability, setCapability] = useState<CapabilityState>({ supported: null, smooth: null, powerEfficient: null });
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
+  const [ipcHealth, setIpcHealth] = useState<IpcHealth | null>(null);
   const previousFrameRef = useRef<FrameRateSample | null>(null);
   const { t } = useTranslation();
 
@@ -102,6 +107,24 @@ export const PlayerDiagnosticsPanel: React.FC<PlayerDiagnosticsPanelProps> = ({ 
   const resolutionClass = classifyResolution(width, height);
   const sourceFrameRate = parseFrameRate(videoStream?.avg_frame_rate) ?? parseFrameRate(videoStream?.r_frame_rate);
   const health = playbackHealthLabel(metrics?.droppedPercentage ?? 0);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([window.knouxAPI.system.getBuildInfo(), window.knouxAPI.system.getIpcHealth()])
+      .then(([identity, ipc]) => {
+        if (active) {
+          setBuildInfo(identity);
+          setIpcHealth(ipc);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setBuildInfo(null);
+          setIpcHealth(null);
+        }
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setProbe(null);
@@ -180,6 +203,18 @@ export const PlayerDiagnosticsPanel: React.FC<PlayerDiagnosticsPanelProps> = ({ 
         <div><Activity size={18} /><strong>{t('diagnostics.title')}</strong></div>
         <button type="button" onClick={onClose} aria-label={t('common.cancel')}><X size={17} /></button>
       </header>
+
+      <section className="player-diagnostics-foundation" aria-label="Developer foundation">
+        <h3><Cpu size={15} /> Developer foundation</h3>
+        <dl>
+          <div><dt>Build</dt><dd>{buildInfo ? `${buildInfo.version} · ${buildInfo.sha.slice(0, 12)}` : '—'}</dd></div>
+          <div><dt>Branch</dt><dd>{buildInfo?.branch ?? '—'}</dd></div>
+          <div><dt>Runtime</dt><dd>{buildInfo ? `${buildInfo.packaged ? 'Packaged' : 'Development'} · Electron ${buildInfo.electronVersion}` : '—'}</dd></div>
+          <div><dt>Built</dt><dd>{buildInfo?.builtAt ?? '—'}</dd></div>
+          <div><dt>IPC health</dt><dd data-health={ipcHealth?.status}>{ipcHealth ? `${ipcHealth.status} · ${ipcHealth.missing.length} missing · ${ipcHealth.duplicates.length} duplicates` : '—'}</dd></div>
+          <div><dt>Preload</dt><dd title={ipcHealth?.preloadPath}>{ipcHealth?.preloadPath ?? '—'}</dd></div>
+        </dl>
+      </section>
 
       {!currentMedia ? (
         <div className="player-diagnostics-empty">{t('diagnostics.noMedia')}</div>

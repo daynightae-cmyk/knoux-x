@@ -25,6 +25,7 @@ interface StoredSettingsDocument {
 }
 
 const MAX_SETTINGS_BYTES = 2 * 1024 * 1024;
+const MAX_SETTINGS_BACKUPS = 3;
 
 function resolveSettingKey(value: string): ApplicationSettingKey | null {
   if (value === 'volume') return 'defaultVolume';
@@ -182,14 +183,7 @@ export class SettingsManager extends EventEmitter {
     const storagePath = this.requireStoragePath();
     try {
       const raw = await fs.readFile(storagePath, 'utf8');
-      if (raw.length > MAX_SETTINGS_BYTES) throw new Error('Settings file is too large.');
-      const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
-      if ('settings' in decoded) {
-        if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
-        this.settings = parseApplicationSettings(decoded.settings);
-      } else {
-        this.settings = parseApplicationSettings(decoded);
-      }
+      this.settings = this.parseStoredDocument(raw);
     } catch (error) {
       const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
       if (code !== 'ENOENT') {
@@ -197,10 +191,16 @@ export class SettingsManager extends EventEmitter {
           await fs.mkdir(path.dirname(storagePath), { recursive: true });
           await fs.rename(storagePath, `${storagePath}.corrupt-${safeTimestamp()}`);
         } catch {
-          // Preserve startup even when a corrupt settings file cannot be renamed.
+          // Recovery continues through backups even when quarantine is unavailable.
         }
       }
-      this.settings = structuredClone(DEFAULT_APPLICATION_SETTINGS);
+      const backup = await this.loadNewestValidBackup();
+      this.settings = backup?.settings ?? structuredClone(DEFAULT_APPLICATION_SETTINGS);
+      this.emit('recovery', {
+        source: backup ? 'backup' : 'defaults',
+        backupPath: backup?.filePath ?? null,
+        reason: error instanceof Error ? error.message : String(error),
+      });
       await this.persist();
     }
   }
@@ -215,17 +215,80 @@ export class SettingsManager extends EventEmitter {
     this.writeChain = this.writeChain.then(async () => {
       await fs.mkdir(path.dirname(storagePath), { recursive: true });
       const temporaryPath = `${storagePath}.${process.pid}.tmp`;
-      await fs.writeFile(temporaryPath, serialized, { encoding: 'utf8', mode: 0o600 });
+      const handle = await fs.open(temporaryPath, 'w', 0o600);
+      try {
+        await handle.writeFile(serialized, 'utf8');
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+
+      let backupPath: string | null = null;
+      try {
+        const existing = await fs.readFile(storagePath, 'utf8');
+        this.parseStoredDocument(existing);
+        backupPath = `${storagePath}.backup-${safeTimestamp()}-${process.hrtime.bigint().toString()}`;
+        await fs.rename(storagePath, backupPath);
+      } catch (error) {
+        const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+        if (code !== 'ENOENT' && backupPath) {
+          await fs.rename(backupPath, storagePath).catch(() => undefined);
+          throw error;
+        }
+      }
+
       try {
         await fs.rename(temporaryPath, storagePath);
       } catch (error) {
-        const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
-        if (!['EEXIST', 'EPERM'].includes(code)) throw error;
-        await fs.rm(storagePath, { force: true });
-        await fs.rename(temporaryPath, storagePath);
+        if (backupPath) await fs.rename(backupPath, storagePath).catch(() => undefined);
+        await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+        throw error;
       }
+      await this.pruneBackups();
     });
     return this.writeChain;
+  }
+
+  private parseStoredDocument(raw: string): ApplicationSettings {
+    if (raw.length === 0 || raw.length > MAX_SETTINGS_BYTES || raw.includes('\u0000')) throw new Error('Settings file is invalid or too large.');
+    const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
+    if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) throw new Error('Settings document must be an object.');
+    if ('settings' in decoded) {
+      if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
+      return parseApplicationSettings(decoded.settings);
+    }
+    return parseApplicationSettings(decoded);
+  }
+
+  private async loadNewestValidBackup(): Promise<{ filePath: string; settings: ApplicationSettings } | null> {
+    const storagePath = this.requireStoragePath();
+    let names: string[];
+    try {
+      names = await fs.readdir(path.dirname(storagePath));
+    } catch {
+      return null;
+    }
+    const prefix = `${path.basename(storagePath)}.backup-`;
+    for (const name of names.filter((entry) => entry.startsWith(prefix)).sort().reverse()) {
+      const filePath = path.join(path.dirname(storagePath), name);
+      try {
+        const raw = await fs.readFile(filePath, 'utf8');
+        return { filePath, settings: this.parseStoredDocument(raw) };
+      } catch {
+        // Continue to older bounded backups.
+      }
+    }
+    return null;
+  }
+
+  private async pruneBackups(): Promise<void> {
+    const storagePath = this.requireStoragePath();
+    const prefix = `${path.basename(storagePath)}.backup-`;
+    const names = (await fs.readdir(path.dirname(storagePath)))
+      .filter((entry) => entry.startsWith(prefix))
+      .sort()
+      .reverse();
+    await Promise.all(names.slice(MAX_SETTINGS_BACKUPS).map((name) => fs.rm(path.join(path.dirname(storagePath), name), { force: true })));
   }
 
   private requireStoragePath(): string {

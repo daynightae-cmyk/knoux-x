@@ -122,11 +122,13 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
   await fs.writeFile(storagePath, '{corrupt-json', 'utf8');
   const recovered = new SettingsManager(storagePath);
   await recovered.initialize();
-  assertDeepEqual(await recovered.getAll().then(({ volume: _volume, ...settings }) => settings), DEFAULT_APPLICATION_SETTINGS, 'corrupt recovery');
+  for (const [key, expected] of Object.entries(customized)) {
+    assertDeepEqual(await recovered.get(key), expected, `${key} backup recovery`);
+  }
   await recovered.shutdown();
   const corruptBackups = (await fs.readdir(path.dirname(storagePath))).filter((name) => name.includes('.corrupt-')).length;
   if (corruptBackups !== 1) throw new Error('Corrupt settings were not quarantined exactly once.');
-  checks.push('corrupt-settings-recovery');
+  checks.push('corrupt-settings-backup-recovery');
 
   const temporaryFiles = (await fs.readdir(path.dirname(storagePath))).filter((name) => name.endsWith('.tmp'));
   if (temporaryFiles.length !== 0) throw new Error('Atomic settings writes left temporary files behind.');
@@ -147,4 +149,5 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
     corruptBackups,
     completedAt: new Date().toISOString(),
   });
+  await fs.rm(root, { recursive: true, force: true });
 }

@@ -89,13 +89,6 @@ update('tests/integration/creative/media-pipeline.test.ts', (source) => {
   return next;
 });
 
-update('.github/workflows/full-rebuild-windows.yml', (source) => replaceRequired(
-  source,
-  `          npm run doctor\n          npm run typecheck\n          npm run lint -- --max-warnings=0\n          npm test -- --runInBand`,
-  `          npm run doctor\n          if ($LASTEXITCODE -ne 0) { throw 'Doctor gate failed.' }\n          npm run typecheck\n          if ($LASTEXITCODE -ne 0) { throw 'TypeScript gate failed.' }\n          npm run lint -- --max-warnings=0\n          if ($LASTEXITCODE -ne 0) { throw 'ESLint zero-warning gate failed.' }\n          npm test -- --runInBand\n          if ($LASTEXITCODE -ne 0) { throw 'Jest gate failed.' }`,
-  'explicit quality gate exits',
-));
-
 for (const relativePath of ['tools/fix-final-quality-gates.cjs', '.github/workflows/apply-final-quality-fixes.yml']) {
   const filePath = path.join(root, relativePath);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

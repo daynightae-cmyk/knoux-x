@@ -19,6 +19,7 @@ import './styles/player-creative.css';
 import './styles/ai-creative.css';
 import './styles/first-run.css';
 import './styles/player-viewport.css';
+import './styles/player-diagnostics.css';
 import './styles/capture-studio.css';
 import './styles/image-editor.css';
 import './styles/image-editor-runtime.css';

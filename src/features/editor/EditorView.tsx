@@ -21,6 +21,7 @@ import {
   splitClip,
   trimClip,
 } from '../../core/creative/editProject';
+import { useTranslation } from '../../i18n';
 
 function projectDuration(project: EditProject | null): number {
   if (!project || project.clips.length === 0) return 0;
@@ -65,6 +66,7 @@ export const EditorView: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const historyRef = useRef<EditHistory<EditProject> | null>(null);
+  const { t } = useTranslation();
 
   const totalDuration = useMemo(() => projectDuration(project), [project]);
   const selectedClip = useMemo(
@@ -82,7 +84,7 @@ export const EditorView: React.FC = () => {
 
   const createNewProject = useCallback(async (): Promise<void> => {
     setError(null);
-    const name = window.prompt('Project name', 'Untitled KNOUX Project')?.trim();
+    const name = window.prompt(t('editor.projectNamePrompt'), t('editor.defaultProject'))?.trim();
     if (!name) return;
     const next = await window.knouxCreativeAPI.editor.createProject(name);
     historyRef.current = new EditHistory(next);
@@ -91,7 +93,7 @@ export const EditorView: React.FC = () => {
     setSelectedClipId(null);
     setPlayhead(0);
     setDirty(false);
-  }, []);
+  }, [t]);
 
   const openProject = useCallback(async (): Promise<void> => {
     setError(null);
@@ -116,11 +118,11 @@ export const EditorView: React.FC = () => {
         setDirty(false);
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Project could not be saved.');
+      setError(reason instanceof Error ? reason.message : t('editor.saveFailed'));
     } finally {
       setBusy(false);
     }
-  }, [busy, project, projectPath]);
+  }, [busy, project, projectPath, t]);
 
   useEffect(() => {
     if (!project || !dirty) return undefined;
@@ -151,11 +153,11 @@ export const EditorView: React.FC = () => {
       setSelectedClipId(clip.id);
       setPlayhead(clip.timelineStart);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Media could not be added.');
+      setError(reason instanceof Error ? reason.message : t('editor.addMediaFailed'));
     } finally {
       setBusy(false);
     }
-  }, [busy, project, replaceProject]);
+  }, [busy, project, replaceProject, t]);
 
   const splitSelected = useCallback((): void => {
     if (!project || !selectedClip) return;
@@ -167,9 +169,9 @@ export const EditorView: React.FC = () => {
       replaceProject({ ...project, clips });
       setSelectedClipId(right.id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Place the playhead inside the selected clip before splitting.');
+      setError(reason instanceof Error ? reason.message : t('editor.splitFailed'));
     }
-  }, [playhead, project, replaceProject, selectedClip]);
+  }, [playhead, project, replaceProject, selectedClip, t]);
 
   const updateSelectedRange = useCallback((sourceIn: number, sourceOut: number): void => {
     if (!project || !selectedClip) return;
@@ -180,9 +182,9 @@ export const EditorView: React.FC = () => {
         clips: project.clips.map((clip) => clip.id === updated.id ? updated : clip),
       });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The trim range is invalid.');
+      setError(reason instanceof Error ? reason.message : t('editor.trimFailed'));
     }
-  }, [project, replaceProject, selectedClip]);
+  }, [project, replaceProject, selectedClip, t]);
 
   const duplicateSelected = useCallback((): void => {
     if (!project || !selectedClip) return;
@@ -227,15 +229,15 @@ export const EditorView: React.FC = () => {
     <section className="creative-view editor-view" aria-labelledby="editor-title">
       <header className="creative-header">
         <div>
-          <span className="creative-eyebrow">Non-destructive workflow</span>
-          <h1 id="editor-title"><Scissors size={30} /> KNOUX Smart Editor</h1>
-          <p>Build a versioned .knouxedit timeline without modifying the original media files.</p>
+          <span className="creative-eyebrow">{t('editor.eyebrow')}</span>
+          <h1 id="editor-title"><Scissors size={30} /> {t('editor.title')}</h1>
+          <p>{t('editor.description')}</p>
         </div>
         <div className="creative-actions">
-          <NeonButton variant="ghost" leftIcon={<FilePlus2 size={16} />} onClick={() => void createNewProject()}>New</NeonButton>
-          <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openProject()}>Open</NeonButton>
-          <NeonButton variant="secondary" leftIcon={<Save size={16} />} onClick={() => void saveProject(false)} disabled={!project || !dirty || busy}>Save</NeonButton>
-          <NeonButton variant="primary" onClick={() => void saveProject(true)} disabled={!project || busy}>Save As</NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FilePlus2 size={16} />} onClick={() => void createNewProject()}>{t('common.new')}</NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openProject()}>{t('common.open')}</NeonButton>
+          <NeonButton variant="secondary" leftIcon={<Save size={16} />} onClick={() => void saveProject(false)} disabled={!project || !dirty || busy}>{t('common.save')}</NeonButton>
+          <NeonButton variant="primary" onClick={() => void saveProject(true)} disabled={!project || busy}>{t('common.saveAs')}</NeonButton>
         </div>
       </header>
 
@@ -245,7 +247,7 @@ export const EditorView: React.FC = () => {
         <NeonPanel variant="dark" padding="lg">
           <div className="creative-empty-hint">
             <Scissors size={42} />
-            <div><strong>Create or open a project</strong><span>Projects are autosaved locally and remain independent of source files.</span></div>
+            <div><strong>{t('editor.emptyTitle')}</strong><span>{t('editor.emptyDescription')}</span></div>
           </div>
         </NeonPanel>
       ) : (
@@ -253,44 +255,44 @@ export const EditorView: React.FC = () => {
           <NeonPanel variant="dark" padding="md">
             <div className="editor-project-bar">
               <label>
-                <span>Project</span>
+                <span>{t('editor.project')}</span>
                 <input value={project.name} onChange={(event) => replaceProject({ ...project, name: event.target.value })} />
               </label>
-              <div><strong>{project.clips.length}</strong><span> clips</span></div>
-              <div><strong>{formatSeconds(totalDuration)}</strong><span> duration</span></div>
-              <div className={dirty ? 'dirty-status active' : 'dirty-status'}>{dirty ? 'Unsaved changes' : 'Saved'}</div>
+              <div><strong>{project.clips.length}</strong><span> {t('editor.clips')}</span></div>
+              <div><strong>{formatSeconds(totalDuration)}</strong><span> {t('editor.duration')}</span></div>
+              <div className={dirty ? 'dirty-status active' : 'dirty-status'}>{dirty ? t('editor.unsaved') : t('editor.saved')}</div>
             </div>
           </NeonPanel>
 
           <div className="editor-toolbar">
-            <NeonButton variant="primary" leftIcon={<Video size={16} />} onClick={() => void addMedia()} disabled={busy}>Add media</NeonButton>
-            <NeonButton variant="secondary" leftIcon={<Scissors size={16} />} onClick={splitSelected} disabled={!selectedClip}>Split</NeonButton>
-            <NeonButton variant="ghost" leftIcon={<Copy size={16} />} onClick={duplicateSelected} disabled={!selectedClip}>Duplicate</NeonButton>
-            <NeonButton variant="ghost" leftIcon={<Trash2 size={16} />} onClick={deleteSelected} disabled={!selectedClip}>Ripple delete</NeonButton>
-            <NeonButton variant="ghost" leftIcon={<Undo2 size={16} />} onClick={undo} disabled={!historyRef.current?.canUndo}>Undo</NeonButton>
-            <NeonButton variant="ghost" leftIcon={<Redo2 size={16} />} onClick={redo} disabled={!historyRef.current?.canRedo}>Redo</NeonButton>
+            <NeonButton variant="primary" leftIcon={<Video size={16} />} onClick={() => void addMedia()} disabled={busy}>{t('editor.addMedia')}</NeonButton>
+            <NeonButton variant="secondary" leftIcon={<Scissors size={16} />} onClick={splitSelected} disabled={!selectedClip}>{t('editor.split')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Copy size={16} />} onClick={duplicateSelected} disabled={!selectedClip}>{t('editor.duplicate')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Trash2 size={16} />} onClick={deleteSelected} disabled={!selectedClip}>{t('editor.rippleDelete')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Undo2 size={16} />} onClick={undo} disabled={!historyRef.current?.canUndo}>{t('editor.undo')}</NeonButton>
+            <NeonButton variant="ghost" leftIcon={<Redo2 size={16} />} onClick={redo} disabled={!historyRef.current?.canRedo}>{t('editor.redo')}</NeonButton>
           </div>
 
           <div className="editor-workspace">
             <NeonPanel variant="dark" padding="md" className="editor-inspector">
-              <h2>Inspector</h2>
+              <h2>{t('editor.inspector')}</h2>
               {selectedClip ? (
                 <div className="creative-form-grid">
-                  <label><span>Source in</span><input type="number" step="0.001" min={0} value={selectedClip.sourceIn} onChange={(event) => updateSelectedRange(Number(event.target.value), selectedClip.sourceOut)} /></label>
-                  <label><span>Source out</span><input type="number" step="0.001" min={selectedClip.sourceIn} value={selectedClip.sourceOut} onChange={(event) => updateSelectedRange(selectedClip.sourceIn, Number(event.target.value))} /></label>
-                  <label><span>Playback rate</span><input type="number" step="0.05" min={0.1} max={8} value={selectedClip.playbackRate} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, playbackRate: Number(event.target.value) } : clip) })} /></label>
-                  <label><span>Volume</span><input type="number" step="0.05" min={0} max={2} value={selectedClip.volume} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, volume: Number(event.target.value) } : clip) })} /></label>
-                  <div className="inspector-path" title={selectedClip.sourcePath}>{selectedClip.sourcePath}</div>
+                  <label><span>{t('editor.sourceIn')}</span><input type="number" step="0.001" min={0} value={selectedClip.sourceIn} onChange={(event) => updateSelectedRange(Number(event.target.value), selectedClip.sourceOut)} /></label>
+                  <label><span>{t('editor.sourceOut')}</span><input type="number" step="0.001" min={selectedClip.sourceIn} value={selectedClip.sourceOut} onChange={(event) => updateSelectedRange(selectedClip.sourceIn, Number(event.target.value))} /></label>
+                  <label><span>{t('editor.playbackRate')}</span><input type="number" step="0.05" min={0.1} max={8} value={selectedClip.playbackRate} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, playbackRate: Number(event.target.value) } : clip) })} /></label>
+                  <label><span>{t('editor.volume')}</span><input type="number" step="0.05" min={0} max={2} value={selectedClip.volume} onChange={(event) => replaceProject({ ...project, clips: project.clips.map((clip) => clip.id === selectedClip.id ? { ...clip, volume: Number(event.target.value) } : clip) })} /></label>
+                  <div className="inspector-path" title={selectedClip.sourcePath} dir="auto">{selectedClip.sourcePath}</div>
                 </div>
-              ) : <div className="creative-empty">Select a clip to edit its properties.</div>}
+              ) : <div className="creative-empty">{t('editor.selectClip')}</div>}
             </NeonPanel>
 
             <div className="editor-timeline-panel">
               <div className="timeline-ruler">
-                <label>Playhead <input type="number" min={0} max={totalDuration} step="0.001" value={playhead} onChange={(event) => setPlayhead(Number(event.target.value))} /></label>
-                <span>{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
+                <label>{t('editor.playhead')} <input type="number" min={0} max={totalDuration} step="0.001" value={playhead} onChange={(event) => setPlayhead(Number(event.target.value))} /></label>
+                <span dir="ltr">{formatSeconds(playhead)} / {formatSeconds(totalDuration)}</span>
               </div>
-              <div className="editor-timeline" style={{ '--timeline-duration': Math.max(totalDuration, 1) } as React.CSSProperties}>
+              <div className="editor-timeline" dir="ltr" style={{ '--timeline-duration': Math.max(totalDuration, 1) } as React.CSSProperties}>
                 <div className="timeline-playhead" style={{ left: `${totalDuration > 0 ? (playhead / totalDuration) * 100 : 0}%` }} />
                 {project.clips.map((clip, index) => (
                   <button

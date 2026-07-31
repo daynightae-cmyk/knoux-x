@@ -44,4 +44,10 @@ changed = replaceExact(
   "  if (sorted.length === 0) return fallback;\n  if (position <= sorted[0].time) {\n    const first = sorted[0];\n    if (first.time <= 0) return first.value;\n    const progress = easingProgress(position / first.time, first.easing);\n    return fallback + (first.value - fallback) * progress;\n  }\n  if (position >= sorted[sorted.length - 1].time) return sorted[sorted.length - 1].value;\n",
 ) || changed;
 
+changed = replaceExact(
+  'src/core/creative/multitrackProject.ts',
+  "  const [selected] = normalized.splice(index, 1);\n  normalized.splice(destination, 0, selected);\n  return normalizeTrackOrder(normalized);\n",
+  "  const [selected] = normalized.splice(index, 1);\n  normalized.splice(destination, 0, selected);\n  return normalized.map((track, order) => ({ ...track, order }));\n",
+) || changed;
+
 console.log(changed ? '[PASS] Professional suite source repairs applied.' : '[PASS] No pending professional suite source repairs.');

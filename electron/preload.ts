@@ -439,6 +439,9 @@ const systemAPI = {
 };
 
 const appAPI = {
+  ready: (): void => {
+    ipcRenderer.send('app:renderer-ready');
+  },
   onOpenMedia: (callback: (paths: string[]) => void): (() => void) => {
     const handler = (_event: unknown, paths: string[]) => callback([...paths]);
     ipcRenderer.on('app:open-media', handler);

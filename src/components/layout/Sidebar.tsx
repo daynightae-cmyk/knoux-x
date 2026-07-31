@@ -1,137 +1,118 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Sidebar Component
- * ═══════════════════════════════════════════════════════════════════════
- * 
-* الشريط الجانبي - يحتوي على روابط التنقل
- * 
- * @module Components/Layout
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Play, 
-  Library, 
-  Settings, 
-  MessageSquare,
-  Heart,
-  Clock,
-  FolderOpen
+import {
+  Bot,
+  Camera,
+  Circle,
+  Clapperboard,
+  FolderOpen,
+  Library,
+  ListMusic,
+  Play,
+  Settings,
+  Share2,
 } from 'lucide-react';
 
-import { useAppStore } from '../../store/appStore';
+import { useTranslation } from '../../i18n';
+import { useAppStore, ViewType } from '../../store/appStore';
+import { usePlayerStore } from '../../store/playerStore';
 import { NeonButton } from '../neon/NeonButton';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// أنواع البيانات
-// ═══════════════════════════════════════════════════════════════════════════
-
-type ViewType = 'player' | 'library' | 'settings';
 
 interface NavItem {
   id: ViewType;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون الشريط الجانبي
-// ═══════════════════════════════════════════════════════════════════════════
+const navItems: NavItem[] = [
+  { id: 'player', labelKey: 'nav.player', icon: <Play size={18} /> },
+  { id: 'queue', labelKey: 'nav.queue', icon: <ListMusic size={18} /> },
+  { id: 'library', labelKey: 'nav.library', icon: <Library size={18} /> },
+  { id: 'capture', labelKey: 'nav.captures', icon: <Camera size={18} /> },
+  { id: 'recording', labelKey: 'nav.recorder', icon: <Circle size={18} /> },
+  { id: 'editor', labelKey: 'nav.editor', icon: <Clapperboard size={18} /> },
+  { id: 'export', labelKey: 'nav.export', icon: <Share2 size={18} /> },
+  { id: 'settings', labelKey: 'nav.settings', icon: <Settings size={18} /> },
+];
 
 export const Sidebar: React.FC = () => {
-  const { currentView, setView, toggleAIAssistant } = useAppStore();
+  const { currentView, setView, toggleAIAssistant, addNotification } = useAppStore();
+  const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const { t } = useTranslation();
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // عناصر التنقل
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const navItems: NavItem[] = [
-    { id: 'player', label: 'Player', icon: <Play size={18} /> },
-    { id: 'library', label: 'Library', icon: <Library size={18} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
-  ];
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // معالجات الأحداث
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const handleNavClick = (view: ViewType) => {
-    setView(view);
+  const handleOpenFile = async (): Promise<void> => {
+    const selected = await window.knouxCreativeAPI.media.open();
+    if (!selected) return;
+    setCurrentMedia(selected.filePath);
+    setView('player');
   };
 
-  const handleOpenFile = async () => {
-    const filePath = await window.knouxAPI.file.openFile();
-    if (filePath) {
-      // Load and play the file
-      await window.knouxAPI.player.load(filePath);
-      await window.knouxAPI.player.play();
-      setView('player');
-    }
-  };
-
-  const handleOpenFolder = async () => {
-    const folderPath = await window.knouxAPI.file.openDirectory();
-    if (folderPath) {
-      // Scan folder and add to library
-      await window.knouxAPI.library.scan([folderPath]);
+  const handleOpenFolder = async (): Promise<void> => {
+    try {
+      const folder = await window.knouxCreativeAPI.library.chooseFolder();
+      if (!folder) return;
       setView('library');
+      await window.knouxCreativeAPI.library.scan(folder.path);
+      addNotification({
+        type: 'success',
+        title: t('library.updated'),
+        message: `${folder.name}: ${t('library.indexed')}`,
+      });
+    } catch (reason) {
+      addNotification({
+        type: 'error',
+        title: t('library.scanFailed'),
+        message: reason instanceof Error ? reason.message : t('library.scanFailed'),
+      });
     }
   };
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض المكون
-  // ═════════════════════════════════════════════════════════════════════════
 
   return (
     <motion.aside
       className="sidebar"
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
+      transition={{ duration: 0.25 }}
     >
-      {/* Quick Actions */}
       <div className="sidebar-section">
-        <h3 className="section-title">Quick Actions</h3>
+        <h3 className="section-title">{t('nav.quickActions')}</h3>
         <div className="quick-actions">
           <NeonButton
             variant="primary"
             size="sm"
             leftIcon={<FolderOpen size={14} />}
-            onClick={handleOpenFile}
+            onClick={() => void handleOpenFile()}
             fullWidth
           >
-            Open File
+            {t('nav.openFile')}
           </NeonButton>
-          
           <NeonButton
             variant="secondary"
             size="sm"
             leftIcon={<Library size={14} />}
-            onClick={handleOpenFolder}
+            onClick={() => void handleOpenFolder()}
             fullWidth
           >
-            Open Folder
+            {t('nav.addLibraryFolder')}
           </NeonButton>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="sidebar-section">
-        <h3 className="section-title">Navigation</h3>
-        <nav className="nav-menu">
+      <div className="sidebar-section sidebar-scroll-section">
+        <h3 className="section-title">{t('nav.workspace')}</h3>
+        <nav className="nav-menu" aria-label="KNOUX workspace">
           {navItems.map((item) => (
             <motion.button
               key={item.id}
+              type="button"
               className={`nav-item ${currentView === item.id ? 'active' : ''}`}
-              onClick={() => handleNavClick(item.id)}
-              whileHover={{ x: 5 }}
+              onClick={() => setView(item.id)}
+              whileHover={{ x: 4 }}
               whileTap={{ scale: 0.98 }}
+              aria-current={currentView === item.id ? 'page' : undefined}
             >
               <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
+              <span className="nav-label">{t(item.labelKey)}</span>
               {currentView === item.id && (
                 <motion.div
                   className="active-indicator"
@@ -144,48 +125,20 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Library Shortcuts */}
-      <div className="sidebar-section">
-        <h3 className="section-title">Library</h3>
-        <nav className="nav-menu">
-          <motion.button
-            className="nav-item"
-            onClick={() => setView('library')}
-            whileHover={{ x: 5 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span className="nav-icon"><Heart size={18} /></span>
-            <span className="nav-label">Favorites</span>
-          </motion.button>
-          
-          <motion.button
-            className="nav-item"
-            onClick={() => setView('library')}
-            whileHover={{ x: 5 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span className="nav-icon"><Clock size={18} /></span>
-            <span className="nav-label">History</span>
-          </motion.button>
-        </nav>
-      </div>
-
-      {/* AI Assistant */}
       <div className="sidebar-section ai-section">
         <NeonButton
           variant="ghost"
           size="md"
-          leftIcon={<MessageSquare size={18} />}
+          leftIcon={<Bot size={18} />}
           onClick={toggleAIAssistant}
           fullWidth
         >
-          AI Assistant
+          {t('nav.optionalAI')}
         </NeonButton>
       </div>
 
-      {/* App Info */}
       <div className="sidebar-footer">
-        <span className="version">v1.0.0</span>
+        <span className="version">KNOUX Player X v2.0.0</span>
       </div>
     </motion.aside>
   );

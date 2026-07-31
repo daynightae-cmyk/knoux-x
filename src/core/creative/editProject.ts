@@ -1,4 +1,5 @@
-export const EDIT_PROJECT_VERSION = 1 as const;
+export const EDIT_PROJECT_VERSION = 2 as const;
+const LEGACY_EDIT_PROJECT_VERSION = 1 as const;
 
 export interface EditClip {
   id: string;
@@ -10,6 +11,12 @@ export interface EditClip {
   volume: number;
 }
 
+export interface EditMarker {
+  id: string;
+  time: number;
+  label: string;
+}
+
 export interface EditProject {
   version: typeof EDIT_PROJECT_VERSION;
   id: string;
@@ -17,7 +24,10 @@ export interface EditProject {
   createdAt: string;
   updatedAt: string;
   clips: EditClip[];
-  markers: Array<{ id: string; time: number; label: string }>;
+  markers: EditMarker[];
+  settings: {
+    timelineZoom: number;
+  };
 }
 
 function assertFiniteRange(start: number, end: number): void {
@@ -55,16 +65,116 @@ export function trimClip(clip: EditClip, sourceIn: number, sourceOut: number): E
   return { ...clip, sourceIn, sourceOut };
 }
 
+export function timelineTimeToSourceTime(clip: EditClip, timelineTime: number): number {
+  const duration = clipDuration(clip);
+  if (!Number.isFinite(timelineTime)) throw new RangeError('Timeline position must be finite.');
+  const offset = Math.min(duration, Math.max(0, timelineTime - clip.timelineStart));
+  return clip.sourceIn + offset * clip.playbackRate;
+}
+
+export function sourceTimeToTimelineTime(clip: EditClip, sourceTime: number): number {
+  if (!Number.isFinite(sourceTime)) throw new RangeError('Source position must be finite.');
+  const sourcePosition = Math.min(clip.sourceOut, Math.max(clip.sourceIn, sourceTime));
+  return clip.timelineStart + (sourcePosition - clip.sourceIn) / clip.playbackRate;
+}
+
+export function reflowTimeline(clips: EditClip[]): EditClip[] {
+  let timelineStart = 0;
+  return clips.map((clip) => {
+    const next = { ...clip, timelineStart };
+    timelineStart += clipDuration(next);
+    return next;
+  });
+}
+
+export function moveClip(clips: EditClip[], clipId: string, offset: -1 | 1): EditClip[] {
+  const index = clips.findIndex((clip) => clip.id === clipId);
+  if (index < 0) throw new Error('The selected clip does not exist in this timeline.');
+  const destination = index + offset;
+  if (destination < 0 || destination >= clips.length) return reflowTimeline(clips);
+
+  const reordered = clips.map((clip) => ({ ...clip }));
+  const [selected] = reordered.splice(index, 1);
+  reordered.splice(destination, 0, selected);
+  return reflowTimeline(reordered);
+}
+
+function normalizeMarker(marker: EditMarker, timelineDuration: number): EditMarker {
+  if (
+    typeof marker.id !== 'string'
+    || marker.id.trim().length === 0
+    || typeof marker.label !== 'string'
+    || marker.label.trim().length === 0
+    || !Number.isFinite(marker.time)
+    || marker.time < 0
+    || marker.time > timelineDuration
+  ) {
+    throw new RangeError('Marker id, label, and timeline position must be valid.');
+  }
+  return { ...marker, id: marker.id.trim(), label: marker.label.trim() };
+}
+
+export function upsertMarker(
+  markers: EditMarker[],
+  marker: EditMarker,
+  timelineDuration = Number.POSITIVE_INFINITY,
+): EditMarker[] {
+  if ((Number.isFinite(timelineDuration) && timelineDuration < 0) || Number.isNaN(timelineDuration)) {
+    throw new RangeError('Timeline duration must be non-negative.');
+  }
+  const normalized = normalizeMarker(marker, timelineDuration);
+  const next = markers
+    .filter((entry) => entry.id !== normalized.id)
+    .map((entry) => normalizeMarker(entry, timelineDuration));
+  next.push(normalized);
+  return next.sort((left, right) => left.time - right.time || left.id.localeCompare(right.id));
+}
+
+export function removeMarker(markers: EditMarker[], markerId: string): EditMarker[] {
+  if (!markers.some((marker) => marker.id === markerId)) {
+    throw new Error('The selected marker does not exist in this timeline.');
+  }
+  return markers.filter((marker) => marker.id !== markerId).map((marker) => ({ ...marker }));
+}
+
+export function clampTimelineZoom(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(8, Math.max(1, Math.round(value * 4) / 4));
+}
+
 export function parseEditProject(value: unknown): EditProject {
   if (typeof value !== 'object' || value === null) throw new TypeError('Edit project must be an object.');
-  const candidate = value as Partial<EditProject>;
-  if (candidate.version !== EDIT_PROJECT_VERSION || typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
+  const rawVersion = (value as { version?: unknown }).version;
+  if (
+    rawVersion !== EDIT_PROJECT_VERSION
+    && rawVersion !== LEGACY_EDIT_PROJECT_VERSION
+  ) {
+    throw new TypeError('Unsupported or malformed edit project.');
+  }
+  const source = value as Partial<EditProject>;
+  const candidate: Partial<EditProject> = rawVersion === LEGACY_EDIT_PROJECT_VERSION
+    ? {
+      ...source,
+      version: EDIT_PROJECT_VERSION,
+      settings: { timelineZoom: 1 },
+    }
+    : source;
+  if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
     throw new TypeError('Unsupported or malformed edit project.');
   }
   if (!Array.isArray(candidate.clips) || !Array.isArray(candidate.markers)) {
     throw new TypeError('Edit project timeline collections are malformed.');
   }
+  if (
+    typeof candidate.settings !== 'object'
+    || candidate.settings === null
+    || typeof candidate.settings.timelineZoom !== 'number'
+    || clampTimelineZoom(candidate.settings.timelineZoom) !== candidate.settings.timelineZoom
+  ) {
+    throw new TypeError('Edit project settings are malformed.');
+  }
   candidate.clips.forEach((clip) => clipDuration(clip));
+  candidate.markers.forEach((marker) => normalizeMarker(marker, Number.POSITIVE_INFINITY));
   return structuredClone(candidate as EditProject);
 }
 

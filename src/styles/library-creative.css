@@ -1,0 +1,305 @@
+.library-folder-strip {
+  display: flex;
+  gap: 10px;
+  margin: 14px 0;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.library-folder-chip {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--knoux-border);
+  border-radius: 12px;
+  color: var(--knoux-text);
+  background: var(--knoux-surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.library-folder-chip:hover {
+  border-color: var(--knoux-accent);
+  box-shadow: 0 0 0 2px var(--knoux-accent-soft);
+}
+
+.library-folder-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-folder-chip small {
+  color: var(--knoux-muted);
+}
+
+.library-filter-panel {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.library-filter-panel .filter-tabs,
+.library-filter-panel .view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.library-filter-panel .filter-tab,
+.library-filter-panel .view-btn {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--knoux-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.library-filter-panel .filter-tab:hover,
+.library-filter-panel .filter-tab.active,
+.library-filter-panel .view-btn:hover,
+.library-filter-panel .view-btn.active {
+  border-color: var(--knoux-border);
+  color: var(--knoux-text);
+  background: var(--knoux-accent-soft);
+}
+
+.library-filter-panel .search-box {
+  position: relative;
+  display: block;
+}
+
+.library-filter-panel .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--knoux-muted);
+  pointer-events: none;
+}
+
+.library-filter-panel .search-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px 8px 39px;
+  border: 1px solid var(--knoux-border);
+  border-radius: 10px;
+  color: var(--knoux-text);
+  background: rgba(5, 3, 13, 0.82);
+  outline: none;
+}
+
+.library-filter-panel .search-input:focus {
+  border-color: var(--knoux-accent);
+  box-shadow: 0 0 0 3px var(--knoux-accent-soft);
+}
+
+.library-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.library-stats .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.library-scan-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.library-scan-progress > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.library-scan-progress span,
+.library-scan-progress small {
+  color: var(--knoux-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: left;
+}
+
+.library-media-container.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 13px;
+}
+
+.library-media-container.list {
+  display: grid;
+  gap: 8px;
+}
+
+.library-media-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  min-width: 0;
+  border: 1px solid var(--knoux-border);
+  border-radius: 14px;
+  background: var(--knoux-surface);
+  overflow: hidden;
+}
+
+.library-media-item:hover {
+  border-color: color-mix(in srgb, var(--knoux-accent) 65%, transparent);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.26);
+}
+
+.library-media-item.missing {
+  opacity: 0.58;
+}
+
+.library-media-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 13px;
+  border: 0;
+  color: var(--knoux-text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.library-media-main:disabled {
+  cursor: not-allowed;
+}
+
+.library-media-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: color-mix(in srgb, var(--knoux-accent) 80%, white);
+  background: var(--knoux-accent-soft);
+}
+
+.library-media-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.library-media-copy strong,
+.library-media-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-media-copy small,
+.library-media-copy span {
+  color: var(--knoux-muted);
+  font-size: 0.76rem;
+  direction: ltr;
+  text-align: left;
+}
+
+.library-play-icon {
+  color: var(--knoux-accent);
+}
+
+.library-favorite-button {
+  align-self: stretch;
+  width: 46px;
+  border: 0;
+  border-left: 1px solid var(--knoux-border);
+  color: var(--knoux-muted);
+  background: rgba(255,255,255,0.015);
+  cursor: pointer;
+}
+
+.library-favorite-button:hover,
+.library-favorite-button.active {
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.08);
+}
+
+.library-media-container.grid .library-media-item {
+  min-height: 142px;
+}
+
+.library-media-container.grid .library-media-main {
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+}
+
+.library-media-container.grid .library-media-icon {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.library-media-container.grid .library-play-icon {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.library-media-container.grid .library-media-copy {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: end;
+}
+
+.library-empty-state {
+  margin-top: 28px;
+  padding: 34px;
+  border: 1px dashed var(--knoux-border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.012);
+}
+
+@media (max-width: 1200px) {
+  .library-filter-panel {
+    grid-template-columns: 1fr auto;
+  }
+
+  .library-filter-panel .filter-tabs {
+    grid-column: 1 / -1;
+    overflow-x: auto;
+  }
+
+  .library-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+[dir="rtl"] .library-folder-chip,
+[dir="rtl"] .library-media-main {
+  text-align: right;
+}
+
+[dir="rtl"] .library-filter-panel .search-icon {
+  left: auto;
+  right: 12px;
+}
+
+[dir="rtl"] .library-filter-panel .search-input {
+  padding: 8px 39px 8px 12px;
+}
+
+[dir="rtl"] .library-favorite-button {
+  border-left: 0;
+  border-right: 1px solid var(--knoux-border);
+}

@@ -1,555 +1,182 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - AI Assistant (Enhanced)
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * مساعد الذكاء الاصطناعي المتقدم - يدعم OpenRouter
- * 
- * @module Features/AI
- * @author KNOUX Development Team
- * @version 2.0.0
- */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, CheckCircle2, KeyRound, Send, Settings2, Trash2, X } from 'lucide-react';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  Send, 
-  Bot, 
-  User,
-  Sparkles,
-  Trash2,
-  Settings,
-  Cpu,
-  Zap,
-  CheckCircle,
-  AlertCircle,
-} from 'lucide-react';
-
-import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonButton } from '../../components/neon/NeonButton';
-import { NeonBadge } from '../../components/neon/NeonBadge';
-import { NeonInput } from '../../components/neon/NeonInput';
 import { useAppStore } from '../../store/appStore';
-import { 
-  openRouterService, 
-  AVAILABLE_MODELS,
-  type ServiceStatus 
-} from '../../core/services/ai/OpenRouterService';
+import type { AIChatMessage, AISettings } from '../../../electron/creative/ai-service';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// أنواع البيانات
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface Message {
+interface DisplayMessage extends AIChatMessage {
   id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  isStreaming?: boolean;
+  error?: boolean;
 }
-
-interface Suggestion {
-  label: string;
-  prompt: string;
-  icon: React.ReactNode;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون مساعد الذكاء الاصطناعي المحسن
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const AIAssistant: React.FC = () => {
-  const { isAIAssistantOpen, toggleAIAssistant } = useAppStore();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const toggleAIAssistant = useAppStore((state) => state.toggleAIAssistant);
+  const [settings, setSettings] = useState<AISettings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
-  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>({
-    isOnline: false,
-    latency: 0,
-    model: AVAILABLE_MODELS[0].id,
-  });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [model, setModel] = useState('gemini-3.6-flash');
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // الاقتراحات المحسنة
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const suggestions: Suggestion[] = [
-    { 
-      label: 'Recommend movies', 
-      prompt: 'Recommend some good sci-fi movies to watch',
-      icon: <Sparkles size={14} />
-    },
-    { 
-      label: 'Create playlist', 
-      prompt: 'Create a relaxing evening music playlist',
-      icon: <Zap size={14} />
-    },
-    { 
-      label: 'Audio help', 
-      prompt: 'How do I use the Neural DSP equalizer?',
-      icon: <Cpu size={14} />
-    },
-    { 
-      label: 'Analyze media', 
-      prompt: 'What can you tell me about the currently playing media?',
-      icon: <Bot size={14} />
-    },
-  ];
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // التهيئة والتحديث
-  // ═════════════════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const updateStatus = () => {
-      setServiceStatus(openRouterService.getStatus());
-      setSelectedModel(openRouterService.getCurrentModel());
-    };
-
-    updateStatus();
-    const interval = setInterval(updateStatus, 5000);
-
-    // Listen for service events
-    openRouterService.on('connected', updateStatus);
-    openRouterService.on('error', updateStatus);
-
-    return () => {
-      clearInterval(interval);
-      openRouterService.off('connected', updateStatus);
-      openRouterService.off('error', updateStatus);
-    };
+  const loadSettings = useCallback(async (): Promise<void> => {
+    try {
+      const next = await window.knouxCreativeAPI.ai.settings();
+      setSettings(next);
+      setModel(next.model);
+      setShowSettings(next.provider === 'disabled');
+    } catch (reason) {
+      setStatusMessage(reason instanceof Error ? reason.message : 'AI settings could not be loaded.');
+    }
   }, []);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // التمرير التلقائي
-  // ═════════════════════════════════════════════════════════════════════════
+  useEffect(() => { void loadSettings(); }, [loadSettings]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, busy]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const history = useMemo<AIChatMessage[]>(() => messages
+    .filter((message) => !message.error)
+    .map(({ role, content }) => ({ role, content })), [messages]);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // إرسال الرسالة مع دعم البث المباشر
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: content.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
-    // Add streaming message placeholder
-    const streamingId = (Date.now() + 1).toString();
-    setMessages((prev) => [...prev, {
-      id: streamingId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      isStreaming: true,
-    }]);
-
+  const configure = useCallback(async (): Promise<void> => {
+    setBusy(true);
+    setStatusMessage(null);
     try {
-      // Try streaming first
-      const stream = openRouterService.streamChat(content);
-      let fullContent = '';
-
-      for await (const chunk of stream) {
-        fullContent += chunk;
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === streamingId
-              ? { ...msg, content: fullContent }
-              : msg
-          )
-        );
-      }
-
-      // Update final message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamingId
-            ? { ...msg, content: fullContent, isStreaming: false }
-            : msg
-        )
-      );
-    } catch (error) {
-      console.error('AI chat error:', error);
-      
-      // Fallback to non-streaming
-      try {
-        const response = await openRouterService.chat(content);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === streamingId
-              ? { ...msg, content: response, isStreaming: false }
-              : msg
-          )
-        );
-      } catch {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === streamingId
-              ? { ...msg, content: '❌ Sorry, I encountered an error. Please check your API key and try again.', isStreaming: false }
-              : msg
-          )
-        );
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendMessage(input);
-  };
-
-  const clearChat = () => {
-    setMessages([]);
-    openRouterService.clearContext();
-  };
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // إعدادات API
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const handleSaveApiKey = async () => {
-    if (apiKey.trim()) {
-      await openRouterService.setApiKey(apiKey.trim());
+      const next = await window.knouxCreativeAPI.ai.configure({
+        provider: 'gemini',
+        model,
+        ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+      });
+      setSettings(next);
       setApiKey('');
       setShowSettings(false);
+      setStatusMessage('Gemini was enabled. Only text you explicitly send from this panel is transmitted.');
+    } catch (reason) {
+      setStatusMessage(reason instanceof Error ? reason.message : 'AI configuration failed.');
+    } finally {
+      setBusy(false);
     }
-  };
+  }, [apiKey, model]);
 
-  const handleModelChange = async (modelId: string) => {
-    await openRouterService.setModel(modelId);
-    setSelectedModel(modelId);
-  };
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض حالة الخدمة
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const renderStatus = () => {
-    if (!openRouterService.hasApiKey()) {
-      return (
-        <NeonBadge variant="warning" size="sm" pulse>
-          <AlertCircle size={12} />
-          API Key Required
-        </NeonBadge>
-      );
+  const disable = useCallback(async (): Promise<void> => {
+    setBusy(true);
+    try {
+      const next = await window.knouxCreativeAPI.ai.clear();
+      setSettings(next);
+      setMessages([]);
+      setShowSettings(true);
+      setStatusMessage('AI credential was removed from secure storage.');
+    } finally {
+      setBusy(false);
     }
+  }, []);
 
-    if (serviceStatus.isOnline) {
-      return (
-        <NeonBadge variant="success" size="sm">
-          <CheckCircle size={12} />
-          {serviceStatus.latency}ms
-        </NeonBadge>
-      );
+  const testConnection = useCallback(async (): Promise<void> => {
+    setBusy(true);
+    setStatusMessage('Testing Gemini connection…');
+    try {
+      const result = await window.knouxCreativeAPI.ai.test();
+      setStatusMessage(result.ok ? `Connected in ${result.latencyMs} ms.` : result.message);
+    } finally {
+      setBusy(false);
     }
+  }, []);
 
-    return (
-      <NeonBadge variant="error" size="sm" pulse>
-        <AlertCircle size={12} />
-        Offline
-      </NeonBadge>
-    );
-  };
+  const sendMessage = useCallback(async (): Promise<void> => {
+    const message = input.trim();
+    if (!message || busy || settings?.provider !== 'gemini') return;
+    const userMessage: DisplayMessage = { id: crypto.randomUUID(), role: 'user', content: message };
+    setMessages((current) => [...current, userMessage]);
+    setInput('');
+    setBusy(true);
+    setStatusMessage(null);
+    try {
+      const reply = await window.knouxCreativeAPI.ai.chat(message, history);
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'model', content: reply }]);
+    } catch (reason) {
+      setMessages((current) => [...current, {
+        id: crypto.randomUUID(),
+        role: 'model',
+        content: reason instanceof Error ? reason.message : 'AI request failed.',
+        error: true,
+      }]);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, history, input, settings?.provider]);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض المكون
-  // ═════════════════════════════════════════════════════════════════════════
+  const cancel = useCallback(async (): Promise<void> => {
+    await window.knouxCreativeAPI.ai.cancel();
+    setBusy(false);
+    setStatusMessage('AI request canceled.');
+  }, []);
 
   return (
-    <AnimatePresence>
-      {isAIAssistantOpen && (
-        <motion.div
-          className="ai-assistant-enhanced"
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-        >
-          <NeonPanel
-            variant="primary"
-            padding="none"
-            glowIntensity="high"
-            className="ai-panel-enhanced"
-          >
-            {/* Header */}
-            <div className="ai-header-enhanced">
-              <div className="ai-title-section">
-                <motion.div 
-                  className="ai-icon-wrapper"
-                  animate={{ 
-                    rotate: [0, 5, -5, 0],
-                    scale: [1, 1.1, 1]
-                  }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Sparkles size={20} className="ai-icon" />
-                </motion.div>
-                <div className="ai-title-text">
-                  <span className="ai-title">KNOUX AI</span>
-                  <span className="ai-subtitle">
-                    {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || 'AI Assistant'}
-                  </span>
-                </div>
+    <aside className="secure-ai-panel" aria-label="Optional KNOUX AI assistant">
+      <header>
+        <div><Bot size={21} /><strong>KNOUX AI</strong><span>{settings?.provider === 'gemini' ? 'Gemini enabled' : 'Disabled'}</span></div>
+        <div>
+          <button type="button" onClick={() => setShowSettings((value) => !value)} aria-label="AI settings"><Settings2 size={18} /></button>
+          <button type="button" onClick={toggleAIAssistant} aria-label="Close AI assistant"><X size={18} /></button>
+        </div>
+      </header>
+
+      {showSettings ? (
+        <div className="secure-ai-settings">
+          <div className="secure-ai-notice">
+            <KeyRound size={20} />
+            <div><strong>Explicit and encrypted</strong><span>The API key is encrypted with Electron safeStorage. Raw video and audio are never sent by this panel.</span></div>
+          </div>
+          <label><span>Gemini model</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="gemini-3.6-flash" /></label>
+          <label><span>API key {settings?.hasCredential ? '(leave blank to keep current key)' : ''}</span><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="off" /></label>
+          {!settings?.secureStorageAvailable && <div className="creative-error">Secure credential storage is unavailable. AI cannot be enabled safely.</div>}
+          <div className="creative-actions">
+            <NeonButton variant="primary" onClick={() => void configure()} disabled={busy || !settings?.secureStorageAvailable || (!apiKey.trim() && !settings?.hasCredential)}>Enable Gemini</NeonButton>
+            {settings?.provider === 'gemini' && <NeonButton variant="secondary" onClick={() => void testConnection()} disabled={busy}>Test</NeonButton>}
+            {settings?.hasCredential && <NeonButton variant="ghost" leftIcon={<Trash2 size={15} />} onClick={() => void disable()} disabled={busy}>Remove key</NeonButton>}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="secure-ai-messages">
+            {messages.length === 0 && (
+              <div className="secure-ai-empty"><CheckCircle2 size={28} /><strong>Text-only assistance</strong><span>Ask for titles, descriptions, chapter ideas, subtitle cleanup, or an editing plan. No media is uploaded.</span></div>
+            )}
+            {messages.map((message) => (
+              <div key={message.id} className={`secure-ai-message ${message.role} ${message.error ? 'error' : ''}`}>
+                <strong>{message.role === 'user' ? 'You' : 'KNOUX AI'}</strong>
+                <p>{message.content}</p>
               </div>
-              
-              <div className="ai-header-actions">
-                {renderStatus()}
-                
-                <motion.button
-                  className="ai-action-btn"
-                  onClick={() => setShowSettings(!showSettings)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  title="Settings"
-                >
-                  <Settings size={16} />
-                </motion.button>
-                
-                <motion.button
-                  className="ai-action-btn"
-                  onClick={clearChat}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  title="Clear chat"
-                >
-                  <Trash2 size={16} />
-                </motion.button>
-                
-                <motion.button
-                  className="ai-action-btn close"
-                  onClick={toggleAIAssistant}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  title="Close"
-                >
-                  <X size={18} />
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Settings Panel */}
-            <AnimatePresence>
-              {showSettings && (
-                <motion.div
-                  className="ai-settings-panel"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="settings-section">
-                    <label className="settings-label">
-                      <Sparkles size={14} />
-                      OpenRouter API Key
-                    </label>
-                    <div className="api-key-input">
-                      <NeonInput
-                        type="password"
-                        placeholder="Enter your API key (free at openrouter.ai)"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        glowColor="cyan"
-                      />
-                      <NeonButton
-                        variant="primary"
-                        size="sm"
-                        onClick={handleSaveApiKey}
-                        disabled={!apiKey.trim()}
-                      >
-                        Save
-                      </NeonButton>
-                    </div>
-                    <p className="settings-hint">
-                      Get a free API key at{' '}
-                      <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer">
-                        openrouter.ai
-                      </a>
-                    </p>
-                  </div>
-
-                  <div className="settings-section">
-                    <label className="settings-label">
-                      <Cpu size={14} />
-                      AI Model
-                    </label>
-                    <select
-                      className="model-select"
-                      value={selectedModel}
-                      onChange={(e) => handleModelChange(e.target.value)}
-                    >
-                      {AVAILABLE_MODELS.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} - {model.description}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Messages */}
-            <div className="ai-messages-enhanced">
-              {messages.length === 0 ? (
-                <div className="ai-welcome-enhanced">
-                  <motion.div 
-                    className="welcome-icon-wrapper"
-                    animate={{ 
-                      y: [0, -10, 0],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  >
-                    <Bot size={56} className="welcome-icon" />
-                  </motion.div>
-                  
-                  <h3>Hello! I&apos;m KNOUX AI</h3>
-                  <p>Your intelligent media assistant powered by cutting-edge AI</p>
-                  
-                  <div className="welcome-features">
-                    <div className="feature-item">
-                      <Sparkles size={16} />
-                      <span>Smart Recommendations</span>
-                    </div>
-                    <div className="feature-item">
-                      <Zap size={16} />
-                      <span>Playlist Generation</span>
-                    </div>
-                    <div className="feature-item">
-                      <Cpu size={16} />
-                      <span>Media Analysis</span>
-                    </div>
-                  </div>
-
-                  <div className="suggestions-enhanced">
-                    <span className="suggestions-label">Try asking:</span>
-                    <div className="suggestions-grid">
-                      {suggestions.map((suggestion, index) => (
-                        <motion.button
-                          key={suggestion.label}
-                          className="suggestion-chip-enhanced"
-                          onClick={() => sendMessage(suggestion.prompt)}
-                          whileHover={{ scale: 1.03, y: -2 }}
-                          whileTap={{ scale: 0.97 }}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          {suggestion.icon}
-                          {suggestion.label}
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {messages.map((message, index) => (
-                    <motion.div
-                      key={message.id}
-                      className={`message-enhanced ${message.role}`}
-                      initial={{ opacity: 0, x: message.role === 'user' ? 20 : -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
-                    >
-                      <div className={`message-avatar ${message.role}`}>
-                        {message.role === 'assistant' ? (
-                          <Bot size={18} />
-                        ) : (
-                          <User size={18} />
-                        )}
-                      </div>
-                      <div className="message-bubble">
-                        <div className="message-content">
-                          <p>{message.content || (message.isStreaming ? '' : '...')}</p>
-                          {message.isStreaming && (
-                            <span className="streaming-cursor">▋</span>
-                          )}
-                        </div>
-                        <span className="message-time">
-                          {message.timestamp.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                  
-                  {isLoading && !messages.some(m => m.isStreaming) && (
-                    <motion.div
-                      className="message-enhanced assistant loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <div className="message-avatar assistant">
-                        <Bot size={18} />
-                      </div>
-                      <div className="message-bubble">
-                        <div className="typing-indicator-enhanced">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </>
-              )}
-            </div>
-
-            {/* Input */}
-            <form className="ai-input-enhanced" onSubmit={handleSubmit}>
-              <div className="input-wrapper">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={openRouterService.hasApiKey() 
-                    ? "Ask me anything about your media..." 
-                    : "Configure API key in settings to use AI..."
-                  }
-                  disabled={isLoading || !openRouterService.hasApiKey()}
-                />
-                <motion.button
-                  type="submit"
-                  disabled={!input.trim() || isLoading || !openRouterService.hasApiKey()}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="send-btn"
-                >
-                  <Send size={18} />
-                </motion.button>
-              </div>
-            </form>
-          </NeonPanel>
-        </motion.div>
+            ))}
+            {busy && <div className="secure-ai-thinking">Gemini is generating a response…</div>}
+            <div ref={endRef} />
+          </div>
+          <div className="secure-ai-compose">
+            <textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
+              placeholder="Send text to Gemini…"
+              maxLength={12000}
+              disabled={busy}
+            />
+            {busy ? (
+              <button type="button" onClick={() => void cancel()} aria-label="Cancel AI request"><X size={18} /></button>
+            ) : (
+              <button type="button" onClick={() => void sendMessage()} disabled={!input.trim()} aria-label="Send message"><Send size={18} /></button>
+            )}
+          </div>
+        </>
       )}
-    </AnimatePresence>
+
+      {statusMessage && <footer>{statusMessage}</footer>}
+    </aside>
   );
 };
-
-export default AIAssistant;

@@ -41,8 +41,9 @@ describe('Electron boundary validation', () => {
   test('extracts only verified browser media extensions from launch arguments', () => {
     const root = path.parse(process.cwd()).root;
     const video = path.join(root, 'media', 'movie.mp4');
+    const matroska = path.join(root, 'media', 'movie.mkv');
     const executable = path.join(root, 'apps', 'knoux.exe');
-    expect(mediaPathsFromArguments([executable, video, video, '--flag', path.join(root, 'movie.mkv')]))
-      .toEqual([path.normalize(video)]);
+    expect(mediaPathsFromArguments([executable, video, video, '--flag', matroska]))
+      .toEqual([path.normalize(video), path.normalize(matroska)]);
   });
 });

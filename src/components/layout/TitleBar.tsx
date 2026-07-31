@@ -1,118 +1,121 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Title Bar Component
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * شريط العنوان - يحتوي على عناصر التحكم في النافذة
- * 
- * @module Components/Layout
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Minus, 
-  Square, 
-  X, 
+import {
   Maximize2,
-  Music
+  Minus,
+  Pin,
+  PinOff,
+  Square,
+  X,
 } from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون شريط العنوان
-// ═══════════════════════════════════════════════════════════════════════════
+import { useTranslation } from '../../i18n';
+import { usePlayerStore } from '../../store/playerStore';
+import { BrandMark } from '../brand/BrandMark';
 
 export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [currentMedia] = useState<string | null>(null);
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
+  const currentMedia = usePlayerStore((state) => state.currentMedia);
+  const { t } = useTranslation();
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // معالجات الأحداث
-  // ═════════════════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const checkMaximized = async () => {
-      const maximized = await window.knouxAPI.window.isMaximized();
-      setIsMaximized(maximized);
-    };
-
-    checkMaximized();
-
-    // Listen for window resize events
-    const unsubscribe = window.knouxAPI.window.onResize(() => {
-      checkMaximized();
-    });
-
-    return () => {
-      unsubscribe();
-    };
+  const checkMaximized = useCallback(async (): Promise<void> => {
+    try {
+      setIsMaximized(await window.knouxAPI.window.isMaximized());
+    } catch {
+      setIsMaximized(false);
+    }
   }, []);
 
-  const handleMinimize = async () => {
+  useEffect(() => {
+    void checkMaximized();
+    const unsubscribe = window.knouxAPI.window.onResize(() => { void checkMaximized(); });
+    return unsubscribe;
+  }, [checkMaximized]);
+
+  const handleMinimize = useCallback(async (): Promise<void> => {
     await window.knouxAPI.window.minimize();
-  };
+  }, []);
 
-  const handleMaximize = async () => {
+  const handleMaximize = useCallback(async (): Promise<void> => {
     await window.knouxAPI.window.maximize();
-    setIsMaximized(!isMaximized);
-  };
+    await checkMaximized();
+  }, [checkMaximized]);
 
-  const handleClose = async () => {
+  const handleAlwaysOnTop = useCallback(async (): Promise<void> => {
+    const next = !isAlwaysOnTop;
+    await window.knouxAPI.window.setAlwaysOnTop(next);
+    setIsAlwaysOnTop(next);
+  }, [isAlwaysOnTop]);
+
+  const handleClose = useCallback(async (): Promise<void> => {
     await window.knouxAPI.window.close();
-  };
+  }, []);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض المكون
-  // ═════════════════════════════════════════════════════════════════════════
+  const mediaLabel = currentMedia?.split(/[\\/]/).pop() ?? null;
 
   return (
     <div className="title-bar">
-      {/* Logo and Title */}
       <div className="title-bar-left">
         <motion.div
           className="app-logo"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Music className="logo-icon" size={18} />
-          <span className="app-name">KNOUX Player X</span>
+          <BrandMark size={24} withWordmark />
         </motion.div>
-        
-        {currentMedia && (
-          <div className="current-media">
+
+        {mediaLabel && (
+          <div className="current-media" title={currentMedia ?? undefined}>
             <span className="separator">|</span>
-            <span className="media-title">{currentMedia}</span>
+            <span className="media-title" dir="auto">{mediaLabel}</span>
           </div>
         )}
       </div>
 
-      {/* Window Controls */}
       <div className="title-bar-right">
         <motion.button
-          className="window-control minimize"
-          onClick={handleMinimize}
+          type="button"
+          className={`window-control always-on-top ${isAlwaysOnTop ? 'active' : ''}`}
+          onClick={() => void handleAlwaysOnTop()}
           whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
           whileTap={{ scale: 0.9 }}
+          aria-pressed={isAlwaysOnTop}
+          aria-label={isAlwaysOnTop ? t('window.disableAlwaysOnTop') : t('window.enableAlwaysOnTop')}
+          title={isAlwaysOnTop ? t('window.disableAlwaysOnTop') : t('window.enableAlwaysOnTop')}
+        >
+          {isAlwaysOnTop ? <PinOff size={13} /> : <Pin size={13} />}
+        </motion.button>
+        <motion.button
+          type="button"
+          className="window-control minimize"
+          onClick={() => void handleMinimize()}
+          whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+          whileTap={{ scale: 0.9 }}
+          aria-label={t('window.minimize')}
+          title={t('window.minimize')}
         >
           <Minus size={14} />
         </motion.button>
-        
         <motion.button
+          type="button"
           className="window-control maximize"
-          onClick={handleMaximize}
+          onClick={() => void handleMaximize()}
           whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
           whileTap={{ scale: 0.9 }}
+          aria-label={isMaximized ? t('window.restore') : t('window.maximize')}
+          title={isMaximized ? t('window.restore') : t('window.maximize')}
         >
           {isMaximized ? <Square size={12} /> : <Maximize2 size={12} />}
         </motion.button>
-        
         <motion.button
+          type="button"
           className="window-control close"
-          onClick={handleClose}
+          onClick={() => void handleClose()}
           whileHover={{ backgroundColor: '#ff4444' }}
           whileTap={{ scale: 0.9 }}
+          aria-label={t('window.close')}
+          title={t('window.close')}
         >
           <X size={14} />
         </motion.button>

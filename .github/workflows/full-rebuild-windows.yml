@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: full-rebuild-windows-${{ github.ref }}
@@ -20,14 +20,42 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20.20.2
+          cache: npm
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Apply pending final quality repairs
+        shell: pwsh
+        run: |
+          if (Test-Path tools/fix-final-quality-gates.cjs) {
+            node tools/fix-final-quality-gates.cjs
+            if ($LASTEXITCODE -ne 0) { throw 'Final quality repair migration failed.' }
+          } else {
+            Write-Host 'No pending final quality repair migration.'
+          }
+
+      - name: Persist final quality repairs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/knoux-player-x-full-rebuild'
+        shell: pwsh
+        run: |
+          git add -A
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'fix: close final TypeScript and ESLint quality gates'
+            git push origin HEAD:codex/knoux-player-x-full-rebuild
+          } else {
+            Write-Host 'Source quality repairs are already committed.'
+          }
 
       - name: Configure native toolchain
         shell: pwsh
@@ -39,17 +67,43 @@ jobs:
           $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
 
-      - name: Bootstrap deterministic lockfile when absent
+      - name: Require committed deterministic lockfile
         shell: pwsh
         run: |
-          if (-not (Test-Path package-lock.json)) {
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-            if ($LASTEXITCODE -ne 0) { throw 'package-lock.json generation failed.' }
+          if (-not (Test-Path package-lock.json) -or (Get-Item package-lock.json).Length -le 0) {
+            throw 'Committed package-lock.json is missing or empty.'
           }
-          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json is still missing.' }
 
       - name: Install deterministic dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Generate and validate KNOUX icon system
+        shell: pwsh
+        run: |
+          node tools/generate-icon-assets.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'KNOUX icon generation failed.' }
+          $required = @(
+            'assets/icons/app-icon.ico',
+            'assets/icons/app-icon.png',
+            'assets/icons/tray-icon.png',
+            'assets/icons/favicon.png',
+            'assets/icons/file-video.ico',
+            'assets/icons/file-audio.ico',
+            'assets/icons/file-subtitle.ico',
+            'assets/icons/file-playlist.ico',
+            'assets/icons/file-project.ico'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file) -or (Get-Item $file).Length -le 0) { throw "Missing or empty icon: $file" }
+          }
+          git diff --exit-code -- assets/icons
+          if ($LASTEXITCODE -ne 0) { throw 'Committed icon assets are not reproducible from the generator.' }
+
+      - name: Validate official KNOUX branding and first-run slides
+        shell: pwsh
+        run: |
+          npm run brand:verify
+          if ($LASTEXITCODE -ne 0) { throw 'Official KNOUX brand asset validation failed.' }
 
       - name: Rebuild Electron native modules
         shell: pwsh
@@ -64,9 +118,13 @@ jobs:
         shell: pwsh
         run: |
           npm run doctor
+          if ($LASTEXITCODE -ne 0) { throw 'Doctor gate failed.' }
           npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'TypeScript gate failed.' }
           npm run lint -- --max-warnings=0
+          if ($LASTEXITCODE -ne 0) { throw 'ESLint zero-warning gate failed.' }
           npm test -- --runInBand
+          if ($LASTEXITCODE -ne 0) { throw 'Jest gate failed.' }
 
       - name: Package and make installer
         shell: pwsh
@@ -74,32 +132,127 @@ jobs:
           npm run package -- --arch=x64
           npm run make -- --arch=x64
 
-      - name: Verify package, installer, smoke, and cleanup
+      - name: Verify package, media tools, Open With, single instance, smoke, and cleanup
         shell: pwsh
         run: |
           $exe = Get-ChildItem out -Recurse -Filter 'knoux-player-x.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
           $installer = Get-ChildItem out\make -Recurse -Include '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $installer -or $installer.Length -le 0) { throw 'Installer is missing or empty.' }
-          $process = Start-Process -FilePath $exe.FullName -PassThru
+          $resources = Join-Path $exe.Directory.FullName 'resources'
+          $ffmpeg = Get-ChildItem $resources -Recurse -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ffmpeg -or $ffmpeg.Length -le 0) { throw 'Packaged ffmpeg.exe is missing or empty.' }
+          if (-not $ffprobe -or $ffprobe.Length -le 0) { throw 'Packaged ffprobe.exe is missing or empty.' }
+
+          $ffmpegVersion = @(& $ffmpeg.FullName -version 2>&1)
+          $ffmpegExit = $LASTEXITCODE
+          Write-Host ($ffmpegVersion | Select-Object -First 1)
+          if ($ffmpegExit -ne 0) { throw "Packaged ffmpeg.exe did not execute: $ffmpegExit" }
+          $ffprobeVersion = @(& $ffprobe.FullName -version 2>&1)
+          $ffprobeExit = $LASTEXITCODE
+          Write-Host ($ffprobeVersion | Select-Object -First 1)
+          if ($ffprobeExit -ne 0) { throw "Packaged ffprobe.exe did not execute: $ffprobeExit" }
+
+          $fixture = Join-Path $env:RUNNER_TEMP 'knoux-open-with-smoke.mp4'
+          & $ffmpeg.FullName -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=320x180:rate=15:duration=2' -c:v mpeg4 -q:v 5 $fixture
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $fixture) -or (Get-Item $fixture).Length -le 1000) {
+            throw 'Synthetic Open With fixture could not be generated.'
+          }
+
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          $primaryOut = Join-Path $env:RUNNER_TEMP 'knoux-primary-out.log'
+          $primaryErr = Join-Path $env:RUNNER_TEMP 'knoux-primary-err.log'
+          $secondaryOut = Join-Path $env:RUNNER_TEMP 'knoux-secondary-out.log'
+          $secondaryErr = Join-Path $env:RUNNER_TEMP 'knoux-secondary-err.log'
+          $startupTrace = Join-Path $env:RUNNER_TEMP 'knoux-startup-trace.log'
+          $electronLog = Join-Path $env:RUNNER_TEMP 'knoux-electron.log'
+          $env:KNOUX_STARTUP_TRACE_FILE = $startupTrace
+          $env:ELECTRON_ENABLE_LOGGING = '1'
+          $env:ELECTRON_LOG_FILE = $electronLog
+
+          function Write-KnouxStartupDiagnostics {
+            Get-CimInstance Win32_Process |
+              Where-Object { $_.Name -match '^(knoux-player-x|electron|ffmpeg|ffprobe)\.exe$' } |
+              Select-Object ProcessId, ParentProcessId, Name, CommandLine |
+              Format-List
+            Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue |
+              Select-Object Id, Responding, MainWindowHandle, MainWindowTitle, Path |
+              Format-List
+            $asar = Join-Path $resources 'app.asar'
+            Write-Host "--- app.asar ($asar) ---"
+            if (Test-Path $asar) {
+              Get-Item $asar | Select-Object FullName, Length, LastWriteTime | Format-List
+              npx --yes @electron/asar list $asar | Select-String '\.vite/build/(main-entry|main-|media-tool-env|preload-entry)'
+            } else {
+              Write-Host 'app.asar is missing.'
+            }
+            Write-Host '--- primary stderr ---'
+            if (Test-Path $primaryErr) { Get-Content $primaryErr }
+            Write-Host '--- secondary stderr ---'
+            if (Test-Path $secondaryErr) { Get-Content $secondaryErr }
+            Write-Host '--- startup trace ---'
+            if (Test-Path $startupTrace) { Get-Content $startupTrace }
+            Write-Host '--- electron log ---'
+            if (Test-Path $electronLog) { Get-Content $electronLog }
+          }
+
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $primaryOut -RedirectStandardError $primaryErr -PassThru
           Start-Sleep -Seconds 20
-          if ($process.HasExited) { throw "Packaged application exited early: $($process.ExitCode)" }
-          $process.CloseMainWindow() | Out-Null
-          if (-not $process.WaitForExit(15000)) { Stop-Process -Id $process.Id -Force }
+          if ($process.HasExited) {
+            Write-KnouxStartupDiagnostics
+            throw "Packaged application exited early: $($process.ExitCode)"
+          }
+
+          $primaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          if ($primaryIds.Count -lt 1) { throw 'Primary KNOUX process set was not detected.' }
+
+          $second = Start-Process -FilePath $exe.FullName -ArgumentList @($fixture) -RedirectStandardOutput $secondaryOut -RedirectStandardError $secondaryErr -PassThru
+          if (-not $second.WaitForExit(15000)) {
+            Write-Host "Primary PID: $($process.Id); secondary PID: $($second.Id)"
+            Write-KnouxStartupDiagnostics
+            Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+            throw 'Second launcher process did not exit after forwarding the media request.'
+          }
           Start-Sleep -Seconds 3
-          $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron)$' })
+          $remainingPrimaryIds = @(Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+          if (@($remainingPrimaryIds | Where-Object { $_ -in $primaryIds }).Count -lt 1) {
+            throw 'Primary application exited while handling a second-instance media request.'
+          }
+
+          $process.CloseMainWindow() | Out-Null
+          Start-Sleep -Seconds 5
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+          $orphans = @(Get-Process | Where-Object { $_.ProcessName -match '^(knoux-player-x|electron|ffmpeg|ffprobe)$' })
           if ($orphans.Count -gt 0) {
             $orphans | Stop-Process -Force
-            throw 'KNOUX/Electron processes remained after shutdown.'
+            throw 'KNOUX, Electron, or media-tool processes remained after shutdown.'
           }
+
           Get-FileHash $exe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $ffmpeg.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Get-FileHash $ffprobe.FullName -Algorithm SHA256 | Format-List | Out-File artifact-hashes.txt -Append
+          Write-Host '--- SHA256 release evidence ---'
+          Get-Content artifact-hashes.txt | Write-Host
 
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: knoux-windows-${{ github.sha }}
+          name: knoux-windows-installer-${{ github.sha }}
           if-no-files-found: error
           path: |
-            out/**
+            out/make/**/*.exe
             artifact-hashes.txt
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: knoux-windows-evidence-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            artifact-hashes.txt
+            package-lock.json
+            assets/icons/**

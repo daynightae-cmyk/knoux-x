@@ -1,394 +1,245 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Library View
- * ═══════════════════════════════════════════════════════════════════════
- * 
- * واجهة المكتبة - عرض وإدارة مكتبة الوسائط
- * 
- * @module Features/Library
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Search,
+  Ban,
+  Film,
   FolderOpen,
-  Play,
-  Heart,
-  MoreVertical,
   Grid,
+  Heart,
   List,
   Music,
-  Film,
-  Clock,
-  Calendar,
+  Play,
+  RefreshCw,
+  Search,
 } from 'lucide-react';
 
-import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonButton } from '../../components/neon/NeonButton';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// أنواع البيانات
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface MediaItem {
-  id: string;
-  path: string;
-  title: string;
-  artist?: string;
-  duration: number;
-  type: 'video' | 'audio';
-  thumbnail?: string;
-  addedAt: Date;
-  playCount: number;
-}
-
-interface Playlist {
-  id: string;
-  name: string;
-  itemCount: number;
-}
+import { NeonPanel } from '../../components/neon/NeonPanel';
+import { useAppStore } from '../../store/appStore';
+import { usePlayerStore } from '../../store/playerStore';
+import type {
+  LibraryFolder,
+  LibraryMediaItem,
+  ScanProgress,
+} from '../../../electron/library/library-service';
 
 type ViewMode = 'grid' | 'list';
-type FilterType = 'all' | 'video' | 'audio' | 'favorites' | 'recent';
+type FilterType = 'all' | 'video' | 'audio' | 'favorites' | 'missing';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون واجهة المكتبة
-// ═══════════════════════════════════════════════════════════════════════════
+function formatSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+}
 
 export const LibraryView: React.FC = () => {
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const setView = useAppStore((state) => state.setView);
+  const [folders, setFolders] = useState<LibraryFolder[]>([]);
+  const [items, setItems] = useState<LibraryMediaItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FilterType>('all');
-  const [isScanning, setIsScanning] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [scan, setScan] = useState<ScanProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // تحميل البيانات
-  // ═════════════════════════════════════════════════════════════════════════
+  const queryLibrary = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [nextFolders, result] = await Promise.all([
+        window.knouxCreativeAPI.library.folders(),
+        window.knouxCreativeAPI.library.query({
+          search: searchQuery,
+          type: filter === 'video' || filter === 'audio' ? filter : 'all',
+          favoritesOnly: filter === 'favorites',
+          missingOnly: filter === 'missing',
+          limit: 500,
+          offset: 0,
+        }),
+      ]);
+      setFolders(nextFolders);
+      setItems(result.items);
+      setTotal(result.total);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Library data could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, searchQuery]);
 
   useEffect(() => {
-    loadLibrary();
+    const timer = window.setTimeout(() => void queryLibrary(), 220);
+    return () => window.clearTimeout(timer);
+  }, [queryLibrary]);
+
+  useEffect(() => window.knouxCreativeAPI.library.onScanProgress((progress) => {
+    setScan(progress);
+    if (progress.done) void queryLibrary();
+  }), [queryLibrary]);
+
+  const addFolderAndScan = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      const folder = await window.knouxCreativeAPI.library.chooseFolder();
+      if (!folder) return;
+      setFolders((current) => current.some((entry) => entry.path === folder.path) ? current : [...current, folder]);
+      const result = await window.knouxCreativeAPI.library.scan(folder.path);
+      setScan(result);
+      await queryLibrary();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Library scan failed.');
+    }
+  }, [queryLibrary]);
+
+  const rescanFolder = useCallback(async (folderPath: string): Promise<void> => {
+    setError(null);
+    try {
+      const result = await window.knouxCreativeAPI.library.scan(folderPath);
+      setScan(result);
+      await queryLibrary();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Library scan failed.');
+    }
+  }, [queryLibrary]);
+
+  const playItem = useCallback(async (item: LibraryMediaItem): Promise<void> => {
+    setError(null);
+    try {
+      const opened = await window.knouxCreativeAPI.library.openItem(item.path);
+      setCurrentMedia(opened.filePath);
+      setView('player');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Media could not be opened.');
+      await queryLibrary();
+    }
+  }, [queryLibrary, setCurrentMedia, setView]);
+
+  const toggleFavorite = useCallback(async (item: LibraryMediaItem): Promise<void> => {
+    try {
+      const updated = await window.knouxCreativeAPI.library.setFavorite(item.path, !item.favorite);
+      setItems((current) => current.map((entry) => entry.path === updated.path ? updated : entry));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Favorite state could not be changed.');
+    }
   }, []);
 
-  const loadLibrary = async () => {
-    try {
-      const mediaItems = await window.knouxAPI.library.getMedia();
-      const playlistItems = await window.knouxAPI.library.getPlaylists();
-      
-      setMedia(mediaItems as MediaItem[]);
-      setPlaylists(playlistItems as Playlist[]);
-    } catch (error) {
-      console.error('Failed to load library:', error);
-    }
-  };
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // معالجات الأحداث
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const handleScan = async () => {
-    const folderPath = await window.knouxAPI.file.openDirectory();
-    if (folderPath) {
-      setIsScanning(true);
-      try {
-        await window.knouxAPI.library.scan([folderPath]);
-        await loadLibrary();
-      } catch (error) {
-        console.error('Scan failed:', error);
-      } finally {
-        setIsScanning(false);
-      }
-    }
-  };
-
-  const handlePlay = async (item: MediaItem) => {
-    await window.knouxAPI.player.load(item.path);
-    await window.knouxAPI.player.play();
-  };
-
-  const handleToggleFavorite = async (item: MediaItem) => {
-    await window.knouxAPI.library.toggleFavorite(item.path);
-    await loadLibrary();
-  };
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // تصفية البيانات
-  // ═════════════════════════════════════════════════════════════════════════
-
-  const filteredMedia = media.filter((item) => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesSearch =
-        item.title.toLowerCase().includes(query) ||
-        item.artist?.toLowerCase().includes(query);
-      if (!matchesSearch) return false;
-    }
-
-    // Type filter
-    switch (filter) {
-      case 'video':
-        return item.type === 'video';
-      case 'audio':
-        return item.type === 'audio';
-      case 'favorites':
-        // Would need to check favorites
-        return true;
-      case 'recent':
-        // Would need to check recent
-        return true;
-      default:
-        return true;
-    }
-  });
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // عرض المكون
-  // ═════════════════════════════════════════════════════════════════════════
+  const stats = useMemo(() => ({
+    video: items.filter((item) => item.mediaType === 'video').length,
+    audio: items.filter((item) => item.mediaType === 'audio').length,
+    favorites: items.filter((item) => item.favorite).length,
+  }), [items]);
 
   return (
-    <div className="library-view">
-      {/* Header */}
-      <div className="library-header">
-        <h1 className="view-title">Library</h1>
-        
-        <div className="header-actions">
-          <NeonButton
-            variant="primary"
-            size="sm"
-            leftIcon={<FolderOpen size={16} />}
-            onClick={handleScan}
-            isLoading={isScanning}
-          >
-            Scan Folder
-          </NeonButton>
+    <section className="creative-view library-view" aria-labelledby="library-title">
+      <header className="creative-header">
+        <div>
+          <span className="creative-eyebrow">Persistent local library</span>
+          <h1 id="library-title"><Music size={30} /> Media Library</h1>
+          <p>Index local folders incrementally with SQLite persistence, missing-file tracking, search, favorites, and playback history.</p>
         </div>
+        <div className="creative-actions">
+          <NeonButton variant="ghost" leftIcon={<RefreshCw size={16} />} onClick={() => void queryLibrary()} disabled={loading}>Refresh</NeonButton>
+          <NeonButton variant="primary" leftIcon={<FolderOpen size={16} />} onClick={() => void addFolderAndScan()} disabled={Boolean(scan && !scan.done)}>Add Folder</NeonButton>
+        </div>
+      </header>
+
+      {error && <div className="creative-error" role="alert">{error}</div>}
+
+      {scan && !scan.done && (
+        <NeonPanel variant="dark" padding="md">
+          <div className="library-scan-progress">
+            <div>
+              <strong>Scanning {scan.folderPath}</strong>
+              <span>{scan.processed} indexed · {scan.discovered} discovered</span>
+              <small title={scan.currentPath ?? undefined}>{scan.currentPath ?? 'Preparing scan…'}</small>
+            </div>
+            <NeonButton variant="ghost" leftIcon={<Ban size={15} />} onClick={() => void window.knouxCreativeAPI.library.cancelScan(scan.jobId)}>Cancel</NeonButton>
+          </div>
+        </NeonPanel>
+      )}
+
+      <div className="library-folder-strip">
+        {folders.map((folder) => (
+          <button key={folder.id} type="button" className="library-folder-chip" onClick={() => void rescanFolder(folder.path)} title={folder.path}>
+            <FolderOpen size={15} />
+            <span>{folder.name}</span>
+            <small>{folder.lastScannedAt ? 'Rescan' : 'Scan'}</small>
+          </button>
+        ))}
       </div>
 
-      {/* Filters and Search */}
-      <NeonPanel variant="dark" padding="md" className="filter-bar">
+      <NeonPanel variant="dark" padding="md" className="library-filter-panel">
         <div className="filter-tabs">
-          {(['all', 'video', 'audio', 'favorites', 'recent'] as FilterType[]).map((f) => (
-            <motion.button
-              key={f}
-              className={`filter-tab ${filter === f ? 'active' : ''}`}
-              onClick={() => setFilter(f)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </motion.button>
+          {(['all', 'video', 'audio', 'favorites', 'missing'] as FilterType[]).map((value) => (
+            <button key={value} type="button" className={`filter-tab ${filter === value ? 'active' : ''}`} onClick={() => setFilter(value)}>
+              {value.charAt(0).toUpperCase() + value.slice(1)}
+            </button>
           ))}
         </div>
-
-        <div className="search-box">
+        <label className="search-box">
           <Search size={18} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search media..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
+          <input type="search" placeholder="Search file names and paths…" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="search-input" />
+        </label>
         <div className="view-toggle">
-          <motion.button
-            className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-            onClick={() => setViewMode('grid')}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Grid size={18} />
-          </motion.button>
-          <motion.button
-            className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-            onClick={() => setViewMode('list')}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <List size={18} />
-          </motion.button>
+          <button type="button" className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} aria-label="Grid view"><Grid size={18} /></button>
+          <button type="button" className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} aria-label="List view"><List size={18} /></button>
         </div>
       </NeonPanel>
 
-      {/* Stats */}
       <div className="library-stats">
-        <NeonPanel variant="dark" padding="sm" className="stat-item">
-          <Film size={20} />
-          <span>{media.filter((m) => m.type === 'video').length} Videos</span>
-        </NeonPanel>
-        <NeonPanel variant="dark" padding="sm" className="stat-item">
-          <Music size={20} />
-          <span>{media.filter((m) => m.type === 'audio').length} Audio</span>
-        </NeonPanel>
-        <NeonPanel variant="dark" padding="sm" className="stat-item">
-          <Heart size={20} />
-          <span>{playlists.length} Playlists</span>
-        </NeonPanel>
+        <NeonPanel variant="dark" padding="sm" className="stat-item"><Film size={20} /><span>{stats.video} video</span></NeonPanel>
+        <NeonPanel variant="dark" padding="sm" className="stat-item"><Music size={20} /><span>{stats.audio} audio</span></NeonPanel>
+        <NeonPanel variant="dark" padding="sm" className="stat-item"><Heart size={20} /><span>{stats.favorites} favorites</span></NeonPanel>
+        <NeonPanel variant="dark" padding="sm" className="stat-item"><span>{total} matching items</span></NeonPanel>
       </div>
 
-      {/* Media Grid/List */}
-      <div className={`media-container ${viewMode}`}>
-        <AnimatePresence mode="popLayout">
-          {filteredMedia.map((item, index) => (
-            <motion.div
-              key={item.id}
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2, delay: index * 0.02 }}
-            >
-              {viewMode === 'grid' ? (
-                <MediaCard
-                  item={item}
-                  onPlay={() => handlePlay(item)}
-                  onToggleFavorite={() => handleToggleFavorite(item)}
-                />
-              ) : (
-                <MediaRow
-                  item={item}
-                  onPlay={() => handlePlay(item)}
-                  onToggleFavorite={() => handleToggleFavorite(item)}
-                />
-              )}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {filteredMedia.length === 0 && (
-          <div className="empty-library">
-            <Music size={48} />
-            <p>No media found</p>
-            <NeonButton variant="primary" onClick={handleScan}>
-              Scan for Media
-            </NeonButton>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون بطاقة الوسائط
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface MediaCardProps {
-  item: MediaItem;
-  onPlay: () => void;
-  onToggleFavorite: () => void;
-}
-
-const MediaCard: React.FC<MediaCardProps> = ({ item, onPlay, onToggleFavorite }) => {
-  return (
-    <NeonPanel
-      variant="dark"
-      padding="none"
-      className="media-card"
-      whileHover={{ scale: 1.02 }}
-    >
-      <div className="card-thumbnail" onClick={onPlay}>
-        {item.thumbnail ? (
-          <img src={item.thumbnail} alt={item.title} />
-        ) : (
-          <div className="thumbnail-placeholder">
-            {item.type === 'video' ? <Film size={32} /> : <Music size={32} />}
-          </div>
-        )}
-        <motion.div
-          className="play-overlay"
-          initial={{ opacity: 0 }}
-          whileHover={{ opacity: 1 }}
-        >
-          <Play size={32} />
-        </motion.div>
-        <span className="duration">{formatDuration(item.duration)}</span>
-      </div>
-      
-      <div className="card-info">
-        <h4 className="card-title" title={item.title}>
-          {item.title}
-        </h4>
-        {item.artist && <p className="card-artist">{item.artist}</p>}
-        
-        <div className="card-actions">
-          <motion.button
-            className="action-btn"
-            onClick={onToggleFavorite}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Heart size={16} />
-          </motion.button>
-          <motion.button
-            className="action-btn"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <MoreVertical size={16} />
-          </motion.button>
+      {loading ? (
+        <div className="creative-loading">Loading library…</div>
+      ) : items.length === 0 ? (
+        <div className="creative-empty-hint library-empty-state">
+          <FolderOpen size={48} />
+          <div><strong>No indexed media matches this view</strong><span>Add a folder or change the active filter.</span></div>
         </div>
-      </div>
-    </NeonPanel>
+      ) : (
+        <div className={`library-media-container ${viewMode}`}>
+          <AnimatePresence mode="popLayout">
+            {items.map((item, index) => (
+              <motion.article
+                key={item.id}
+                layout
+                className={`library-media-item ${item.missing ? 'missing' : ''}`}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.16, delay: Math.min(index, 12) * 0.012 }}
+              >
+                <button type="button" className="library-media-main" onClick={() => void playItem(item)} disabled={item.missing}>
+                  <span className="library-media-icon">{item.mediaType === 'video' ? <Film size={25} /> : <Music size={25} />}</span>
+                  <span className="library-media-copy">
+                    <strong title={item.name}>{item.name}</strong>
+                    <small title={item.path}>{item.path}</small>
+                    <span>{formatSize(item.size)} · {item.extension.toUpperCase()} · {item.playCount} plays{item.missing ? ' · Missing' : ''}</span>
+                  </span>
+                  <Play size={20} className="library-play-icon" />
+                </button>
+                <button
+                  type="button"
+                  className={`library-favorite-button ${item.favorite ? 'active' : ''}`}
+                  onClick={() => void toggleFavorite(item)}
+                  aria-label={item.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Heart size={18} fill={item.favorite ? 'currentColor' : 'none'} />
+                </button>
+              </motion.article>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </section>
   );
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// مكون صف الوسائط
-// ═══════════════════════════════════════════════════════════════════════════
-
-const MediaRow: React.FC<MediaCardProps> = ({ item, onPlay, onToggleFavorite }) => {
-  return (
-    <NeonPanel variant="dark" padding="sm" className="media-row">
-      <div className="row-icon" onClick={onPlay}>
-        {item.type === 'video' ? <Film size={20} /> : <Music size={20} />}
-      </div>
-      
-      <div className="row-info" onClick={onPlay}>
-        <span className="row-title">{item.title}</span>
-        {item.artist && <span className="row-artist">{item.artist}</span>}
-      </div>
-      
-      <div className="row-meta">
-        <span className="row-duration">
-          <Clock size={14} />
-          {formatDuration(item.duration)}
-        </span>
-        <span className="row-date">
-          <Calendar size={14} />
-          {new Date(item.addedAt).toLocaleDateString()}
-        </span>
-      </div>
-      
-      <div className="row-actions">
-        <motion.button
-          className="action-btn"
-          onClick={onToggleFavorite}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <Heart size={16} />
-        </motion.button>
-        <motion.button
-          className="action-btn"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <MoreVertical size={16} />
-        </motion.button>
-      </div>
-    </NeonPanel>
-  );
-};
-
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
 };

@@ -1,327 +1,293 @@
-/**
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- * KNOUX Player Xâ„¢ - Main Process
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
- * 
- * Ø§Ù„Ø¹Ù…Ù„ÙŠØ© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„Ù€ Electron - ØªØ¯ÙŠØ± Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¹Ù…Ù„ÙŠØ§Øª ÙˆØ§Ù„Ù†ÙˆØ§ÙØ°
- * 
- * @module Electron/Main
- * @author KNOUX Development Team
- * @version 1.0.0
- */
-
 import path from 'path';
 
-import { app, BrowserWindow, ipcMain, powerMonitor, screen, shell } from 'electron';
-import started from 'electron-squirrel-startup';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  powerMonitor,
+  screen,
+  shell,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import log from 'electron-log';
 
-// Import core systems
-import { createSystemOrchestrator, SystemConfiguration } from '../src/core/orchestrator/SystemOrchestrator';
-
-import { authorizeMediaPaths, setupIPCHandlers } from './ipc/setup';
+import { authorizeMediaPaths } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
-import { createSystemTray } from './menu/system-tray';
+import { createSystemTray, destroyTray } from './menu/system-tray';
 import { mediaPathsFromArguments, validateExternalUrl } from './security/validation';
+import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime } from './creative-bootstrap';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-// Configure logging
 log.transports.file.level = 'info';
-log.transports.console.level = 'debug';
+log.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 
-// Handle squirrel startup (Windows installer)
-if (started) {
-  app.quit();
+let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
+let rendererReady = false;
+let pendingMediaPaths: string[] = [];
+let applicationStarted = false;
+
+function isTrustedRendererUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'file:') return true;
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1');
+  } catch {
+    return false;
+  }
 }
 
-// Global window reference
-let mainWindow: BrowserWindow | null = null;
-let splashWindow: BrowserWindow | null = null;
-let systemOrchestrator: ReturnType<typeof createSystemOrchestrator> | null = null;
-let isQuitting = false;
-const pendingMediaPaths = mediaPathsFromArguments(process.argv);
+function windowForEvent(event: IpcMainInvokeEvent): BrowserWindow {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window.isDestroyed() || window !== mainWindow || !isTrustedRendererUrl(event.senderFrame.url)) {
+    throw new Error('Core desktop request was rejected from an untrusted renderer.');
+  }
+  return window;
+}
 
-/**
- * ØªÙƒÙˆÙŠÙ† Ø§Ù„Ù†Ø¸Ø§Ù…
- */
-const systemConfig: SystemConfiguration = {
-  appId: 'dev.knoux.player-x',
-  version: app.getVersion(),
-  environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-  features: {
-    dspEnabled: true,
-    pluginsEnabled: true,
-    aiAssistantEnabled: true,
-    cloudSyncEnabled: false,
-    analyticsEnabled: true,
-    liveStreamingEnabled: false,
-    immersiveModeEnabled: false,
-    autoUpdatesEnabled: true,
-    crashRecoveryEnabled: true,
-    developerMode: process.env.NODE_ENV !== 'production',
-  },
-  performance: {
-    maxThreads: 4,
-    maxMemoryMB: 2048,
-    cacheSizeMB: 512,
-    enableGPUAcceleration: true,
-    processingQuality: 'high',
-    cacheStrategy: 'hybrid',
-  },
-  security: {
-    enableSandbox: true,
-    cspPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https:;",
-    allowedDomains: ['knoux.dev', 'api.knoux.dev', 'generativelanguage.googleapis.com'],
-    enableEncryption: true,
-    verificationLevel: 'standard',
-    twoFactorAuth: false,
-  },
-  customization: {
-    theme: 'dark',
-    accentColor: '#00f0ff',
-    fontScale: 1.0,
-    reduceMotion: false,
-    highContrast: false,
-  },
-  integrations: {
-    discordRPC: true,
-    lastFM: false,
-    spotify: false,
-    youtube: false,
-  },
-};
+function isMainRendererEvent(event: IpcMainEvent): boolean {
+  return Boolean(
+    mainWindow
+    && !mainWindow.isDestroyed()
+    && event.sender === mainWindow.webContents
+    && isTrustedRendererUrl(event.senderFrame.url),
+  );
+}
 
-/**
- * Ø¥Ù†Ø´Ø§Ø¡ Ù†Ø§ÙØ°Ø© Ø§Ù„Ø¨Ø¯Ø§ÙŠØ©
- */
-const createSplashWindow = (): void => {
-  splashWindow = new BrowserWindow({
-    width: 500,
-    height: 350,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    resizable: false,
-    movable: false,
-    center: true,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-    },
+function flushPendingMediaPaths(): void {
+  if (!rendererReady || !mainWindow || mainWindow.isDestroyed() || pendingMediaPaths.length === 0) return;
+  const authorized = authorizeMediaPaths(pendingMediaPaths.splice(0));
+  if (authorized.length > 0) mainWindow.webContents.send('app:open-media', authorized);
+}
+
+function desktopInfo(): {
+  platform: NodeJS.Platform;
+  arch: string;
+  version: string;
+  electronVersion: string;
+  chromeVersion: string;
+  nodeVersion: string;
+} {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    version: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+  };
+}
+
+function registerCoreHandlers(): void {
+  ipcMain.handle('window:minimize', (event) => windowForEvent(event).minimize());
+  ipcMain.handle('window:maximize', (event) => {
+    const window = windowForEvent(event);
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
+    return window.isMaximized();
+  });
+  ipcMain.handle('window:close', (event) => windowForEvent(event).close());
+  ipcMain.handle('window:is-maximized', (event) => windowForEvent(event).isMaximized());
+
+  const setAlwaysOnTop = (event: IpcMainInvokeEvent, enabled: boolean): void => {
+    windowForEvent(event).setAlwaysOnTop(Boolean(enabled));
+  };
+  ipcMain.handle('window:set-always-on-top', setAlwaysOnTop);
+  ipcMain.handle('window:always-on-top', setAlwaysOnTop);
+
+  const setFullscreen = (event: IpcMainInvokeEvent, enabled: boolean): void => {
+    windowForEvent(event).setFullScreen(Boolean(enabled));
+  };
+  ipcMain.handle('window:set-fullscreen', setFullscreen);
+  ipcMain.handle('window:fullscreen', setFullscreen);
+  ipcMain.handle('window:is-fullscreen', (event) => windowForEvent(event).isFullScreen());
+
+  ipcMain.handle('window:get-bounds', (event) => windowForEvent(event).getBounds());
+  ipcMain.handle('window:set-bounds', (event, bounds: Electron.Rectangle) => {
+    const window = windowForEvent(event);
+    if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
+    if (bounds.width < 480 || bounds.height < 320 || bounds.width > 16_384 || bounds.height > 16_384) return false;
+    const currentBounds = window.getBounds();
+    window.setBounds({
+      x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : currentBounds.x,
+      y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : currentBounds.y,
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    });
+    return true;
   });
 
-  splashWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/splash.html`));
+  const getDesktopInfo = (event: IpcMainInvokeEvent) => {
+    windowForEvent(event);
+    return desktopInfo();
+  };
+  ipcMain.handle('system:get-info', getDesktopInfo);
+  ipcMain.handle('system:info', getDesktopInfo);
 
-  splashWindow.once('ready-to-show', () => {
-    splashWindow?.show();
+  ipcMain.handle('system:open-external', async (event, rawUrl: string) => {
+    windowForEvent(event);
+    const validated = validateExternalUrl(rawUrl);
+    await shell.openExternal(validated.toString());
+    return true;
   });
 
-  splashWindow.on('closed', () => {
-    splashWindow = null;
+  const getMemoryUsage = async (event: IpcMainInvokeEvent) => {
+    windowForEvent(event);
+    const usage = await process.getProcessMemoryInfo();
+    const system = process.getSystemMemoryInfo();
+    const used = Math.round(usage.residentSet / 1024);
+    const total = Math.round(system.total / 1024);
+    return {
+      ...usage,
+      used,
+      total,
+      percentage: total > 0 ? Math.min(100, (used / total) * 100) : 0,
+    };
+  };
+  ipcMain.handle('system:get-memory-usage', getMemoryUsage);
+  ipcMain.handle('system:memory', getMemoryUsage);
+  ipcMain.handle('system:get-cpu-usage', (event) => {
+    windowForEvent(event);
+    return app.getAppMetrics();
   });
-};
 
-/**
- * Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù†Ø§ÙØ°Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©
- */
-const createMainWindow = async (): Promise<BrowserWindow> => {
+  ipcMain.on('app:renderer-ready', (event) => {
+    if (!isMainRendererEvent(event)) return;
+    rendererReady = true;
+    flushPendingMediaPaths();
+  });
+}
+
+async function createMainWindow(): Promise<BrowserWindow> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const preloadPath = path.join(__dirname, 'preload-entry.js');
 
-  mainWindow = new BrowserWindow({
-    width: Math.min(1600, width * 0.85),
-    height: Math.min(900, height * 0.85),
-    minWidth: 1200,
-    minHeight: 700,
+  const window = new BrowserWindow({
+    width: Math.min(1600, Math.round(width * 0.88)),
+    height: Math.min(960, Math.round(height * 0.88)),
+    minWidth: 960,
+    minHeight: 620,
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#0a0e1a',
+    backgroundColor: '#080611',
     icon: path.join(__dirname, '../../assets/icons/app-icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       webSecurity: true,
       allowRunningInsecureContent: false,
-      experimentalFeatures: false,
     },
   });
+  mainWindow = window;
+  rendererReady = false;
 
-  // Load the app
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
+    await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    await mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    await window.loadFile(path.join(__dirname, '../renderer', MAIN_WINDOW_VITE_NAME, 'index.html'));
   }
 
-  // Window event handlers
-  mainWindow.once('ready-to-show', () => {
-    splashWindow?.close();
-    mainWindow?.show();
-    mainWindow?.focus();
-    if (pendingMediaPaths.length > 0) {
-      const paths = authorizeMediaPaths(pendingMediaPaths.splice(0));
-      mainWindow?.webContents.send('app:open-media', paths);
+  window.once('ready-to-show', () => {
+    window.show();
+    window.focus();
+  });
+  window.on('resize', () => {
+    const [windowWidth, windowHeight] = window.getSize();
+    window.webContents.send('window:resize', { width: windowWidth, height: windowHeight });
+  });
+  window.on('enter-full-screen', () => window.webContents.send('window:fullscreen-change', true));
+  window.on('leave-full-screen', () => window.webContents.send('window:fullscreen-change', false));
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+      rendererReady = false;
     }
   });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-
-  mainWindow.on('minimize', () => {
-    // Minimize to tray if enabled
-  });
-
-  mainWindow.on('resize', () => {
-    const [newWidth, newHeight] = mainWindow?.getSize() || [1600, 900];
-    mainWindow?.webContents.send('window:resize', { width: newWidth, height: newHeight });
-  });
-
-  // Prevent new window creation
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https:')) {
-      try {
-        void shell.openExternal(validateExternalUrl(url).toString());
-      } catch (error) {
-        log.warn('Blocked invalid external URL', error);
-      }
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      void shell.openExternal(validateExternalUrl(url).toString());
+    } catch (error) {
+      log.warn('Blocked invalid external URL', error);
     }
     return { action: 'deny' };
   });
 
-  return mainWindow;
-};
-
-/**
- * ØªÙ‡ÙŠØ¦Ø© Ø§Ù„Ù†Ø¸Ø§Ù…
- */
-const initializeSystem = async (): Promise<void> => {
-  try {
-    log.info('Initializing KNOUX Player X...');
-
-    // Create system orchestrator
-    systemOrchestrator = createSystemOrchestrator(systemConfig);
-    await systemOrchestrator.initialize();
-
-    // Setup IPC handlers
-    setupIPCHandlers(ipcMain, systemOrchestrator);
-
-    // Create application menu
-    createApplicationMenu();
-
-    // Create system tray
-    createSystemTray();
-
-    log.info('System initialized successfully');
-  } catch (error) {
-    log.error('Failed to initialize system:', error);
-    throw error;
-  }
-};
-
-/**
- * Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¨Ø£Ù…Ø§Ù†
- */
-const shutdown = async (): Promise<void> => {
-  if (isQuitting) return;
-  isQuitting = true;
-  log.info('Shutting down KNOUX Player X...');
-
-  try {
-    if (systemOrchestrator) {
-      await systemOrchestrator.shutdown();
-    }
-  } catch (error) {
-    log.error('Error during shutdown:', error);
-  }
-
-  app.quit();
-};
-
-// App event handlers
-
-app.on('ready', async () => {
-  try {
-    createSplashWindow();
-    await initializeSystem();
-    await createMainWindow();
-  } catch (error) {
-    log.error('Failed to start application:', error);
-    app.quit();
-  }
-});
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    shutdown();
-  }
-});
-
-app.on('activate', async () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    await createMainWindow();
-  }
-});
-
-app.on('before-quit', async (event) => {
-  if (isQuitting) return;
-  event.preventDefault();
-  await shutdown();
-});
-
-// Power management
-powerMonitor.on('suspend', () => {
-  log.info('System suspended');
-  mainWindow?.webContents.send('system:suspend');
-});
-
-powerMonitor.on('resume', () => {
-  log.info('System resumed');
-  mainWindow?.webContents.send('system:resume');
-});
-
-// Security: Prevent navigation to external URLs
-app.on('web-contents-created', (_, contents) => {
-  contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  contents.on('will-navigate', (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-    const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
-      ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
-      : null;
-    if (parsedUrl.protocol !== 'file:' && parsedUrl.origin !== developmentOrigin) {
-      event.preventDefault();
-      log.warn('Blocked navigation to:', navigationUrl);
-    }
-  });
-});
-
-// Single instance lock
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (_event, argv) => {
-    const forwardedPaths = authorizeMediaPaths(mediaPathsFromArguments(argv));
-    pendingMediaPaths.push(...forwardedPaths);
-    if (forwardedPaths.length > 0) {
-      mainWindow?.webContents.send('app:open-media', forwardedPaths);
-    }
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-    }
-  });
+  return window;
 }
 
-// Export for testing
-export { mainWindow, systemOrchestrator };
+function handleSecondInstance(argv: readonly string[]): void {
+  const forwardedPaths = mediaPathsFromArguments(argv);
+  if (forwardedPaths.length > 0) {
+    pendingMediaPaths.push(...forwardedPaths);
+    flushPendingMediaPaths();
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+export function startPrimaryApplication(initialArgv: readonly string[]): {
+  handleSecondInstance(argv: readonly string[]): void;
+} {
+  if (applicationStarted) throw new Error('The KNOUX primary runtime can only be started once.');
+  applicationStarted = true;
+  pendingMediaPaths = mediaPathsFromArguments(initialArgv);
+
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-navigate', (event, navigationUrl) => {
+      const destination = new URL(navigationUrl);
+      const developmentOrigin = MAIN_WINDOW_VITE_DEV_SERVER_URL
+        ? new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin
+        : null;
+      if (destination.protocol !== 'file:' && destination.origin !== developmentOrigin) {
+        event.preventDefault();
+        log.warn('Blocked navigation to %s', navigationUrl);
+      }
+    });
+  });
+
+  app.whenReady().then(async () => {
+    registerCreativeRuntimeIfPrimary();
+    setupCreativePermissionHandlers();
+    registerCoreHandlers();
+    createApplicationMenu();
+    powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
+    powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));
+    try {
+      createSystemTray();
+    } catch (error) {
+      log.warn('System tray is unavailable', error);
+    }
+    await createMainWindow();
+  }).catch((error) => {
+    log.error('Failed to start KNOUX Player X', error);
+    app.exit(1);
+  });
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+  });
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('before-quit', () => {
+    isQuitting = true;
+    destroyTray();
+    cleanupCreativeRuntime();
+  });
+  app.on('will-quit', () => {
+    if (!isQuitting) destroyTray();
+  });
+
+  return { handleSecondInstance };
+}

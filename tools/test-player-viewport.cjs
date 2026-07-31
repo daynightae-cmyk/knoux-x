@@ -12,8 +12,7 @@ const fixtureRoot = path.join(os.tmpdir(), 'knoux-player-viewport-fixtures');
 const logPath = path.join(evidenceRoot, 'packaged-app.log');
 
 function fail(message, details) {
-  const suffix = details ? `\n${JSON.stringify(details, null, 2)}` : '';
-  throw new Error(`${message}${suffix}`);
+  throw new Error(details ? `${message}\n${JSON.stringify(details, null, 2)}` : message);
 }
 
 function walk(directory, predicate) {
@@ -21,11 +20,9 @@ function walk(directory, predicate) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      const nested = walk(fullPath, predicate);
-      if (nested) return nested;
-    } else if (predicate(fullPath)) {
-      return fullPath;
-    }
+      const match = walk(fullPath, predicate);
+      if (match) return match;
+    } else if (predicate(fullPath)) return fullPath;
   }
   return null;
 }
@@ -35,41 +32,25 @@ function findPackagedExecutable() {
     path.basename(candidate).toLowerCase() === 'knoux-player-x.exe' &&
     !candidate.toLowerCase().includes(`${path.sep}make${path.sep}`),
   );
-  if (!executable) fail('Packaged KNOUX executable was not found under out/. Run npm run package -- --arch=x64 first.');
+  if (!executable) fail('Packaged KNOUX executable was not found under out/.');
   return executable;
 }
 
 function resolveFfmpeg() {
   const loaded = require('ffmpeg-static');
-  const ffmpegPath = typeof loaded === 'string' ? loaded : loaded && loaded.path;
-  if (!ffmpegPath || !fs.existsSync(ffmpegPath)) fail('ffmpeg-static did not resolve to a usable binary.');
-  return ffmpegPath;
+  const binary = typeof loaded === 'string' ? loaded : loaded && loaded.path;
+  if (!binary || !fs.existsSync(binary)) fail('ffmpeg-static did not resolve to a usable binary.');
+  return binary;
 }
 
-function generateFixture(ffmpegPath, outputPath, width, height) {
-  const result = spawnSync(ffmpegPath, [
-    '-hide_banner',
-    '-loglevel', 'error',
-    '-y',
-    '-f', 'lavfi',
-    '-i', `testsrc2=size=${width}x${height}:rate=30`,
-    '-t', '3',
-    '-c:v', 'libvpx-vp9',
-    '-b:v', '1M',
-    '-pix_fmt', 'yuv420p',
-    '-an',
-    outputPath,
-  ], {
-    cwd: root,
-    encoding: 'utf8',
-    shell: false,
-  });
-  if (result.status !== 0 || !fs.existsSync(outputPath) || fs.statSync(outputPath).size < 1024) {
-    fail(`Failed to generate fixture ${path.basename(outputPath)}.`, {
-      status: result.status,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    });
+function generateFixture(ffmpeg, output, width, height) {
+  const result = spawnSync(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', `testsrc2=size=${width}x${height}:rate=30`,
+    '-t', '3', '-c:v', 'libvpx-vp9', '-b:v', '1M', '-pix_fmt', 'yuv420p', '-an', output,
+  ], { cwd: root, encoding: 'utf8', shell: false });
+  if (result.status !== 0 || !fs.existsSync(output) || fs.statSync(output).size < 1024) {
+    fail(`Failed to generate ${path.basename(output)}.`, { status: result.status, stderr: result.stderr });
   }
 }
 
@@ -80,11 +61,7 @@ function reservePort() {
     server.listen(0, '127.0.0.1', () => {
       const address = server.address();
       const port = typeof address === 'object' && address ? address.port : null;
-      server.close((error) => {
-        if (error) reject(error);
-        else if (!port) reject(new Error('Could not reserve a debugging port.'));
-        else resolve(port);
-      });
+      server.close((error) => error ? reject(error) : port ? resolve(port) : reject(new Error('No port reserved.')));
     });
   });
 }
@@ -96,27 +73,20 @@ function requestJson(url) {
       response.setEncoding('utf8');
       response.on('data', (chunk) => { body += chunk; });
       response.on('end', () => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`HTTP ${response.statusCode}`));
-          return;
-        }
-        try {
-          resolve(JSON.parse(body));
-        } catch (error) {
-          reject(error);
-        }
+        if (response.statusCode !== 200) return reject(new Error(`HTTP ${response.statusCode}`));
+        try { resolve(JSON.parse(body)); } catch (error) { reject(error); }
       });
     });
-    request.on('timeout', () => request.destroy(new Error('Request timed out.')));
+    request.on('timeout', () => request.destroy(new Error('Request timeout.')));
     request.on('error', reject);
   });
 }
 
-async function waitForDebugEndpoint(port, processHandle) {
+async function waitForDebugEndpoint(port, child) {
   const deadline = Date.now() + 45000;
   let lastError = null;
   while (Date.now() < deadline) {
-    if (processHandle.exitCode !== null) fail(`Packaged application exited before the debugging endpoint became ready: ${processHandle.exitCode}`);
+    if (child.exitCode !== null) fail(`Packaged app exited early: ${child.exitCode}.`);
     try {
       await requestJson(`http://127.0.0.1:${port}/json/version`);
       return;
@@ -125,7 +95,7 @@ async function waitForDebugEndpoint(port, processHandle) {
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
   }
-  fail('Timed out waiting for the packaged Electron debugging endpoint.', { lastError: String(lastError) });
+  fail('Timed out waiting for Electron DevTools endpoint.', { lastError: String(lastError) });
 }
 
 async function findPlayerPage(browser) {
@@ -136,52 +106,43 @@ async function findPlayerPage(browser) {
         try {
           if (await page.locator('.player-viewport-boundary').count()) return page;
         } catch {
-          // A splash page may close while the main window is being created.
+          // Splash windows may close during discovery.
         }
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
   }
-  fail('Main player window was not discovered through Chromium DevTools Protocol.');
+  fail('Main player page was not discovered.');
 }
 
-async function measurePlayer(page) {
+async function measure(page) {
   return page.evaluate(() => {
     const player = document.querySelector('.player-viewport-boundary');
     const stage = document.querySelector('.player-viewport-boundary .video-container');
     const video = document.querySelector('video.video-element');
     const controls = document.querySelector('.controls-overlay');
-    const emptyStates = document.querySelectorAll('.player-viewport-boundary .empty-state');
     if (!(player instanceof HTMLElement) || !(stage instanceof HTMLElement) || !(video instanceof HTMLVideoElement)) {
       return { missing: true };
     }
-
-    const serialize = (rect) => ({
-      left: rect.left,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom,
-      width: rect.width,
-      height: rect.height,
-    });
-
-    const viewport = {
-      width: document.documentElement.clientWidth,
-      height: document.documentElement.clientHeight,
-      devicePixelRatio: window.devicePixelRatio,
-      documentScrollHeight: document.documentElement.scrollHeight,
-      bodyScrollHeight: document.body.scrollHeight,
-      scrollY: window.scrollY,
+    const rect = (element) => {
+      const value = element.getBoundingClientRect();
+      return { left: value.left, top: value.top, right: value.right, bottom: value.bottom, width: value.width, height: value.height };
     };
-
     return {
       missing: false,
-      viewport,
-      player: serialize(player.getBoundingClientRect()),
-      stage: serialize(stage.getBoundingClientRect()),
-      video: serialize(video.getBoundingClientRect()),
-      controls: controls instanceof HTMLElement ? serialize(controls.getBoundingClientRect()) : null,
-      emptyStateCount: emptyStates.length,
+      viewport: {
+        width: document.documentElement.clientWidth,
+        height: document.documentElement.clientHeight,
+        documentScrollHeight: document.documentElement.scrollHeight,
+        bodyScrollHeight: document.body.scrollHeight,
+        scrollY: window.scrollY,
+        devicePixelRatio: window.devicePixelRatio,
+      },
+      player: rect(player),
+      stage: rect(stage),
+      video: rect(video),
+      controls: controls instanceof HTMLElement ? rect(controls) : null,
+      emptyStateCount: document.querySelectorAll('.player-viewport-boundary .empty-state').length,
       objectFit: getComputedStyle(video).objectFit,
       readyState: video.readyState,
       videoWidth: video.videoWidth,
@@ -190,136 +151,102 @@ async function measurePlayer(page) {
   });
 }
 
-function assertInsideViewport(label, measurement) {
-  if (measurement.missing) fail(`${label}: player elements are missing.`, measurement);
-  const { viewport, player, stage, video, controls } = measurement;
+function assertInside(label, result) {
+  if (result.missing) fail(`${label}: player elements are missing.`, result);
   const epsilon = 1.5;
-  const inside = (rect) => rect.left >= -epsilon && rect.top >= -epsilon && rect.right <= viewport.width + epsilon && rect.bottom <= viewport.height + epsilon;
-
-  if (!inside(player)) fail(`${label}: player root exceeds the application viewport.`, measurement);
-  if (!inside(stage)) fail(`${label}: video stage exceeds the application viewport.`, measurement);
-  if (!inside(video)) fail(`${label}: video element exceeds the application viewport.`, measurement);
-  if (controls && !inside(controls)) fail(`${label}: playback controls exceed the application viewport.`, measurement);
-  if (video.width < 320 || video.height < 180) fail(`${label}: video element does not have meaningful dimensions.`, measurement);
-  if (stage.height > viewport.height + epsilon || player.height > viewport.height + epsilon) fail(`${label}: loaded player is taller than the viewport.`, measurement);
-  if (viewport.documentScrollHeight > viewport.height + epsilon || viewport.bodyScrollHeight > viewport.height + epsilon || viewport.scrollY !== 0) {
-    fail(`${label}: page-level vertical scrolling is present.`, measurement);
+  const inside = (box) => box.left >= -epsilon && box.top >= -epsilon && box.right <= result.viewport.width + epsilon && box.bottom <= result.viewport.height + epsilon;
+  for (const [name, box] of [['player', result.player], ['stage', result.stage], ['video', result.video], ['controls', result.controls]]) {
+    if (box && !inside(box)) fail(`${label}: ${name} exceeds viewport.`, result);
   }
-  if (measurement.emptyStateCount !== 0) fail(`${label}: an empty state remains mounted after media loaded.`, measurement);
-  if (measurement.objectFit !== 'contain') fail(`${label}: default Fit mode is not contain.`, measurement);
-  if (measurement.videoWidth <= 0 || measurement.videoHeight <= 0 || measurement.readyState < 1) fail(`${label}: generated video did not load.`, measurement);
+  if (result.video.width < 320 || result.video.height < 180) fail(`${label}: video dimensions are not meaningful.`, result);
+  if (result.player.height > result.viewport.height + epsilon || result.stage.height > result.viewport.height + epsilon) fail(`${label}: player is taller than viewport.`, result);
+  if (result.viewport.documentScrollHeight > result.viewport.height + epsilon || result.viewport.bodyScrollHeight > result.viewport.height + epsilon || result.viewport.scrollY !== 0) fail(`${label}: page-level vertical scroll exists.`, result);
+  if (result.emptyStateCount !== 0) fail(`${label}: empty state remains after media load.`, result);
+  if (result.objectFit !== 'contain') fail(`${label}: default Fit mode is not contain.`, result);
+  if (result.videoWidth <= 0 || result.videoHeight <= 0 || result.readyState < 1) fail(`${label}: fixture video did not load.`, result);
 }
 
-async function closeProcess(page, processHandle) {
-  try {
-    await page.evaluate(() => window.knouxAPI?.window?.close?.());
-  } catch {
-    // The renderer may detach during normal close.
-  }
+function killProcessTree(child) {
+  if (child.exitCode !== null) return;
+  if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { shell: false, stdio: 'ignore' });
+  else child.kill('SIGKILL');
+}
 
+async function closeApp(page, child) {
+  try { await page.evaluate(() => window.knouxAPI?.window?.close?.()); } catch { /* renderer may detach */ }
   const exited = await Promise.race([
-    new Promise((resolve) => processHandle.once('exit', () => resolve(true))),
+    new Promise((resolve) => child.once('exit', () => resolve(true))),
     new Promise((resolve) => setTimeout(() => resolve(false), 8000)),
   ]);
-  if (exited) return;
-
-  if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/PID', String(processHandle.pid), '/T', '/F'], { shell: false, stdio: 'ignore' });
-  } else {
-    processHandle.kill('SIGKILL');
-  }
+  if (!exited) killProcessTree(child);
 }
 
 async function runFixture(executable, fixture, label) {
   const port = await reservePort();
-  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-  const processHandle = spawn(executable, [`--remote-debugging-port=${port}`, fixture], {
+  const logFd = fs.openSync(logPath, 'a');
+  const child = spawn(executable, [`--remote-debugging-port=${port}`, fixture], {
     cwd: path.dirname(executable),
     env: { ...process.env, KNOUX_VIEWPORT_SMOKE: '1' },
     detached: false,
     windowsHide: false,
     shell: false,
-    stdio: ['ignore', logStream, logStream],
+    stdio: ['ignore', logFd, logFd],
   });
-
   let browser;
   let page;
   try {
-    await waitForDebugEndpoint(port, processHandle);
+    await waitForDebugEndpoint(port, child);
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     page = await findPlayerPage(browser);
-
     if (await page.locator('.first-run-backdrop').count()) await page.keyboard.press('Escape');
     await page.waitForFunction(() => {
       const video = document.querySelector('video.video-element');
       return video instanceof HTMLVideoElement && video.readyState >= 1 && video.videoWidth > 0 && video.videoHeight > 0;
     }, null, { timeout: 45000 });
 
-    const sizes = [
-      { width: 1280, height: 720 },
-      { width: 1366, height: 768 },
-      { width: 1600, height: 900 },
-      { width: 1920, height: 1080 },
-      { width: 2560, height: 1440 },
-    ];
+    const sizes = [[1280, 720], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]];
     const evidence = [];
-
-    for (const size of sizes) {
-      await page.setViewportSize(size);
+    for (const [width, height] of sizes) {
+      await page.setViewportSize({ width, height });
       await page.waitForTimeout(250);
-      const measurement = await measurePlayer(page);
-      const assertionLabel = `${label}-${size.width}x${size.height}`;
-      assertInsideViewport(assertionLabel, measurement);
-      evidence.push({ label: assertionLabel, measurement });
-      await page.screenshot({
-        path: path.join(evidenceRoot, `${assertionLabel}.png`),
-        fullPage: false,
-      });
+      const result = await measure(page);
+      const scenario = `${label}-${width}x${height}`;
+      assertInside(scenario, result);
+      evidence.push({ label: scenario, measurement: result });
+      await page.screenshot({ path: path.join(evidenceRoot, `${scenario}.png`), fullPage: false });
     }
-
     return evidence;
   } finally {
+    if (page) await closeApp(page, child);
+    else killProcessTree(child);
     if (browser) {
       try { await browser.close(); } catch { /* best effort */ }
     }
-    if (page) await closeProcess(page, processHandle);
-    else if (processHandle.exitCode === null) {
-      if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(processHandle.pid), '/T', '/F'], { shell: false, stdio: 'ignore' });
-      else processHandle.kill('SIGKILL');
-    }
-    logStream.end();
+    fs.closeSync(logFd);
   }
 }
 
 async function main() {
   if (process.platform !== 'win32') {
-    console.log('Player viewport packaged-app smoke test is Windows-only; skipping on this platform.');
+    console.log('Packaged player viewport smoke is Windows-only; skipping.');
     return;
   }
-
   fs.mkdirSync(evidenceRoot, { recursive: true });
   fs.mkdirSync(fixtureRoot, { recursive: true });
   fs.writeFileSync(logPath, '', 'utf8');
-
   const executable = findPackagedExecutable();
-  const ffmpegPath = resolveFfmpeg();
+  const ffmpeg = resolveFfmpeg();
   const landscape = path.join(fixtureRoot, 'knoux-landscape.webm');
   const portrait = path.join(fixtureRoot, 'knoux-portrait.webm');
-  generateFixture(ffmpegPath, landscape, 1280, 720);
-  generateFixture(ffmpegPath, portrait, 720, 1280);
-
-  const results = [];
-  results.push(...await runFixture(executable, landscape, 'landscape'));
-  results.push(...await runFixture(executable, portrait, 'portrait'));
-
-  const report = {
-    status: 'PASS',
-    executable,
-    generatedAt: new Date().toISOString(),
-    assertions: results,
-  };
+  generateFixture(ffmpeg, landscape, 1280, 720);
+  generateFixture(ffmpeg, portrait, 720, 1280);
+  const assertions = [
+    ...await runFixture(executable, landscape, 'landscape'),
+    ...await runFixture(executable, portrait, 'portrait'),
+  ];
+  const report = { status: 'PASS', executable, generatedAt: new Date().toISOString(), assertions };
   fs.writeFileSync(path.join(evidenceRoot, 'viewport-measurements.json'), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log(`Player viewport packaged-app smoke PASS: ${results.length} measured scenarios.`);
+  console.log(`Player viewport packaged-app smoke PASS: ${assertions.length} measured scenarios.`);
 }
 
 main().catch((error) => {

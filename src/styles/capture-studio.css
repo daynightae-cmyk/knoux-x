@@ -1,0 +1,293 @@
+.capture-studio {
+  min-width: 0;
+}
+
+.capture-studio-layout {
+  display: grid;
+  grid-template-columns: minmax(310px, 0.78fr) minmax(420px, 1.35fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.capture-control-panel,
+.capture-source-panel,
+.capture-result-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.compact-heading {
+  margin-bottom: 14px;
+}
+
+.capture-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.capture-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.capture-mode-switch button:hover,
+.capture-mode-switch button:focus-visible,
+.capture-mode-switch button.active {
+  border-color: color-mix(in srgb, var(--knoux-accent) 64%, white 8%);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--knoux-accent) 16%, rgba(255, 255, 255, 0.04));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--knoux-accent) 22%, transparent);
+}
+
+.capture-mode-switch button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.capture-options-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.capture-options-grid label {
+  min-width: 0;
+}
+
+.capture-options-grid label > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.capture-options-grid input[type='range'] {
+  width: 100%;
+  accent-color: var(--knoux-accent);
+}
+
+.capture-destination-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 14px 0;
+}
+
+.capture-destination-options .creative-check {
+  min-height: 34px;
+}
+
+.capture-control-panel > .capture-path {
+  margin: 0 0 14px;
+  padding: 9px 11px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  max-height: min(52vh, 550px);
+  padding: 2px;
+  overflow: auto;
+}
+
+.desktop-source-card {
+  position: relative;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: rgba(1, 1, 8, 0.45);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.desktop-source-card:hover,
+.desktop-source-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.desktop-source-card.selected {
+  border-color: var(--knoux-accent);
+  background: color-mix(in srgb, var(--knoux-accent) 11%, rgba(0, 0, 0, 0.45));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--knoux-accent) 45%, transparent),
+    0 10px 28px color-mix(in srgb, var(--knoux-accent) 18%, transparent);
+}
+
+.desktop-source-card:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+
+.desktop-source-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: #050505;
+  object-fit: contain;
+}
+
+.desktop-source-card__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.desktop-source-card__label strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+
+.desktop-source-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+}
+
+.capture-desktop-only {
+  min-height: 220px;
+}
+
+.capture-result-panel {
+  margin-top: 18px;
+}
+
+.capture-result-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.capture-result-close:hover,
+.capture-result-close:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--knoux-accent);
+}
+
+.capture-result-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.25fr) minmax(260px, 0.75fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.capture-result-preview {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  max-height: 480px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #020204;
+  overflow: hidden;
+}
+
+.capture-result-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 480px;
+  object-fit: contain;
+}
+
+.capture-result-metadata {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.capture-result-metadata > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1.3fr);
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.capture-result-metadata dt {
+  color: var(--text-tertiary);
+  font-size: 0.76rem;
+}
+
+.capture-result-metadata dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+  .capture-studio-layout,
+  .capture-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-source-grid {
+    max-height: 440px;
+  }
+}
+
+@media (max-width: 720px) {
+  .capture-options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-source-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .capture-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .capture-result-metadata > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-mode-switch button,
+  .desktop-source-card {
+    transition: none;
+  }
+}

@@ -34,6 +34,14 @@
     "unknown": "Unknown",
     "error": "Error"
   },
+  "window": {
+    "enableAlwaysOnTop": "Keep KNOUX always on top",
+    "disableAlwaysOnTop": "Disable always on top",
+    "minimize": "Minimize window",
+    "maximize": "Maximize window",
+    "restore": "Restore window",
+    "close": "Close KNOUX Player X"
+  },
   "player": {
     "openLocalMedia": "Open local media",
     "localPrivacy": "Video and audio stay on your device.",

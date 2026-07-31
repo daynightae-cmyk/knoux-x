@@ -3,7 +3,9 @@
     "name": "KNOUX Player X",
     "loadingModule": "Loading KNOUX module…",
     "loadingAI": "Loading optional AI…",
-    "working": "Working…"
+    "working": "Working…",
+    "browserPreview": "Browser preview",
+    "browserPreviewDescription": "Interface preview. Native Windows services stay unavailable and are never simulated."
   },
   "nav": {
     "quickActions": "Quick Actions",
@@ -18,7 +20,12 @@
     "editor": "Editor",
     "export": "Export",
     "settings": "Settings",
-    "optionalAI": "Optional AI"
+    "optionalAI": "Optional AI",
+    "media": "Media",
+    "create": "Create",
+    "system": "System",
+    "expandSidebar": "Expand sidebar",
+    "compactSidebar": "Use compact sidebar"
   },
   "common": {
     "refresh": "Refresh",
@@ -286,6 +293,20 @@
     "version": "Version",
     "website": "Website",
     "developer": "Developer",
-    "runtime": "Runtime diagnostics"
+    "runtime": "Runtime diagnostics",
+    "search": "Search settings…",
+    "noResults": "No settings sections match this search.",
+    "accessibility": "Accessibility",
+    "motion": "Interface motion",
+    "motionDescription": "Disable decorative transitions while retaining functional state changes.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "highContrast": "High contrast theme",
+    "highContrastDescription": "Maximize text, border and keyboard-focus separation.",
+    "apply": "Apply",
+    "copyDiagnostics": "Copy diagnostics",
+    "productTour": "View product tour",
+    "developerRoles": "Product designer · Desktop engineer · Creative technology developer",
+    "repositories": "Selected repositories"
   }
 }

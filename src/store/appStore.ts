@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { KnouxThemeId } from '../theme/knouxThemeCatalog';
+
 export type ViewType =
   | 'player'
   | 'library'
@@ -10,8 +12,9 @@ export type ViewType =
   | 'editor'
   | 'export'
   | 'settings';
-export type ThemeType = 'light' | 'dark' | 'auto';
+export type ThemeType = KnouxThemeId;
 export type LocaleType = 'en' | 'ar';
+export type SidebarMode = 'expanded' | 'compact';
 
 export interface AppNotification {
   id: string;
@@ -34,6 +37,12 @@ export interface AppState {
   toggleAIAssistant(): void;
   isSidebarOpen: boolean;
   toggleSidebar(): void;
+  sidebarMode: SidebarMode;
+  setSidebarMode(mode: SidebarMode): void;
+  sidebarWidth: number;
+  setSidebarWidth(width: number): void;
+  motionEnabled: boolean;
+  setMotionEnabled(enabled: boolean): void;
   notifications: AppNotification[];
   addNotification(notification: Omit<AppNotification, 'id'>): void;
   removeNotification(id: string): void;
@@ -48,7 +57,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       currentView: 'player',
       setView: (view) => set({ currentView: view }),
-      theme: 'dark',
+      theme: 'deep-black',
       setTheme: (theme) => set({ theme }),
       accentColor: '#8b5cf6',
       setAccentColor: (color) => set({ accentColor: color }),
@@ -58,6 +67,12 @@ export const useAppStore = create<AppState>()(
       toggleAIAssistant: () => set((state) => ({ isAIAssistantOpen: !state.isAIAssistantOpen })),
       isSidebarOpen: true,
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+      sidebarMode: 'expanded',
+      setSidebarMode: (sidebarMode) => set({ sidebarMode }),
+      sidebarWidth: 252,
+      setSidebarWidth: (sidebarWidth) => set({ sidebarWidth: Math.max(220, Math.min(360, sidebarWidth)) }),
+      motionEnabled: true,
+      setMotionEnabled: (motionEnabled) => set({ motionEnabled }),
       notifications: [],
       addNotification: (notification) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -78,13 +93,28 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'knoux-app-store',
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         theme: state.theme,
         accentColor: state.accentColor,
         locale: state.locale,
         isSidebarOpen: state.isSidebarOpen,
+        sidebarMode: state.sidebarMode,
+        sidebarWidth: state.sidebarWidth,
+        motionEnabled: state.motionEnabled,
       }),
+      migrate: (persistedState: unknown) => {
+        const state = (persistedState ?? {}) as Partial<AppState> & { theme?: string };
+        const legacyThemes: Record<string, ThemeType> = {
+          dark: 'deep-black',
+          light: 'system-light',
+          auto: 'system-dark',
+        };
+        return {
+          ...state,
+          theme: legacyThemes[state.theme ?? ''] ?? (state.theme as ThemeType | undefined) ?? 'deep-black',
+        } as AppState;
+      },
     },
   ),
 );

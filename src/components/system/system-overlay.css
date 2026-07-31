@@ -280,6 +280,14 @@
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.58);
 }
 
+.knoux-fatal-error__panel > img {
+  width: 84px;
+  height: 84px;
+  display: block;
+  margin-bottom: 18px;
+  object-fit: contain;
+}
+
 .knoux-fatal-error__eyebrow {
   color: #ff4d6d;
   font-size: 10px;
@@ -297,18 +305,19 @@
   line-height: 1.6;
 }
 
-.knoux-fatal-error pre {
-  max-height: 160px;
-  overflow: auto;
-  margin: 20px 0;
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.34);
-  color: #ff9caf;
-  white-space: pre-wrap;
+.knoux-fatal-error__reference {
+  font-family: var(--knoux-font-mono);
+  font-size: var(--knoux-text-xs);
 }
 
-.knoux-fatal-error button {
+.knoux-fatal-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.knoux-fatal-error__actions button {
   min-height: 42px;
   padding: 0 18px;
   border: 1px solid rgba(255, 77, 109, 0.45);

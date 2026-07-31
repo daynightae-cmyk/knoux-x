@@ -9,6 +9,7 @@ import { PlayerView } from './features/player/PlayerView';
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
 import { useAppStore, ViewType } from './store/appStore';
+import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/creative-suite.css';
 import './styles/library-creative.css';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
     removeNotification,
     isLoading,
     loadingMessage,
+    motionEnabled,
   } = useAppStore();
   const { t } = useTranslation();
 
@@ -76,8 +78,10 @@ const App: React.FC = () => {
     root.lang = locale;
     root.dir = locale === 'ar' ? 'rtl' : 'ltr';
     root.dataset.theme = theme;
+    root.dataset.motion = motionEnabled ? 'full' : 'reduced';
     root.style.setProperty('--knoux-accent', accentColor);
-  }, [accentColor, locale, theme]);
+    root.style.colorScheme = getKnouxThemePreset(theme).logo === 'day' ? 'light' : 'dark';
+  }, [accentColor, locale, motionEnabled, theme]);
 
   return (
     <div className="app-shell">
@@ -89,10 +93,10 @@ const App: React.FC = () => {
             <motion.div
               key={currentView}
               className="view-transition"
-              initial={{ opacity: 0, y: 8 }}
+              initial={motionEnabled ? { opacity: 0, y: 8 } : false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18 }}
+              transition={{ duration: motionEnabled ? 0.18 : 0 }}
             >
               <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
                 {viewFor(currentView)}

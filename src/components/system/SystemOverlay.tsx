@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAppStore } from '../../store/appStore';
-import { findKnouxThemePreset, KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
+import { getKnouxThemePreset, KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
 import {
   collectRuntimeDiagnostics,
   type RuntimeDiagnostics,
@@ -34,8 +34,8 @@ export const SystemOverlay: React.FC = () => {
   const frameWindowStartedAt = useRef(performance.now());
 
   const activePreset = useMemo(
-    () => findKnouxThemePreset(accentColor),
-    [accentColor],
+    () => getKnouxThemePreset(theme),
+    [theme],
   );
 
   const refreshDiagnostics = useCallback(() => {
@@ -60,17 +60,21 @@ export const SystemOverlay: React.FC = () => {
     window.addEventListener('online', handleConnectivityChange);
     window.addEventListener('offline', handleConnectivityChange);
 
-    const diagnosticsTimer = window.setInterval(refreshDiagnostics, 5000);
+    const diagnosticsTimer = isOpen ? window.setInterval(refreshDiagnostics, 5000) : null;
 
     return () => {
       window.removeEventListener('keydown', handleKeyboard);
       window.removeEventListener('online', handleConnectivityChange);
       window.removeEventListener('offline', handleConnectivityChange);
-      window.clearInterval(diagnosticsTimer);
+      if (diagnosticsTimer !== null) window.clearInterval(diagnosticsTimer);
     };
-  }, [refreshDiagnostics]);
+  }, [isOpen, refreshDiagnostics]);
 
   useEffect(() => {
+    if (!isOpen) {
+      setFramesPerSecond(0);
+      return undefined;
+    }
     let animationFrameId = 0;
 
     const measureFrameRate = (timestamp: number): void => {
@@ -90,13 +94,13 @@ export const SystemOverlay: React.FC = () => {
     animationFrameId = window.requestAnimationFrame(measureFrameRate);
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, []);
+  }, [isOpen]);
 
   const overlayStyle = {
     '--system-accent': accentColor,
-    '--system-surface': activePreset.surface,
-    '--system-border': activePreset.border,
-    '--system-glow': activePreset.glow,
+    '--system-surface': 'var(--knoux-surface)',
+    '--system-border': 'var(--knoux-border)',
+    '--system-glow': 'var(--knoux-glow-subtle)',
   } as CSSProperties;
 
   return (
@@ -112,7 +116,7 @@ export const SystemOverlay: React.FC = () => {
           className={`knoux-system-status__signal ${diagnostics.online ? 'is-online' : 'is-offline'}`}
         />
         <Activity size={14} aria-hidden="true" />
-        <span>{framesPerSecond} FPS</span>
+        <span>{isOpen ? `${framesPerSecond} FPS` : 'KNOUX'}</span>
         <span className="knoux-system-status__divider" />
         <span>{activePreset.label}</span>
       </button>

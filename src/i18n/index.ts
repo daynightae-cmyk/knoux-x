@@ -24,6 +24,10 @@ import {
   recordingStudioArabic,
   recordingStudioEnglish,
 } from '../locales/recordingStudio';
+import {
+  slideshowStudioArabic,
+  slideshowStudioEnglish,
+} from '../locales/slideshowStudio';
 import { useAppStore } from '../store/appStore';
 import type { LocaleType } from '../store/appStore';
 
@@ -41,6 +45,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     nav: {
       ...en.nav,
       imageEditor: 'Image Editor',
+      slideshow: 'Slideshow',
     },
     capture: {
       ...en.capture,
@@ -52,6 +57,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     },
     imageEditor: imageEditorEnglish,
     multitrack: multitrackEditorEnglish,
+    slideshow: slideshowStudioEnglish,
     playerViewport: playerViewportEnglish,
     diagnostics: diagnosticsEnglish,
   },
@@ -65,6 +71,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     nav: {
       ...ar.nav,
       imageEditor: 'محرر الصور',
+      slideshow: 'عروض الشرائح',
     },
     capture: {
       ...ar.capture,
@@ -76,6 +83,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     },
     imageEditor: imageEditorArabic,
     multitrack: multitrackEditorArabic,
+    slideshow: slideshowStudioArabic,
     playerViewport: playerViewportArabic,
     diagnostics: diagnosticsArabic,
   },

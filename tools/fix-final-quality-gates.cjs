@@ -16,13 +16,6 @@ function replaceRequired(source, search, replacement, label) {
   return source.replace(search, replacement);
 }
 
-update('src/store/playerStore.ts', (source) => replaceRequired(
-  source,
-  '    (set, get) => ({',
-  '    (set) => ({',
-  'unused Zustand get parameter',
-));
-
 update('electron/creative/ffmpeg-service.ts', (source) => {
   let next = replaceRequired(source, '/^\\s*[VAS\\.]{6}\\s+([^\\s]+)/', '/^\\s*[VAS.]{6}\\s+([^\\s]+)/', 'encoder regex');
   next = replaceRequired(next, '/^\\s*[D\\.][E\\.]\\s+([^\\s]+)/', '/^\\s*[D.][E.]\\s+([^\\s]+)/', 'format regex');
@@ -36,13 +29,11 @@ update('src/core/creative/capture.ts', (source) => {
     "const INVALID_WINDOWS_CHARACTERS = new Set(['<', '>', ':', '\"', '/', '\\\\', '|', '?', '*']);\n\nfunction replaceInvalidWindowsCharacters(value: string): string {\n  return [...value].map((character) => {\n    const codePoint = character.codePointAt(0) ?? 0;\n    return codePoint <= 31 || INVALID_WINDOWS_CHARACTERS.has(character) ? '_' : character;\n  }).join('');\n}",
     'Windows filename sanitization regex',
   );
-  next = replaceRequired(next, '.replace(INVALID_WINDOWS_CHARACTERS, \'_\')', '|>PLACEHOLDER<|', 'invalid-character replacement');
-  next = next.replace('|>PLACEHOLDER<|', '');
   next = replaceRequired(
     next,
-    '  const normalized = value\n    .normalize(\'NFC\')\n',
-    "  const normalized = replaceInvalidWindowsCharacters(value.normalize('NFC'))\n",
-    'sanitizer normalization chain',
+    "  const normalized = value\n    .normalize('NFC')\n    .replace(INVALID_WINDOWS_CHARACTERS, '_')",
+    "  const normalized = replaceInvalidWindowsCharacters(value.normalize('NFC'))",
+    'Windows filename sanitizer chain',
   );
   return next;
 });

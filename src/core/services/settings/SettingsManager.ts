@@ -24,8 +24,9 @@ interface StoredSettingsDocument {
   settings: ApplicationSettings;
 }
 
-function isSettingKey(value: string): value is ApplicationSettingKey {
-  return APPLICATION_SETTING_KEYS.has(value as ApplicationSettingKey);
+function resolveSettingKey(value: string): ApplicationSettingKey | null {
+  if (value === 'volume') return 'defaultVolume';
+  return APPLICATION_SETTING_KEYS.has(value as ApplicationSettingKey) ? value as ApplicationSettingKey : null;
 }
 
 function safeTimestamp(): string {
@@ -58,35 +59,41 @@ export class SettingsManager extends EventEmitter {
   }
 
   public async get<T>(key: string, defaultValue?: T): Promise<T> {
-    if (!isSettingKey(key)) {
+    const resolvedKey = resolveSettingKey(key);
+    if (!resolvedKey) {
       if (defaultValue !== undefined) return structuredClone(defaultValue);
       throw new TypeError(`Unsupported application setting: ${key}`);
     }
-    return structuredClone(this.settings[key]) as T;
+    return structuredClone(this.settings[resolvedKey]) as T;
   }
 
   public async set<T>(key: string, value: T): Promise<void> {
-    if (!isSettingKey(key)) throw new TypeError(`Unsupported application setting: ${key}`);
-    const validated = validateApplicationSetting(key, value);
-    const oldValue = structuredClone(this.settings[key]);
+    const resolvedKey = resolveSettingKey(key);
+    if (!resolvedKey) throw new TypeError(`Unsupported application setting: ${key}`);
+    const validated = validateApplicationSetting(resolvedKey, value);
+    const oldValue = structuredClone(this.settings[resolvedKey]);
     if (JSON.stringify(oldValue) === JSON.stringify(validated)) return;
-    this.settings[key] = structuredClone(validated) as never;
+    this.settings[resolvedKey] = structuredClone(validated) as never;
     await this.persist();
-    this.emit('change', key, structuredClone(validated), oldValue);
+    this.emit('change', resolvedKey, structuredClone(validated), oldValue);
   }
 
-  public async getAll(): Promise<ApplicationSettings> {
-    return structuredClone(this.settings);
+  public async getAll(): Promise<ApplicationSettings & { volume: number }> {
+    return {
+      ...structuredClone(this.settings),
+      volume: this.settings.defaultVolume,
+    };
   }
 
   public async reset(key?: string): Promise<void> {
     if (key !== undefined) {
-      if (!isSettingKey(key)) throw new TypeError(`Unsupported application setting: ${key}`);
-      const previous = structuredClone(this.settings[key]);
-      this.settings[key] = structuredClone(DEFAULT_APPLICATION_SETTINGS[key]) as never;
+      const resolvedKey = resolveSettingKey(key);
+      if (!resolvedKey) throw new TypeError(`Unsupported application setting: ${key}`);
+      const previous = structuredClone(this.settings[resolvedKey]);
+      this.settings[resolvedKey] = structuredClone(DEFAULT_APPLICATION_SETTINGS[resolvedKey]) as never;
       await this.persist();
-      this.emit('change', key, structuredClone(this.settings[key]), previous);
-      this.emit('reset', key);
+      this.emit('change', resolvedKey, structuredClone(this.settings[resolvedKey]), previous);
+      this.emit('reset', resolvedKey);
       return;
     }
 

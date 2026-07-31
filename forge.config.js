@@ -87,6 +87,20 @@ function requirePackagedManifest(buildPath, packageName) {
   return manifestPath;
 }
 
+function listRuntimeFiles(directory) {
+  if (!fs.existsSync(directory)) return [];
+  const results = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...listRuntimeFiles(fullPath));
+    } else {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
 function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, callback) {
   try {
     const copiedRoots = new Set();
@@ -99,23 +113,23 @@ function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, cal
     const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
     const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
     const windowsRuntime = installedImagePackages.find((name) => /^sharp-win32-(x64|ia32|arm64)$/.test(name));
-    const windowsLibvips = installedImagePackages.find((name) => /^sharp-libvips-win32-(x64|ia32|arm64)$/.test(name));
-    if (!windowsRuntime || !windowsLibvips) {
-      throw new Error(`Sharp Windows runtime packages are incomplete in ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
+    if (!windowsRuntime) {
+      throw new Error(`Sharp Windows runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
     }
 
-    const nativeBinaryRoot = path.join(sharpPlatformRoot, windowsRuntime, 'lib');
-    const nativeBinaries = fs.existsSync(nativeBinaryRoot)
-      ? fs.readdirSync(nativeBinaryRoot).filter((name) => name.endsWith('.node'))
-      : [];
+    const windowsRuntimeRoot = path.join(sharpPlatformRoot, windowsRuntime);
+    const runtimeFiles = listRuntimeFiles(windowsRuntimeRoot);
+    const nativeBinaries = runtimeFiles.filter((filePath) => filePath.endsWith('.node'));
+    const runtimeLibraries = runtimeFiles.filter((filePath) => filePath.toLowerCase().endsWith('.dll'));
     if (nativeBinaries.length === 0) {
-      throw new Error(`Sharp Windows native binary is missing from ${nativeBinaryRoot}`);
+      throw new Error(`Sharp Windows native binary is missing from ${windowsRuntimeRoot}`);
     }
 
     console.log(`[KNOUX package] Native SQLite runtime copied to ${sqliteManifest}`);
     console.log(`[KNOUX package] Sharp runtime copied to ${sharpManifest}`);
     console.log(`[KNOUX package] Sharp platform packages: ${installedImagePackages.join(', ')}`);
-    console.log(`[KNOUX package] Sharp native binaries: ${nativeBinaries.join(', ')}`);
+    console.log(`[KNOUX package] Sharp native binaries: ${nativeBinaries.map((filePath) => path.basename(filePath)).join(', ')}`);
+    console.log(`[KNOUX package] Sharp runtime libraries: ${runtimeLibraries.map((filePath) => path.basename(filePath)).join(', ') || 'embedded'}`);
     callback();
   } catch (error) {
     callback(error);

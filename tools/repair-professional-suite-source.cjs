@@ -50,4 +50,16 @@ changed = replaceExact(
   "  const [selected] = normalized.splice(index, 1);\n  normalized.splice(destination, 0, selected);\n  return normalized.map((track, order) => ({ ...track, order }));\n",
 ) || changed;
 
+changed = replaceExact(
+  'electron/ipc/slideshow-runtime.ts',
+  "import { authorizedMediaPaths } from '../security/path-registry';\n\nimport { SlideshowProjectService } from '../creative/slideshow-project-service';\nimport { SlideshowRenderService } from '../creative/slideshow-render-service';\n",
+  "import { SlideshowProjectService } from '../creative/slideshow-project-service';\nimport { SlideshowRenderService } from '../creative/slideshow-render-service';\nimport { authorizedMediaPaths } from '../security/path-registry';\n",
+) || changed;
+
+changed = replaceExact(
+  'src/features/slideshow/SlideshowView.tsx',
+  "  }, [duration, previewPlaying]);\n",
+  "  }, [duration, previewPlaying, previewTime]);\n",
+) || changed;
+
 console.log(changed ? '[PASS] Professional suite source repairs applied.' : '[PASS] No pending professional suite source repairs.');

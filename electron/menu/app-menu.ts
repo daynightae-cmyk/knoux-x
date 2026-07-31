@@ -62,6 +62,10 @@ export function createApplicationMenu(): void {
           click: () => void shell.openExternal(validateExternalUrl('https://knoux.store').toString()),
         },
         {
+          label: 'Developer Profile',
+          click: () => void shell.openExternal(validateExternalUrl('https://github.com/KnouxOPS').toString()),
+        },
+        {
           label: 'About KNOUX Player X',
           click: () => void dialog.showMessageBox({
             type: 'info',

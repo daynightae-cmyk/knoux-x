@@ -56,7 +56,7 @@ const slides: TourSlide[] = [
   {
     image: new URL('../../../assets/installer/slides/09.png', import.meta.url).href,
     title: { en: 'Ready to Create', ar: 'جاهز للإبداع' },
-    description: { en: 'Start with playback, capture, recording, editing, and export.', ar: 'ابدأ بالتشغيل والالتقاط والتسجيل والتحرير والتصدير.' },
+    description: { en: 'A Knoux Product, crafted by Eng. Sadek Elgazar. Start with playback, capture, editing, and export.', ar: 'منتج من Knoux، صممه م. صادق الجزار. ابدأ بالتشغيل والالتقاط والتحرير والتصدير.' },
   },
 ];
 

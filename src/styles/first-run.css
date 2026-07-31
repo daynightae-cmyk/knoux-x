@@ -202,6 +202,54 @@
   color: var(--knoux-muted);
 }
 
+.developer-actions,
+.developer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-block: 18px;
+}
+
+.social-snapshot {
+  padding: 11px 13px;
+  border-inline-start: 3px solid var(--knoux-accent);
+  color: var(--knoux-muted);
+  background: var(--knoux-accent-soft);
+}
+
+.developer-repositories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.developer-repositories button,
+.developer-contact button {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--knoux-border);
+  border-radius: 11px;
+  color: var(--knoux-text);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.developer-repositories button span,
+.developer-contact button span {
+  flex: 1;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.developer-repositories button:hover,
+.developer-contact button:hover {
+  border-color: var(--knoux-accent);
+  background: var(--knoux-accent-soft);
+}
+
 @keyframes first-run-fade {
   from { opacity: 0.35; transform: scale(0.995); }
   to { opacity: 1; transform: scale(1); }
@@ -228,6 +276,10 @@
 
   .first-run-actions {
     padding: 10px 14px 13px;
+  }
+
+  .developer-repositories {
+    grid-template-columns: 1fr;
   }
 }
 

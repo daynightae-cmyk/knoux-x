@@ -1,17 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BotOff,
+  Copy,
+  ExternalLink,
   FolderCog,
+  Github,
   Globe2,
   Info,
+  Instagram,
+  Mail,
+  MessageCircle,
   MonitorCog,
+  Music2,
   Palette,
+  Phone,
   ShieldCheck,
 } from 'lucide-react';
 
+import { BrandMark } from '../../components/brand/BrandMark';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
-import { BrandMark } from '../../components/brand/BrandMark';
+import { KNOUX_BRAND } from '../../config/brand';
 import { localeCoverage, useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
 
@@ -64,6 +73,24 @@ export const SettingsView: React.FC = () => {
       setError(reason instanceof Error ? reason.message : 'Capture folder could not be changed.');
     }
   }, []);
+
+  const openExternal = useCallback(async (url: string): Promise<void> => {
+    setError(null);
+    try {
+      await window.knouxAPI.system.openExternal(url);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The official link could not be opened.');
+    }
+  }, []);
+
+  const copyContact = useCallback(async (value: string): Promise<void> => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      setError(locale === 'ar' ? 'تعذر نسخ بيانات التواصل.' : 'The contact detail could not be copied.');
+    }
+  }, [locale]);
 
   useEffect(() => { void loadCaptureDirectory(); }, [loadCaptureDirectory]);
 
@@ -167,15 +194,45 @@ export const SettingsView: React.FC = () => {
                 <BrandMark size={72} />
                 <div>
                   <strong>KNOUX Player X</strong>
-                  <p>A Knoux Product · Crafted by Eng. Sadek Elgazar (Knoux)</p>
+                  <p>A Knoux Product · Crafted by {KNOUX_BRAND.developer}</p>
                 </div>
               </div>
               <dl className="about-grid">
                 <div><dt>{t('settings.version')}</dt><dd>2.0.0</dd></div>
-                <div><dt>{t('settings.developer')}</dt><dd>Eng. Sadek Elgazar (Knoux)</dd></div>
-                <div><dt>{t('settings.website')}</dt><dd><button type="button" onClick={() => void window.knouxAPI.system.openExternal('https://knoux.store')}>knoux.store</button></dd></div>
+                <div><dt>{t('settings.developer')}</dt><dd>{KNOUX_BRAND.developer}</dd></div>
+                <div><dt>{t('settings.website')}</dt><dd><button type="button" onClick={() => void openExternal(KNOUX_BRAND.website)}>knoux.store</button></dd></div>
                 <div><dt>{t('settings.runtime')}</dt><dd>{navigator.userAgent}</dd></div>
               </dl>
+              <div className="developer-actions" aria-label={locale === 'ar' ? 'روابط المطور الرسمية' : 'Official developer links'}>
+                <NeonButton variant="secondary" leftIcon={<ExternalLink size={16} />} onClick={() => void openExternal(KNOUX_BRAND.website)}>Website</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<Github size={16} />} onClick={() => void openExternal(KNOUX_BRAND.github)}>GitHub</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<Music2 size={16} />} onClick={() => void openExternal(KNOUX_BRAND.tiktok)}>TikTok</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<Instagram size={16} />} onClick={() => void openExternal(KNOUX_BRAND.instagram)}>Instagram</NeonButton>
+                <NeonButton variant="secondary" leftIcon={<MessageCircle size={16} />} onClick={() => void openExternal(KNOUX_BRAND.whatsapp)}>WhatsApp</NeonButton>
+              </div>
+              <p className="social-snapshot">
+                {locale === 'ar'
+                  ? 'لقطة TikTok المقدمة لشهر يوليو 2026: أكثر من 138.2 ألف متابع و2.8 مليون إعجاب. هذه ليست أرقامًا حية.'
+                  : 'Provided TikTok snapshot for July 2026: 138.2K+ followers and 2.8M+ likes. These are not live counts.'}
+              </p>
+              <h3>{locale === 'ar' ? 'مستودعات مختارة' : 'Selected repositories'}</h3>
+              <div className="developer-repositories">
+                {KNOUX_BRAND.repositories.map((repository) => (
+                  <button type="button" key={repository.url} onClick={() => void openExternal(repository.url)}>
+                    <Github size={18} />
+                    <span>{repository.name}</span>
+                    <ExternalLink size={14} />
+                  </button>
+                ))}
+              </div>
+              <div className="developer-contact">
+                <button type="button" onClick={() => void copyContact(KNOUX_BRAND.email)}>
+                  <Mail size={17} /><span>{KNOUX_BRAND.email}</span><Copy size={14} />
+                </button>
+                <button type="button" onClick={() => void copyContact(KNOUX_BRAND.phone)}>
+                  <Phone size={17} /><span>{KNOUX_BRAND.phone}</span><Copy size={14} />
+                </button>
+              </div>
               <NeonButton
                 variant="secondary"
                 onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}

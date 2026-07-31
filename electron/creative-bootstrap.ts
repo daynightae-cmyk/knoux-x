@@ -8,8 +8,8 @@ import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
 
 const MEDIA_PERMISSION_WINDOW_MS = 60_000;
 const permissionExpiry = new Map<number, number>();
-const aiService = new AIService();
-const subtitleService = new SubtitleService();
+let aiService: AIService | null = null;
+let subtitleService: SubtitleService | null = null;
 let controller: CreativeSuiteController | null = null;
 let registered = false;
 
@@ -36,6 +36,10 @@ function validateDelay(value: unknown): number {
 function registerCreativeRuntime(): void {
   if (registered) return;
   registered = true;
+  
+  // Lazy-instantiate services only in primary instance
+  aiService = new AIService();
+  subtitleService = new SubtitleService();
   controller = setupCreativeSuiteHandlers(ipcMain);
 
   ipcMain.handle('creative:request-media-permission', (event) => {
@@ -46,63 +50,67 @@ function registerCreativeRuntime(): void {
 
   ipcMain.handle('subtitle:select', async (event, delaySeconds = 0) => {
     requireTrustedEvent(event);
-    return subtitleService.select(validateDelay(delaySeconds));
+    return subtitleService!.select(validateDelay(delaySeconds));
   });
   ipcMain.handle('subtitle:reload', async (event, filePath: string, delaySeconds = 0) => {
     requireTrustedEvent(event);
     if (typeof filePath !== 'string' || filePath.length === 0 || filePath.length > 4096) {
       throw new TypeError('Subtitle path is invalid.');
     }
-    return subtitleService.load(filePath, validateDelay(delaySeconds));
+    return subtitleService!.load(filePath, validateDelay(delaySeconds));
   });
 
   ipcMain.handle('ai-secure:settings', (event) => {
     requireTrustedEvent(event);
-    return aiService.getSettings();
+    return aiService!.getSettings();
   });
   ipcMain.handle('ai-secure:configure', (event, request: AIConfigureRequest) => {
     requireTrustedEvent(event);
-    return aiService.configure(request);
+    return aiService!.configure(request);
   });
   ipcMain.handle('ai-secure:clear', (event) => {
     requireTrustedEvent(event);
-    return aiService.clearCredential();
+    return aiService!.clearCredential();
   });
   ipcMain.handle('ai-secure:test', async (event) => {
     requireTrustedEvent(event);
-    return aiService.testConnection();
+    return aiService!.testConnection();
   });
   ipcMain.handle('ai-secure:chat', async (event, message: string, history: AIChatMessage[] = []) => {
     requireTrustedEvent(event);
-    return aiService.chat(message, history);
+    return aiService!.chat(message, history);
   });
   ipcMain.handle('ai-secure:cancel', (event) => {
     requireTrustedEvent(event);
-    return aiService.cancel();
+    return aiService!.cancel();
   });
 }
 
-app.whenReady().then(() => {
+// Export registration function to be called explicitly by main.ts after lock acquisition
+export function registerCreativeRuntimeIfPrimary(): void {
   registerCreativeRuntime();
-});
+}
 
-app.on('web-contents-created', (_event, contents) => {
-  contents.session.setPermissionRequestHandler((requestingContents, permission, callback) => {
-    const expiresAt = permissionExpiry.get(requestingContents.id) ?? 0;
-    const isMediaPermission = permission === 'media' || permission === 'display-capture';
-    const allowed = isMediaPermission
-      && isTrustedWindow(requestingContents.id)
-      && expiresAt > Date.now();
-    callback(allowed);
+// Export permission and cleanup handlers for main.ts to call
+export function setupCreativePermissionHandlers(): void {
+  app.on('web-contents-created', (_event, contents) => {
+    contents.session.setPermissionRequestHandler((requestingContents, permission, callback) => {
+      const expiresAt = permissionExpiry.get(requestingContents.id) ?? 0;
+      const isMediaPermission = permission === 'media' || permission === 'display-capture';
+      const allowed = isMediaPermission
+        && isTrustedWindow(requestingContents.id)
+        && expiresAt > Date.now();
+      callback(allowed);
+    });
+
+    contents.on('destroyed', () => {
+      permissionExpiry.delete(contents.id);
+    });
   });
+}
 
-  contents.on('destroyed', () => {
-    permissionExpiry.delete(contents.id);
-  });
-});
-
-app.on('before-quit', () => {
+export function cleanupCreativeRuntime(): void {
   permissionExpiry.clear();
-  aiService.cancel();
+  aiService?.cancel();
   void controller?.shutdown();
-});
+}

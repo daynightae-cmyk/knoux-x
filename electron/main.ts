@@ -16,6 +16,7 @@ import { authorizeMediaPaths } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
 import { createSystemTray, destroyTray } from './menu/system-tray';
 import { mediaPathsFromArguments, validateExternalUrl } from './security/validation';
+import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime } from './creative-bootstrap';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -192,7 +193,8 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
-    await import('./creative-bootstrap');
+    registerCreativeRuntimeIfPrimary();
+    setupCreativePermissionHandlers();
     registerCoreHandlers();
     createApplicationMenu();
     powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
@@ -219,6 +221,7 @@ if (!gotTheLock) {
 app.on('before-quit', () => {
   isQuitting = true;
   destroyTray();
+  cleanupCreativeRuntime();
 });
 app.on('will-quit', () => {
   if (!isQuitting) destroyTray();

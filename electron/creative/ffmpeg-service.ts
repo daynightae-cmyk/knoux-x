@@ -118,11 +118,11 @@ export class FFmpegService {
     const versionLine = versionResult.stdout.split(/\r?\n/)[0] || null;
     const encoders = encodersResult.stdout
       .split(/\r?\n/)
-      .map((line) => /^\s*[VAS\.]{6}\s+([^\s]+)/.exec(line)?.[1])
+      .map((line) => /^\s*[VAS.]{6}\s+([^\s]+)/.exec(line)?.[1])
       .filter((value): value is string => Boolean(value));
     const formats = formatsResult.stdout
       .split(/\r?\n/)
-      .map((line) => /^\s*[D\.][E\.]\s+([^\s]+)/.exec(line)?.[1])
+      .map((line) => /^\s*[D.][E.]\s+([^\s]+)/.exec(line)?.[1])
       .filter((value): value is string => Boolean(value));
     const hardwareAccelerators = hardwareResult.stdout
       .split(/\r?\n/)

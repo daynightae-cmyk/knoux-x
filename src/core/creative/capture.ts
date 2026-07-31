@@ -1,12 +1,17 @@
 export type CaptureFormat = 'png' | 'jpeg' | 'webp';
 
 const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
-const INVALID_WINDOWS_CHARACTERS = /[<>:"/\\|?*\u0000-\u001f]/g;
+const INVALID_WINDOWS_CHARACTERS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+
+function replaceInvalidWindowsCharacters(value: string): string {
+  return [...value].map((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || INVALID_WINDOWS_CHARACTERS.has(character) ? '_' : character;
+  }).join('');
+}
 
 export function sanitizeWindowsFileStem(value: string): string {
-  const normalized = value
-    .normalize('NFC')
-    .replace(INVALID_WINDOWS_CHARACTERS, '_')
+  const normalized = replaceInvalidWindowsCharacters(value.normalize('NFC'))
     .replace(/[. ]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();

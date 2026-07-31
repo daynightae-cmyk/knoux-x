@@ -2,7 +2,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 
 import { app } from 'electron';
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 
 export interface Playlist {
   id: string;
@@ -46,10 +46,10 @@ function validPosition(value: number): number {
 }
 
 export class OrganizationService {
-  private readonly database: Database.Database;
+  private readonly database: BetterSqlite3.Database;
 
   constructor(databasePath = path.join(app.getPath('userData'), 'knoux-library.sqlite3')) {
-    this.database = new Database(databasePath);
+    this.database = new BetterSqlite3(databasePath);
     this.database.pragma('journal_mode = WAL');
     this.database.pragma('foreign_keys = ON');
     this.database.pragma('busy_timeout = 5000');

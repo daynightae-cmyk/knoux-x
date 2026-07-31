@@ -3,7 +3,7 @@ import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 
 import { app } from 'electron';
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 
 const MEDIA_EXTENSIONS = new Set([
   '.mp4', '.webm', '.mkv', '.mov', '.avi', '.m4v',
@@ -95,11 +95,11 @@ function mapMedia(row: Record<string, unknown>): LibraryMediaItem {
 }
 
 export class LibraryService {
-  private readonly database: Database.Database;
+  private readonly database: BetterSqlite3.Database;
   private readonly canceledJobs = new Set<string>();
 
   constructor(databasePath = path.join(app.getPath('userData'), 'knoux-library.sqlite3')) {
-    this.database = new Database(databasePath);
+    this.database = new BetterSqlite3(databasePath);
     this.database.pragma('journal_mode = WAL');
     this.database.pragma('foreign_keys = ON');
     this.database.pragma('busy_timeout = 5000');

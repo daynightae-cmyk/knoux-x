@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron';
 
 import type { CaptureFormat } from '../src/core/creative/capture';
 import type { EditProject } from '../src/core/creative/editProject';
+
 import type { AIChatMessage, AIConfigureRequest, AISettings } from './creative/ai-service';
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative/export-service';

@@ -43,7 +43,7 @@ export function parseSubtitleText(source: string): SubtitleCue[] {
   for (const block of blocks) {
     const lines = block.split('\n').map((line) => line.trimEnd());
     if (lines.length < 2) continue;
-    let timingIndex = lines.findIndex((line) => line.includes('-->'));
+    const timingIndex = lines.findIndex((line) => line.includes('-->'));
     if (timingIndex < 0) continue;
     const timing = lines[timingIndex].split('-->').map((part) => part.trim().split(/\s+/)[0]);
     if (timing.length !== 2) continue;

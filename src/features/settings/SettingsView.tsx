@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BotOff,
   FolderCog,
@@ -64,7 +64,7 @@ export const SettingsView: React.FC = () => {
     }
   }, []);
 
-  React.useEffect(() => { void loadCaptureDirectory(); }, [loadCaptureDirectory]);
+  useEffect(() => { void loadCaptureDirectory(); }, [loadCaptureDirectory]);
 
   return (
     <section className="creative-view settings-view" aria-labelledby="settings-title">

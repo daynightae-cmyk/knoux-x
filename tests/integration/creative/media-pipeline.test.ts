@@ -2,13 +2,16 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
+import { createRequire } from 'module';
 
 interface StaticBinaryModule {
   path?: string;
 }
 
+const requireForTest = createRequire(__filename);
+
 function binaryPath(moduleName: 'ffmpeg-static' | '@derhuerst/ffprobe-static'): string {
-  const loaded = require(moduleName) as string | StaticBinaryModule;
+  const loaded = requireForTest(moduleName) as string | StaticBinaryModule;
   const resolved = typeof loaded === 'string' ? loaded : loaded.path;
   if (!resolved || !path.isAbsolute(resolved) || !fs.existsSync(resolved)) {
     throw new Error(`${moduleName} did not provide a valid executable path.`);

@@ -1,9 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Circle, Monitor, Pause, Play, Square, Volume2 } from 'lucide-react';
+import {
+  Circle,
+  FileVideo,
+  FolderOpen,
+  Monitor,
+  Pause,
+  Play,
+  RefreshCw,
+  Square,
+  Volume2,
+} from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { useTranslation } from '../../i18n';
+import type { RecordingSessionSnapshot } from '../../../electron/creative/recording-service';
 import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 
 interface LegacyDesktopTrackConstraints {
@@ -38,8 +49,17 @@ function statusKey(status: RecordingStatus): string {
   return keys[status];
 }
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export const RecordingView: React.FC = () => {
   const [sources, setSources] = useState<DesktopCaptureSource[]>([]);
+  const [recordings, setRecordings] = useState<RecordingSessionSnapshot[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [includeMicrophone, setIncludeMicrophone] = useState(false);
   const [status, setStatus] = useState<RecordingStatus>('idle');
@@ -51,7 +71,7 @@ export const RecordingView: React.FC = () => {
   const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   const startedAtRef = useRef(0);
   const cancelRequestedRef = useRef(false);
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
 
   const loadSources = useCallback(async (): Promise<void> => {
     setError(null);
@@ -64,7 +84,19 @@ export const RecordingView: React.FC = () => {
     }
   }, [t]);
 
-  useEffect(() => { void loadSources(); }, [loadSources]);
+  const loadRecordings = useCallback(async (): Promise<void> => {
+    try {
+      const next = await window.knouxCreativeAPI.recording.list();
+      setRecordings(next.filter((entry) => entry.state.status === 'completed'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('recording.historyFailed'));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadSources();
+    void loadRecordings();
+  }, [loadRecordings, loadSources]);
 
   useEffect(() => {
     if (status !== 'recording') return undefined;
@@ -178,6 +210,7 @@ export const RecordingView: React.FC = () => {
             await writeChainRef.current;
             if (sessionId && !cancelRequestedRef.current) {
               await window.knouxCreativeAPI.recording.finish(sessionId);
+              await loadRecordings();
             }
           } catch (reason) {
             setError(reason instanceof Error ? reason.message : t('recording.finalizeFailed'));
@@ -197,7 +230,7 @@ export const RecordingView: React.FC = () => {
       setStatus('idle');
       setError(reason instanceof Error ? reason.message : t('recording.startFailed'));
     }
-  }, [cleanupStreams, includeMicrophone, selectedSourceId, sources, status, t]);
+  }, [cleanupStreams, includeMicrophone, loadRecordings, selectedSourceId, sources, status, t]);
 
   const pauseRecording = useCallback(async (): Promise<void> => {
     const recorder = recorderRef.current;
@@ -315,6 +348,43 @@ export const RecordingView: React.FC = () => {
           ))}
         </div>
       </div>
+
+      <div className="creative-section-heading">
+        <h2><FileVideo size={20} /> {t('recording.recent')}</h2>
+        <NeonButton variant="ghost" size="sm" leftIcon={<RefreshCw size={14} />} onClick={() => void loadRecordings()}>
+          {t('common.refresh')}
+        </NeonButton>
+      </div>
+
+      {recordings.length === 0 ? (
+        <div className="creative-empty">{t('recording.historyEmpty')}</div>
+      ) : (
+        <div className="capture-grid">
+          {recordings.map((entry) => (
+            <NeonPanel key={entry.id} variant="dark" padding="sm">
+              <div className="capture-card">
+                <div>
+                  <strong dir="auto">{entry.outputPath.split(/[\\/]/).pop()}</strong>
+                  <div className="capture-path" dir="ltr">{formatBytes(entry.bytesWritten)}</div>
+                  <small>
+                    {entry.completedAt
+                      ? new Intl.DateTimeFormat(locale === 'ar' ? 'ar-AE' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.completedAt))
+                      : ''}
+                  </small>
+                </div>
+                <NeonButton
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<FolderOpen size={14} />}
+                  onClick={() => void window.knouxCreativeAPI.recording.showItem(entry.outputPath)}
+                >
+                  {t('capture.showFolder')}
+                </NeonButton>
+              </div>
+            </NeonPanel>
+          ))}
+        </div>
+      )}
     </section>
   );
 };

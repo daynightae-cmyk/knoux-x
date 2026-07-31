@@ -25,6 +25,11 @@ export const FUTURE_LOCALES = ['fr', 'es', 'de', 'it', 'pt', 'tr', 'ur', 'hi', '
 const dictionaries: Record<LocaleType, unknown> = {
   en: {
     ...en,
+    common: {
+      ...en.common,
+      yes: diagnosticsEnglish.yes,
+      no: diagnosticsEnglish.no,
+    },
     nav: {
       ...en.nav,
       imageEditor: 'Image Editor',
@@ -39,6 +44,11 @@ const dictionaries: Record<LocaleType, unknown> = {
   },
   ar: {
     ...ar,
+    common: {
+      ...ar.common,
+      yes: diagnosticsArabic.yes,
+      no: diagnosticsArabic.no,
+    },
     nav: {
       ...ar.nav,
       imageEditor: 'محرر الصور',

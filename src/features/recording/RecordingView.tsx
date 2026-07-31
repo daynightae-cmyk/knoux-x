@@ -13,6 +13,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { useTranslation } from '../../i18n';
 import type { RecordingSessionSnapshot } from '../../../electron/creative/recording-service';
 import type { DesktopCaptureSource } from '../../../electron/preload-creative';
@@ -286,6 +287,8 @@ export const RecordingView: React.FC = () => {
           <span /> {status === 'recording' || status === 'paused' ? `${statusLabel} ${elapsed}s` : statusLabel}
         </div>
       </header>
+
+      <RuntimeModeNotice feature="Native desktop recording" featureAr="ميزة التسجيل الأصلية لسطح المكتب" />
 
       {error && <div className="creative-error" role="alert">{error}</div>}
 

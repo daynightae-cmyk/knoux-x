@@ -30,11 +30,12 @@ try {
   // Electron's built-in CommonJS module must be loaded with require(). A dynamic
   // ESM import can resolve the npm shim instead of the main-process API.
   const { app } = require('electron') as typeof import('electron');
-  const log = require('electron-log') as typeof import('electron-log').default;
-  const started = require('electron-squirrel-startup') as boolean;
-  reportRawStartup('external-imports-loaded');
+  reportRawStartup('electron-api-loaded');
 
-  void import('./startup/single-instance').then(({ startSingleInstanceEntry }) => {
+  void Promise.all([
+    import('./startup/runtime-dependencies'),
+    import('./startup/single-instance'),
+  ]).then(([{ log, started }, { startSingleInstanceEntry }]) => {
     reportRawStartup('startup-imports-loaded');
 
     const reportStartup = (event: string, detail = ''): void => {

@@ -10,6 +10,7 @@ export type ViewType =
   | 'capture'
   | 'recording'
   | 'editor'
+  | 'image-editor'
   | 'export'
   | 'settings';
 export type ThemeType = KnouxThemeId;
@@ -93,7 +94,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'knoux-app-store',
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         theme: state.theme,
         accentColor: state.accentColor,

@@ -64,6 +64,24 @@ function flushPendingMediaPaths(): void {
   if (authorized.length > 0) mainWindow.webContents.send('app:open-media', authorized);
 }
 
+function desktopInfo(): {
+  platform: NodeJS.Platform;
+  arch: string;
+  version: string;
+  electronVersion: string;
+  chromeVersion: string;
+  nodeVersion: string;
+} {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    version: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+  };
+}
+
 function registerCoreHandlers(): void {
   ipcMain.handle('window:minimize', (event) => windowForEvent(event).minimize());
   ipcMain.handle('window:maximize', (event) => {
@@ -74,12 +92,20 @@ function registerCoreHandlers(): void {
   });
   ipcMain.handle('window:close', (event) => windowForEvent(event).close());
   ipcMain.handle('window:is-maximized', (event) => windowForEvent(event).isMaximized());
-  ipcMain.handle('window:set-always-on-top', (event, enabled: boolean) => {
+
+  const setAlwaysOnTop = (event: IpcMainInvokeEvent, enabled: boolean): void => {
     windowForEvent(event).setAlwaysOnTop(Boolean(enabled));
-  });
-  ipcMain.handle('window:set-fullscreen', (event, enabled: boolean) => {
+  };
+  ipcMain.handle('window:set-always-on-top', setAlwaysOnTop);
+  ipcMain.handle('window:always-on-top', setAlwaysOnTop);
+
+  const setFullscreen = (event: IpcMainInvokeEvent, enabled: boolean): void => {
     windowForEvent(event).setFullScreen(Boolean(enabled));
-  });
+  };
+  ipcMain.handle('window:set-fullscreen', setFullscreen);
+  ipcMain.handle('window:fullscreen', setFullscreen);
+  ipcMain.handle('window:is-fullscreen', (event) => windowForEvent(event).isFullScreen());
+
   ipcMain.handle('window:get-bounds', (event) => windowForEvent(event).getBounds());
   ipcMain.handle('window:set-bounds', (event, bounds: Electron.Rectangle) => {
     const window = windowForEvent(event);
@@ -95,30 +121,37 @@ function registerCoreHandlers(): void {
     return true;
   });
 
-  ipcMain.handle('system:get-info', (event) => {
+  const getDesktopInfo = (event: IpcMainInvokeEvent) => {
     windowForEvent(event);
-    return {
-      platform: process.platform,
-      arch: process.arch,
-      version: app.getVersion(),
-      electronVersion: process.versions.electron,
-      nodeVersion: process.versions.node,
-    };
-  });
+    return desktopInfo();
+  };
+  ipcMain.handle('system:get-info', getDesktopInfo);
+  ipcMain.handle('system:info', getDesktopInfo);
+
   ipcMain.handle('system:open-external', async (event, rawUrl: string) => {
     windowForEvent(event);
     const validated = validateExternalUrl(rawUrl);
     await shell.openExternal(validated.toString());
     return true;
   });
-  ipcMain.handle('system:get-memory-usage', async (event) => {
+
+  const getMemoryUsage = async (event: IpcMainInvokeEvent) => {
     windowForEvent(event);
-    return process.getProcessMemoryInfo();
-  });
+    const usage = await process.getProcessMemoryInfo();
+    return {
+      ...usage,
+      used: usage.workingSetSize,
+      total: usage.privateBytes,
+      percentage: usage.privateBytes > 0 ? Math.min(100, (usage.workingSetSize / usage.privateBytes) * 100) : 0,
+    };
+  };
+  ipcMain.handle('system:get-memory-usage', getMemoryUsage);
+  ipcMain.handle('system:memory', getMemoryUsage);
   ipcMain.handle('system:get-cpu-usage', (event) => {
     windowForEvent(event);
     return app.getAppMetrics();
   });
+
   ipcMain.on('app:renderer-ready', (event) => {
     if (!isMainRendererEvent(event)) return;
     rendererReady = true;
@@ -166,6 +199,8 @@ async function createMainWindow(): Promise<BrowserWindow> {
     const [windowWidth, windowHeight] = window.getSize();
     window.webContents.send('window:resize', { width: windowWidth, height: windowHeight });
   });
+  window.on('enter-full-screen', () => window.webContents.send('window:fullscreen-change', true));
+  window.on('leave-full-screen', () => window.webContents.send('window:fullscreen-change', false));
   window.on('closed', () => {
     if (mainWindow === window) {
       mainWindow = null;
@@ -241,7 +276,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
-  
+
   app.on('before-quit', () => {
     isQuitting = true;
     destroyTray();

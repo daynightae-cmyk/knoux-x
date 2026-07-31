@@ -120,7 +120,10 @@
     "statusStarting": "Starting",
     "statusRecording": "Recording",
     "statusPaused": "Paused",
-    "statusStopping": "Stopping"
+    "statusStopping": "Stopping",
+    "recent": "Recent recordings",
+    "historyEmpty": "No completed recordings have been saved yet.",
+    "historyFailed": "Recording history could not be loaded."
   },
   "editor": {
     "eyebrow": "Non-destructive workflow",

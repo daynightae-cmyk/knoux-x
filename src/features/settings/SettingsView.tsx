@@ -11,6 +11,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { BrandMark } from '../../components/brand/BrandMark';
 import { localeCoverage, useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
 
@@ -162,12 +163,25 @@ export const SettingsView: React.FC = () => {
           {category === 'about' && (
             <NeonPanel variant="dark" padding="lg">
               <h2>{t('settings.about')}</h2>
+              <div className="about-brand-card">
+                <BrandMark size={72} />
+                <div>
+                  <strong>KNOUX Player X</strong>
+                  <p>A Knoux Product · Crafted by Eng. Sadek Elgazar (Knoux)</p>
+                </div>
+              </div>
               <dl className="about-grid">
                 <div><dt>{t('settings.version')}</dt><dd>2.0.0</dd></div>
                 <div><dt>{t('settings.developer')}</dt><dd>Eng. Sadek Elgazar (Knoux)</dd></div>
                 <div><dt>{t('settings.website')}</dt><dd><button type="button" onClick={() => void window.knouxAPI.system.openExternal('https://knoux.store')}>knoux.store</button></dd></div>
                 <div><dt>{t('settings.runtime')}</dt><dd>{navigator.userAgent}</dd></div>
               </dl>
+              <NeonButton
+                variant="secondary"
+                onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}
+              >
+                {locale === 'ar' ? 'عرض جولة المنتج' : 'View product tour'}
+              </NeonButton>
             </NeonPanel>
           )}
         </div>

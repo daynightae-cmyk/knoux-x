@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "product": "KNOUX Player X",
+  "policy": "Official source PNG files are bundled without recompression.",
+  "installerExperience": "Nine slides are shown one at a time in the first-run setup tour (installer fallback option C).",
+  "assets": [
+    {
+      "path": "assets/branding/knoux-logo-day.png",
+      "width": 1036,
+      "height": 1036,
+      "aspectRatio": 1,
+      "bytes": 1366864,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "61153a1ff02ceddef3b7324c7a30605bfa592b3b2a31ad9d89f603314041a5c2"
+    },
+    {
+      "path": "assets/branding/knoux-logo-night.png",
+      "width": 1024,
+      "height": 1024,
+      "aspectRatio": 1,
+      "bytes": 860211,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "bf1b7a118e805b2a1ab98c4c9780881ebf06f665d035a389ac8ba4d03d1e621b"
+    },
+    {
+      "path": "assets/installer/slides/01.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2605555,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "92c3705d99bedf2fd3ef760a1a7aabfe9386c9bbea1da9252de0e08cf0632f01"
+    },
+    {
+      "path": "assets/installer/slides/02.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2606335,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "304613ab39d4b376c7245d1d1f3a0dafaef35616ef5f773a1bf335b0b5be5066"
+    },
+    {
+      "path": "assets/installer/slides/03.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2623676,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "411b16dfce9ee729763f360a44e505e2cb6b5330c8564b650514af1357cd5402"
+    },
+    {
+      "path": "assets/installer/slides/04.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2434405,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "331865906179eff7ff38c3c8fe9fa27d489a3ec83c4161be832591daef64ef76"
+    },
+    {
+      "path": "assets/installer/slides/05.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2483106,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "69824e8af5b29ae362a8b2692318ecfdff8224f66ff721c12d7470f3a7fa1e0d"
+    },
+    {
+      "path": "assets/installer/slides/06.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2612864,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "d40daea6d4d6303cf4c1f2aaaf791adda5f888fa0ef845d0d57ee76f3516d6ff"
+    },
+    {
+      "path": "assets/installer/slides/07.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2522565,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "b816ce1c2d090e5f064586f4b7e5fa21755c3e698052d6ad7791644f7ea1d389"
+    },
+    {
+      "path": "assets/installer/slides/08.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2729712,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "d26d8f3ed251442fc4c324aa77691777a41588f7ee1247b1b4ee82b141728851"
+    },
+    {
+      "path": "assets/installer/slides/09.png",
+      "width": 1448,
+      "height": 1086,
+      "aspectRatio": 1.333333,
+      "bytes": 2634210,
+      "colorType": 6,
+      "hasAlpha": true,
+      "sha256": "172ed054db3a98d4b109a0f33b5fe0e9df7fa782c580bf0eea7d4eee3cd0b6de"
+    }
+  ]
+}

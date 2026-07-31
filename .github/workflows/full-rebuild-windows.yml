@@ -99,6 +99,12 @@ jobs:
           git diff --exit-code -- assets/icons
           if ($LASTEXITCODE -ne 0) { throw 'Committed icon assets are not reproducible from the generator.' }
 
+      - name: Validate official KNOUX branding and first-run slides
+        shell: pwsh
+        run: |
+          npm run brand:verify
+          if ($LASTEXITCODE -ne 0) { throw 'Official KNOUX brand asset validation failed.' }
+
       - name: Rebuild Electron native modules
         shell: pwsh
         run: |

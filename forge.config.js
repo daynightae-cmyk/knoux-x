@@ -17,7 +17,11 @@ function optionalBinary(moduleName) {
 const icon = path.resolve(__dirname, 'assets/icons/app-icon');
 const ffmpeg = optionalBinary('ffmpeg-static');
 const ffprobe = optionalBinary('@derhuerst/ffprobe-static');
-const extraResource = [ffmpeg, ffprobe].filter(Boolean);
+const bundledBrandAssets = [
+  path.resolve(__dirname, 'assets/branding'),
+  path.resolve(__dirname, 'assets/installer'),
+];
+const extraResource = [ffmpeg, ffprobe, ...bundledBrandAssets].filter(Boolean);
 const squirrel = {
   name: 'KNOUX_Player_X',
   authors: 'SADEK ELGAZAR (KNOUX)',

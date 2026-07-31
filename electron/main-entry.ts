@@ -7,7 +7,6 @@ import started from 'electron-squirrel-startup';
 import { startSingleInstanceEntry } from './startup/single-instance';
 
 function terminateProcess(exitCode: number): never {
-  app.exit(exitCode);
   process.exit(exitCode);
 }
 

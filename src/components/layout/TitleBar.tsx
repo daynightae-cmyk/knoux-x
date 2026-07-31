@@ -16,10 +16,10 @@ import {
   Minus, 
   Square, 
   X, 
-  Maximize2,
-  Music
+  Maximize2
 } from 'lucide-react';
 
+import { BrandMark } from '../brand/BrandMark';
 // ═══════════════════════════════════════════════════════════════════════════
 // مكون شريط العنوان
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,8 +76,7 @@ export const TitleBar: React.FC = () => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Music className="logo-icon" size={18} />
-          <span className="app-name">KNOUX Player X</span>
+          <BrandMark size={24} withWordmark />
         </motion.div>
         
         {currentMedia && (

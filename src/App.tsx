@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
+import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerView } from './features/player/PlayerView';
 import { SettingsView } from './features/settings/SettingsView';
@@ -14,6 +15,7 @@ import './styles/library-creative.css';
 import './styles/settings-creative.css';
 import './styles/player-creative.css';
 import './styles/ai-creative.css';
+import './styles/first-run.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -126,6 +128,7 @@ const App: React.FC = () => {
           <span>{loadingMessage || t('app.working')}</span>
         </div>
       )}
+      <FirstRunExperience />
     </div>
   );
 };

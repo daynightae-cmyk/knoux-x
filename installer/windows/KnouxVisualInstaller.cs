@@ -156,6 +156,69 @@ namespace Knoux.VisualInstaller
             return !String.IsNullOrEmpty(FindInstalledApplication()) == installed;
         }
 
+        internal static bool VerifyInstalledRuntime(string installedApplication, IList<string> details)
+        {
+            if (String.IsNullOrEmpty(installedApplication) || !File.Exists(installedApplication)) return false;
+            string updateExecutable = FindUpdateExecutable();
+            string applicationDirectory = Path.GetDirectoryName(installedApplication);
+            string resourcesDirectory = Path.Combine(applicationDirectory, "resources");
+            string ffmpeg = null;
+            string ffprobe = null;
+            try
+            {
+                if (Directory.Exists(resourcesDirectory))
+                {
+                    ffmpeg = Directory.GetFiles(resourcesDirectory, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault();
+                    ffprobe = Directory.GetFiles(resourcesDirectory, "ffprobe.exe", SearchOption.AllDirectories).FirstOrDefault();
+                }
+            }
+            catch { }
+
+            string shortcut = FindStartMenuShortcut();
+
+            details.Add("update-executable=" + (updateExecutable ?? String.Empty));
+            details.Add("resources-directory=" + resourcesDirectory);
+            details.Add("ffmpeg=" + (ffmpeg ?? String.Empty));
+            details.Add("ffprobe=" + (ffprobe ?? String.Empty));
+            details.Add("start-menu-shortcut=" + (shortcut ?? String.Empty));
+            return !String.IsNullOrEmpty(updateExecutable) && File.Exists(updateExecutable)
+                && Directory.Exists(resourcesDirectory)
+                && !String.IsNullOrEmpty(ffmpeg) && new FileInfo(ffmpeg).Length > 1024 * 1024
+                && !String.IsNullOrEmpty(ffprobe) && new FileInfo(ffprobe).Length > 1024 * 1024
+                && !String.IsNullOrEmpty(shortcut) && File.Exists(shortcut);
+        }
+
+        internal static string FindStartMenuShortcut()
+        {
+            try
+            {
+                string programs = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
+                return Directory.GetFiles(programs, "*KNOUX*.lnk", SearchOption.AllDirectories).FirstOrDefault();
+            }
+            catch { return null; }
+        }
+
+        internal static bool WaitForUninstallFinalization(string previousUpdateExecutable, int timeoutMilliseconds, out bool updateRemoved, out bool deadMarker, out bool shortcutRemoved)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            do
+            {
+                updateRemoved = String.IsNullOrEmpty(previousUpdateExecutable) || !File.Exists(previousUpdateExecutable);
+                string root = String.IsNullOrEmpty(previousUpdateExecutable) ? null : Path.GetDirectoryName(previousUpdateExecutable);
+                deadMarker = !String.IsNullOrEmpty(root) && File.Exists(Path.Combine(root, ".dead"));
+                shortcutRemoved = String.IsNullOrEmpty(FindStartMenuShortcut());
+                if (String.IsNullOrEmpty(FindInstalledApplication()) && shortcutRemoved && (updateRemoved || deadMarker)) return true;
+                Thread.Sleep(500);
+            }
+            while (stopwatch.ElapsedMilliseconds < timeoutMilliseconds);
+
+            updateRemoved = String.IsNullOrEmpty(previousUpdateExecutable) || !File.Exists(previousUpdateExecutable);
+            string finalRoot = String.IsNullOrEmpty(previousUpdateExecutable) ? null : Path.GetDirectoryName(previousUpdateExecutable);
+            deadMarker = !String.IsNullOrEmpty(finalRoot) && File.Exists(Path.Combine(finalRoot, ".dead"));
+            shortcutRemoved = String.IsNullOrEmpty(FindStartMenuShortcut());
+            return String.IsNullOrEmpty(FindInstalledApplication()) && shortcutRemoved && (updateRemoved || deadMarker);
+        }
+
         internal static void LaunchInstalledApplication()
         {
             string updateExecutable = FindUpdateExecutable();
@@ -181,6 +244,8 @@ namespace Knoux.VisualInstaller
         {
             string updateExecutable = FindUpdateExecutable();
             if (String.IsNullOrEmpty(updateExecutable)) return 0;
+            string installationRoot = Path.GetDirectoryName(updateExecutable);
+            if (String.IsNullOrEmpty(FindInstalledApplication()) && File.Exists(Path.Combine(installationRoot, ".dead"))) return 0;
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.FileName = updateExecutable;
             startInfo.Arguments = "--uninstall -s";
@@ -296,12 +361,21 @@ namespace Knoux.VisualInstaller
                 int exitCode;
                 if (mode == "uninstall")
                 {
+                    string updateBefore = InstallationRuntime.FindUpdateExecutable();
                     exitCode = InstallationRuntime.Uninstall();
                     details.Add("uninstall-exit=" + exitCode);
-                    bool removed = InstallationRuntime.WaitForInstallation(false, 180000);
+                    bool updateRemoved;
+                    bool deadMarker;
+                    bool shortcutRemoved;
+                    bool finalized = InstallationRuntime.WaitForUninstallFinalization(updateBefore, 30000, out updateRemoved, out deadMarker, out shortcutRemoved);
+                    bool removed = String.IsNullOrEmpty(InstallationRuntime.FindInstalledApplication());
                     details.Add("removed=" + removed);
-                    WriteEvidence(evidencePath, mode, exitCode == 0 && removed, details);
-                    return exitCode == 0 && removed ? 0 : 1;
+                    details.Add("update-removed=" + updateRemoved);
+                    details.Add("dead-marker=" + deadMarker);
+                    details.Add("shortcut-removed=" + shortcutRemoved);
+                    details.Add("uninstall-finalized=" + finalized);
+                    WriteEvidence(evidencePath, mode, exitCode == 0 && removed && finalized, details);
+                    return exitCode == 0 && removed && finalized ? 0 : 1;
                 }
 
                 bool existedBefore = !String.IsNullOrEmpty(InstallationRuntime.FindInstalledApplication());
@@ -310,7 +384,11 @@ namespace Knoux.VisualInstaller
                 details.Add("setup-exit=" + exitCode);
                 string installed = InstallationRuntime.FindInstalledApplication();
                 details.Add("installed-executable=" + (installed ?? String.Empty));
-                bool success = exitCode == 0 && !String.IsNullOrEmpty(installed) && File.Exists(installed);
+                bool runtimeVerified = InstallationRuntime.VerifyInstalledRuntime(installed, details);
+                details.Add("runtime-verified=" + runtimeVerified);
+                bool expectedPriorState = mode != "repair" || existedBefore;
+                details.Add("expected-prior-state=" + expectedPriorState);
+                bool success = exitCode == 0 && runtimeVerified && expectedPriorState;
                 WriteEvidence(evidencePath, mode, success, details);
                 return success ? 0 : 1;
             }
@@ -338,7 +416,7 @@ namespace Knoux.VisualInstaller
         private readonly Button launchButton = new Button();
         private readonly Button closeButton = new Button();
         private readonly ProgressBar progress = new ProgressBar();
-        private readonly Timer carouselTimer = new Timer();
+        private readonly System.Windows.Forms.Timer carouselTimer = new System.Windows.Forms.Timer();
         private int slideIndex;
         private bool arabic;
         private bool busy;

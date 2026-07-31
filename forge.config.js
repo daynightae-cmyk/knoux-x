@@ -101,7 +101,7 @@ function listRuntimeFiles(directory) {
   return results;
 }
 
-function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, callback) {
+function packageNativeRuntime(buildPath, _electronVersion, platform, arch, callback) {
   try {
     const copiedRoots = new Set();
     copyRuntimeDependencyTree('better-sqlite3', buildPath, copiedRoots);
@@ -112,9 +112,12 @@ function packageNativeRuntime(buildPath, _electronVersion, _platform, _arch, cal
     const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
     const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
     const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
-    const windowsRuntime = installedImagePackages.find((name) => /^sharp-win32-(x64|ia32|arm64)$/.test(name));
+    const expectedRuntime = platform === 'win32' ? `sharp-win32-${arch}` : null;
+    const windowsRuntime = expectedRuntime && installedImagePackages.includes(expectedRuntime)
+      ? expectedRuntime
+      : null;
     if (!windowsRuntime) {
-      throw new Error(`Sharp Windows runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
+      throw new Error(`Sharp Windows ${arch} runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
     }
 
     const windowsRuntimeRoot = path.join(sharpPlatformRoot, windowsRuntime);

@@ -46,13 +46,23 @@ describe('KNOUX Windows visual installer contract', () => {
 
   test('writes machine-readable evidence for every acceptance mode', () => {
     const source = read('installer/windows/KnouxVisualInstaller.cs');
-    expect(source).toContain('WriteEvidence');
+    expect(source).toContain('WriteEvidence(string destination, string mode, bool success');
+    expect(source).toContain('json.AppendLine("  \\"success\\": " + (success ? "true" : "false") + ",");');
+    expect(source).toContain('WriteEvidence(evidencePath, "self-test", true, details);');
+    expect(source).toContain('WriteEvidence(evidencePath, "self-test", false, details);');
+    expect(source).toContain('WriteEvidence(evidencePath, mode, false, details);');
     expect(source).toContain('"install"');
     expect(source).toContain('"repair"');
     expect(source).toContain('"uninstall"');
     expect(source).toContain('"self-test"');
-    expect(source).toContain('"success"');
     expect(source).toContain('installed-executable=');
+
+    const build = read('tools/build-visual-installer.ps1');
+    expect(build).toContain('ConvertFrom-Json');
+    expect(build).toContain("$evidenceDocument.success -ne $true");
+    expect(build).toContain("$evidenceDocument.mode -ne 'self-test'");
+    expect(build).toContain("$_ -eq 'slides=9'");
+    expect(build).toContain("$_ -eq 'languages=en,ar'");
   });
 
   test('build script compiles a Unicode x64 WinForms executable with the official icon', () => {

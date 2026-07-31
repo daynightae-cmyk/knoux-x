@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: professional-suite-source-repair
@@ -28,17 +28,7 @@ jobs:
         with:
           node-version: 20.20.2
 
-      - name: Apply deterministic source repair
-        run: node tools/repair-professional-suite-source.cjs
-
-      - name: Commit repaired source
+      - name: Validate historical source repairs are committed
         run: |
-          git add src/features/editor/MultitrackEditorView.tsx src/core/creative/multitrackProject.ts
-          if git diff --cached --quiet; then
-            echo "No source repairs were required."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "fix: close multitrack TypeScript and keyframe gates"
-          git push origin HEAD:codex/knoux-professional-media-suite-completion
+          node tools/repair-professional-suite-source.cjs
+          git diff --exit-code

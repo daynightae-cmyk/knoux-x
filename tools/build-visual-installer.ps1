@@ -73,10 +73,6 @@ $tempSource = Join-Path $tempDirectory 'KnouxVisualInstaller.cs'
 
 try {
   $sourceText = [System.IO.File]::ReadAllText($source, [System.Text.UTF8Encoding]::new($false))
-  $sourceText = $sourceText.Replace(
-    'private readonly Timer carouselTimer = new Timer();',
-    'private readonly System.Windows.Forms.Timer carouselTimer = new System.Windows.Forms.Timer();'
-  )
   [System.IO.File]::WriteAllText($tempSource, $sourceText, [System.Text.UTF8Encoding]::new($false))
 
   $references = @(
@@ -131,10 +127,18 @@ try {
   }
   Resolve-ExistingFile -PathValue $evidence -Label 'Visual installer self-test evidence' | Out-Null
   $evidenceDocument = Get-Content -LiteralPath $evidence -Raw | ConvertFrom-Json
+  if ($evidenceDocument.product -ne 'KNOUX Player X') { throw 'Visual installer self-test evidence product is invalid.' }
   if ($evidenceDocument.success -ne $true) { throw 'Visual installer self-test evidence did not report success.' }
   if ($evidenceDocument.mode -ne 'self-test') { throw 'Visual installer self-test evidence mode is invalid.' }
   if (@($evidenceDocument.details | Where-Object { $_ -eq 'slides=9' }).Count -ne 1) {
     throw 'Visual installer did not verify all nine official slides.'
+  }
+  if (@($evidenceDocument.details | Where-Object { $_ -eq 'languages=en,ar' }).Count -ne 1) {
+    throw 'Visual installer did not report both supported languages.'
+  }
+  $setupDetail = @($evidenceDocument.details | Where-Object { $_ -match '^setup-bytes=\d+$' })
+  if ($setupDetail.Count -ne 1 -or [int64]($setupDetail[0] -replace '^setup-bytes=', '') -le 1048576) {
+    throw 'Visual installer did not report a meaningful embedded Squirrel payload size.'
   }
 
   Write-Host "[PASS] KNOUX visual installer compiled: $compiled"

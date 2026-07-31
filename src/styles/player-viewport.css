@@ -1,0 +1,320 @@
+/*
+ * Player viewport repair boundary.
+ * Loaded media must remain inside the Electron content viewport and must never
+ * create document-level vertical overflow.
+ */
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+}
+
+.app-shell {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  .app-shell {
+    height: 100dvh;
+  }
+}
+
+.app-body,
+.main-content,
+.view-transition,
+.player-viewport-boundary,
+.player-viewport-boundary > .player-view,
+.player-viewport-boundary .video-container {
+  min-width: 0;
+  min-height: 0;
+}
+
+.app-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.app-shell[data-current-view='player'] .view-transition {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.player-viewport-boundary {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000;
+}
+
+.player-viewport-boundary > .player-view {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.player-viewport-boundary .video-container {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 0;
+  background: #000;
+}
+
+.player-viewport-boundary .video-element {
+  display: block;
+  flex: 0 1 auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  background: #000;
+  object-position: center center;
+}
+
+.player-viewport-boundary[data-fit-mode='contain'] .video-element {
+  object-fit: contain;
+}
+
+.player-viewport-boundary[data-fit-mode='cover'] .video-element {
+  object-fit: cover;
+}
+
+.player-viewport-boundary[data-fit-mode='fill'] .video-element {
+  object-fit: fill;
+}
+
+.player-viewport-boundary[data-fit-mode='original'] .video-element {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: none;
+}
+
+.player-viewport-boundary .empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.player-viewport-boundary .controls-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.player-viewport-boundary .controls-overlay > * {
+  pointer-events: auto;
+}
+
+.player-viewport-boundary .controls-top,
+.player-viewport-boundary .controls-bottom {
+  max-width: 100%;
+}
+
+.player-viewport-boundary .controls-bottom {
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+.player-viewport-boundary .player-buffering,
+.player-viewport-boundary .player-error {
+  position: absolute;
+  z-index: 30;
+  max-width: min(720px, calc(100% - 32px));
+}
+
+.player-viewport-toolbar {
+  position: absolute;
+  top: 62px;
+  right: 14px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 28px);
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(5, 3, 13, 0.82);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(14px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+[dir='rtl'] .player-viewport-toolbar {
+  right: auto;
+  left: 14px;
+}
+
+.player-viewport-toolbar.hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+.player-viewport-toolbar.visible,
+.player-viewport-toolbar:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.player-viewport-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.player-viewport-toolbar__group + .player-viewport-toolbar__group {
+  padding-inline-start: 7px;
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.player-viewport-toolbar button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.player-viewport-toolbar button:hover,
+.player-viewport-toolbar button:focus-visible,
+.player-viewport-toolbar button.active {
+  border-color: color-mix(in srgb, var(--knoux-accent) 64%, white 10%);
+  color: #fff;
+  background: color-mix(in srgb, var(--knoux-accent) 18%, rgba(255, 255, 255, 0.06));
+}
+
+html[data-player-display-mode='theater'] .app-shell[data-current-view='player'] .sidebar {
+  display: none;
+}
+
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .title-bar,
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .sidebar {
+  display: none;
+}
+
+html[data-player-display-mode='theater'] .app-shell[data-current-view='player'] .app-body,
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .app-body {
+  min-height: 0;
+}
+
+.player-view:fullscreen,
+.player-view:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+  background: #000;
+}
+
+@supports (height: 100dvh) {
+  .player-view:fullscreen,
+  .player-view:-webkit-full-screen {
+    height: 100dvh;
+  }
+}
+
+.player-view:fullscreen .video-container,
+.player-view:-webkit-full-screen .video-container {
+  border: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 1100px), (max-height: 760px) {
+  .player-viewport-toolbar {
+    top: 54px;
+    gap: 5px;
+    padding: 4px;
+  }
+
+  .player-viewport-toolbar button {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 0.66rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .player-viewport-toolbar {
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    overflow-x: auto;
+  }
+
+  [dir='rtl'] .player-viewport-toolbar {
+    right: 8px;
+    left: 8px;
+  }
+
+  .player-viewport-toolbar__group {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-viewport-toolbar {
+    transition: none;
+  }
+}

@@ -16,6 +16,12 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
+import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
+
+// The desktop preload owns the real bridges. Vercel serves only the renderer,
+// so install a constrained browser adapter before React mounts to keep the
+// public preview functional without weakening Electron's isolated runtime.
+installBrowserPreviewBridge();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // تهيئة React

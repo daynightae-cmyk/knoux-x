@@ -94,7 +94,9 @@
     "recent": "اللقطات الحديثة",
     "loading": "جارٍ تحميل سجل اللقطات…",
     "empty": "لم يتم حفظ أي لقطات بعد.",
-    "showFolder": "إظهار في المجلد"
+    "showFolder": "إظهار في المجلد",
+    "loadFailed": "تعذر تحميل سجل اللقطات.",
+    "folderFailed": "تعذر تغيير مجلد اللقطات."
   },
   "recording": {
     "eyebrow": "استوديو كنوكس الإبداعي",
@@ -108,7 +110,16 @@
     "stop": "إيقاف وحفظ",
     "cancelDelete": "إلغاء وحذف",
     "permissionDenied": "لم يتم منح إذن التسجيل.",
-    "unsupported": "لا يوفر إصدار Chromium الحالي ترميز MediaRecorder مدعومًا بصيغة WebM."
+    "unsupported": "لا يوفر إصدار Chromium الحالي ترميز MediaRecorder مدعومًا بصيغة WebM.",
+    "loadSourcesFailed": "تعذر حصر مصادر الالتقاط.",
+    "startFailed": "تعذر بدء التسجيل.",
+    "finalizeFailed": "تعذر إنهاء التسجيل وحفظه.",
+    "mediaRecorderFailed": "أبلغ محرك التسجيل عن خطأ.",
+    "statusIdle": "جاهز",
+    "statusStarting": "جارٍ البدء",
+    "statusRecording": "جارٍ التسجيل",
+    "statusPaused": "متوقف مؤقتًا",
+    "statusStopping": "جارٍ الإنهاء"
   },
   "editor": {
     "eyebrow": "سير عمل غير تدميري",

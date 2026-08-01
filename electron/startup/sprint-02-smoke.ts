@@ -213,7 +213,13 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
   return window.webContents.executeJavaScript(`(async () => {
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const waitFor = async (predicate, label, timeout = 10000) => { const started = Date.now(); while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_UI_PROOF_TIMEOUT ' + label); await wait(50); } };
-    const closeTour = async () => { const close = document.querySelector('.first-run-dialog header button'); if (close) { close.click(); await waitFor(() => !document.querySelector('.first-run-dialog'), 'tour close'); } };
+    const closeTour = async () => {
+      window.localStorage.setItem('knoux-player-x:first-run-tour:v1', 'complete');
+      if (document.querySelector('.first-run-dialog')) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      const close = document.querySelector('.first-run-dialog header button');
+      if (close) close.click();
+      await waitFor(() => !document.querySelector('.first-run-dialog'), 'tour close');
+    };
     await closeTour();
     const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
     if (!settingsNav) throw new Error('SPRINT02_UI_PROOF_SETTINGS_NAV_MISSING');
@@ -241,14 +247,16 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
       preview.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true }));
       await waitFor(() => document.querySelector('[role="menu"][aria-label="Retained capture actions"]'), 'retained action menu');
       const menu = document.querySelector('[role="menu"][aria-label="Retained capture actions"]');
-      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)) };
+      await wait(300); await closeTour(); await wait(200);
+      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)), tourVisible: Boolean(document.querySelector('.first-run-dialog')) };
     }
-    await waitFor(() => document.querySelector('[data-sprint02-surface="Recorder"]'), 'recorder surface');
+    await waitFor(() => document.querySelector('.view-transition[data-sprint02-surface="Recorder"]'), 'recorder surface');
     await wait(900);
-    const recorder = document.querySelector('[data-sprint02-surface="Recorder"]');
+    const recorder = document.querySelector('.view-transition[data-sprint02-surface="Recorder"]');
     const controls = [...recorder.querySelectorAll('button, input, select')].filter((entry) => !entry.closest('[hidden]'));
     controls.find((entry) => !entry.disabled)?.focus();
-    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.textContent?.match(/bytes|frames|duration|البايت|الإطارات/i)) };
+    await closeTour(); await wait(200);
+    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.querySelector('.recording-live-metrics')), tourVisible: Boolean(document.querySelector('.first-run-dialog')) };
   })()`, true) as Promise<Record<string, unknown>>;
 }
 
@@ -263,6 +271,7 @@ export async function runSprint02Smoke(options: Sprint02SmokeOptions): Promise<v
   const screenshotPaths: Record<string, string> = {};
   for (const [target, locale, suffix] of [['Captures', 'en', 'capture-ltr'], ['Captures', 'ar', 'capture-ar'], ['Recorder', 'en', 'recorder-ltr'], ['Recorder', 'ar', 'recorder-ar']] as const) {
     uiProof.push(await prepareUiProof(options.mainWindow, target, locale));
+    await new Promise((resolve) => setTimeout(resolve, 250));
     const screenshotPath = path.join(evidenceDirectory, `ui-${options.phase}-${suffix}.png`);
     await fs.writeFile(screenshotPath, (await options.mainWindow.webContents.capturePage()).toPNG());
     screenshotPaths[suffix] = screenshotPath;

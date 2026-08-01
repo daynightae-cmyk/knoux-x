@@ -36,12 +36,14 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     if (firstRunClose) firstRunClose.click();
     await wait(100);
     const routeLabels = ['Player','Library','Queue','Captures','Recorder','Editor','Image Editor','Slideshow','Audio Tools','Export','Settings'];
+    const routeViewIds = { Player: 'player', Library: 'library', Queue: 'queue', Captures: 'capture', Recorder: 'recording', Editor: 'editor', 'Image Editor': 'image-editor', Slideshow: 'slideshow', 'Audio Tools': 'audio-tools', Export: 'export', Settings: 'settings' };
     const surfaces = {};
     const activations = [];
     const visit = async (label) => {
       const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
       if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
       nav.click();
+      await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === routeViewIds[label], 'current view ' + label);
       await waitFor(() => [...document.querySelectorAll('.view-transition')].some((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label), 'surface ' + label);
       await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
       window.__knouxSprint02.refresh();

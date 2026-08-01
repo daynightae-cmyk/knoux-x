@@ -1,7 +1,10 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import { MultitrackProjectService } from '../creative/multitrack-project-service';
 import type { MultitrackProject } from '../../src/core/creative/multitrackProject';
+
+import { IPC_INVOKE } from './contract';
+import type { IpcRegistrar } from './registry';
 
 export interface MultitrackRuntimeController {
   close(): void;
@@ -33,7 +36,7 @@ function validatePath(filePath: string | undefined): string | undefined {
   return filePath;
 }
 
-export function setupMultitrackRuntime(): MultitrackRuntimeController {
+export function setupMultitrackRuntime(ipc: IpcRegistrar): MultitrackRuntimeController {
   const service = new MultitrackProjectService();
   const trusted = <TArgs extends unknown[], TResult>(
     handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>,
@@ -42,35 +45,24 @@ export function setupMultitrackRuntime(): MultitrackRuntimeController {
     return handler(event, ...args);
   };
 
-  ipcMain.handle('multitrack:create', trusted(async (_event, name: string) => {
+  ipc.handle(IPC_INVOKE.MULTITRACK_CREATE, trusted(async (_event, name: string) => {
     if (typeof name !== 'string') throw new TypeError('Project name is required.');
     return service.create(name);
   }));
-  ipcMain.handle('multitrack:open', trusted(async () => service.open()));
-  ipcMain.handle('multitrack:open-recent', trusted(async (_event, filePath: string) => service.openRecent(validatePath(filePath)!)));
-  ipcMain.handle('multitrack:save', trusted(async (
+  ipc.handle(IPC_INVOKE.MULTITRACK_OPEN, trusted(async () => service.open()));
+  ipc.handle(IPC_INVOKE.MULTITRACK_OPEN_RECENT, trusted(async (_event, filePath: string) => service.openRecent(validatePath(filePath)!)));
+  ipc.handle(IPC_INVOKE.MULTITRACK_SAVE, trusted(async (
     _event,
     project: MultitrackProject,
     filePath?: string,
     saveAs = false,
   ) => service.save(project, validatePath(filePath), Boolean(saveAs))));
-  ipcMain.handle('multitrack:autosave', trusted(async (_event, project: MultitrackProject) => service.autosave(project)));
-  ipcMain.handle('multitrack:recoveries', trusted(async () => service.recoveries()));
-  ipcMain.handle('multitrack:recent', trusted(async () => service.recent()));
-  ipcMain.handle('multitrack:clear-recent', trusted(async () => service.clearRecent()));
+  ipc.handle(IPC_INVOKE.MULTITRACK_AUTOSAVE, trusted(async (_event, project: MultitrackProject) => service.autosave(project)));
+  ipc.handle(IPC_INVOKE.MULTITRACK_RECOVERIES, trusted(async () => service.recoveries()));
+  ipc.handle(IPC_INVOKE.MULTITRACK_RECENT, trusted(async () => service.recent()));
+  ipc.handle(IPC_INVOKE.MULTITRACK_CLEAR_RECENT, trusted(async () => service.clearRecent()));
 
   return {
-    close(): void {
-      [
-        'multitrack:create',
-        'multitrack:open',
-        'multitrack:open-recent',
-        'multitrack:save',
-        'multitrack:autosave',
-        'multitrack:recoveries',
-        'multitrack:recent',
-        'multitrack:clear-recent',
-      ].forEach((channel) => ipcMain.removeHandler(channel));
-    },
+    close(): void { /* handlers live for the primary process lifetime */ },
   };
 }

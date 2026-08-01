@@ -1,5 +1,8 @@
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions, shell } from 'electron';
 
+import { getBuildIdentity } from '../build-identity';
+import { IPC_OUTBOUND } from '../ipc/contract';
+import { authoritativeIpc } from '../ipc/runtime';
 import { authorizeMediaPaths } from '../ipc/setup';
 import { validateExternalUrl } from '../security/validation';
 
@@ -20,7 +23,7 @@ async function openMedia(): Promise<void> {
   });
   if (result.canceled) return;
   const paths = authorizeMediaPaths(result.filePaths);
-  if (paths.length > 0) window.webContents.send('app:open-media', paths);
+  if (paths.length > 0) authoritativeIpc.forOwner('app-menu').send(window.webContents, IPC_OUTBOUND.APP_OPEN_MEDIA, paths);
 }
 
 export function createApplicationMenu(): void {
@@ -67,12 +70,24 @@ export function createApplicationMenu(): void {
         },
         {
           label: 'About KNOUX Player X',
-          click: () => void dialog.showMessageBox({
-            type: 'info',
-            title: 'About KNOUX Player X',
-            message: 'KNOUX Player X',
-            detail: 'Version ' + app.getVersion() + '\nA Knoux Product\nCrafted by Eng. Sadek Elgazar (Knoux)',
-          }),
+          click: () => {
+            const identity = getBuildIdentity();
+            return void dialog.showMessageBox({
+              type: 'info',
+              title: 'About KNOUX Player X',
+              message: 'KNOUX Player X',
+              detail: [
+                `Version ${app.getVersion()}`,
+                `Commit ${identity.sha}`,
+                `Branch ${identity.branch}`,
+                `Built ${identity.builtAt}`,
+                `Runtime ${identity.packaged ? 'Packaged desktop' : 'Development desktop'}`,
+                `Electron ${identity.electronVersion}`,
+                'A Knoux Product',
+                'Crafted by Eng. Sadek Elgazar (Knoux)',
+              ].join('\n'),
+            });
+          },
         },
       ],
     },

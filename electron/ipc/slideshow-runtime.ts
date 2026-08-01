@@ -1,10 +1,13 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import type { SlideshowRenderFormat } from '../../src/core/creative/slideshowRender';
 import type { SlideshowProject, SlideshowTemplate } from '../../src/core/creative/slideshowProject';
 import { SlideshowProjectService } from '../creative/slideshow-project-service';
 import { SlideshowRenderService } from '../creative/slideshow-render-service';
 import { authorizedMediaPaths } from '../security/path-registry';
+
+import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
+import type { IpcRegistrar } from './registry';
 
 export interface SlideshowRuntimeController {
   close(): void;
@@ -54,7 +57,7 @@ function authorizeProjectSources(project: SlideshowProject): SlideshowProject {
   return next;
 }
 
-export function setupSlideshowRuntime(): SlideshowRuntimeController {
+export function setupSlideshowRuntime(ipc: IpcRegistrar): SlideshowRuntimeController {
   const projects = new SlideshowProjectService();
   const renderer = new SlideshowRenderService();
   const trusted = <TArgs extends unknown[], TResult>(
@@ -64,50 +67,37 @@ export function setupSlideshowRuntime(): SlideshowRuntimeController {
     return handler(event, ...args);
   };
 
-  ipcMain.handle('slideshow:create', trusted(async (_event, name: string, template: SlideshowTemplate) => {
+  ipc.handle(IPC_INVOKE.SLIDESHOW_CREATE, trusted(async (_event, name: string, template: SlideshowTemplate) => {
     if (typeof name !== 'string') throw new TypeError('Slideshow project name is required.');
     return projects.create(name, template);
   }));
-  ipcMain.handle('slideshow:open', trusted(async () => projects.open()));
-  ipcMain.handle('slideshow:open-recent', trusted(async (_event, filePath: string) => projects.openRecent(validatePath(filePath)!)));
-  ipcMain.handle('slideshow:save', trusted(async (
+  ipc.handle(IPC_INVOKE.SLIDESHOW_OPEN, trusted(async () => projects.open()));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_OPEN_RECENT, trusted(async (_event, filePath: string) => projects.openRecent(validatePath(filePath)!)));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_SAVE, trusted(async (
     _event,
     project: SlideshowProject,
     filePath?: string,
     saveAs = false,
   ) => projects.save(project, validatePath(filePath), Boolean(saveAs))));
-  ipcMain.handle('slideshow:autosave', trusted(async (_event, project: SlideshowProject) => projects.autosave(project)));
-  ipcMain.handle('slideshow:recoveries', trusted(async () => projects.recoveries()));
-  ipcMain.handle('slideshow:recent', trusted(async () => projects.recent()));
-  ipcMain.handle('slideshow:clear-recent', trusted(async () => projects.clearRecent()));
-  ipcMain.handle('slideshow:render-jobs', trusted(async () => renderer.list()));
-  ipcMain.handle('slideshow:cancel-render', trusted(async (_event, jobId: string) => {
+  ipc.handle(IPC_INVOKE.SLIDESHOW_AUTOSAVE, trusted(async (_event, project: SlideshowProject) => projects.autosave(project)));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_RECOVERIES, trusted(async () => projects.recoveries()));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_RECENT, trusted(async () => projects.recent()));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_CLEAR_RECENT, trusted(async () => projects.clearRecent()));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_RENDER_JOBS, trusted(async () => renderer.list()));
+  ipc.handle(IPC_INVOKE.SLIDESHOW_CANCEL_RENDER, trusted(async (_event, jobId: string) => {
     if (typeof jobId !== 'string' || jobId.length === 0 || jobId.length > 128) throw new TypeError('Slideshow render job ID is invalid.');
     return renderer.cancel(jobId);
   }));
-  ipcMain.handle('slideshow:render', trusted(async (
+  ipc.handle(IPC_INVOKE.SLIDESHOW_RENDER, trusted(async (
     event,
     project: SlideshowProject,
     format: SlideshowRenderFormat,
   ) => renderer.render(authorizeProjectSources(project), format, (snapshot) => {
-    if (!event.sender.isDestroyed()) event.sender.send('slideshow:render-progress', snapshot);
+    ipc.send(event.sender, IPC_OUTBOUND.SLIDESHOW_RENDER_PROGRESS, snapshot);
   })));
 
   return {
     close(): void {
-      [
-        'slideshow:create',
-        'slideshow:open',
-        'slideshow:open-recent',
-        'slideshow:save',
-        'slideshow:autosave',
-        'slideshow:recoveries',
-        'slideshow:recent',
-        'slideshow:clear-recent',
-        'slideshow:render-jobs',
-        'slideshow:cancel-render',
-        'slideshow:render',
-      ].forEach((channel) => ipcMain.removeHandler(channel));
       renderer.shutdown();
     },
   };

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import {
+  APPLICATION_SETTINGS_SCHEMA_VERSION,
   createApplicationSettingsExport,
   DEFAULT_APPLICATION_SETTINGS,
   parseApplicationSettings,
@@ -74,7 +75,7 @@ describe('KNOUX application settings', () => {
       await reloaded.shutdown();
 
       const persisted = JSON.parse(await fs.readFile(filePath, 'utf8'));
-      expect(persisted.schemaVersion).toBe(2);
+      expect(persisted.schemaVersion).toBe(APPLICATION_SETTINGS_SCHEMA_VERSION);
       expect(persisted.settings.defaultVolume).toBe(0.42);
       await expect(fs.access(`${filePath}.${process.pid}.tmp`)).rejects.toBeDefined();
     } finally {

@@ -1,8 +1,11 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 import type { AudioProcessRequest } from '../../src/core/creative/audioTools';
 import { AudioToolsService } from '../creative/audio-tools-service';
 import { authorizedMediaPaths } from '../security/path-registry';
+
+import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
+import type { IpcRegistrar } from './registry';
 
 export interface AudioToolsRuntimeController {
   close(): void;
@@ -34,7 +37,7 @@ function authorizeRequest(request: AudioProcessRequest): AudioProcessRequest {
   };
 }
 
-export function setupAudioToolsRuntime(): AudioToolsRuntimeController {
+export function setupAudioToolsRuntime(ipc: IpcRegistrar): AudioToolsRuntimeController {
   const service = new AudioToolsService();
   const trusted = <TArgs extends unknown[], TResult>(
     handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>,
@@ -43,27 +46,25 @@ export function setupAudioToolsRuntime(): AudioToolsRuntimeController {
     return handler(event, ...args);
   };
 
-  ipcMain.handle('audio-tools:analyze', trusted(async (_event, sourcePath: string) => (
+  ipc.handle(IPC_INVOKE.AUDIO_TOOLS_ANALYZE, trusted(async (_event, sourcePath: string) => (
     service.analyze(authorizedMediaPaths.requireAuthorized(sourcePath))
   )));
-  ipcMain.handle('audio-tools:jobs', trusted(async () => service.list()));
-  ipcMain.handle('audio-tools:cancel', trusted(async (_event, jobId: string) => {
+  ipc.handle(IPC_INVOKE.AUDIO_TOOLS_JOBS, trusted(async () => service.list()));
+  ipc.handle(IPC_INVOKE.AUDIO_TOOLS_CANCEL, trusted(async (_event, jobId: string) => {
     if (typeof jobId !== 'string' || jobId.length === 0 || jobId.length > 128) {
       throw new TypeError('Audio Tools job ID is invalid.');
     }
     return service.cancel(jobId);
   }));
-  ipcMain.handle('audio-tools:process', trusted(async (
+  ipc.handle(IPC_INVOKE.AUDIO_TOOLS_PROCESS, trusted(async (
     event,
     request: AudioProcessRequest,
   ) => service.process(authorizeRequest(request), (snapshot) => {
-    if (!event.sender.isDestroyed()) event.sender.send('audio-tools:progress', snapshot);
+    ipc.send(event.sender, IPC_OUTBOUND.AUDIO_TOOLS_PROGRESS, snapshot);
   })));
 
   return {
     close(): void {
-      ['audio-tools:analyze', 'audio-tools:jobs', 'audio-tools:cancel', 'audio-tools:process']
-        .forEach((channel) => ipcMain.removeHandler(channel));
       service.shutdown();
     },
   };

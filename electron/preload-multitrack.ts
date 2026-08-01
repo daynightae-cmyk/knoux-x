@@ -1,26 +1,28 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge } from 'electron';
 
 import type { MultitrackProject } from '../src/core/creative/multitrackProject';
 
 import type { MultitrackRecovery } from './creative/multitrack-project-service';
+import { IPC_INVOKE } from './ipc/contract';
+import { invokeDesktop } from './ipc/preload-client';
 
 const multitrackAPI = {
   create: (name: string): Promise<MultitrackProject> =>
-    ipcRenderer.invoke('multitrack:create', name),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_CREATE, name),
   open: (): Promise<{ project: MultitrackProject; filePath: string; migrated: boolean } | null> =>
-    ipcRenderer.invoke('multitrack:open'),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_OPEN),
   openRecent: (filePath: string): Promise<{ project: MultitrackProject; filePath: string; migrated: boolean }> =>
-    ipcRenderer.invoke('multitrack:open-recent', filePath),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_OPEN_RECENT, filePath),
   save: (project: MultitrackProject, filePath?: string, saveAs = false): Promise<string | null> =>
-    ipcRenderer.invoke('multitrack:save', project, filePath, saveAs),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_SAVE, project, filePath, saveAs),
   autosave: (project: MultitrackProject): Promise<string> =>
-    ipcRenderer.invoke('multitrack:autosave', project),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_AUTOSAVE, project),
   recoveries: (): Promise<MultitrackRecovery[]> =>
-    ipcRenderer.invoke('multitrack:recoveries'),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_RECOVERIES),
   recent: (): Promise<string[]> =>
-    ipcRenderer.invoke('multitrack:recent'),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_RECENT),
   clearRecent: (): Promise<void> =>
-    ipcRenderer.invoke('multitrack:clear-recent'),
+    invokeDesktop(IPC_INVOKE.MULTITRACK_CLEAR_RECENT),
 };
 
 contextBridge.exposeInMainWorld('knouxMultitrackAPI', multitrackAPI);

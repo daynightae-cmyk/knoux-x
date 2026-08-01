@@ -180,10 +180,10 @@ jobs:
             throw "Packaged settings persistence self-test failed with exit code $($settingsTest.ExitCode)."
           }
           $settingsDocument = Get-Content -LiteralPath $settingsEvidence -Raw | ConvertFrom-Json
-          $requiredSettingsChecks = @('atomic-save', 'restart-restore', 'reset-defaults', 'import-export-round-trip', 'corrupt-settings-recovery', 'no-temporary-files')
+          $requiredSettingsChecks = @('atomic-save', 'restart-restore', 'reset-defaults', 'import-export-round-trip', 'corrupt-settings-backup-recovery', 'no-temporary-files')
           if ($settingsDocument.product -ne 'KNOUX Player X' -or $settingsDocument.success -ne $true -or
               $settingsDocument.mode -ne 'settings-persistence' -or $settingsDocument.packaged -ne $true -or
-              $settingsDocument.schemaVersion -ne 2 -or $settingsDocument.corruptBackups -ne 1) {
+              $settingsDocument.schemaVersion -ne 3 -or $settingsDocument.corruptBackups -ne 1) {
             Get-Content -LiteralPath $settingsEvidence | Write-Host
             throw 'Packaged settings evidence metadata is invalid.'
           }

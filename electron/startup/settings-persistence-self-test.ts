@@ -24,6 +24,9 @@ interface SettingsSelfTestEvidence {
   exportHash: string;
   checks: string[];
   corruptBackups: number;
+  temporaryRoot: string;
+  temporaryRootRemoved: boolean;
+  error?: string;
   completedAt: string;
 }
 
@@ -45,12 +48,11 @@ async function writeEvidence(evidencePath: string, evidence: SettingsSelfTestEvi
   await fs.rename(temporaryPath, evidencePath);
 }
 
-export async function runSettingsPersistenceSelfTest(evidencePath: string): Promise<void> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-settings-persistence-'));
+async function executeSettingsPersistenceScenario(root: string): Promise<SettingsSelfTestEvidence> {
   const storagePath = path.join(root, 'settings', 'application-settings.json');
   const customized: Pick<ApplicationSettings,
     'language' | 'theme' | 'defaultVolume' | 'brightness' | 'contrast'
-    | 'recordingToolbar' | 'shortcuts' | 'workspace' | 'recordingConfiguration'> = {
+    | 'recordingToolbar' | 'quickAccessToolbar' | 'shortcuts' | 'workspace' | 'recordingConfiguration'> = {
       language: 'ar',
       theme: 'obsidian-violet',
       defaultVolume: 0.37,
@@ -59,12 +61,25 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
       recordingToolbar: {
         order: ['stop', 'start', 'pause', 'resume', 'cancel', 'screenshot', 'select-region', 'microphone', 'system-audio', 'camera-overlay', 'countdown', 'marker', 'open-output'],
         hidden: ['camera-overlay', 'marker'],
+        visible: true,
         mode: 'floating',
         size: 'large',
+        location: 'floating',
         position: { x: 360, y: 180 },
+        alwaysOnTop: true,
+        hideFromCapture: true,
+      },
+      quickAccessToolbar: {
+        ...structuredClone(DEFAULT_APPLICATION_SETTINGS.quickAccessToolbar),
+        mode: 'floating',
+        location: 'floating',
+        size: 'large',
+        position: { x: 420, y: 96 },
+        hidden: ['export'],
+        workspaceCommands: { production: ['record-start-stop', 'record-pause-resume', 'screenshot'] },
       },
       shortcuts: DEFAULT_APPLICATION_SETTINGS.shortcuts.map((binding) => binding.command === 'open-file'
-        ? { ...binding, accelerator: 'Ctrl+Shift+KeyO' }
+        ? { ...binding, accelerator: 'Ctrl+Alt+KeyO' }
         : binding.command === 'theater-mode' ? { ...binding, enabled: false } : binding),
       workspace: {
         ...structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace),
@@ -122,18 +137,20 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
   await fs.writeFile(storagePath, '{corrupt-json', 'utf8');
   const recovered = new SettingsManager(storagePath);
   await recovered.initialize();
-  assertDeepEqual(await recovered.getAll().then(({ volume: _volume, ...settings }) => settings), DEFAULT_APPLICATION_SETTINGS, 'corrupt recovery');
+  for (const [key, expected] of Object.entries(customized)) {
+    assertDeepEqual(await recovered.get(key), expected, `${key} backup recovery`);
+  }
   await recovered.shutdown();
   const corruptBackups = (await fs.readdir(path.dirname(storagePath))).filter((name) => name.includes('.corrupt-')).length;
   if (corruptBackups !== 1) throw new Error('Corrupt settings were not quarantined exactly once.');
-  checks.push('corrupt-settings-recovery');
+  checks.push('corrupt-settings-backup-recovery');
 
   const temporaryFiles = (await fs.readdir(path.dirname(storagePath))).filter((name) => name.endsWith('.tmp'));
   if (temporaryFiles.length !== 0) throw new Error('Atomic settings writes left temporary files behind.');
   checks.push('no-temporary-files');
 
   const persisted = await fs.readFile(storagePath, 'utf8');
-  await writeEvidence(evidencePath, {
+  return {
     product: 'KNOUX Player X',
     success: true,
     mode: 'settings-persistence',
@@ -145,6 +162,49 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
     exportHash: digest(exported),
     checks,
     corruptBackups,
+    temporaryRoot: root,
+    temporaryRootRemoved: false,
     completedAt: new Date().toISOString(),
-  });
+  };
+}
+
+export async function runSettingsPersistenceSelfTest(evidencePath: string): Promise<void> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-settings-persistence-'));
+  let evidence: SettingsSelfTestEvidence;
+  let scenarioError: unknown;
+  let cleanupError: unknown;
+  try {
+    evidence = await executeSettingsPersistenceScenario(root);
+  } catch (error) {
+    scenarioError = error;
+    evidence = {
+      product: 'KNOUX Player X',
+      success: false,
+      mode: 'settings-persistence',
+      packaged: app.isPackaged,
+      applicationVersion: app.getVersion(),
+      executable: app.getPath('exe'),
+      schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION,
+      settingsHash: '',
+      exportHash: '',
+      checks: [],
+      corruptBackups: 0,
+      temporaryRoot: root,
+      temporaryRootRemoved: false,
+      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      completedAt: new Date().toISOString(),
+    };
+  } finally {
+    try {
+      await fs.rm(root, { recursive: true, force: true });
+    } catch (error) {
+      cleanupError = error;
+    }
+  }
+  evidence.temporaryRootRemoved = cleanupError === undefined;
+  if (cleanupError !== undefined) evidence.error = `${evidence.error ? `${evidence.error}; ` : ''}cleanup: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`;
+  evidence.completedAt = new Date().toISOString();
+  await writeEvidence(evidencePath, evidence);
+  if (scenarioError) throw scenarioError;
+  if (cleanupError) throw cleanupError;
 }

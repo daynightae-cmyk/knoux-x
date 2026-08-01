@@ -1,24 +1,30 @@
 import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
 import { pathToFileURL } from 'url';
 
 import {
   app,
   BrowserWindow,
-  ipcMain,
   nativeTheme,
   powerMonitor,
   screen,
   shell,
   type IpcMainEvent,
-  type IpcMainInvokeEvent,
 } from 'electron';
 import log from 'electron-log';
 
-import { authorizeMediaPaths } from './ipc/setup';
+import { createSystemOrchestrator, type SystemOrchestrator, type SystemConfiguration } from '../src/core/orchestrator/SystemOrchestrator';
+
+import { getBuildIdentity } from './build-identity';
+import { IPC_INBOUND, IPC_OUTBOUND } from './ipc/contract';
+import { authoritativeIpc } from './ipc/runtime';
+import { authorizeMediaPaths, setupIPCHandlers } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
 import { createSystemTray, destroyTray } from './menu/system-tray';
 import { mediaPathsFromArguments, validateExternalUrl } from './security/validation';
-import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime } from './creative-bootstrap';
+import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime, seedSprint02SyntheticCapture } from './creative-bootstrap';
+import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from './window-security';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -32,6 +38,25 @@ let isQuitting = false;
 let rendererReady = false;
 let pendingMediaPaths: string[] = [];
 let applicationStarted = false;
+let systemOrchestrator: SystemOrchestrator | null = null;
+let cleanupComplete = false;
+let cleanupPromise: Promise<void> | null = null;
+
+async function cleanupApplication(reason: 'startup-failure' | 'normal-quit' | 'smoke-complete'): Promise<void> {
+  cleanupPromise ??= (async () => {
+    isQuitting = true;
+    closeSplash();
+    destroyTray();
+    await cleanupCreativeRuntime();
+    await systemOrchestrator?.services.settings.shutdown();
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.destroy();
+    }
+    cleanupComplete = true;
+    log.info(`KNOUX_RUNTIME_CLEANUP ${JSON.stringify({ reason, complete: true })}`);
+  })();
+  await cleanupPromise;
+}
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -42,14 +67,6 @@ function isTrustedRendererUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function windowForEvent(event: IpcMainInvokeEvent): BrowserWindow {
-  const window = BrowserWindow.fromWebContents(event.sender);
-  if (!window || window.isDestroyed() || window !== mainWindow || !isTrustedRendererUrl(event.senderFrame.url)) {
-    throw new Error('Core desktop request was rejected from an untrusted renderer.');
-  }
-  return window;
 }
 
 function isMainRendererEvent(event: IpcMainEvent): boolean {
@@ -64,101 +81,11 @@ function isMainRendererEvent(event: IpcMainEvent): boolean {
 function flushPendingMediaPaths(): void {
   if (!rendererReady || !mainWindow || mainWindow.isDestroyed() || pendingMediaPaths.length === 0) return;
   const authorized = authorizeMediaPaths(pendingMediaPaths.splice(0));
-  if (authorized.length > 0) mainWindow.webContents.send('app:open-media', authorized);
-}
-
-function desktopInfo(): {
-  platform: NodeJS.Platform;
-  arch: string;
-  version: string;
-  electronVersion: string;
-  chromeVersion: string;
-  nodeVersion: string;
-} {
-  return {
-    platform: process.platform,
-    arch: process.arch,
-    version: app.getVersion(),
-    electronVersion: process.versions.electron,
-    chromeVersion: process.versions.chrome,
-    nodeVersion: process.versions.node,
-  };
+  if (authorized.length > 0) authoritativeIpc.forOwner('core-app').send(mainWindow.webContents, IPC_OUTBOUND.APP_OPEN_MEDIA, authorized);
 }
 
 function registerCoreHandlers(): void {
-  ipcMain.handle('window:minimize', (event) => windowForEvent(event).minimize());
-  ipcMain.handle('window:maximize', (event) => {
-    const window = windowForEvent(event);
-    if (window.isMaximized()) window.unmaximize();
-    else window.maximize();
-    return window.isMaximized();
-  });
-  ipcMain.handle('window:close', (event) => windowForEvent(event).close());
-  ipcMain.handle('window:is-maximized', (event) => windowForEvent(event).isMaximized());
-
-  const setAlwaysOnTop = (event: IpcMainInvokeEvent, enabled: boolean): void => {
-    windowForEvent(event).setAlwaysOnTop(Boolean(enabled));
-  };
-  ipcMain.handle('window:set-always-on-top', setAlwaysOnTop);
-  ipcMain.handle('window:always-on-top', setAlwaysOnTop);
-
-  const setFullscreen = (event: IpcMainInvokeEvent, enabled: boolean): void => {
-    windowForEvent(event).setFullScreen(Boolean(enabled));
-  };
-  ipcMain.handle('window:set-fullscreen', setFullscreen);
-  ipcMain.handle('window:fullscreen', setFullscreen);
-  ipcMain.handle('window:is-fullscreen', (event) => windowForEvent(event).isFullScreen());
-
-  ipcMain.handle('window:get-bounds', (event) => windowForEvent(event).getBounds());
-  ipcMain.handle('window:set-bounds', (event, bounds: Electron.Rectangle) => {
-    const window = windowForEvent(event);
-    if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return false;
-    if (bounds.width < 480 || bounds.height < 320 || bounds.width > 16_384 || bounds.height > 16_384) return false;
-    const currentBounds = window.getBounds();
-    window.setBounds({
-      x: Number.isFinite(bounds.x) ? Math.round(bounds.x) : currentBounds.x,
-      y: Number.isFinite(bounds.y) ? Math.round(bounds.y) : currentBounds.y,
-      width: Math.round(bounds.width),
-      height: Math.round(bounds.height),
-    });
-    return true;
-  });
-
-  const getDesktopInfo = (event: IpcMainInvokeEvent) => {
-    windowForEvent(event);
-    return desktopInfo();
-  };
-  ipcMain.handle('system:get-info', getDesktopInfo);
-  ipcMain.handle('system:info', getDesktopInfo);
-
-  ipcMain.handle('system:open-external', async (event, rawUrl: string) => {
-    windowForEvent(event);
-    const validated = validateExternalUrl(rawUrl);
-    await shell.openExternal(validated.toString());
-    return true;
-  });
-
-  const getMemoryUsage = async (event: IpcMainInvokeEvent) => {
-    windowForEvent(event);
-    const usage = await process.getProcessMemoryInfo();
-    const system = process.getSystemMemoryInfo();
-    const used = Math.round(usage.residentSet / 1024);
-    const total = Math.round(system.total / 1024);
-    return {
-      ...usage,
-      used,
-      total,
-      percentage: total > 0 ? Math.min(100, (used / total) * 100) : 0,
-    };
-  };
-  ipcMain.handle('system:get-memory-usage', getMemoryUsage);
-  ipcMain.handle('system:memory', getMemoryUsage);
-  ipcMain.handle('system:get-cpu-usage', (event) => {
-    windowForEvent(event);
-    return app.getAppMetrics();
-  });
-
-  ipcMain.on('app:renderer-ready', (event) => {
+  authoritativeIpc.forOwner('core-app').on(IPC_INBOUND.APP_RENDERER_READY, (event) => {
     if (!isMainRendererEvent(event)) return;
     rendererReady = true;
     flushPendingMediaPaths();
@@ -189,10 +116,7 @@ async function createSplashWindow(): Promise<void> {
     skipTaskbar: true,
     backgroundColor: '#050409',
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
+      ...SECURE_RENDERER_PREFERENCES,
     },
   });
   splashWindow = window;
@@ -227,9 +151,9 @@ function closeSplash(): void {
   if (window && !window.isDestroyed()) window.close();
 }
 
-async function createMainWindow(): Promise<BrowserWindow> {
+async function createMainWindow(showOnReady = true): Promise<BrowserWindow> {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const preloadPath = path.join(__dirname, 'preload-entry.js');
+  const preloadPath = resolveTrustedPreloadPath();
 
   const window = new BrowserWindow({
     width: Math.min(1600, Math.round(width * 0.88)),
@@ -242,18 +166,15 @@ async function createMainWindow(): Promise<BrowserWindow> {
     backgroundColor: '#080611',
     icon: path.join(__dirname, '../../assets/icons/app-icon.png'),
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
+      ...SECURE_RENDERER_PREFERENCES,
       preload: preloadPath,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
     },
   });
   mainWindow = window;
   rendererReady = false;
 
   window.once('ready-to-show', () => {
+    if (!showOnReady) return;
     updateSplash(splashCopy('Ready', 'جاهز'), 100);
     window.show();
     window.focus();
@@ -271,10 +192,10 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
   window.on('resize', () => {
     const [windowWidth, windowHeight] = window.getSize();
-    window.webContents.send('window:resize', { width: windowWidth, height: windowHeight });
+    authoritativeIpc.forOwner('core-window').send(window.webContents, IPC_OUTBOUND.WINDOW_RESIZE, { width: windowWidth, height: windowHeight });
   });
-  window.on('enter-full-screen', () => window.webContents.send('window:fullscreen-change', true));
-  window.on('leave-full-screen', () => window.webContents.send('window:fullscreen-change', false));
+  window.on('enter-full-screen', () => authoritativeIpc.forOwner('core-window').send(window.webContents, IPC_OUTBOUND.WINDOW_FULLSCREEN_CHANGE, true));
+  window.on('leave-full-screen', () => authoritativeIpc.forOwner('core-window').send(window.webContents, IPC_OUTBOUND.WINDOW_FULLSCREEN_CHANGE, false));
   window.on('closed', () => {
     if (mainWindow === window) {
       mainWindow = null;
@@ -291,6 +212,50 @@ async function createMainWindow(): Promise<BrowserWindow> {
   });
 
   return window;
+}
+
+function systemConfiguration(): SystemConfiguration {
+  return {
+    appId: 'dev.knoux.player-x',
+    version: app.getVersion(),
+    environment: app.isPackaged ? 'production' : 'development',
+    features: {
+      dspEnabled: true,
+      pluginsEnabled: false,
+      aiAssistantEnabled: true,
+      cloudSyncEnabled: false,
+      analyticsEnabled: false,
+      liveStreamingEnabled: false,
+      immersiveModeEnabled: true,
+      autoUpdatesEnabled: false,
+      crashRecoveryEnabled: true,
+      developerMode: !app.isPackaged,
+    },
+    performance: {
+      maxThreads: Math.max(1, Math.min(8, os.cpus().length)),
+      maxMemoryMB: 2048,
+      cacheSizeMB: 512,
+      enableGPUAcceleration: true,
+      processingQuality: 'high',
+      cacheStrategy: 'hybrid',
+    },
+    security: {
+      enableSandbox: true,
+      cspPolicy: "default-src 'self'",
+      allowedDomains: [],
+      enableEncryption: true,
+      verificationLevel: 'strict',
+      twoFactorAuth: false,
+    },
+    customization: {
+      theme: 'auto',
+      accentColor: '#8b5cf6',
+      fontScale: 1,
+      reduceMotion: false,
+      highContrast: false,
+    },
+    integrations: { discordRPC: false, lastFM: false, spotify: false, youtube: false },
+  };
 }
 
 function handleSecondInstance(argv: readonly string[]): void {
@@ -327,6 +292,24 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     return { handleSecondInstance: () => undefined };
   }
 
+  const ipcSmokeTest = initialArgv.includes('--ipc-smoke-test');
+  const ipcSmokeEvidence = initialArgv.find((argument) => argument.startsWith('--ipc-smoke-evidence='))?.slice('--ipc-smoke-evidence='.length) ?? '';
+  const ipcSmokeRoot = ipcSmokeTest ? fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-packaged-ipc-smoke-')) : '';
+  if (ipcSmokeTest) app.setPath('userData', ipcSmokeRoot);
+  const sprint02SmokeTest = initialArgv.includes('--sprint-02-smoke');
+  const sprint02Evidence = initialArgv.find((argument) => argument.startsWith('--sprint-02-evidence='))?.slice('--sprint-02-evidence='.length) ?? '';
+  const sprint02RootArgument = initialArgv.find((argument) => argument.startsWith('--sprint-02-root='))?.slice('--sprint-02-root='.length) ?? '';
+  const sprint02Phase = initialArgv.includes('--sprint-02-restart') ? 'restart' as const : 'initial' as const;
+  const sprint02Root = sprint02SmokeTest
+    ? path.resolve(sprint02RootArgument || fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-sprint-02-smoke-')))
+    : '';
+  if (sprint02SmokeTest) {
+    const temporaryRoot = path.resolve(os.tmpdir());
+    if (!sprint02Root.startsWith(`${temporaryRoot}${path.sep}`)) throw new Error('Sprint 02 smoke root must be inside the operating-system temporary directory.');
+    fs.mkdirSync(sprint02Root, { recursive: true });
+    app.setPath('userData', sprint02Root);
+  }
+
   pendingMediaPaths = mediaPathsFromArguments(initialArgv);
 
   app.on('web-contents-created', (_event, contents) => {
@@ -343,25 +326,78 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
   });
 
   app.whenReady().then(async () => {
-    await createSplashWindow();
-    updateSplash(splashCopy('Securing desktop services', 'تأمين خدمات سطح المكتب'), 18);
+    const preloadPath = resolveTrustedPreloadPath();
+    const identity = getBuildIdentity();
+    authoritativeIpc.configureStartup(preloadPath, identity);
+    authoritativeIpc.configureTrustedSender((event) => {
+      const owner = BrowserWindow.fromWebContents(event.sender);
+      return Boolean(owner && !owner.isDestroyed() && isTrustedRendererUrl(event.senderFrame.url));
+    });
+    systemOrchestrator = createSystemOrchestrator(systemConfiguration());
+    systemOrchestrator.services.settings.on('recovery', (recovery) => {
+      log.warn(`KNOUX_SETTINGS_RECOVERY ${JSON.stringify(recovery)}`);
+    });
+    await systemOrchestrator.services.settings.initialize();
+    setupIPCHandlers(authoritativeIpc, systemOrchestrator);
     registerCreativeRuntimeIfPrimary();
     setupCreativePermissionHandlers();
-    updateSplash(splashCopy('Opening local library', 'فتح المكتبة المحلية'), 40);
     registerCoreHandlers();
+    const health = authoritativeIpc.assertReady();
+    log.info(`KNOUX_IPC_HEALTH ${JSON.stringify(health)}`);
+    if (ipcSmokeTest) {
+      const window = await createMainWindow(false);
+      systemOrchestrator.setMainWindow(window);
+      const { runPackagedIpcSmoke } = await import('./startup/packaged-ipc-smoke');
+      await runPackagedIpcSmoke({
+        evidencePath: ipcSmokeEvidence,
+        syntheticRoot: ipcSmokeRoot,
+        mainWindow: window,
+        health,
+        manifest: authoritativeIpc.manifest(),
+        authorizeFixture: authorizeMediaPaths,
+      });
+      await cleanupApplication('smoke-complete');
+      app.exit(0);
+      return;
+    }
+    if (sprint02SmokeTest) {
+      seedSprint02SyntheticCapture();
+      const window = await createMainWindow(false);
+      systemOrchestrator.setMainWindow(window);
+      const { runSprint02Smoke } = await import('./startup/sprint-02-smoke');
+      await runSprint02Smoke({
+        evidencePath: sprint02Evidence,
+        syntheticRoot: sprint02Root,
+        mainWindow: window,
+        phase: sprint02Phase,
+        health,
+      });
+      await cleanupApplication('smoke-complete');
+      app.exit(0);
+      return;
+    }
+    await createSplashWindow();
+    updateSplash(splashCopy('Securing desktop services', 'تأمين خدمات سطح المكتب'), 18);
+    updateSplash(splashCopy('Opening local library', 'فتح المكتبة المحلية'), 40);
     createApplicationMenu();
-    powerMonitor.on('suspend', () => mainWindow?.webContents.send('system:suspend'));
-    powerMonitor.on('resume', () => mainWindow?.webContents.send('system:resume'));
+    powerMonitor.on('suspend', () => {
+      if (mainWindow) authoritativeIpc.forOwner('core-system').send(mainWindow.webContents, IPC_OUTBOUND.SYSTEM_SUSPEND);
+    });
+    powerMonitor.on('resume', () => {
+      if (mainWindow) authoritativeIpc.forOwner('core-system').send(mainWindow.webContents, IPC_OUTBOUND.SYSTEM_RESUME);
+    });
     try {
       createSystemTray();
     } catch (error) {
       log.warn('System tray is unavailable', error);
     }
     updateSplash(splashCopy('Loading the KNOUX interface', 'تحميل واجهة KNOUX'), 68);
-    await createMainWindow();
-  }).catch((error) => {
+    const window = await createMainWindow();
+    systemOrchestrator.setMainWindow(window);
+  }).catch(async (error) => {
+    if (ipcSmokeTest || sprint02SmokeTest) log.error(`KNOUX_IPC_DIAGNOSTICS ${JSON.stringify(authoritativeIpc.diagnosticEvents())}`);
     log.error('Failed to start KNOUX Player X', error);
-    closeSplash();
+    await cleanupApplication('startup-failure').catch((cleanupError) => log.error('KNOUX_RUNTIME_CLEANUP_FAILED', cleanupError));
     app.exit(1);
   });
 
@@ -372,11 +408,15 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('before-quit', () => {
-    isQuitting = true;
-    closeSplash();
-    destroyTray();
-    cleanupCreativeRuntime();
+  app.on('before-quit', (event) => {
+    if (cleanupComplete) return;
+    event.preventDefault();
+    void cleanupApplication('normal-quit')
+      .then(() => app.quit())
+      .catch((error) => {
+        log.error('KNOUX_RUNTIME_CLEANUP_FAILED', error);
+        app.exit(1);
+      });
   });
   app.on('will-quit', () => {
     if (!isQuitting) destroyTray();

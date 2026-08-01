@@ -10,7 +10,15 @@
  * @version 1.0.0
  */
 
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { contextBridge, webUtils } from 'electron';
+
+import type { ChatContext } from '../src/core/services/ai/GeminiService';
+
+import type { StructuredValue } from './ipc/channel-types';
+import { IPC_INBOUND, IPC_INVOKE, IPC_OUTBOUND } from './ipc/contract';
+import type { BuildIdentity } from './ipc/contract';
+import { invokeDesktop, offDesktopEvent, onDesktopEvent, sendDesktop } from './ipc/preload-client';
+import type { IpcHealthReport } from './ipc/registry';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
@@ -70,44 +78,44 @@ export interface SubtitleSettings {
 
 const fileAPI = {
   openFile: (options?: DialogOptions): Promise<string | null> =>
-    ipcRenderer.invoke('file:open', options),
+    invokeDesktop(IPC_INVOKE.FILE_OPEN, options),
 
   openFiles: (options?: DialogOptions): Promise<string[]> =>
-    ipcRenderer.invoke('file:open-multiple', options),
+    invokeDesktop(IPC_INVOKE.FILE_OPEN_MULTIPLE, options),
 
   openDirectory: (options?: DialogOptions): Promise<string | null> =>
-    ipcRenderer.invoke('file:open-directory', options),
+    invokeDesktop(IPC_INVOKE.FILE_OPEN_DIRECTORY, options),
 
   saveFile: (options?: DialogOptions): Promise<string | null> =>
-    ipcRenderer.invoke('file:save', options),
+    invokeDesktop(IPC_INVOKE.FILE_SAVE, options),
 
   readFile: (filePath: string): Promise<Buffer> =>
-    ipcRenderer.invoke('file:read', filePath),
+    invokeDesktop(IPC_INVOKE.FILE_READ, filePath),
 
   writeFile: (filePath: string, data: Buffer | string): Promise<void> =>
-    ipcRenderer.invoke('file:write', filePath, data),
+    invokeDesktop(IPC_INVOKE.FILE_WRITE, filePath, data),
 
   deleteFile: (filePath: string): Promise<boolean> =>
-    ipcRenderer.invoke('file:delete', filePath),
+    invokeDesktop(IPC_INVOKE.FILE_DELETE, filePath),
 
   exists: (filePath: string): Promise<boolean> =>
-    ipcRenderer.invoke('file:exists', filePath),
+    invokeDesktop(IPC_INVOKE.FILE_EXISTS, filePath),
 
   getStats: (filePath: string): Promise<{
     size: number;
     created: Date;
     modified: Date;
     isDirectory: boolean;
-  }> => ipcRenderer.invoke('file:stats', filePath),
+  }> => invokeDesktop(IPC_INVOKE.FILE_STATS, filePath),
 
   scanDirectory: (dirPath: string, recursive?: boolean): Promise<string[]> =>
-    ipcRenderer.invoke('file:scan', dirPath, recursive),
+    invokeDesktop(IPC_INVOKE.FILE_SCAN, dirPath, recursive),
 
   getMediaInfo: (filePath: string): Promise<MediaInfo> =>
-    ipcRenderer.invoke('file:media-info', filePath),
+    invokeDesktop(IPC_INVOKE.FILE_MEDIA_INFO, filePath),
 
   authorizeDroppedFile: (file: File): Promise<string> =>
-    ipcRenderer.invoke('file:authorize-dropped', webUtils.getPathForFile(file)),
+    invokeDesktop(IPC_INVOKE.FILE_AUTHORIZE_DROPPED, webUtils.getPathForFile(file)),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -116,40 +124,40 @@ const fileAPI = {
 
 const playerAPI = {
   load: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('player:load', filePath),
+    invokeDesktop(IPC_INVOKE.PLAYER_LOAD, filePath),
 
   play: (): Promise<void> =>
-    ipcRenderer.invoke('player:play'),
+    invokeDesktop(IPC_INVOKE.PLAYER_PLAY),
 
   pause: (): Promise<void> =>
-    ipcRenderer.invoke('player:pause'),
+    invokeDesktop(IPC_INVOKE.PLAYER_PAUSE),
 
   stop: (): Promise<void> =>
-    ipcRenderer.invoke('player:stop'),
+    invokeDesktop(IPC_INVOKE.PLAYER_STOP),
 
   seek: (time: number): Promise<void> =>
-    ipcRenderer.invoke('player:seek', time),
+    invokeDesktop(IPC_INVOKE.PLAYER_SEEK, time),
 
   setPlaybackRate: (rate: number): Promise<void> =>
-    ipcRenderer.invoke('player:rate', rate),
+    invokeDesktop(IPC_INVOKE.PLAYER_RATE, rate),
 
   setVolume: (volume: number): Promise<void> =>
-    ipcRenderer.invoke('player:volume', volume),
+    invokeDesktop(IPC_INVOKE.PLAYER_VOLUME, volume),
 
   setMuted: (muted: boolean): Promise<void> =>
-    ipcRenderer.invoke('player:muted', muted),
+    invokeDesktop(IPC_INVOKE.PLAYER_MUTED, muted),
 
   setLoop: (loop: boolean): Promise<void> =>
-    ipcRenderer.invoke('player:loop', loop),
+    invokeDesktop(IPC_INVOKE.PLAYER_LOOP, loop),
 
   setShuffle: (shuffle: boolean): Promise<void> =>
-    ipcRenderer.invoke('player:shuffle', shuffle),
+    invokeDesktop(IPC_INVOKE.PLAYER_SHUFFLE, shuffle),
 
   next: (): Promise<void> =>
-    ipcRenderer.invoke('player:next'),
+    invokeDesktop(IPC_INVOKE.PLAYER_NEXT),
 
   previous: (): Promise<void> =>
-    ipcRenderer.invoke('player:previous'),
+    invokeDesktop(IPC_INVOKE.PLAYER_PREVIOUS),
 
   getState: (): Promise<{
     playing: boolean;
@@ -158,30 +166,30 @@ const playerAPI = {
     duration: number;
     volume: number;
     muted: boolean;
-  }> => ipcRenderer.invoke('player:state'),
+  }> => invokeDesktop(IPC_INVOKE.PLAYER_STATE),
 
   onStateChange: (callback: (state: unknown) => void): () => void => {
     const handler = (_: unknown, state: unknown) => callback(state);
-    ipcRenderer.on('player:state-change', handler);
-    return () => ipcRenderer.removeListener('player:state-change', handler);
+    onDesktopEvent(IPC_OUTBOUND.PLAYER_STATE_CHANGE, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_STATE_CHANGE, handler);
   },
 
   onTimeUpdate: (callback: (time: number) => void): () => void => {
     const handler = (_: unknown, time: number) => callback(time);
-    ipcRenderer.on('player:time-update', handler);
-    return () => ipcRenderer.removeListener('player:time-update', handler);
+    onDesktopEvent(IPC_OUTBOUND.PLAYER_TIME_UPDATE, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_TIME_UPDATE, handler);
   },
 
   onEnded: (callback: () => void): () => void => {
     const handler = () => callback();
-    ipcRenderer.on('player:ended', handler);
-    return () => ipcRenderer.removeListener('player:ended', handler);
+    onDesktopEvent(IPC_OUTBOUND.PLAYER_ENDED, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_ENDED, handler);
   },
 
   onError: (callback: (error: string) => void): () => void => {
     const handler = (_: unknown, error: string) => callback(error);
-    ipcRenderer.on('player:error', handler);
-    return () => ipcRenderer.removeListener('player:error', handler);
+    onDesktopEvent(IPC_OUTBOUND.PLAYER_ERROR, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_ERROR, handler);
   },
 };
 
@@ -191,33 +199,33 @@ const playerAPI = {
 
 const audioAPI = {
   getSettings: (): Promise<AudioSettings> =>
-    ipcRenderer.invoke('audio:settings'),
+    invokeDesktop(IPC_INVOKE.AUDIO_SETTINGS),
 
   setVolume: (volume: number): Promise<void> =>
-    ipcRenderer.invoke('audio:volume', volume),
+    invokeDesktop(IPC_INVOKE.AUDIO_VOLUME, volume),
 
   setMuted: (muted: boolean): Promise<void> =>
-    ipcRenderer.invoke('audio:muted', muted),
+    invokeDesktop(IPC_INVOKE.AUDIO_MUTED, muted),
 
   setBalance: (balance: number): Promise<void> =>
-    ipcRenderer.invoke('audio:balance', balance),
+    invokeDesktop(IPC_INVOKE.AUDIO_BALANCE, balance),
 
   setEqualizer: (bands: number[]): Promise<void> =>
-    ipcRenderer.invoke('audio:equalizer', bands),
+    invokeDesktop(IPC_INVOKE.AUDIO_EQUALIZER, bands),
 
-  setEffect: (effect: string, params: unknown): Promise<void> =>
-    ipcRenderer.invoke('audio:effect', effect, params),
+  setEffect: (effect: string, params: StructuredValue): Promise<void> =>
+    invokeDesktop(IPC_INVOKE.AUDIO_EFFECT, effect, params),
 
   enableDSP: (enabled: boolean): Promise<void> =>
-    ipcRenderer.invoke('audio:dsp', enabled),
+    invokeDesktop(IPC_INVOKE.AUDIO_DSP, enabled),
 
   getVisualizerData: (): Promise<Uint8Array> =>
-    ipcRenderer.invoke('audio:visualizer'),
+    invokeDesktop(IPC_INVOKE.AUDIO_VISUALIZER),
 
   onVisualizerData: (callback: (data: Uint8Array) => void): () => void => {
     const handler = (_: unknown, data: Uint8Array) => callback(data);
-    ipcRenderer.on('audio:visualizer-data', handler);
-    return () => ipcRenderer.removeListener('audio:visualizer-data', handler);
+    onDesktopEvent(IPC_OUTBOUND.AUDIO_VISUALIZER_DATA, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.AUDIO_VISUALIZER_DATA, handler);
   },
 };
 
@@ -227,31 +235,31 @@ const audioAPI = {
 
 const videoAPI = {
   getSettings: (): Promise<VideoSettings> =>
-    ipcRenderer.invoke('video:settings'),
+    invokeDesktop(IPC_INVOKE.VIDEO_SETTINGS),
 
   setBrightness: (value: number): Promise<void> =>
-    ipcRenderer.invoke('video:brightness', value),
+    invokeDesktop(IPC_INVOKE.VIDEO_BRIGHTNESS, value),
 
   setContrast: (value: number): Promise<void> =>
-    ipcRenderer.invoke('video:contrast', value),
+    invokeDesktop(IPC_INVOKE.VIDEO_CONTRAST, value),
 
   setSaturation: (value: number): Promise<void> =>
-    ipcRenderer.invoke('video:saturation', value),
+    invokeDesktop(IPC_INVOKE.VIDEO_SATURATION, value),
 
   setHue: (value: number): Promise<void> =>
-    ipcRenderer.invoke('video:hue', value),
+    invokeDesktop(IPC_INVOKE.VIDEO_HUE, value),
 
   setGamma: (value: number): Promise<void> =>
-    ipcRenderer.invoke('video:gamma', value),
+    invokeDesktop(IPC_INVOKE.VIDEO_GAMMA, value),
 
   takeScreenshot: (): Promise<string> =>
-    ipcRenderer.invoke('video:screenshot'),
+    invokeDesktop(IPC_INVOKE.VIDEO_SCREENSHOT),
 
   setCrop: (crop: { x: number; y: number; width: number; height: number } | null): Promise<void> =>
-    ipcRenderer.invoke('video:crop', crop),
+    invokeDesktop(IPC_INVOKE.VIDEO_CROP, crop),
 
   setZoom: (zoom: number): Promise<void> =>
-    ipcRenderer.invoke('video:zoom', zoom),
+    invokeDesktop(IPC_INVOKE.VIDEO_ZOOM, zoom),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -260,31 +268,31 @@ const videoAPI = {
 
 const subtitleAPI = {
   getSettings: (): Promise<SubtitleSettings> =>
-    ipcRenderer.invoke('subtitle:settings'),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_SETTINGS),
 
   setEnabled: (enabled: boolean): Promise<void> =>
-    ipcRenderer.invoke('subtitle:enabled', enabled),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_ENABLED, enabled),
 
   loadSubtitle: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('subtitle:load', filePath),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_LOAD, filePath),
 
   searchSubtitles: (query: string, language?: string): Promise<unknown[]> =>
-    ipcRenderer.invoke('subtitle:search', query, language),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_SEARCH, query, language),
 
   downloadSubtitle: (subtitleId: string): Promise<string> =>
-    ipcRenderer.invoke('subtitle:download', subtitleId),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_DOWNLOAD, subtitleId),
 
   syncWithAI: (): Promise<void> =>
-    ipcRenderer.invoke('subtitle:sync-ai'),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_SYNC_AI),
 
   translateWithAI: (targetLanguage: string): Promise<void> =>
-    ipcRenderer.invoke('subtitle:translate-ai', targetLanguage),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_TRANSLATE_AI, targetLanguage),
 
   setDelay: (delay: number): Promise<void> =>
-    ipcRenderer.invoke('subtitle:delay', delay),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_DELAY, delay),
 
   setStyle: (style: Partial<SubtitleSettings>): Promise<void> =>
-    ipcRenderer.invoke('subtitle:style', style),
+    invokeDesktop(IPC_INVOKE.SUBTITLE_STYLE, style),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -292,45 +300,45 @@ const subtitleAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const libraryAPI = {
-  scan: (paths: string[]): Promise<void> =>
-    ipcRenderer.invoke('library:scan', paths),
+  scan: (folderPath: string): Promise<void | object> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_SCAN, folderPath),
 
-  getMedia: (filters?: unknown): Promise<unknown[]> =>
-    ipcRenderer.invoke('library:get-media', filters),
+  getMedia: (filters?: object): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_GET_MEDIA, filters),
 
-  getPlaylists: (): Promise<unknown[]> =>
-    ipcRenderer.invoke('library:get-playlists'),
+  getPlaylists: (): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_GET_PLAYLISTS),
 
   createPlaylist: (name: string, items?: string[]): Promise<string> =>
-    ipcRenderer.invoke('library:create-playlist', name, items),
+    invokeDesktop(IPC_INVOKE.LIBRARY_CREATE_PLAYLIST, name, items),
 
-  updatePlaylist: (id: string, updates: unknown): Promise<void> =>
-    ipcRenderer.invoke('library:update-playlist', id, updates),
+  updatePlaylist: (id: string, updates: object): Promise<void> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_UPDATE_PLAYLIST, id, updates),
 
   deletePlaylist: (id: string): Promise<void> =>
-    ipcRenderer.invoke('library:delete-playlist', id),
+    invokeDesktop(IPC_INVOKE.LIBRARY_DELETE_PLAYLIST, id),
 
   addToHistory: (mediaPath: string, position: number): Promise<void> =>
-    ipcRenderer.invoke('library:add-history', mediaPath, position),
+    invokeDesktop(IPC_INVOKE.LIBRARY_ADD_HISTORY, mediaPath, position),
 
-  getHistory: (limit?: number): Promise<unknown[]> =>
-    ipcRenderer.invoke('library:get-history', limit),
+  getHistory: (limit?: number): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_GET_HISTORY, limit),
 
-  getFavorites: (): Promise<unknown[]> =>
-    ipcRenderer.invoke('library:get-favorites'),
+  getFavorites: (): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_GET_FAVORITES),
 
   toggleFavorite: (mediaPath: string): Promise<boolean> =>
-    ipcRenderer.invoke('library:toggle-favorite', mediaPath),
+    invokeDesktop(IPC_INVOKE.LIBRARY_TOGGLE_FAVORITE, mediaPath),
 
-  search: (query: string): Promise<unknown[]> =>
-    ipcRenderer.invoke('library:search', query),
+  search: (query: string): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.LIBRARY_SEARCH, query),
 
   getStatistics: (): Promise<{
     totalMedia: number;
     totalDuration: number;
     mostPlayed: unknown[];
     recentlyAdded: unknown[];
-  }> => ipcRenderer.invoke('library:statistics'),
+  }> => invokeDesktop(IPC_INVOKE.LIBRARY_STATISTICS),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -338,28 +346,28 @@ const libraryAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const settingsAPI = {
-  get: <T>(key: string, defaultValue?: T): Promise<T> =>
-    ipcRenderer.invoke('settings:get', key, defaultValue),
+  get: <T extends StructuredValue>(key: string, defaultValue?: T): Promise<T> =>
+    invokeDesktop<typeof IPC_INVOKE.SETTINGS_GET, T>(IPC_INVOKE.SETTINGS_GET, key, defaultValue),
 
-  set: <T>(key: string, value: T): Promise<void> =>
-    ipcRenderer.invoke('settings:set', key, value),
+  set: <T extends StructuredValue>(key: string, value: T): Promise<void> =>
+    invokeDesktop(IPC_INVOKE.SETTINGS_SET, key, value),
 
   getAll: (): Promise<Record<string, unknown>> =>
-    ipcRenderer.invoke('settings:get-all'),
+    invokeDesktop(IPC_INVOKE.SETTINGS_GET_ALL),
 
   reset: (key?: string): Promise<void> =>
-    ipcRenderer.invoke('settings:reset', key),
+    invokeDesktop(IPC_INVOKE.SETTINGS_RESET, key),
 
   export: (): Promise<string> =>
-    ipcRenderer.invoke('settings:export'),
+    invokeDesktop(IPC_INVOKE.SETTINGS_EXPORT),
 
   import: (data: string): Promise<void> =>
-    ipcRenderer.invoke('settings:import', data),
+    invokeDesktop(IPC_INVOKE.SETTINGS_IMPORT, data),
 
   onChange: (callback: (key: string, value: unknown) => void): () => void => {
     const handler = (_: unknown, key: string, value: unknown) => callback(key, value);
-    ipcRenderer.on('settings:change', handler);
-    return () => ipcRenderer.removeListener('settings:change', handler);
+    onDesktopEvent(IPC_OUTBOUND.SETTINGS_CHANGE, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.SETTINGS_CHANGE, handler);
   },
 };
 
@@ -369,36 +377,36 @@ const settingsAPI = {
 
 const windowAPI = {
   minimize: (): Promise<void> =>
-    ipcRenderer.invoke('window:minimize'),
+    invokeDesktop(IPC_INVOKE.WINDOW_MINIMIZE),
 
   maximize: (): Promise<void> =>
-    ipcRenderer.invoke('window:maximize'),
+    invokeDesktop(IPC_INVOKE.WINDOW_MAXIMIZE),
 
   close: (): Promise<void> =>
-    ipcRenderer.invoke('window:close'),
+    invokeDesktop(IPC_INVOKE.WINDOW_CLOSE),
 
   isMaximized: (): Promise<boolean> =>
-    ipcRenderer.invoke('window:is-maximized'),
+    invokeDesktop(IPC_INVOKE.WINDOW_IS_MAXIMIZED),
 
   setFullscreen: (fullscreen: boolean): Promise<void> =>
-    ipcRenderer.invoke('window:fullscreen', fullscreen),
+    invokeDesktop(IPC_INVOKE.WINDOW_FULLSCREEN, fullscreen),
 
   isFullscreen: (): Promise<boolean> =>
-    ipcRenderer.invoke('window:is-fullscreen'),
+    invokeDesktop(IPC_INVOKE.WINDOW_IS_FULLSCREEN),
 
   setAlwaysOnTop: (alwaysOnTop: boolean): Promise<void> =>
-    ipcRenderer.invoke('window:always-on-top', alwaysOnTop),
+    invokeDesktop(IPC_INVOKE.WINDOW_ALWAYS_ON_TOP, alwaysOnTop),
 
   onResize: (callback: (size: { width: number; height: number }) => void): () => void => {
     const handler = (_: unknown, size: { width: number; height: number }) => callback(size);
-    ipcRenderer.on('window:resize', handler);
-    return () => ipcRenderer.removeListener('window:resize', handler);
+    onDesktopEvent(IPC_OUTBOUND.WINDOW_RESIZE, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.WINDOW_RESIZE, handler);
   },
 
   onFullscreenChange: (callback: (fullscreen: boolean) => void): () => void => {
     const handler = (_: unknown, fullscreen: boolean) => callback(fullscreen);
-    ipcRenderer.on('window:fullscreen-change', handler);
-    return () => ipcRenderer.removeListener('window:fullscreen-change', handler);
+    onDesktopEvent(IPC_OUTBOUND.WINDOW_FULLSCREEN_CHANGE, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.WINDOW_FULLSCREEN_CHANGE, handler);
   },
 };
 
@@ -408,47 +416,56 @@ const windowAPI = {
 
 const systemAPI = {
   getInfo: (): Promise<{
+    product: 'KNOUX Player X';
     version: string;
     platform: string;
     arch: string;
+    sha: string;
+    branch: string;
+    builtAt: string;
+    packaged: boolean;
     electronVersion: string;
     chromeVersion: string;
     nodeVersion: string;
-  }> => ipcRenderer.invoke('system:info'),
+  }> => invokeDesktop(IPC_INVOKE.SYSTEM_INFO),
+
+  getBuildInfo: (): Promise<BuildIdentity> => invokeDesktop(IPC_INVOKE.SYSTEM_GET_BUILD_INFO),
+
+  getIpcHealth: (): Promise<IpcHealthReport> => invokeDesktop(IPC_INVOKE.SYSTEM_GET_IPC_HEALTH),
 
   getMemoryUsage: (): Promise<{
     used: number;
     total: number;
     percentage: number;
-  }> => ipcRenderer.invoke('system:memory'),
+  }> => invokeDesktop(IPC_INVOKE.SYSTEM_MEMORY),
 
   openExternal: (url: string): Promise<void> =>
-    ipcRenderer.invoke('system:open-external', url),
+    invokeDesktop(IPC_INVOKE.SYSTEM_OPEN_EXTERNAL, url),
 
   showItemInFolder: (path: string): Promise<void> =>
-    ipcRenderer.invoke('system:show-item', path),
+    invokeDesktop(IPC_INVOKE.SYSTEM_SHOW_ITEM, path),
 
   onSuspend: (callback: () => void): () => void => {
     const handler = () => callback();
-    ipcRenderer.on('system:suspend', handler);
-    return () => ipcRenderer.removeListener('system:suspend', handler);
+    onDesktopEvent(IPC_OUTBOUND.SYSTEM_SUSPEND, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.SYSTEM_SUSPEND, handler);
   },
 
   onResume: (callback: () => void): () => void => {
     const handler = () => callback();
-    ipcRenderer.on('system:resume', handler);
-    return () => ipcRenderer.removeListener('system:resume', handler);
+    onDesktopEvent(IPC_OUTBOUND.SYSTEM_RESUME, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.SYSTEM_RESUME, handler);
   },
 };
 
 const appAPI = {
   ready: (): void => {
-    ipcRenderer.send('app:renderer-ready');
+    sendDesktop(IPC_INBOUND.APP_RENDERER_READY);
   },
   onOpenMedia: (callback: (paths: string[]) => void): (() => void) => {
     const handler = (_event: unknown, paths: string[]) => callback([...paths]);
-    ipcRenderer.on('app:open-media', handler);
-    return () => ipcRenderer.removeListener('app:open-media', handler);
+    onDesktopEvent(IPC_OUTBOUND.APP_OPEN_MEDIA, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.APP_OPEN_MEDIA, handler);
   },
 };
 
@@ -457,26 +474,26 @@ const appAPI = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const aiAPI = {
-  chat: (message: string, context?: unknown[]): Promise<string> =>
-    ipcRenderer.invoke('ai:chat', message, context),
+  chat: (message: string, context?: ChatContext): Promise<string> =>
+    invokeDesktop(IPC_INVOKE.AI_CHAT, message, context),
 
   analyzeMedia: (filePath: string): Promise<{
     summary: string;
     tags: string[];
     mood: string;
     recommendations: string[];
-  }> => ipcRenderer.invoke('ai:analyze-media', filePath),
+  }> => invokeDesktop(IPC_INVOKE.AI_ANALYZE_MEDIA, filePath),
 
   generatePlaylist: (mood: string, count?: number): Promise<string[]> =>
-    ipcRenderer.invoke('ai:generate-playlist', mood, count),
+    invokeDesktop(IPC_INVOKE.AI_GENERATE_PLAYLIST, mood, count),
 
-  getRecommendations: (basedOn: string[]): Promise<unknown[]> =>
-    ipcRenderer.invoke('ai:recommendations', basedOn),
+  getRecommendations: (basedOn: string[]): Promise<object[]> =>
+    invokeDesktop(IPC_INVOKE.AI_RECOMMENDATIONS, basedOn),
 
   onStream: (callback: (chunk: string) => void): () => void => {
     const handler = (_: unknown, chunk: string) => callback(chunk);
-    ipcRenderer.on('ai:stream', handler);
-    return () => ipcRenderer.removeListener('ai:stream', handler);
+    onDesktopEvent(IPC_OUTBOUND.AI_STREAM, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.AI_STREAM, handler);
   },
 };
 

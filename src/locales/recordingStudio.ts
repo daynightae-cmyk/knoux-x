@@ -27,6 +27,7 @@ export const recordingStudioEnglish = {
   frames: 'Composed frames',
   droppedFrames: 'Source dropped frames',
   audioLevel: 'Mixed audio level',
+  chooseOutputFolder: 'Choose output folder',
 } as const;
 
 export const recordingStudioArabic = {
@@ -58,4 +59,5 @@ export const recordingStudioArabic = {
   frames: 'الإطارات المركبة',
   droppedFrames: 'الإطارات الساقطة من المصدر',
   audioLevel: 'مستوى الصوت الممزوج',
+  chooseOutputFolder: 'اختر مجلد الإخراج',
 } as const;

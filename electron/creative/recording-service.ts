@@ -27,6 +27,7 @@ export interface BeginRecordingRequest {
 
 export interface RecordingSessionSnapshot {
   id: string;
+  encoderId: string;
   source: RecordingSourceKind;
   mimeType: string;
   state: RecordingState;
@@ -34,12 +35,18 @@ export interface RecordingSessionSnapshot {
   startedAt: string;
   completedAt?: string;
   bytesWritten: number;
+  acceptedVideoFrames: number;
+  droppedFrames: number;
+  activeDurationMs: number;
+  metersActive: boolean;
 }
 
 interface RecordingSession extends RecordingSessionSnapshot {
   partialPath: string;
   handle: fs.FileHandle;
   writeChain: Promise<void>;
+  activeStartedAtMs: number | null;
+  accumulatedActiveMs: number;
 }
 
 interface RecordingStoreSchema {
@@ -75,7 +82,7 @@ export class RecordingService {
 
   async begin(request: BeginRecordingRequest): Promise<RecordingSessionSnapshot | null> {
     const extension = extensionForMimeType(request.mimeType);
-    const countdownSeconds = validateCountdown(request.countdownSeconds);
+    validateCountdown(request.countdownSeconds);
     const name = sanitizeWindowsFileStem(request.suggestedName ?? `KNOUX-${request.source}-recording`);
     const preferredDirectory = typeof request.preferredDirectory === 'string' && request.preferredDirectory.length > 0
       ? path.resolve(request.preferredDirectory)
@@ -96,12 +103,12 @@ export class RecordingService {
     const partialPath = `${outputPath}.${randomUUID()}.partial`;
     const handle = await fs.open(partialPath, 'wx');
     const id = randomUUID();
-    let state = initialRecordingState;
-    if (countdownSeconds > 0) state = reduceRecordingState(state, { type: 'START_COUNTDOWN' });
+    let state = reduceRecordingState(initialRecordingState, { type: 'START_COUNTDOWN' });
     state = reduceRecordingState(state, { type: 'START' });
 
     const session: RecordingSession = {
       id,
+      encoderId: randomUUID(),
       source: request.source,
       mimeType: request.mimeType,
       state,
@@ -109,8 +116,14 @@ export class RecordingService {
       partialPath,
       startedAt: new Date().toISOString(),
       bytesWritten: 0,
+      acceptedVideoFrames: 0,
+      droppedFrames: 0,
+      activeDurationMs: 0,
+      metersActive: true,
       handle,
       writeChain: Promise.resolve(),
+      activeStartedAtMs: Date.now(),
+      accumulatedActiveMs: 0,
     };
     this.sessions.set(id, session);
     return this.snapshot(session);
@@ -118,7 +131,7 @@ export class RecordingService {
 
   async append(sessionId: string, chunk: ArrayBuffer | Uint8Array): Promise<RecordingSessionSnapshot> {
     const session = this.requireSession(sessionId);
-    if (session.state.status !== 'recording') {
+    if (session.state.status !== 'Recording') {
       throw new Error(`Cannot append recording data while ${session.state.status}.`);
     }
     const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
@@ -129,6 +142,7 @@ export class RecordingService {
     session.writeChain = session.writeChain.then(async () => {
       await session.handle.write(copy);
       session.bytesWritten += copy.byteLength;
+      session.acceptedVideoFrames += 1;
     });
     await session.writeChain;
     return this.snapshot(session);
@@ -137,18 +151,24 @@ export class RecordingService {
   pause(sessionId: string): RecordingSessionSnapshot {
     const session = this.requireSession(sessionId);
     session.state = reduceRecordingState(session.state, { type: 'PAUSE' });
+    this.freezeActiveDuration(session);
+    session.metersActive = false;
     return this.snapshot(session);
   }
 
   resume(sessionId: string): RecordingSessionSnapshot {
     const session = this.requireSession(sessionId);
     session.state = reduceRecordingState(session.state, { type: 'RESUME' });
+    session.activeStartedAtMs = Date.now();
+    session.metersActive = true;
     return this.snapshot(session);
   }
 
   async finish(sessionId: string): Promise<RecordingSessionSnapshot> {
     const session = this.requireSession(sessionId);
     session.state = reduceRecordingState(session.state, { type: 'STOP' });
+    this.freezeActiveDuration(session);
+    session.metersActive = false;
     try {
       await session.writeChain;
       await session.handle.sync();
@@ -164,19 +184,22 @@ export class RecordingService {
     } catch (error) {
       session.state = reduceRecordingState(session.state, {
         type: 'FAIL',
-        message: error instanceof Error ? error.message : 'Recording could not be finalized.',
+        code: error instanceof Error && /space|disk|ENOSPC/i.test(error.message) ? 'DISK_FULL' : 'ENCODER_FAILED',
+        reason: error instanceof Error ? error.message : 'Recording could not be finalized.',
       });
       try { await session.handle.close(); } catch { /* already closed */ }
       await fs.rm(session.partialPath, { force: true });
       const snapshot = this.snapshot(session);
       this.sessions.delete(sessionId);
-      throw new Error(snapshot.state.error ?? 'Recording failed.');
+      throw new Error(snapshot.state.failure?.reason ?? 'Recording failed.');
     }
   }
 
   async cancel(sessionId: string): Promise<RecordingSessionSnapshot> {
     const session = this.requireSession(sessionId);
     session.state = reduceRecordingState(session.state, { type: 'CANCEL' });
+    this.freezeActiveDuration(session);
+    session.metersActive = false;
     try {
       await session.writeChain;
       await session.handle.close();
@@ -216,6 +239,7 @@ export class RecordingService {
   private snapshot(session: RecordingSession): RecordingSessionSnapshot {
     return {
       id: session.id,
+      encoderId: session.encoderId,
       source: session.source,
       mimeType: session.mimeType,
       state: { ...session.state },
@@ -223,6 +247,17 @@ export class RecordingService {
       startedAt: session.startedAt,
       completedAt: session.completedAt,
       bytesWritten: session.bytesWritten,
+      acceptedVideoFrames: session.acceptedVideoFrames,
+      droppedFrames: session.droppedFrames,
+      activeDurationMs: session.accumulatedActiveMs + (session.activeStartedAtMs === null ? 0 : Date.now() - session.activeStartedAtMs),
+      metersActive: session.metersActive,
     };
+  }
+
+  private freezeActiveDuration(session: RecordingSession): void {
+    if (session.activeStartedAtMs === null) return;
+    session.accumulatedActiveMs += Math.max(0, Date.now() - session.activeStartedAtMs);
+    session.activeStartedAtMs = null;
+    session.activeDurationMs = session.accumulatedActiveMs;
   }
 }

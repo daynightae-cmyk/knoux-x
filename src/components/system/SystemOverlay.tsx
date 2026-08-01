@@ -104,7 +104,7 @@ export const SystemOverlay: React.FC = () => {
   } as CSSProperties;
 
   return (
-    <div className="knoux-system-overlay" style={overlayStyle}>
+    <div className="knoux-system-overlay" style={overlayStyle} data-sprint02-surface={isOpen ? 'Diagnostics' : undefined} data-component="SystemDiagnosticsOverlay">
       <button
         type="button"
         className="knoux-system-status"

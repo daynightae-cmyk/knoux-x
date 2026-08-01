@@ -656,7 +656,7 @@ export const ImageEditorView: React.FC = () => {
         <NeonPanel variant="dark" padding="sm" className="image-editor-toolbar">
           <div className="image-editor-tool-grid" role="toolbar" aria-label={t('imageEditor.tools')}>
             {tools.map((entry) => (
-              <button key={entry.id} type="button" className={tool === entry.id ? 'active' : ''} onClick={() => setTool(entry.id)} disabled={!hasDocument || busy} aria-pressed={tool === entry.id} title={t(entry.labelKey)}>
+              <button key={entry.id} type="button" className={tool === entry.id ? 'active' : ''} onClick={() => setTool(entry.id)} disabled={!hasDocument || busy} aria-pressed={tool === entry.id} title={t(entry.labelKey)} data-disabled-reason={!hasDocument ? 'Open or create a document before selecting a tool.' : busy ? 'Another operation is in progress.' : undefined}>
                 {entry.icon}<span>{t(entry.labelKey)}</span>
               </button>
             ))}
@@ -668,13 +668,13 @@ export const ImageEditorView: React.FC = () => {
             <label><span>{t('imageEditor.fontSize')} · {fontSize}</span><input type="range" min="12" max="180" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
           </div>
           <div className="image-editor-action-row">
-            <button type="button" onClick={() => void undo()} disabled={!canUndo} title={t('imageEditor.undo')}><Undo2 size={17} /></button>
-            <button type="button" onClick={() => void redo()} disabled={!canRedo} title={t('imageEditor.redo')}><Redo2 size={17} /></button>
-            <button type="button" onClick={() => transform('left')} disabled={!hasDocument} title={t('imageEditor.rotateLeft')}><RotateCcw size={17} /></button>
-            <button type="button" onClick={() => transform('right')} disabled={!hasDocument} title={t('imageEditor.rotateRight')}><RotateCw size={17} /></button>
-            <button type="button" onClick={() => transform('horizontal')} disabled={!hasDocument} title={t('imageEditor.flipHorizontal')}><FlipHorizontal2 size={17} /></button>
-            <button type="button" onClick={() => transform('vertical')} disabled={!hasDocument} title={t('imageEditor.flipVertical')}><FlipVertical2 size={17} /></button>
-            <button type="button" onClick={cropToSelection} disabled={!selection} title={t('imageEditor.applyCrop')}><Crop size={17} /></button>
+            <button type="button" onClick={() => void undo()} disabled={!canUndo} title={t('imageEditor.undo')} data-disabled-reason={!canUndo ? 'No edit history is available to undo.' : undefined}><Undo2 size={17} /></button>
+            <button type="button" onClick={() => void redo()} disabled={!canRedo} title={t('imageEditor.redo')} data-disabled-reason={!canRedo ? 'No undone edit is available to redo.' : undefined}><Redo2 size={17} /></button>
+            <button type="button" onClick={() => transform('left')} disabled={!hasDocument} title={t('imageEditor.rotateLeft')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><RotateCcw size={17} /></button>
+            <button type="button" onClick={() => transform('right')} disabled={!hasDocument} title={t('imageEditor.rotateRight')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><RotateCw size={17} /></button>
+            <button type="button" onClick={() => transform('horizontal')} disabled={!hasDocument} title={t('imageEditor.flipHorizontal')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><FlipHorizontal2 size={17} /></button>
+            <button type="button" onClick={() => transform('vertical')} disabled={!hasDocument} title={t('imageEditor.flipVertical')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><FlipVertical2 size={17} /></button>
+            <button type="button" onClick={cropToSelection} disabled={!selection} title={t('imageEditor.applyCrop')} data-disabled-reason={!selection ? 'Draw a selection with the Select tool before cropping.' : undefined}><Crop size={17} /></button>
           </div>
         </NeonPanel>
 

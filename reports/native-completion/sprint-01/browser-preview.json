@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "product": "KNOUX Player X",
+  "mode": "real-browser-preview",
+  "success": true,
+  "url": "http://127.0.0.1:55330/",
+  "buildRoot": "D:\\Knoux-X-Bootstrap\\repository\\.vite\\renderer\\main_window",
+  "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "runtime": {
+    "descriptor": {
+      "edition": "web-preview",
+      "product": "KNOUX Player X",
+      "bridgeVersion": 1
+    },
+    "dataset": "web-preview",
+    "hasPreviewCore": true,
+    "hasPreviewCreative": true,
+    "hasElectronProcess": false,
+    "systemInfo": {
+      "product": "KNOUX Player X",
+      "version": "web-preview",
+      "platform": "Win32",
+      "arch": "browser",
+      "sha": "not-applicable",
+      "branch": "browser-preview",
+      "builtAt": "1970-01-01T00:00:00.000Z",
+      "packaged": false,
+      "electronVersion": "not-applicable",
+      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "nodeVersion": "not-applicable"
+    },
+    "bodyText": "KNOUX Player X\nPlayer\nBrowser preview\nOpen\nAdd Library\nPlay / Pause\nScreenshot\nRegion\nRecord\nExport\nKNOUX Player X\nQUICK ACTIONS\nOpen File\nAdd Library Folder\nWORKSPACE\nPlayer\nLibrary\nQueue\nCaptures\nRecorder\nEditor\nImage Editor\nSlideshow\nAudio Tools\nExport\nSettings\nOptional AI\nA Knoux Product\nKNOUX Player X · 2.0.0\nKNOUX CINEMA ENGINE\nOpen local media\n\nVideo and audio stay on your device.\n\nOpen File\nNo media\n0:00\n0:00\n0:00\n0.5×\n0.75×\n1×\n1.25×\n1.5×\n2×\nFit\nFill\nStretch\nOriginal\nNormal\nTheater\nCinema\nDiagnostics\nKNOUX\nKNOUX Deep Black"
+  },
+  "editionNotice": {
+    "text": "Browser preview",
+    "visible": true,
+    "occluded": false,
+    "topElement": "div.runtime-badge",
+    "rectangle": {
+      "x": 657.140625,
+      "y": 7.859375,
+      "width": 125.71875,
+      "height": 29.265625
+    }
+  },
+  "consoleErrors": [
+    "Loading the stylesheet 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap' violates the following Content Security Policy directive: \"style-src 'self' 'unsafe-inline'\". Note that 'style-src-elem' was not explicitly set, so 'style-src' is used as a fallback. The action has been blocked."
+  ],
+  "pageErrors": [
+    "Cannot read properties of undefined (reading 'selectedWorkspace')"
+  ],
+  "screenshotPath": "D:\\Knoux-X-Bootstrap\\repository\\reports\\native-completion\\sprint-01\\browser-preview.png",
+  "completedAt": "2026-08-01T01:44:24.326Z"
+}

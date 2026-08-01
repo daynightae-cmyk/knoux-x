@@ -6,6 +6,7 @@ import { NeonPanel } from '../../components/neon/NeonPanel';
 import {
   DEFAULT_RECORDING_CONFIGURATION,
   DEFAULT_RECORDING_TOOLBAR,
+  DEFAULT_QUICK_ACCESS_TOOLBAR,
   DEFAULT_SHORTCUTS,
   DEFAULT_WORKSPACE_SETTINGS,
   STUDIO_PRESET_KINDS,
@@ -55,6 +56,9 @@ const commandLabels: Record<string, { en: string; ar: string }> = {
   'theater-mode': { en: 'Theater mode', ar: 'وضع المسرح' },
   mute: { en: 'Mute', ar: 'كتم' }, 'volume-up': { en: 'Volume up', ar: 'رفع الصوت' },
   'volume-down': { en: 'Volume down', ar: 'خفض الصوت' }, 'open-file': { en: 'Open file', ar: 'فتح ملف' },
+  'open-library-folder': { en: 'Add library folder', ar: 'إضافة مجلد للمكتبة' },
+  'save-as': { en: 'Save As', ar: 'حفظ باسم' }, copy: { en: 'Copy', ar: 'نسخ' },
+  delete: { en: 'Delete', ar: 'حذف' }, cancel: { en: 'Cancel', ar: 'إلغاء' }, confirm: { en: 'Confirm', ar: 'تأكيد' },
 };
 
 function move<T>(items: readonly T[], index: number, direction: -1 | 1): T[] {
@@ -217,14 +221,34 @@ export const CustomizationSettingsPanel: React.FC<Props> = ({
     <div className="customization-settings-stack">
       <NeonPanel variant="dark" padding="lg">
         <div className="settings-section-heading">
+          <div><strong>{rtl ? 'شريط الوصول السريع' : 'Quick Access Toolbar'}</strong><small>{rtl ? 'إظهار وإخفاء وترتيب وحفظ أوامر مساحة العمل.' : 'Show, hide, reorder and persist workspace commands.'}</small></div>
+          <NeonButton variant="ghost" size="sm" leftIcon={<RotateCcw size={14} />} onClick={() => void updateSetting('quickAccessToolbar', structuredClone(DEFAULT_QUICK_ACCESS_TOOLBAR))}>{rtl ? 'الافتراضي' : 'Reset'}</NeonButton>
+        </div>
+        <div className="settings-two-columns">
+          <label><span>{rtl ? 'ظاهر' : 'Visible'}</span><input type="checkbox" checked={settings.quickAccessToolbar.visible} onChange={(event) => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, visible: event.target.checked })} /></label>
+          <label><span>{rtl ? 'الوضع' : 'Mode'}</span><select value={settings.quickAccessToolbar.mode} onChange={(event) => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, mode: event.target.value as ApplicationSettings['quickAccessToolbar']['mode'] })}><option value="full">Full</option><option value="compact">Compact</option><option value="floating">Floating</option></select></label>
+          <label><span>{rtl ? 'الموقع' : 'Location'}</span><select value={settings.quickAccessToolbar.location} onChange={(event) => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, location: event.target.value as ApplicationSettings['quickAccessToolbar']['location'] })}><option value="top">Top</option><option value="bottom">Bottom</option><option value="floating">Floating</option></select></label>
+          <label><span>{rtl ? 'الحجم' : 'Size'}</span><select value={settings.quickAccessToolbar.size} onChange={(event) => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, size: event.target.value as ApplicationSettings['quickAccessToolbar']['size'] })}><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+        </div>
+        <div className="customization-order-list">
+          {settings.quickAccessToolbar.order.map((command, index) => <div key={command}><label><input type="checkbox" checked={!settings.quickAccessToolbar.hidden.includes(command)} onChange={() => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, hidden: settings.quickAccessToolbar.hidden.includes(command) ? settings.quickAccessToolbar.hidden.filter((entry) => entry !== command) : [...settings.quickAccessToolbar.hidden, command] })} /><span>{commandLabels[command]?.[locale] ?? command}</span></label><span className="customization-move-actions"><button type="button" disabled={index === 0} onClick={() => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, order: move(settings.quickAccessToolbar.order, index, -1) })}><ArrowUp size={14} /></button><button type="button" disabled={index === settings.quickAccessToolbar.order.length - 1} onClick={() => void updateSetting('quickAccessToolbar', { ...settings.quickAccessToolbar, order: move(settings.quickAccessToolbar.order, index, 1) })}><ArrowDown size={14} /></button></span></div>)}
+        </div>
+      </NeonPanel>
+
+      <NeonPanel variant="dark" padding="lg">
+        <div className="settings-section-heading">
           <div><strong>{rtl ? 'شريط تحكم التسجيل' : 'Recording toolbar'}</strong><small>{rtl ? 'إظهار وإخفاء وترتيب عناصر التحكم الفعلية.' : 'Show, hide and reorder the live recording commands.'}</small></div>
           <NeonButton variant="ghost" size="sm" leftIcon={<RotateCcw size={14} />} onClick={() => void updateSetting('recordingToolbar', structuredClone(DEFAULT_RECORDING_TOOLBAR))}>
             {rtl ? 'الافتراضي' : 'Reset'}
           </NeonButton>
         </div>
         <div className="settings-two-columns">
+          <label><span>{rtl ? 'ظاهر' : 'Visible'}</span><input type="checkbox" checked={settings.recordingToolbar.visible} onChange={(event) => void updateToolbar({ visible: event.target.checked })} /></label>
           <label><span>{rtl ? 'الوضع' : 'Mode'}</span><select value={settings.recordingToolbar.mode} onChange={(event) => void updateToolbar({ mode: event.target.value as ApplicationSettings['recordingToolbar']['mode'] })}><option value="full">Full toolbar</option><option value="compact">Compact toolbar</option><option value="floating">Floating mini-controller</option></select></label>
           <label><span>{rtl ? 'الحجم' : 'Control size'}</span><select value={settings.recordingToolbar.size} onChange={(event) => void updateToolbar({ size: event.target.value as ApplicationSettings['recordingToolbar']['size'] })}><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+          <label><span>{rtl ? 'الموقع' : 'Location'}</span><select value={settings.recordingToolbar.location} onChange={(event) => void updateToolbar({ location: event.target.value as ApplicationSettings['recordingToolbar']['location'] })}><option value="top">Top</option><option value="bottom">Bottom</option><option value="floating">Floating</option></select></label>
+          <label><span>{rtl ? 'دائماً في الأعلى' : 'Always on top'}</span><input type="checkbox" checked={settings.recordingToolbar.alwaysOnTop} onChange={(event) => void updateToolbar({ alwaysOnTop: event.target.checked })} /></label>
+          <label><span>{rtl ? 'إخفاء من الالتقاط' : 'Hide from capture'}</span><input type="checkbox" checked={settings.recordingToolbar.hideFromCapture} onChange={(event) => void updateToolbar({ hideFromCapture: event.target.checked })} /></label>
           <label><span>X</span><input type="number" min="0" max="7680" value={settings.recordingToolbar.position.x} onChange={(event) => void updateToolbar({ position: { ...settings.recordingToolbar.position, x: Number(event.target.value) } })} /></label>
           <label><span>Y</span><input type="number" min="0" max="4320" value={settings.recordingToolbar.position.y} onChange={(event) => void updateToolbar({ position: { ...settings.recordingToolbar.position, y: Number(event.target.value) } })} /></label>
         </div>
@@ -240,11 +264,11 @@ export const CustomizationSettingsPanel: React.FC<Props> = ({
 
       <NeonPanel variant="dark" padding="lg">
         <div className="settings-section-heading"><div><strong>{rtl ? 'اختصارات لوحة المفاتيح' : 'Keyboard shortcuts'}</strong><small>{rtl ? 'تُرفض التعارضات قبل الحفظ.' : 'Conflicts are rejected before saving.'}</small></div><NeonButton variant="ghost" size="sm" leftIcon={<RotateCcw size={14} />} onClick={() => void updateShortcuts(structuredClone(DEFAULT_SHORTCUTS))}>{rtl ? 'إعادة ضبط الكل' : 'Reset all'}</NeonButton></div>
-        <div className="settings-two-columns"><label><span>{rtl ? 'بحث' : 'Search'}</span><input type="search" value={shortcutSearch} onChange={(event) => setShortcutSearch(event.target.value)} /></label><label><span>{rtl ? 'الفئة' : 'Category'}</span><select value={shortcutCategory} onChange={(event) => setShortcutCategory(event.target.value as typeof shortcutCategory)}><option value="all">All</option><option value="playback">Playback</option><option value="recording">Recording</option><option value="editing">Editing</option><option value="workspace">Workspace</option><option value="file">File</option></select></label></div>
+        <div className="settings-two-columns"><label><span>{rtl ? 'بحث' : 'Search'}</span><input type="search" value={shortcutSearch} onChange={(event) => setShortcutSearch(event.target.value)} /></label><label><span>{rtl ? 'الفئة' : 'Category'}</span><select value={shortcutCategory} onChange={(event) => setShortcutCategory(event.target.value as typeof shortcutCategory)}><option value="all">All</option><option value="playback">Playback</option><option value="capture">Capture</option><option value="recording">Recording</option><option value="editing">Editing</option><option value="workspace">Workspace</option><option value="file">File</option></select></label></div>
         <div className="shortcut-manager-list">
           {visibleShortcuts.map((binding) => {
             const reset = DEFAULT_SHORTCUTS.find((entry) => entry.command === binding.command) ?? binding;
-            return <div key={binding.command}><label><input type="checkbox" checked={binding.enabled} onChange={(event) => void updateShortcuts(settings.shortcuts.map((entry) => entry.command === binding.command ? { ...entry, enabled: event.target.checked } : entry))} /><span>{commandLabels[binding.command]?.[locale] ?? binding.command}</span></label><input aria-label={`${binding.command} accelerator`} dir="ltr" value={shortcutDrafts[binding.command] ?? binding.accelerator} onChange={(event) => setShortcutDrafts((current) => ({ ...current, [binding.command]: event.target.value }))} onBlur={() => void commitShortcutDraft(binding)} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /><button type="button" title={rtl ? 'إعادة ضبط هذا الاختصار' : 'Reset this shortcut'} onClick={() => { setShortcutDrafts((current) => ({ ...current, [binding.command]: reset.accelerator })); void updateShortcuts(settings.shortcuts.map((entry) => entry.command === binding.command ? reset : entry)); }}><RotateCcw size={14} /></button></div>;
+            return <div key={binding.command}><label><input type="checkbox" checked={binding.enabled} onChange={(event) => void updateShortcuts(settings.shortcuts.map((entry) => entry.command === binding.command ? { ...entry, enabled: event.target.checked } : entry))} /><span>{commandLabels[binding.command]?.[locale] ?? binding.command}<small>{binding.context}</small></span></label><input aria-label={`${binding.command} accelerator`} dir="ltr" value={shortcutDrafts[binding.command] ?? binding.accelerator} onChange={(event) => setShortcutDrafts((current) => ({ ...current, [binding.command]: event.target.value }))} onBlur={() => void commitShortcutDraft(binding)} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} /><button type="button" title={rtl ? 'إعادة ضبط هذا الاختصار' : 'Reset this shortcut'} onClick={() => { setShortcutDrafts((current) => ({ ...current, [binding.command]: reset.accelerator })); void updateShortcuts(settings.shortcuts.map((entry) => entry.command === binding.command ? reset : entry)); }}><RotateCcw size={14} /></button></div>;
           })}
         </div>
       </NeonPanel>

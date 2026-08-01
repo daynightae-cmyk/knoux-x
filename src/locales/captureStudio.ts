@@ -32,6 +32,7 @@ export const captureStudioEnglish = {
   destination: 'Destination',
   clipboardOnly: 'Clipboard only',
   desktopFailed: 'Desktop capture failed.',
+  openResultMenu: 'Open capture result actions menu',
 } as const;
 
 export const captureStudioArabic = {
@@ -68,4 +69,5 @@ export const captureStudioArabic = {
   destination: 'الوجهة',
   clipboardOnly: 'الحافظة فقط',
   desktopFailed: 'فشل التقاط سطح المكتب.',
+  openResultMenu: 'فتح قائمة إجراءات نتيجة الالتقاط',
 } as const;

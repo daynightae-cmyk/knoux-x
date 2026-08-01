@@ -4,7 +4,6 @@ import {
   app,
   BrowserWindow,
   dialog,
-  ipcMain,
   type IpcMainInvokeEvent,
 } from 'electron';
 
@@ -16,7 +15,11 @@ import {
 import { ClipExtractionService } from '../creative/clip-extraction-service';
 import { authorizedMediaPaths } from '../security/path-registry';
 
+import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
+import type { IpcRegistrar } from './registry';
+
 const clips = new ClipExtractionService();
+let registered = false;
 
 function trustedRenderer(event: IpcMainInvokeEvent): BrowserWindow {
   const owner = BrowserWindow.fromWebContents(event.sender);
@@ -81,42 +84,43 @@ async function chooseOutput(
   return result.canceled || !result.filePath ? null : result.filePath;
 }
 
-for (const channel of ['clip:extract', 'clip:cancel', 'clip:show-item']) {
-  ipcMain.removeHandler(channel);
+export function setupClipExtractionRuntime(ipc: IpcRegistrar): void {
+  if (registered) throw new Error('Clip extraction registration was attempted twice.');
+  registered = true;
+
+  ipc.handle(IPC_INVOKE.CLIP_EXTRACT, async (
+    event: IpcMainInvokeEvent,
+    inputPath: string,
+    rawOptions: ClipExtractionOptions,
+  ) => {
+    const owner = trustedRenderer(event);
+    const input = authorizedMediaPaths.requireAuthorized(inputPath);
+    const options = validateClipExtractionOptions({
+      ...rawOptions,
+      burnSubtitlePath: rawOptions.burnSubtitlePath
+        ? authorizedMediaPaths.requireAuthorized(rawOptions.burnSubtitlePath)
+        : undefined,
+    });
+    const output = await chooseOutput(owner, input, options);
+    if (!output) return null;
+    return clips.extract(input, output, options, (progress) => {
+      ipc.send(event.sender, IPC_OUTBOUND.CLIP_PROGRESS, progress);
+    });
+  });
+
+  ipc.handle(IPC_INVOKE.CLIP_CANCEL, async (event: IpcMainInvokeEvent, jobId: string) => {
+    trustedRenderer(event);
+    if (typeof jobId !== 'string' || jobId.length < 5 || jobId.length > 128) return false;
+    return clips.cancel(jobId);
+  });
+
+  ipc.handle(IPC_INVOKE.CLIP_SHOW_ITEM, async (event: IpcMainInvokeEvent, outputPath: string) => {
+    trustedRenderer(event);
+    if (typeof outputPath !== 'string' || outputPath.length < 3 || outputPath.length > 4096) {
+      throw new TypeError('Clip output path is invalid.');
+    }
+    clips.showInFolder(outputPath);
+  });
+
+  app.once('before-quit', () => clips.shutdown());
 }
-
-ipcMain.handle('clip:extract', async (
-  event: IpcMainInvokeEvent,
-  inputPath: string,
-  rawOptions: ClipExtractionOptions,
-) => {
-  const owner = trustedRenderer(event);
-  const input = authorizedMediaPaths.requireAuthorized(inputPath);
-  const options = validateClipExtractionOptions({
-    ...rawOptions,
-    burnSubtitlePath: rawOptions.burnSubtitlePath
-      ? authorizedMediaPaths.requireAuthorized(rawOptions.burnSubtitlePath)
-      : undefined,
-  });
-  const output = await chooseOutput(owner, input, options);
-  if (!output) return null;
-  return clips.extract(input, output, options, (progress) => {
-    if (!event.sender.isDestroyed()) event.sender.send('clip:progress', progress);
-  });
-});
-
-ipcMain.handle('clip:cancel', async (event: IpcMainInvokeEvent, jobId: string) => {
-  trustedRenderer(event);
-  if (typeof jobId !== 'string' || jobId.length < 5 || jobId.length > 128) return false;
-  return clips.cancel(jobId);
-});
-
-ipcMain.handle('clip:show-item', async (event: IpcMainInvokeEvent, outputPath: string) => {
-  trustedRenderer(event);
-  if (typeof outputPath !== 'string' || outputPath.length < 3 || outputPath.length > 4096) {
-    throw new TypeError('Clip output path is invalid.');
-  }
-  clips.showInFolder(outputPath);
-});
-
-app.once('before-quit', () => clips.shutdown());

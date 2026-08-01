@@ -210,7 +210,7 @@ export const RecordingView: React.FC = () => {
   const loadRecordings = useCallback(async (): Promise<void> => {
     try {
       const next = await window.knouxCreativeAPI.recording.list();
-      setRecordings(next.filter((entry) => entry.state.status === 'completed'));
+      setRecordings(next.filter((entry) => entry.state.status === 'Completed'));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('recording.historyFailed'));
     }
@@ -421,6 +421,10 @@ export const RecordingView: React.FC = () => {
     const levelData = new Uint8Array(128);
 
     const draw = (): void => {
+      if (recorderRef.current?.state === 'paused') {
+        setAudioLevel(0);
+        return;
+      }
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         context.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
         if (camera && camera.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
@@ -437,7 +441,7 @@ export const RecordingView: React.FC = () => {
         frameCounterRef.current += 1;
       }
       const now = performance.now();
-      if (now - lastMetricAtRef.current >= 500) {
+      if (now - lastMetricAtRef.current >= 250) {
         setRecordedFrames(frameCounterRef.current);
         const quality = typeof video.getVideoPlaybackQuality === 'function'
           ? video.getVideoPlaybackQuality()
@@ -580,17 +584,21 @@ export const RecordingView: React.FC = () => {
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data.size === 0 || !sessionIdRef.current || cancelRequestedRef.current) return;
         const sessionId = sessionIdRef.current;
-        setRecordedBytes((value) => value + event.data.size);
         writeChainRef.current = writeChainRef.current.then(async () => {
           const chunk = await event.data.arrayBuffer();
-          await window.knouxCreativeAPI.recording.append(sessionId, chunk);
+          const accepted = await window.knouxCreativeAPI.recording.append(sessionId, chunk);
+          setRecordedBytes(accepted.bytesWritten);
         });
       });
       recorder.addEventListener('error', (event) => {
         const mediaError = event as Event & { error?: DOMException };
-        setError(mediaError.error?.message ?? t('recording.mediaRecorderFailed'));
+        setError(`Encoder Failed: ${mediaError.error?.message ?? t('recording.mediaRecorderFailed')}`);
+        cancelRequestedRef.current = true;
+        if (recorder.state !== 'inactive') recorder.stop();
       });
       desktopStream.getVideoTracks()[0]?.addEventListener('ended', () => {
+        setError('Source Lost: the selected recording source ended before completion.');
+        cancelRequestedRef.current = true;
         if (recorder.state !== 'inactive') recorder.stop();
       });
       recorder.addEventListener('stop', () => {
@@ -622,7 +630,7 @@ export const RecordingView: React.FC = () => {
         }
       }
       setCountdownRemaining(0);
-      recorder.start(1000);
+      recorder.start(250);
       startedAtRef.current = Date.now();
       setElapsed(0);
       setStatus('recording');
@@ -662,8 +670,12 @@ export const RecordingView: React.FC = () => {
     const recorder = recorderRef.current;
     const sessionId = sessionIdRef.current;
     if (!recorder || !sessionId || recorder.state !== 'recording') return;
+    recorder.requestData();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+    await writeChainRef.current;
     recorder.pause();
     await window.knouxCreativeAPI.recording.pause(sessionId);
+    setAudioLevel(0);
     setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
     setStatus('paused');
   }, []);
@@ -731,7 +743,7 @@ export const RecordingView: React.FC = () => {
     await window.knouxAPI.settings.set('recordingToolbar', next);
   }, []);
 
-  const beginToolbarDrag = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+  const beginToolbarDrag = useCallback((event: React.PointerEvent<HTMLElement>): void => {
     if (toolbar.mode !== 'floating') return;
     event.preventDefault();
     const start = {
@@ -775,11 +787,48 @@ export const RecordingView: React.FC = () => {
     return () => window.removeEventListener('knoux:command', handleCommand);
   }, [pauseRecording, resumeRecording, startRecording, status, stopRecording, takeRecordingScreenshot]);
 
+  useEffect(() => {
+    if (!desktopRuntime) return;
+    void window.knouxAPI.window.setAlwaysOnTop(toolbar.alwaysOnTop).catch(() => undefined);
+  }, [desktopRuntime, toolbar.alwaysOnTop]);
+
   const toolbarSize = toolbar.size === 'small' ? 'sm' : toolbar.size === 'large' ? 'lg' : 'md';
   const toolbarLabel = (id: RecordingToolbarButtonId): string => toolbar.mode === 'compact' ? '' : id.replaceAll('-', ' ');
+  // Reasons must explain *why* a control is unavailable, distinct from the button's own tooltip/label text.
+  const toolbarDisabledReason = (id: RecordingToolbarButtonId): string | undefined => {
+    switch (id) {
+      case 'start':
+        if (!desktopRuntime) return 'Recording requires the desktop runtime.';
+        if (status !== 'idle') return `Recording is already ${status}.`;
+        if (captureMode === 'player' && !playerWindowSource) return 'No KNOUX Player X window source was found for player composition.';
+        if (!effectiveSourceId) return 'Select a capture source before starting.';
+        if (!regionSourceValid) return 'Select a valid region before starting.';
+        return undefined;
+      case 'stop': return !['recording', 'paused'].includes(status) ? `Nothing to stop while ${status}.` : undefined;
+      case 'pause': return status !== 'recording' ? `Pause requires an active recording (currently ${status}).` : undefined;
+      case 'resume': return status !== 'paused' ? `Resume requires a paused recording (currently ${status}).` : undefined;
+      case 'cancel': return (status === 'idle' || status === 'stopping') ? `Nothing to cancel while ${status}.` : undefined;
+      case 'screenshot': return !['recording', 'paused'].includes(status) ? `Screenshot requires an active recording (currently ${status}).` : undefined;
+      case 'select-region': return status !== 'idle' ? `Region cannot change while ${status}.` : captureMode !== 'region' ? 'Switch capture mode to Custom region first.' : undefined;
+      case 'microphone': return status !== 'idle' ? `Audio sources are locked while ${status}.` : undefined;
+      case 'system-audio': return status !== 'idle' ? `Audio sources are locked while ${status}.` : undefined;
+      case 'camera-overlay': return status !== 'idle' ? `Camera overlay is locked while ${status}.` : undefined;
+      case 'countdown': return status !== 'idle' ? `Countdown is locked while ${status}.` : undefined;
+      case 'marker': return !['recording', 'paused'].includes(status) ? `Markers require an active recording (currently ${status}).` : undefined;
+      case 'open-output': return recordings.length === 0 ? 'No completed recordings exist yet.' : undefined;
+      default: return undefined;
+    }
+  };
   const renderToolbarButton = (id: RecordingToolbarButtonId): React.ReactNode => {
     if (toolbar.hidden.includes(id)) return null;
-    const common = { size: toolbarSize as 'sm' | 'md' | 'lg', title: id.replaceAll('-', ' ') };
+    const common = {
+      size: toolbarSize as 'sm' | 'md' | 'lg',
+      title: id.replaceAll('-', ' '),
+      'data-action-id': `recording-toolbar.${id}`,
+      'data-command-id': `recording.${id}`,
+      'data-component': 'RecordingToolbar',
+      'data-disabled-reason': toolbarDisabledReason(id),
+    };
     switch (id) {
       case 'start': return <NeonButton key={id} {...common} variant="primary" leftIcon={<Circle size={15} />} disabled={!desktopRuntime || status !== 'idle' || !effectiveSourceId || !regionSourceValid || (captureMode === 'player' && !playerWindowSource)} onClick={() => void startRecording()}>{toolbarLabel(id)}</NeonButton>;
       case 'stop': return <NeonButton key={id} {...common} variant="primary" leftIcon={<Square size={15} />} disabled={!['recording', 'paused'].includes(status)} onClick={stopRecording}>{toolbarLabel(id)}</NeonButton>;
@@ -864,7 +913,7 @@ export const RecordingView: React.FC = () => {
             <label><span>{t('recording.countdown')}</span><select value={countdownSeconds} onChange={(event) => setCountdownSeconds(recordingCountdown(Number(event.target.value)))} disabled={status !== 'idle'}>{countdowns.map((entry) => <option key={entry} value={entry}>{entry === 0 ? t('recording.noCountdown') : `${entry}s`}</option>)}</select></label>
             <label><span>WebM codec</span><select value={webmCodec} onChange={(event) => setWebmCodec(event.target.value as RecordingConfiguration['webmCodec'])} disabled={status !== 'idle'}><option value="vp9">VP9 + Opus</option><option value="vp8">VP8 + Opus</option></select></label>
             <label><span>Filename template</span><input value={filenameTemplate} onChange={(event) => setFilenameTemplate(event.target.value)} disabled={status !== 'idle'} /></label>
-            <label><span>Output folder</span><span className="recording-output-picker"><input value={outputFolder} readOnly dir="auto" /><button type="button" disabled={status !== 'idle'} onClick={() => void chooseOutputFolder()}><FolderOpen size={15} /></button></span></label>
+            <label><span>Output folder</span><span className="recording-output-picker"><input value={outputFolder} readOnly dir="auto" /><button type="button" disabled={status !== 'idle'} title={t('recording.chooseOutputFolder')} aria-label={t('recording.chooseOutputFolder')} data-disabled-reason={status !== 'idle' ? `Output folder is locked while ${status}.` : undefined} onClick={() => void chooseOutputFolder()}><FolderOpen size={15} /></button></span></label>
           </div>
 
           {captureMode === 'region' && (
@@ -890,15 +939,17 @@ export const RecordingView: React.FC = () => {
             )}
           </div>
 
-          <div
-            className={`creative-actions recording-primary-actions customizable-recording-toolbar ${toolbar.mode}`}
-            style={toolbar.mode === 'floating' ? { left: toolbar.position.x, top: toolbar.position.y } : undefined}
+          {toolbar.visible && <div
+            className={`creative-actions recording-primary-actions customizable-recording-toolbar ${toolbar.mode} location-${toolbar.location}`}
+            style={toolbar.mode === 'floating' || toolbar.location === 'floating' ? { left: toolbar.position.x, top: toolbar.position.y } : undefined}
             role="toolbar"
+            data-sprint02-surface="Recorder"
+            data-hide-from-capture={toolbar.hideFromCapture ? 'true' : 'false'}
             aria-label="Customizable recording controls"
           >
-            {toolbar.mode === 'floating' && <div className="recording-toolbar-drag-handle" onPointerDown={beginToolbarDrag} title="Drag mini-controller">⋮⋮</div>}
+            {(toolbar.mode === 'floating' || toolbar.location === 'floating') && <button type="button" className="recording-toolbar-drag-handle" onPointerDown={beginToolbarDrag} title="Drag mini-controller" aria-label="Move recording toolbar">⋮⋮</button>}
             {toolbar.order.map(renderToolbarButton)}
-          </div>
+          </div>}
         </NeonPanel>
 
         <NeonPanel variant="dark" padding="none" className="recording-preview-panel">

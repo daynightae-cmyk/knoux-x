@@ -77,6 +77,13 @@ export const CommandShortcutController: React.FC = () => {
           }
           return;
         }
+        case 'open-library-folder': {
+          const folder = await window.knouxCreativeAPI.library.chooseFolder();
+          if (!folder) return;
+          setView('library');
+          await window.knouxCreativeAPI.library.scan(folder.path);
+          return;
+        }
         case 'record-start-stop':
         case 'record-pause-resume':
           setView('recording');
@@ -92,8 +99,13 @@ export const CommandShortcutController: React.FC = () => {
         case 'undo':
         case 'redo':
         case 'save':
+        case 'save-as':
+        case 'delete':
           setView('editor');
           window.setTimeout(() => dispatchCommand(command), 0);
+          return;
+        case 'copy':
+          dispatchCommand(command);
           return;
         case 'export': setView('export'); return;
         default: break;
@@ -101,10 +113,26 @@ export const CommandShortcutController: React.FC = () => {
       dispatchCommand(command);
     };
 
+    const handleCommandRequest = (event: Event): void => {
+      const command = (event as CustomEvent<{ command?: KnouxCommandId }>).detail?.command;
+      if (!command || !DEFAULT_SHORTCUTS.some((binding) => binding.command === command)) return;
+      void execute(command).catch((reason) => addNotification({
+        type: 'error',
+        title: 'Command failed',
+        message: reason instanceof Error ? reason.message : 'The requested command could not be completed.',
+      }));
+    };
+
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (isEditableTarget(event.target) || event.repeat) return;
       const accelerator = eventAccelerator(event);
-      const binding = shortcuts.find((entry) => entry.enabled && normalizeAccelerator(entry.accelerator) === accelerator);
+      const context = useAppStore.getState().currentView;
+      const binding = shortcuts.find((entry) => entry.enabled
+        && entry.context === context
+        && normalizeAccelerator(entry.accelerator) === accelerator)
+        ?? shortcuts.find((entry) => entry.enabled
+          && entry.context === 'global'
+          && normalizeAccelerator(entry.accelerator) === accelerator);
       if (!binding) return;
       event.preventDefault();
       event.stopPropagation();
@@ -115,7 +143,11 @@ export const CommandShortcutController: React.FC = () => {
       }));
     };
     window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('knoux:execute-command', handleCommandRequest);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('knoux:execute-command', handleCommandRequest);
+    };
   }, [addNotification, setView, shortcuts]);
 
   return null;

@@ -1,17 +1,20 @@
 import {
   DEFAULT_RECORDING_CONFIGURATION,
   DEFAULT_RECORDING_TOOLBAR,
+  DEFAULT_QUICK_ACCESS_TOOLBAR,
   DEFAULT_SHORTCUTS,
   DEFAULT_WORKSPACE_SETTINGS,
   STUDIO_PRESET_KINDS,
   validateLastSelectedPresets,
   validateRecordingConfiguration,
   validateRecordingToolbar,
+  validateQuickAccessToolbar,
   validateShortcutBindings,
   validateStudioPresets,
   validateWorkspaceSettings,
   type RecordingConfiguration,
   type RecordingToolbarSettings,
+  type QuickAccessToolbarSettings,
   type ShortcutBinding,
   type StudioPreset,
   type StudioPresetKind,
@@ -20,7 +23,7 @@ import {
 
 export * from './productCustomization';
 
-export const APPLICATION_SETTINGS_SCHEMA_VERSION = 2;
+export const APPLICATION_SETTINGS_SCHEMA_VERSION = 3;
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type AspectRatioMode = 'auto' | '16:9' | '4:3' | '21:9' | '1:1';
@@ -58,6 +61,7 @@ export interface ApplicationSettings {
   cacheSizeMB: number;
   logLevel: LogLevel;
   recordingToolbar: RecordingToolbarSettings;
+  quickAccessToolbar: QuickAccessToolbarSettings;
   shortcuts: ShortcutBinding[];
   studioPresets: StudioPreset[];
   lastSelectedPresets: Record<StudioPresetKind, string | null>;
@@ -104,6 +108,7 @@ export const DEFAULT_APPLICATION_SETTINGS: ApplicationSettings = {
   cacheSizeMB: 512,
   logLevel: 'info',
   recordingToolbar: structuredClone(DEFAULT_RECORDING_TOOLBAR),
+  quickAccessToolbar: structuredClone(DEFAULT_QUICK_ACCESS_TOOLBAR),
   shortcuts: structuredClone(DEFAULT_SHORTCUTS),
   studioPresets: [],
   lastSelectedPresets: Object.fromEntries(STUDIO_PRESET_KINDS.map((kind) => [kind, null])) as Record<StudioPresetKind, string | null>,
@@ -225,6 +230,9 @@ export function validateApplicationSetting<K extends ApplicationSettingKey>(key:
     case 'recordingToolbar':
       validated = validateRecordingToolbar(value);
       break;
+    case 'quickAccessToolbar':
+      validated = validateQuickAccessToolbar(value);
+      break;
     case 'shortcuts':
       validated = validateShortcutBindings(value);
       break;
@@ -249,13 +257,41 @@ export function validateApplicationSetting<K extends ApplicationSettingKey>(key:
 export function parseApplicationSettings(value: unknown): ApplicationSettings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Application settings must be an object.');
   const source = value as Record<string, unknown>;
+  for (const key of Object.keys(source)) {
+    if (!APPLICATION_SETTING_KEYS.has(key as ApplicationSettingKey) && key !== 'volume') throw new TypeError(`Unsupported application setting: ${key}`);
+  }
   const result = structuredClone(DEFAULT_APPLICATION_SETTINGS);
   for (const key of keys) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       result[key] = validateApplicationSetting(key, source[key]) as never;
     }
   }
+  if (!Object.prototype.hasOwnProperty.call(source, 'defaultVolume') && Object.prototype.hasOwnProperty.call(source, 'volume')) {
+    result.defaultVolume = validateApplicationSetting('defaultVolume', source.volume);
+  }
   return result;
+}
+
+export function migrateApplicationSettings(value: unknown): ApplicationSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Application settings must be an object.');
+  const source = structuredClone(value) as Record<string, unknown>;
+  if (Array.isArray(source.shortcuts)) {
+    const previous = new Map(source.shortcuts
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object' && !Array.isArray(entry)))
+      .map((entry) => [String(entry.command), entry]));
+    source.shortcuts = DEFAULT_SHORTCUTS.map((binding) => {
+      const old = previous.get(binding.command);
+      return {
+        ...binding,
+        accelerator: typeof old?.accelerator === 'string' ? old.accelerator : binding.accelerator,
+        enabled: typeof old?.enabled === 'boolean' ? old.enabled : binding.enabled,
+      };
+    });
+  }
+  if (source.recordingToolbar && typeof source.recordingToolbar === 'object' && !Array.isArray(source.recordingToolbar)) {
+    source.recordingToolbar = { ...structuredClone(DEFAULT_RECORDING_TOOLBAR), ...(source.recordingToolbar as Record<string, unknown>) };
+  }
+  return parseApplicationSettings(source);
 }
 
 export function parseApplicationSettingsExport(value: unknown): ApplicationSettings {
@@ -263,8 +299,10 @@ export function parseApplicationSettingsExport(value: unknown): ApplicationSetti
   const source = value as Record<string, unknown>;
   if (source.settings !== undefined) {
     if (source.product !== 'KNOUX Player X') throw new TypeError('Settings file belongs to another product.');
-    if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(Number(source.schemaVersion))) throw new TypeError('Settings schema version is unsupported.');
-    return parseApplicationSettings(source.settings);
+    if (![1, 2, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(Number(source.schemaVersion))) throw new TypeError('Settings schema version is unsupported.');
+    return Number(source.schemaVersion) === APPLICATION_SETTINGS_SCHEMA_VERSION
+      ? parseApplicationSettings(source.settings)
+      : migrateApplicationSettings(source.settings);
   }
   return parseApplicationSettings(source);
 }

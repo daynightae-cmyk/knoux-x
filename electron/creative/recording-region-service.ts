@@ -1,14 +1,16 @@
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import {
   BrowserWindow,
   desktopCapturer,
   screen,
-  type IpcMain,
   type IpcMainEvent,
   type Rectangle,
 } from 'electron';
+
+import { IPC_INBOUND } from '../ipc/contract';
+import type { IpcRegistrar } from '../ipc/registry';
+import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from '../window-security';
 
 import type { RegionAspectPreset } from './region-capture-service';
 
@@ -24,8 +26,8 @@ interface SelectorPayload extends Rectangle {
   token: string;
 }
 
-const COMPLETE_CHANNEL = 'recording:selector-complete';
-const CANCEL_CHANNEL = 'recording:selector-cancel';
+const COMPLETE_CHANNEL = IPC_INBOUND.RECORDING_SELECTOR_COMPLETE;
+const CANCEL_CHANNEL = IPC_INBOUND.RECORDING_SELECTOR_CANCEL;
 const MAX_SELECTION_AREA = 134_217_728;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -79,7 +81,7 @@ function selectorHtml(imageDataUrl: string, token: string, aspectPreset: RegionA
 export class RecordingRegionService {
   private selectorWindow: BrowserWindow | null = null;
 
-  constructor(private readonly ipc: IpcMain) {}
+  constructor(private readonly ipc: IpcRegistrar) {}
 
   async select(sourceId: string, aspectPreset: RegionAspectPreset = 'free'): Promise<RecordingRegionSelection | null> {
     if (!sourceId.startsWith('screen:')) throw new Error('Custom recording regions require a display source.');
@@ -133,11 +135,8 @@ export class RecordingRegionService {
       hasShadow: false,
       backgroundColor: '#05030b',
       webPreferences: {
-        preload: path.join(__dirname, 'preload-entry.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webSecurity: true,
+        ...SECURE_RENDERER_PREFERENCES,
+        preload: resolveTrustedPreloadPath(),
         spellcheck: false,
       },
     });

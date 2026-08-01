@@ -730,6 +730,24 @@ export class SlideshowRenderService {
         }
       } else await fs.rename(previous, current);
     }
+    const temporaryEntries = await fs.readdir(this.transactionDirectory, { withFileTypes: true });
+    for (const entry of temporaryEntries) {
+      if (!entry.isFile()) continue;
+      const match = entry.name.match(/^(.+\.json)\.\d+\.[0-9a-f-]+\.tmp$/i);
+      if (!match) continue;
+      const temporary = path.join(this.transactionDirectory, entry.name);
+      const current = path.join(this.transactionDirectory, match[1]);
+      if (await exists(current)) {
+        await fs.rm(temporary, { force: true });
+        continue;
+      }
+      try {
+        JSON.parse(await fs.readFile(temporary, 'utf8'));
+        await fs.rename(temporary, current);
+      } catch {
+        // Invalid job-owned temp records stay available for diagnostics.
+      }
+    }
     const entries = await fs.readdir(this.transactionDirectory, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.json')) continue;

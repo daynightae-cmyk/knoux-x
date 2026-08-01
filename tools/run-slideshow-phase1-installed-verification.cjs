@@ -57,6 +57,35 @@ function progress(stage, detail = {}) {
   process.stdout.write(`[phase1] ${stage}\n`);
 }
 
+function latestCompletedIpcResult(channel) {
+  const logPath = path.join(evidenceRoot, `installed-stdout-${launchCount}.log`);
+  if (!fs.existsSync(logPath)) return undefined;
+  const marker = 'KNOUX_SLIDESHOW_IPC ';
+  const matches = fs.readFileSync(logPath, 'utf8').split(/\r?\n/)
+    .filter((line) => line.includes(marker))
+    .map((line) => {
+      try { return JSON.parse(line.slice(line.indexOf(marker) + marker.length)); }
+      catch { return null; }
+    })
+    .filter((entry) => entry?.stage === 'complete' && entry.channel === channel);
+  return matches.at(-1)?.result;
+}
+
+async function requireExactIpcPath(channel, expectedPath, label) {
+  const deadline = Date.now() + 15_000;
+  let actual;
+  while (Date.now() < deadline) {
+    actual = latestCompletedIpcResult(channel);
+    if (typeof actual === 'string') break;
+    await sleep(100);
+  }
+  const expected = path.resolve(expectedPath);
+  if (typeof actual !== 'string' || path.resolve(actual).toLowerCase() !== expected.toLowerCase()) {
+    throw new Error(`${label} IPC path mismatch: requested=${expected}; returned=${String(actual)}`);
+  }
+  return actual;
+}
+
 function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -983,6 +1012,7 @@ async function main() {
     15_000,
     'Save As complete'
   );
+  await requireExactIpcPath('slideshow:save', projectPath, 'U13 Save As');
   if (!fs.existsSync(projectPath)) throw new Error(`Save As did not create ${projectPath}`);
   await selectTimeline('photo-02.jpg', 'U13-save-edit-1-select');
   await cdp.fill(labelControl('Caption'), 'Backup version one · النسخة الأولى', 'U13-save-edit-1');

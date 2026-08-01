@@ -37,6 +37,7 @@ import type {
 } from '../../../electron/creative/slideshow-project-service';
 import type { SlideshowRenderSnapshot } from '../../../electron/creative/slideshow-render-service';
 import type { SlideshowRenderFormat } from '../../core/creative/slideshowRender';
+import { slideshowOutputActionState } from '../../core/creative/slideshowOutputState';
 import {
   addAudioTrack,
   applyDurationToImages,
@@ -233,6 +234,13 @@ export const SlideshowView: React.FC = () => {
       .slice(-2);
   }, [previewTime, project, ranges]);
 
+  const refreshRenderJobs = useCallback(async (): Promise<SlideshowRenderSnapshot[]> => {
+    if (!desktopRuntime) return [];
+    const jobs = await window.knouxSlideshowAPI.renderJobs();
+    setRenderJobs(jobs);
+    return jobs;
+  }, [desktopRuntime]);
+
   const refreshWorkspace = useCallback(async (): Promise<void> => {
     if (!desktopRuntime) return;
     try {
@@ -252,17 +260,29 @@ export const SlideshowView: React.FC = () => {
   useEffect(() => {
     void refreshWorkspace();
   }, [refreshWorkspace]);
-  useEffect(
-    () =>
-      window.knouxSlideshowAPI?.onRenderProgress((snapshot) => {
+  useEffect(() => {
+    const unsubscribe = window.knouxSlideshowAPI?.onRenderProgress((snapshot) => {
         setRenderJobs((current) =>
           [snapshot, ...current.filter((entry) => entry.id !== snapshot.id)].sort((a, b) =>
             b.createdAt.localeCompare(a.createdAt)
           )
         );
-      }),
-    []
-  );
+        if (['completed', 'failed', 'canceled'].includes(snapshot.status))
+          void refreshRenderJobs().catch(() => undefined);
+      });
+    return unsubscribe;
+  }, [refreshRenderJobs]);
+
+  useEffect(() => {
+    if (!desktopRuntime) return undefined;
+    const refresh = (): void => { void refreshRenderJobs().catch(() => undefined); };
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 1_000);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.clearInterval(timer);
+    };
+  }, [desktopRuntime, refreshRenderJobs]);
 
   useEffect(() => {
     if (!project || !dirty || !desktopRuntime) return undefined;
@@ -751,6 +771,22 @@ export const SlideshowView: React.FC = () => {
       });
     },
     [commit]
+  );
+
+  const activateCompletedOutput = useCallback(
+    async (jobId: string, action: 'open' | 'reveal'): Promise<void> => {
+      try {
+        const jobs = await refreshRenderJobs();
+        const job = jobs.find((entry) => entry.id === jobId);
+        if (!job || job.outputExists === false) return;
+        if (action === 'open') await window.knouxSlideshowAPI.openOutput(jobId);
+        else await window.knouxSlideshowAPI.revealOutput(jobId);
+      } catch (reason) {
+        await refreshRenderJobs().catch(() => undefined);
+        setError(reason instanceof Error ? reason.message : 'Completed output is unavailable.');
+      }
+    },
+    [refreshRenderJobs]
   );
 
   const relinkFile = useCallback(
@@ -2208,10 +2244,10 @@ export const SlideshowView: React.FC = () => {
                     variant="secondary"
                     size="sm"
                     leftIcon={<Play size={14} />}
-                    disabled={job.outputExists === false}
+                    disabled={slideshowOutputActionState(job.outputExists).disabled}
                     title={job.outputExists === false ? l('Output file is missing.', 'ملف الناتج مفقود.') : undefined}
-                    data-disabled-reason={job.outputExists === false ? 'Completed output file is missing from disk.' : undefined}
-                    onClick={() => void window.knouxSlideshowAPI.openOutput(job.id)}
+                    data-disabled-reason={slideshowOutputActionState(job.outputExists).disabledReason}
+                    onClick={() => void activateCompletedOutput(job.id, 'open')}
                   >
                     {l('Open Output', 'فتح الناتج')}
                   </NeonButton>
@@ -2219,10 +2255,10 @@ export const SlideshowView: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     leftIcon={<ExternalLink size={14} />}
-                    disabled={job.outputExists === false}
+                    disabled={slideshowOutputActionState(job.outputExists).disabled}
                     title={job.outputExists === false ? l('Output file is missing.', 'ملف الناتج مفقود.') : undefined}
-                    data-disabled-reason={job.outputExists === false ? 'Completed output file is missing from disk.' : undefined}
-                    onClick={() => void window.knouxSlideshowAPI.revealOutput(job.id)}
+                    data-disabled-reason={slideshowOutputActionState(job.outputExists).disabledReason}
+                    onClick={() => void activateCompletedOutput(job.id, 'reveal')}
                   >
                     {l('Reveal', 'إظهار في المجلد')}
                   </NeonButton>

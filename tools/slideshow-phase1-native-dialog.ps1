@@ -238,12 +238,33 @@ if ($Mode -eq 'Cancel') {
   if (-not $button) { throw 'Native Select Folder button was not found.' }
   Invoke-AutomationButton $automationControls '1' 'Select Folder' | Out-Null
 } else {
+  $saveDirectory = $null
+  $saveFilename = $null
+  if ($Mode -eq 'Save') {
+    $saveTarget = [IO.Path]::GetFullPath([string]$payload[0])
+    $saveDirectory = [IO.Path]::GetDirectoryName($saveTarget)
+    $saveFilename = [IO.Path]::GetFileName($saveTarget)
+    if (-not [IO.Directory]::Exists($saveDirectory)) {
+      throw "Requested Save directory does not exist: $saveDirectory"
+    }
+    [System.Windows.Forms.Clipboard]::SetText($saveDirectory)
+    [System.Windows.Forms.SendKeys]::SendWait('^l')
+    Start-Sleep -Milliseconds 150
+    [System.Windows.Forms.SendKeys]::SendWait('^v')
+    Start-Sleep -Milliseconds 120
+    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+    Start-Sleep -Milliseconds 700
+    $controls = @(Get-Controls $dialog)
+    $automationControls = @(Get-AutomationControls $dialog)
+    $record.navigatedDirectory = $saveDirectory
+    $record.enteredFilename = $saveFilename
+  }
   $controlId = if ($Mode -eq 'Save') { 1001 } else { 1148 }
   $editor = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $controlId } | Select-Object -First 1
   if (-not $editor) { throw "Native $Mode filename control $controlId was not found." }
   $text = if ($Mode -eq 'Open' -and $payload.Count -gt 1) {
     ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
-  } else { [string]$payload[0] }
+  } elseif ($Mode -eq 'Save') { $saveFilename } else { [string]$payload[0] }
   if ($Mode -eq 'Open' -or $Mode -eq 'Save') {
     [KnouxNativeDialog]::SendMessage($editor.Handle, 0x000C, [IntPtr]::Zero, $text) | Out-Null
   }

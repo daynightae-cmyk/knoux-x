@@ -40,12 +40,17 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     const surfaces = {};
     const activations = [];
     const visit = async (label) => {
-      const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
-      if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
-      nav.click();
-      await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === routeViewIds[label], 'current view ' + label);
-      await waitFor(() => [...document.querySelectorAll('.view-transition')].some((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label), 'surface ' + label);
-      await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
+      const openSurface = async () => {
+        if (document.querySelector('.app-shell')?.dataset.currentView !== routeViewIds[label]) {
+          const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
+          if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
+          nav.click();
+        }
+        await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === routeViewIds[label], 'current view ' + label);
+        await waitFor(() => [...document.querySelectorAll('.view-transition')].some((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label), 'surface ' + label);
+        await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
+      };
+      await openSurface();
       window.__knouxSprint02.refresh();
       const current = document.querySelector('.app-shell')?.dataset.currentView;
       const surfaceRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);
@@ -54,21 +59,22 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         if (record.page !== label) return false;
         return surfaceRoot.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
       });
-      surfaces[label] = { currentView: current, records };
-      const elements = [...surfaceRoot.querySelectorAll('[data-action-id]')];
-      for (const element of elements) {
-        if (!(element instanceof HTMLElement) || !element.isConnected) continue;
-        const record = window.__knouxSprint02.inventory().find((entry) => entry.id === element.dataset.actionId);
-        if (!record) continue;
+      const recordIds = records.map((record) => record.id);
+      for (const actionId of recordIds) {
+        await openSurface();
+        window.__knouxSprint02.refresh();
+        const activeRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);
+        const element = activeRoot?.querySelector('[data-action-id="' + CSS.escape(actionId) + '"]');
+        const record = window.__knouxSprint02.inventory().find((entry) => entry.id === actionId);
+        if (!(element instanceof HTMLElement) || !record) throw new Error('SPRINT02_ACTION_ELEMENT_MISSING ' + label + ' ' + actionId);
         const before = window.__knouxSprint02.traces().length;
-        if (record.status === 'implemented') {
-          const unsafe = /delete|close window|reset settings|google lens|recording start|start recording/i.test(record.label + ' ' + record.command);
-          if (!unsafe) { element.click(); await wait(90); }
-        } else element.click();
+        element.click();
+        await wait(90);
         const after = window.__knouxSprint02.traces().length;
-        activations.push({ surface: label, id: record.id, status: record.status, traces: after - before, disabledReason: record.disabledReason, skippedUnsafe: record.status === 'implemented' && /delete|close window|reset settings|google lens|recording start|start recording/i.test(record.label + ' ' + record.command) });
-        if (document.querySelector('.app-shell')?.dataset.currentView !== current) break;
+        activations.push({ surface: label, id: record.id, status: record.status, traces: after - before, disabledReason: record.disabledReason, skippedUnsafe: false });
       }
+      const currentInventory = window.__knouxSprint02.inventory();
+      surfaces[label] = { currentView: current, records: recordIds.map((actionId) => currentInventory.find((record) => record.id === actionId)) };
     };
     for (const label of routeLabels) await visit(label);
     const settingsNav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === 'Settings');
@@ -82,9 +88,17 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       const category = document.querySelector('.settings-creative-nav [data-settings-category="' + categoryId + '"]');
       if (!category) throw new Error('SPRINT02_SETTINGS_SURFACE_MISSING ' + label + ' debug=' + JSON.stringify({ currentView: document.querySelector('.app-shell')?.dataset.currentView, categories: [...document.querySelectorAll('[data-settings-category]')].map((entry) => ({ id: entry.getAttribute('data-settings-category'), text: entry.textContent?.trim() })) }));
       category.click(); await wait(250); window.__knouxSprint02.refresh();
-      surfaces[label] = { records: window.__knouxSprint02.inventory().filter((record) => record.page === label) };
-      const action = document.querySelector('.settings-runtime-content [data-action-id]');
-      if (action instanceof HTMLElement && !(action instanceof HTMLButtonElement && action.disabled)) { action.click(); await wait(100); }
+      const records = window.__knouxSprint02.inventory().filter((record) => record.page === label);
+      for (const record of records) {
+        const action = document.querySelector('.settings-runtime-content [data-action-id="' + CSS.escape(record.id) + '"]');
+        if (!(action instanceof HTMLElement)) throw new Error('SPRINT02_SETTINGS_ACTION_MISSING ' + label + ' ' + record.id);
+        const before = window.__knouxSprint02.traces().length;
+        action.click(); await wait(100);
+        const after = window.__knouxSprint02.traces().length;
+        activations.push({ surface: label, id: record.id, status: record.status, traces: after - before, disabledReason: record.disabledReason, skippedUnsafe: false });
+      }
+      const currentInventory = window.__knouxSprint02.inventory();
+      surfaces[label] = { records: records.map((record) => currentInventory.find((entry) => entry.id === record.id)) };
     }
     const persistenceProbe = { phase: ${JSON.stringify(phase)}, written: null, read: null };
     if (persistenceProbe.phase === 'initial') {

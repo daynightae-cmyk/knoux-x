@@ -101,6 +101,12 @@ function main() {
     };
     const actionInventory = Object.values(surfaces).flatMap((surface) => surface.records || []);
     const inventoryById = [...new Map(actionInventory.map((record) => [record.id, record])).values()];
+    const activations = initial.evidence.renderer.activations || [];
+    const activationById = new Map(activations.map((activation) => [activation.id, activation]));
+    const unprovenImplemented = inventoryById.filter((record) => record.status === 'implemented' && (!record.automated || !record.pass || activationById.get(record.id)?.traces !== 1));
+    const dispatchedUnavailable = inventoryById.filter((record) => record.status !== 'implemented' && (!record.disabledReason || activationById.get(record.id)?.traces !== 0));
+    if (unprovenImplemented.length) throw new Error(`SPRINT02_IMPLEMENTED_ACTION_UNPROVEN ${unprovenImplemented.map((record) => record.id).join(',')}`);
+    if (dispatchedUnavailable.length) throw new Error(`SPRINT02_UNAVAILABLE_ACTION_DISPATCHED ${dispatchedUnavailable.map((record) => record.id).join(',')}`);
     const statusSummary = inventoryById.reduce((summary, record) => { summary[record.status] = (summary[record.status] || 0) + 1; return summary; }, {});
     const head = git(['rev-parse', 'HEAD']).toLowerCase();
     const branch = git(['branch', '--show-current']);
@@ -117,7 +123,7 @@ function main() {
       actionInventory: inventoryById,
       statusSummary,
       commandTrace: initial.evidence.renderer.snapshot?.traces || [],
-      activations: initial.evidence.renderer.activations,
+      activations,
       persistence: { initial: initial.evidence.renderer.persistenceProbe, restart: restart.evidence.renderer.persistenceProbe },
       capture: { retentionLimits: { count: 8, itemBytes: 26214400, aggregateBytes: 104857600, unpinnedTtlMs: 900000, pinnedTtlMs: 3600000, pinnedLimit: 3 }, consent: initial.evidence.googleAdapter, networkStub: stubEvidence },
       recorder: recording,

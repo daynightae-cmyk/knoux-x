@@ -106,7 +106,9 @@ function visible(element: HTMLElement): boolean {
 
 function disabledReason(element: HTMLElement): string | null {
   if (!(element instanceof HTMLButtonElement || element instanceof HTMLInputElement) || !element.disabled) return null;
-  return element.dataset.disabledReason ?? element.getAttribute('aria-description') ?? element.getAttribute('title')
+  // `title` is a decorative tooltip (often just the action's own label, e.g. "Undo", "cancel") and must never be
+  // treated as a diagnostic explanation: doing so previously let meaningless self-referential "reasons" pass census.
+  return element.dataset.disabledReason ?? element.getAttribute('aria-description')
     ?? 'Unavailable until the required input, selection, or runtime capability is present.';
 }
 

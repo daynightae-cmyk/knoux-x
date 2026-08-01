@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "requests": [
+    {
+      "at": "2026-08-01T03:45:17.125Z",
+      "method": "POST",
+      "url": "/v3/upload",
+      "contentType": "multipart/form-data; boundary=----KnouxBoundary93363e2b3da01a356038c667290f51de9242",
+      "contentLength": 434,
+      "bodySha256": "a6f02abaeccafd1b29087f1af9e39252470a3a93d504ffc6de6e94306aa6e32c",
+      "bodyBytes": 434,
+      "hasEncodedImagePart": true,
+      "hasKnouxMarker": true
+    }
+  ]
+}

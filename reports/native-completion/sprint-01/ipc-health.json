@@ -1,0 +1,1040 @@
+{
+  "schemaVersion": 1,
+  "status": "ready",
+  "exposed": [
+    "ai-secure:cancel",
+    "ai-secure:chat",
+    "ai-secure:clear",
+    "ai-secure:configure",
+    "ai-secure:settings",
+    "ai-secure:test",
+    "ai:analyze-media",
+    "ai:chat",
+    "ai:generate-playlist",
+    "ai:recommendations",
+    "audio-tools:analyze",
+    "audio-tools:cancel",
+    "audio-tools:jobs",
+    "audio-tools:process",
+    "audio:balance",
+    "audio:dsp",
+    "audio:effect",
+    "audio:equalizer",
+    "audio:muted",
+    "audio:settings",
+    "audio:visualizer",
+    "audio:volume",
+    "capture:choose-default-directory",
+    "capture:contact-sheet",
+    "capture:copy-frame",
+    "capture:desktop",
+    "capture:desktop-sources",
+    "capture:get-default-directory",
+    "capture:recent",
+    "capture:save-burst",
+    "capture:save-frame",
+    "capture:show-item",
+    "clip:cancel",
+    "clip:extract",
+    "clip:show-item",
+    "creative:open-media",
+    "creative:path-to-media-url",
+    "creative:request-media-permission",
+    "editor:autosave",
+    "editor:clear-recent-projects",
+    "editor:new-project",
+    "editor:open-project",
+    "editor:open-recent",
+    "editor:recent-projects",
+    "editor:recover-autosaves",
+    "editor:save-project",
+    "export:cancel",
+    "export:capabilities",
+    "export:jobs",
+    "export:presets",
+    "export:probe",
+    "export:select-source",
+    "export:start",
+    "file:authorize-dropped",
+    "file:delete",
+    "file:exists",
+    "file:media-info",
+    "file:open",
+    "file:open-directory",
+    "file:open-multiple",
+    "file:read",
+    "file:save",
+    "file:scan",
+    "file:stats",
+    "file:write",
+    "library:add-history",
+    "library:cancel-scan",
+    "library:choose-folder",
+    "library:create-playlist",
+    "library:delete-playlist",
+    "library:folders",
+    "library:get-favorites",
+    "library:get-history",
+    "library:get-media",
+    "library:get-playlists",
+    "library:open-item",
+    "library:query",
+    "library:remove-folder",
+    "library:scan",
+    "library:search",
+    "library:set-favorite",
+    "library:statistics",
+    "library:toggle-favorite",
+    "library:update-playback",
+    "library:update-playlist",
+    "multitrack:autosave",
+    "multitrack:clear-recent",
+    "multitrack:create",
+    "multitrack:open",
+    "multitrack:open-recent",
+    "multitrack:recent",
+    "multitrack:recoveries",
+    "multitrack:save",
+    "player:load",
+    "player:loop",
+    "player:muted",
+    "player:next",
+    "player:pause",
+    "player:play",
+    "player:previous",
+    "player:rate",
+    "player:seek",
+    "player:shuffle",
+    "player:state",
+    "player:stop",
+    "player:volume",
+    "recording-region:select",
+    "recording:append",
+    "recording:begin",
+    "recording:cancel",
+    "recording:finish",
+    "recording:list",
+    "recording:pause",
+    "recording:resume",
+    "recording:show-item",
+    "settings:export",
+    "settings:get",
+    "settings:get-all",
+    "settings:import",
+    "settings:reset",
+    "settings:set",
+    "slideshow:autosave",
+    "slideshow:cancel-render",
+    "slideshow:clear-recent",
+    "slideshow:create",
+    "slideshow:open",
+    "slideshow:open-recent",
+    "slideshow:recent",
+    "slideshow:recoveries",
+    "slideshow:render",
+    "slideshow:render-jobs",
+    "slideshow:save",
+    "subtitle:delay",
+    "subtitle:download",
+    "subtitle:enabled",
+    "subtitle:load",
+    "subtitle:reload",
+    "subtitle:search",
+    "subtitle:select",
+    "subtitle:settings",
+    "subtitle:style",
+    "subtitle:sync-ai",
+    "subtitle:translate-ai",
+    "system:get-build-info",
+    "system:get-ipc-health",
+    "system:info",
+    "system:memory",
+    "system:open-external",
+    "system:show-item",
+    "video:brightness",
+    "video:contrast",
+    "video:crop",
+    "video:gamma",
+    "video:hue",
+    "video:saturation",
+    "video:screenshot",
+    "video:settings",
+    "video:zoom",
+    "window:always-on-top",
+    "window:close",
+    "window:fullscreen",
+    "window:is-fullscreen",
+    "window:is-maximized",
+    "window:maximize",
+    "window:minimize"
+  ],
+  "registered": [
+    {
+      "channel": "ai-secure:cancel",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai-secure:chat",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai-secure:clear",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai-secure:configure",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai-secure:settings",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai-secure:test",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "ai:analyze-media",
+      "owner": "core-ai",
+      "count": 1
+    },
+    {
+      "channel": "ai:chat",
+      "owner": "core-ai",
+      "count": 1
+    },
+    {
+      "channel": "ai:generate-playlist",
+      "owner": "core-ai",
+      "count": 1
+    },
+    {
+      "channel": "ai:recommendations",
+      "owner": "core-ai",
+      "count": 1
+    },
+    {
+      "channel": "audio-tools:analyze",
+      "owner": "audio-tools",
+      "count": 1
+    },
+    {
+      "channel": "audio-tools:cancel",
+      "owner": "audio-tools",
+      "count": 1
+    },
+    {
+      "channel": "audio-tools:jobs",
+      "owner": "audio-tools",
+      "count": 1
+    },
+    {
+      "channel": "audio-tools:process",
+      "owner": "audio-tools",
+      "count": 1
+    },
+    {
+      "channel": "audio:balance",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:dsp",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:effect",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:equalizer",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:muted",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:settings",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:visualizer",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "audio:volume",
+      "owner": "core-audio",
+      "count": 1
+    },
+    {
+      "channel": "capture:choose-default-directory",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:contact-sheet",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:copy-frame",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:desktop",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:desktop-sources",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:get-default-directory",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:recent",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:save-burst",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:save-frame",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "capture:show-item",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "clip:cancel",
+      "owner": "clip-extraction",
+      "count": 1
+    },
+    {
+      "channel": "clip:extract",
+      "owner": "clip-extraction",
+      "count": 1
+    },
+    {
+      "channel": "clip:show-item",
+      "owner": "clip-extraction",
+      "count": 1
+    },
+    {
+      "channel": "creative:open-media",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "creative:path-to-media-url",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "creative:request-media-permission",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "editor:autosave",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:clear-recent-projects",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:new-project",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:open-project",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:open-recent",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:recent-projects",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:recover-autosaves",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "editor:save-project",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:cancel",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:capabilities",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:jobs",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:presets",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:probe",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:select-source",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "export:start",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "file:authorize-dropped",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:delete",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:exists",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:media-info",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:open",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:open-directory",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:open-multiple",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:read",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:save",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:scan",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:stats",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "file:write",
+      "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "library:add-history",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:cancel-scan",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:choose-folder",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:create-playlist",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:delete-playlist",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:folders",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:get-favorites",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:get-history",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:get-media",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:get-playlists",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:open-item",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:query",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:remove-folder",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:scan",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:search",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:set-favorite",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:statistics",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:toggle-favorite",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "library:update-playback",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "library:update-playlist",
+      "owner": "core-library",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:autosave",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:clear-recent",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:create",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:open",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:open-recent",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:recent",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:recoveries",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "multitrack:save",
+      "owner": "multitrack",
+      "count": 1
+    },
+    {
+      "channel": "player:load",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:loop",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:muted",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:next",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:pause",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:play",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:previous",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:rate",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:seek",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:shuffle",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:state",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:stop",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "player:volume",
+      "owner": "core-player",
+      "count": 1
+    },
+    {
+      "channel": "recording-region:select",
+      "owner": "recording-region",
+      "count": 1
+    },
+    {
+      "channel": "recording:append",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:begin",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:cancel",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:finish",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:list",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:pause",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:resume",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "recording:show-item",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "settings:export",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "settings:get",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "settings:get-all",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "settings:import",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "settings:reset",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "settings:set",
+      "owner": "core-settings",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:autosave",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:cancel-render",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:clear-recent",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:create",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:open",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:open-recent",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:recent",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:recoveries",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:render",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:render-jobs",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:save",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:delay",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:download",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:enabled",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:load",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:reload",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:search",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:select",
+      "owner": "creative-bootstrap",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:settings",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:style",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:sync-ai",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "subtitle:translate-ai",
+      "owner": "core-subtitle",
+      "count": 1
+    },
+    {
+      "channel": "system:get-build-info",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "system:get-ipc-health",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "system:info",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "system:memory",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "system:open-external",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "system:show-item",
+      "owner": "core-system",
+      "count": 1
+    },
+    {
+      "channel": "video:brightness",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:contrast",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:crop",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:gamma",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:hue",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:saturation",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:screenshot",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:settings",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "video:zoom",
+      "owner": "core-video",
+      "count": 1
+    },
+    {
+      "channel": "window:always-on-top",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:close",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:fullscreen",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:is-fullscreen",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:is-maximized",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:maximize",
+      "owner": "core-window",
+      "count": 1
+    },
+    {
+      "channel": "window:minimize",
+      "owner": "core-window",
+      "count": 1
+    }
+  ],
+  "listeners": [
+    {
+      "channel": "app:renderer-ready",
+      "owner": "core-app",
+      "count": 1,
+      "active": true
+    },
+    {
+      "channel": "capture:selector-cancel",
+      "owner": "capture-selector",
+      "count": 0,
+      "active": false
+    },
+    {
+      "channel": "capture:selector-complete",
+      "owner": "capture-selector",
+      "count": 0,
+      "active": false
+    },
+    {
+      "channel": "recording:selector-cancel",
+      "owner": "recording-selector",
+      "count": 0,
+      "active": false
+    },
+    {
+      "channel": "recording:selector-complete",
+      "owner": "recording-selector",
+      "count": 0,
+      "active": false
+    }
+  ],
+  "missing": [],
+  "duplicates": [],
+  "preloadPath": "D:\\Knoux-X-Bootstrap\\repository\\out\\KNOUX Player X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
+  "preloadExists": true,
+  "packaged": true,
+  "version": "2.0.0",
+  "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
+  "branch": "fix/native-runtime-and-creative-suite-completion",
+  "buildTimestamp": "2026-08-01T01:37:22.259Z",
+  "electronVersion": "32.3.3"
+}

@@ -373,6 +373,7 @@ export const CaptureView: React.FC = () => {
               role="button"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
+              aria-label={t('capture.openResultMenu')}
               data-action-id="capture.result-actions"
               data-command-id="capture.open-result-menu"
               onContextMenu={(event) => { event.preventDefault(); openResultMenu(event.currentTarget); }}

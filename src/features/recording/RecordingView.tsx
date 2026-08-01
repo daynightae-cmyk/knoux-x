@@ -794,6 +794,31 @@ export const RecordingView: React.FC = () => {
 
   const toolbarSize = toolbar.size === 'small' ? 'sm' : toolbar.size === 'large' ? 'lg' : 'md';
   const toolbarLabel = (id: RecordingToolbarButtonId): string => toolbar.mode === 'compact' ? '' : id.replaceAll('-', ' ');
+  // Reasons must explain *why* a control is unavailable, distinct from the button's own tooltip/label text.
+  const toolbarDisabledReason = (id: RecordingToolbarButtonId): string | undefined => {
+    switch (id) {
+      case 'start':
+        if (!desktopRuntime) return 'Recording requires the desktop runtime.';
+        if (status !== 'idle') return `Recording is already ${status}.`;
+        if (captureMode === 'player' && !playerWindowSource) return 'No KNOUX Player X window source was found for player composition.';
+        if (!effectiveSourceId) return 'Select a capture source before starting.';
+        if (!regionSourceValid) return 'Select a valid region before starting.';
+        return undefined;
+      case 'stop': return !['recording', 'paused'].includes(status) ? `Nothing to stop while ${status}.` : undefined;
+      case 'pause': return status !== 'recording' ? `Pause requires an active recording (currently ${status}).` : undefined;
+      case 'resume': return status !== 'paused' ? `Resume requires a paused recording (currently ${status}).` : undefined;
+      case 'cancel': return (status === 'idle' || status === 'stopping') ? `Nothing to cancel while ${status}.` : undefined;
+      case 'screenshot': return !['recording', 'paused'].includes(status) ? `Screenshot requires an active recording (currently ${status}).` : undefined;
+      case 'select-region': return status !== 'idle' ? `Region cannot change while ${status}.` : captureMode !== 'region' ? 'Switch capture mode to Custom region first.' : undefined;
+      case 'microphone': return status !== 'idle' ? `Audio sources are locked while ${status}.` : undefined;
+      case 'system-audio': return status !== 'idle' ? `Audio sources are locked while ${status}.` : undefined;
+      case 'camera-overlay': return status !== 'idle' ? `Camera overlay is locked while ${status}.` : undefined;
+      case 'countdown': return status !== 'idle' ? `Countdown is locked while ${status}.` : undefined;
+      case 'marker': return !['recording', 'paused'].includes(status) ? `Markers require an active recording (currently ${status}).` : undefined;
+      case 'open-output': return recordings.length === 0 ? 'No completed recordings exist yet.' : undefined;
+      default: return undefined;
+    }
+  };
   const renderToolbarButton = (id: RecordingToolbarButtonId): React.ReactNode => {
     if (toolbar.hidden.includes(id)) return null;
     const common = {
@@ -802,6 +827,7 @@ export const RecordingView: React.FC = () => {
       'data-action-id': `recording-toolbar.${id}`,
       'data-command-id': `recording.${id}`,
       'data-component': 'RecordingToolbar',
+      'data-disabled-reason': toolbarDisabledReason(id),
     };
     switch (id) {
       case 'start': return <NeonButton key={id} {...common} variant="primary" leftIcon={<Circle size={15} />} disabled={!desktopRuntime || status !== 'idle' || !effectiveSourceId || !regionSourceValid || (captureMode === 'player' && !playerWindowSource)} onClick={() => void startRecording()}>{toolbarLabel(id)}</NeonButton>;
@@ -887,7 +913,7 @@ export const RecordingView: React.FC = () => {
             <label><span>{t('recording.countdown')}</span><select value={countdownSeconds} onChange={(event) => setCountdownSeconds(recordingCountdown(Number(event.target.value)))} disabled={status !== 'idle'}>{countdowns.map((entry) => <option key={entry} value={entry}>{entry === 0 ? t('recording.noCountdown') : `${entry}s`}</option>)}</select></label>
             <label><span>WebM codec</span><select value={webmCodec} onChange={(event) => setWebmCodec(event.target.value as RecordingConfiguration['webmCodec'])} disabled={status !== 'idle'}><option value="vp9">VP9 + Opus</option><option value="vp8">VP8 + Opus</option></select></label>
             <label><span>Filename template</span><input value={filenameTemplate} onChange={(event) => setFilenameTemplate(event.target.value)} disabled={status !== 'idle'} /></label>
-            <label><span>Output folder</span><span className="recording-output-picker"><input value={outputFolder} readOnly dir="auto" /><button type="button" disabled={status !== 'idle'} onClick={() => void chooseOutputFolder()}><FolderOpen size={15} /></button></span></label>
+            <label><span>Output folder</span><span className="recording-output-picker"><input value={outputFolder} readOnly dir="auto" /><button type="button" disabled={status !== 'idle'} title={t('recording.chooseOutputFolder')} aria-label={t('recording.chooseOutputFolder')} data-disabled-reason={status !== 'idle' ? `Output folder is locked while ${status}.` : undefined} onClick={() => void chooseOutputFolder()}><FolderOpen size={15} /></button></span></label>
           </div>
 
           {captureMode === 'region' && (

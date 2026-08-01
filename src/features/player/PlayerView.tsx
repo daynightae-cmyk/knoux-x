@@ -556,7 +556,7 @@ export const PlayerView: React.FC = () => {
                     <button type="button" className={`control-btn ${shuffle ? 'active' : ''}`} onClick={toggleShuffle} title={t('player.shuffle')} aria-label={t('player.shuffle')}><Shuffle size={18} /></button>
                     <button type="button" className="control-btn" onClick={previous} title={t('player.previous')} aria-label={t('player.previous')}><SkipBack size={22} /></button>
                   </div>
-                  <div className="control-group center"><NeonButton variant="primary" size="lg" glowIntensity="high" onClick={() => void handlePlayPause()} disabled={!mediaUrl}>{isPlaying ? <Pause size={24} /> : <Play size={24} />}</NeonButton></div>
+                  <div className="control-group center"><NeonButton variant="primary" size="lg" glowIntensity="high" onClick={() => void handlePlayPause()} disabled={!mediaUrl} title={isPlaying ? t('player.pause') : t('player.play')} aria-label={isPlaying ? t('player.pause') : t('player.play')} data-disabled-reason={!mediaUrl ? 'Open a media file before playback controls become available.' : undefined}>{isPlaying ? <Pause size={24} /> : <Play size={24} />}</NeonButton></div>
                   <div className="control-group">
                     <button type="button" className="control-btn" onClick={next} title={t('player.next')} aria-label={t('player.next')}><SkipForward size={22} /></button>
                     <button type="button" className={`control-btn ${loop ? 'active' : ''}`} onClick={toggleLoop} title={t('player.repeat')} aria-label={t('player.repeat')}><Repeat size={18} /></button>

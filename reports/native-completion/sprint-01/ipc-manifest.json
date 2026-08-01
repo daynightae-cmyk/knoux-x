@@ -1,0 +1,4127 @@
+{
+  "schemaVersion": 1,
+  "testedHead": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
+  "channels": [
+    {
+      "channel": "ai-secure:cancel",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:cancel\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai-secure:chat",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:chat\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:chat\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai-secure:clear",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:clear\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:clear\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai-secure:configure",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:configure\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:configure\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai-secure:settings",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:settings\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:settings\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai-secure:test",
+      "direction": "invoke",
+      "owner": "secure-ai",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai-secure:test\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai-secure:test\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "ai:analyze-media",
+      "direction": "invoke",
+      "owner": "core-ai",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai:analyze-media\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai:analyze-media\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-ai"
+    },
+    {
+      "channel": "ai:chat",
+      "direction": "invoke",
+      "owner": "core-ai",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai:chat\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai:chat\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-ai"
+    },
+    {
+      "channel": "ai:generate-playlist",
+      "direction": "invoke",
+      "owner": "core-ai",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai:generate-playlist\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai:generate-playlist\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-ai"
+    },
+    {
+      "channel": "ai:recommendations",
+      "direction": "invoke",
+      "owner": "core-ai",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"ai:recommendations\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"ai:recommendations\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-ai"
+    },
+    {
+      "channel": "audio-tools:analyze",
+      "direction": "invoke",
+      "owner": "audio-tools",
+      "exposedBy": "preload-audio-tools",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio-tools:analyze\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio-tools:analyze\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/audio-tools-runtime.ts",
+        "electron/preload-audio-tools.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "audio-tools"
+    },
+    {
+      "channel": "audio-tools:cancel",
+      "direction": "invoke",
+      "owner": "audio-tools",
+      "exposedBy": "preload-audio-tools",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio-tools:cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio-tools:cancel\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/audio-tools-runtime.ts",
+        "electron/preload-audio-tools.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "audio-tools"
+    },
+    {
+      "channel": "audio-tools:jobs",
+      "direction": "invoke",
+      "owner": "audio-tools",
+      "exposedBy": "preload-audio-tools",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio-tools:jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio-tools:jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/audio-tools-runtime.ts",
+        "electron/preload-audio-tools.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "audio-tools"
+    },
+    {
+      "channel": "audio-tools:process",
+      "direction": "invoke",
+      "owner": "audio-tools",
+      "exposedBy": "preload-audio-tools",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio-tools:process\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio-tools:process\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/audio-tools-runtime.ts",
+        "electron/preload-audio-tools.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "audio-tools"
+    },
+    {
+      "channel": "audio:balance",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:balance\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:balance\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:dsp",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:dsp\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:dsp\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:effect",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:effect\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:effect\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:equalizer",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:equalizer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:equalizer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:muted",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:muted\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:muted\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:settings",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:settings\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:settings\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:visualizer",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:visualizer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:visualizer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "audio:volume",
+      "direction": "invoke",
+      "owner": "core-audio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"audio:volume\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"audio:volume\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-audio"
+    },
+    {
+      "channel": "capture:choose-default-directory",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:choose-default-directory\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:choose-default-directory\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:contact-sheet",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:contact-sheet\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:contact-sheet\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:copy-frame",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:copy-frame\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:copy-frame\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:desktop",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:desktop\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:desktop\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:desktop-sources",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:desktop-sources\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:desktop-sources\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:get-default-directory",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:get-default-directory\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:get-default-directory\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:recent",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:save-burst",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:save-burst\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:save-burst\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:save-frame",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:save-frame\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:save-frame\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "capture:show-item",
+      "direction": "invoke",
+      "owner": "capture",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"capture:show-item\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"capture:show-item\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "clip:cancel",
+      "direction": "invoke",
+      "owner": "clip-extraction",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"clip:cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"clip:cancel\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/clip-extraction-runtime.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "clip-extraction"
+    },
+    {
+      "channel": "clip:extract",
+      "direction": "invoke",
+      "owner": "clip-extraction",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"clip:extract\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"clip:extract\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/clip-extraction-runtime.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "clip-extraction"
+    },
+    {
+      "channel": "clip:show-item",
+      "direction": "invoke",
+      "owner": "clip-extraction",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"clip:show-item\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"clip:show-item\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/clip-extraction-runtime.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "clip-extraction"
+    },
+    {
+      "channel": "creative:open-media",
+      "direction": "invoke",
+      "owner": "creative",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"creative:open-media\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"creative:open-media\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "creative:path-to-media-url",
+      "direction": "invoke",
+      "owner": "creative",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"creative:path-to-media-url\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"creative:path-to-media-url\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "creative:request-media-permission",
+      "direction": "invoke",
+      "owner": "creative",
+      "exposedBy": "preload-creative-expose",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"creative:request-media-permission\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"creative:request-media-permission\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative-expose.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "editor:autosave",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:autosave\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:autosave\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:clear-recent-projects",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:clear-recent-projects\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:clear-recent-projects\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:new-project",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:new-project\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:new-project\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:open-project",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:open-project\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:open-project\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:open-recent",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:open-recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:open-recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:recent-projects",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:recent-projects\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:recent-projects\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:recover-autosaves",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:recover-autosaves\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:recover-autosaves\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "editor:save-project",
+      "direction": "invoke",
+      "owner": "editor",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"editor:save-project\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"editor:save-project\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:cancel",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:cancel\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:capabilities",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:capabilities\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:capabilities\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:jobs",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:presets",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:presets\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:presets\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:probe",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:probe\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:probe\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:select-source",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:select-source\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:select-source\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "export:start",
+      "direction": "invoke",
+      "owner": "export",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"export:start\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"export:start\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "file:authorize-dropped",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:authorize-dropped\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:authorize-dropped\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:delete",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:delete\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:delete\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:exists",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:exists\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:exists\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:media-info",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:media-info\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:media-info\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:open",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:open\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:open-directory",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:open-directory\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:open-directory\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:open-multiple",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:open-multiple\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:open-multiple\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:read",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:read\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:read\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:save",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:save\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:save\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:scan",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:scan\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:scan\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:stats",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:stats\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:stats\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:write",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:write\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:write\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "library:add-history",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:add-history\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:add-history\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:cancel-scan",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:cancel-scan\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:cancel-scan\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:choose-folder",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:choose-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:choose-folder\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:create-playlist",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:create-playlist\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:create-playlist\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:delete-playlist",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:delete-playlist\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:delete-playlist\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:folders",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:folders\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:folders\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:get-favorites",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:get-favorites\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:get-favorites\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:get-history",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:get-history\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:get-history\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:get-media",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:get-media\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:get-media\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:get-playlists",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:get-playlists\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:get-playlists\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:open-item",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:open-item\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:open-item\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:query",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:query\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:query\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:remove-folder",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:remove-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:remove-folder\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:scan",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:scan\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:scan\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:search",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:search\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:search\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:set-favorite",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:set-favorite\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:set-favorite\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:statistics",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:statistics\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:statistics\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:toggle-favorite",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:toggle-favorite\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:toggle-favorite\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:update-playback",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:update-playback\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:update-playback\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "library:update-playlist",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:update-playlist\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:update-playlist\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-library"
+    },
+    {
+      "channel": "multitrack:autosave",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:autosave\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:autosave\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:clear-recent",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:clear-recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:clear-recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:create",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:create\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:create\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:open",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:open\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:open-recent",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:open-recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:open-recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:recent",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:recoveries",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:recoveries\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:recoveries\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "multitrack:save",
+      "direction": "invoke",
+      "owner": "multitrack",
+      "exposedBy": "preload-multitrack",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"multitrack:save\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"multitrack:save\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/multitrack-runtime.ts",
+        "electron/preload-multitrack.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "multitrack"
+    },
+    {
+      "channel": "player:load",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:load\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:load\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:loop",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:loop\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:loop\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:muted",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:muted\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:muted\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:next",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:next\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:next\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:pause",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:pause\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:pause\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:play",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:play\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:play\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:previous",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:previous\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:previous\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:rate",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:rate\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:rate\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:seek",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:seek\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:seek\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:shuffle",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:shuffle\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:shuffle\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:state",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:state\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:state\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:stop",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:stop\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:stop\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "player:volume",
+      "direction": "invoke",
+      "owner": "core-player",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"player:volume\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"player:volume\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-player"
+    },
+    {
+      "channel": "recording-region:select",
+      "direction": "invoke",
+      "owner": "recording-region",
+      "exposedBy": "preload-recording",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording-region:select\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording-region:select\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/recording-region-runtime.ts",
+        "electron/preload-recording.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "recording-region"
+    },
+    {
+      "channel": "recording:append",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:append\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:append\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:begin",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:begin\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:begin\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:cancel",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:cancel\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:finish",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:finish\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:finish\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:list",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:list\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:list\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:pause",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:pause\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:pause\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:resume",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:resume\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:resume\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "recording:show-item",
+      "direction": "invoke",
+      "owner": "recording",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"recording:show-item\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"recording:show-item\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "settings:export",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:export\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:export\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "settings:get",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:get\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:get\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "settings:get-all",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:get-all\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:get-all\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "settings:import",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:import\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:import\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "settings:reset",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:reset\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:reset\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "settings:set",
+      "direction": "invoke",
+      "owner": "core-settings",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"settings:set\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"settings:set\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-settings"
+    },
+    {
+      "channel": "slideshow:autosave",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:autosave\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:autosave\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:cancel-render",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:cancel-render\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:cancel-render\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:clear-recent",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:clear-recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:clear-recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:create",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:create\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:create\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:open",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:open\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:open-recent",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:open-recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:open-recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:recent",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:recoveries",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:recoveries\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:recoveries\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:render",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:render\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:render\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:render-jobs",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:render-jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:render-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:save",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:save\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:save\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "subtitle:delay",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:delay\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:delay\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:download",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:download\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:download\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:enabled",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:enabled\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:enabled\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:load",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:load\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:load\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:reload",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:reload\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:reload\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "subtitle:search",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:search\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:search\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:select",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:select\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:select\"]"
+      },
+      "sourceRoots": [
+        "electron/creative-bootstrap.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-bootstrap"
+    },
+    {
+      "channel": "subtitle:settings",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:settings\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:settings\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:style",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:style\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:style\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:sync-ai",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:sync-ai\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:sync-ai\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "subtitle:translate-ai",
+      "direction": "invoke",
+      "owner": "subtitle",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"subtitle:translate-ai\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"subtitle:translate-ai\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-subtitle"
+    },
+    {
+      "channel": "system:info",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:info\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:info\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "system:memory",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:memory\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:memory\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "system:open-external",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:open-external\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:open-external\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "system:show-item",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:show-item\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:show-item\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "video:brightness",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:brightness\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:brightness\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:contrast",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:contrast\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:contrast\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:crop",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:crop\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:crop\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:gamma",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:gamma\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:gamma\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:hue",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:hue\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:hue\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:saturation",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:saturation\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:saturation\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:screenshot",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:screenshot\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:screenshot\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:settings",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:settings\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:settings\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "video:zoom",
+      "direction": "invoke",
+      "owner": "core-video",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video:zoom\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video:zoom\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-video"
+    },
+    {
+      "channel": "window:always-on-top",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:always-on-top\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:always-on-top\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:close",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:close\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:close\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:fullscreen",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:fullscreen\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:fullscreen\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:is-fullscreen",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:is-fullscreen\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:is-fullscreen\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:is-maximized",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:is-maximized\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:is-maximized\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:maximize",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:maximize\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:maximize\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "window:minimize",
+      "direction": "invoke",
+      "owner": "core-window",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"window:minimize\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"window:minimize\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-window"
+    },
+    {
+      "channel": "system:get-build-info",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:get-build-info\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:get-build-info\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "system:get-ipc-health",
+      "direction": "invoke",
+      "owner": "core-system",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"system:get-ipc-health\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"system:get-ipc-health\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-system"
+    },
+    {
+      "channel": "app:renderer-ready",
+      "direction": "inbound-listener",
+      "owner": "core-app",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InboundPayloadMap[\"app:renderer-ready\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "dynamic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-app"
+    },
+    {
+      "channel": "capture:selector-cancel",
+      "direction": "inbound-listener",
+      "owner": "capture-selector",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InboundPayloadMap[\"capture:selector-cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/creative/region-capture-service.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "dynamic": true,
+      "registrationCount": 0,
+      "registeredOwner": null
+    },
+    {
+      "channel": "capture:selector-complete",
+      "direction": "inbound-listener",
+      "owner": "capture-selector",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InboundPayloadMap[\"capture:selector-complete\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/creative/region-capture-service.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "dynamic": true,
+      "registrationCount": 0,
+      "registeredOwner": null
+    },
+    {
+      "channel": "recording:selector-cancel",
+      "direction": "inbound-listener",
+      "owner": "recording-selector",
+      "exposedBy": "preload-recording",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InboundPayloadMap[\"recording:selector-cancel\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/creative/recording-region-service.ts",
+        "electron/preload-recording.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "dynamic": true,
+      "registrationCount": 0,
+      "registeredOwner": null
+    },
+    {
+      "channel": "recording:selector-complete",
+      "direction": "inbound-listener",
+      "owner": "recording-selector",
+      "exposedBy": "preload-recording",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InboundPayloadMap[\"recording:selector-complete\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/creative/recording-region-service.ts",
+        "electron/preload-recording.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "dynamic": true,
+      "registrationCount": 0,
+      "registeredOwner": null
+    },
+    {
+      "channel": "ai:stream",
+      "direction": "outbound-event",
+      "owner": "core-ai",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"ai:stream\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for ai:stream; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "app:open-media",
+      "direction": "outbound-event",
+      "owner": "app",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"app:open-media\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/menu/app-menu.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "audio-tools:progress",
+      "direction": "outbound-event",
+      "owner": "audio-tools",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"audio-tools:progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/audio-tools-runtime.ts",
+        "electron/preload-audio-tools.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "audio:visualizer-data",
+      "direction": "outbound-event",
+      "owner": "core-audio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"audio:visualizer-data\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for audio:visualizer-data; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "clip:progress",
+      "direction": "outbound-event",
+      "owner": "clip-extraction",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"clip:progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/clip-extraction-runtime.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "export:progress",
+      "direction": "outbound-event",
+      "owner": "export",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"export:progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "library:scan-progress",
+      "direction": "outbound-event",
+      "owner": "creative-library",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"library:scan-progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "player:ended",
+      "direction": "outbound-event",
+      "owner": "core-player",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"player:ended\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for player:ended; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "player:error",
+      "direction": "outbound-event",
+      "owner": "core-player",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"player:error\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for player:error; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "player:state-change",
+      "direction": "outbound-event",
+      "owner": "core-player",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"player:state-change\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for player:state-change; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "player:time-update",
+      "direction": "outbound-event",
+      "owner": "core-player",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"player:time-update\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts"
+      ],
+      "lifecycle": "reserved",
+      "reservedReason": "Reserved renderer subscription for player:time-update; Sprint 01 has no production main-process emitter.",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "settings:change",
+      "direction": "outbound-event",
+      "owner": "core-settings",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"settings:change\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "slideshow:render-progress",
+      "direction": "outbound-event",
+      "owner": "slideshow",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"slideshow:render-progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "system:resume",
+      "direction": "outbound-event",
+      "owner": "core-system",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"system:resume\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "system:suspend",
+      "direction": "outbound-event",
+      "owner": "core-system",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"system:suspend\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "window:fullscreen-change",
+      "direction": "outbound-event",
+      "owner": "core-window",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"window:fullscreen-change\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "window:resize",
+      "direction": "outbound-event",
+      "owner": "core-window",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"window:resize\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/main.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    }
+  ]
+}

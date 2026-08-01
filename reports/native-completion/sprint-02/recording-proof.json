@@ -1,0 +1,145 @@
+{
+  "fresh": true,
+  "absentBeforeStart": true,
+  "sessionId": "35d6b850-54d8-4b93-b82d-d1ac2118ee3a",
+  "encoderId": "c3f54ee2-7a5e-4b7e-8256-288af33fb8c0",
+  "source": "synthetic-player-composition",
+  "resolution": {
+    "width": 640,
+    "height": 360
+  },
+  "requestedFps": 15,
+  "codec": "vp8",
+  "prePauseActiveMs": 2050,
+  "pauseMs": 1100,
+  "postResumeActiveMs": 2100,
+  "telemetryCadenceMs": 250,
+  "outputPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-sprint-02-I3wWdj\\KNOUX-synthetic-b47f0c4a-9752-47fe-a4ab-ad70128b1155.webm",
+  "bytes": 130670,
+  "duration": 4.2,
+  "frames": 63,
+  "filesystemBytesReconciled": true,
+  "timeline": [
+    {
+      "offsetMs": 0,
+      "state": "Countdown",
+      "bytes": 0,
+      "frames": 0,
+      "metersActive": false
+    },
+    {
+      "offsetMs": 50,
+      "state": "Recording",
+      "bytes": 0,
+      "frames": 0,
+      "metersActive": true
+    },
+    {
+      "offsetMs": 2100,
+      "state": "Paused",
+      "bytes": 24576,
+      "frames": 31,
+      "metersActive": false
+    },
+    {
+      "offsetMs": 3200,
+      "state": "Paused",
+      "bytes": 24576,
+      "frames": 31,
+      "metersActive": false
+    },
+    {
+      "offsetMs": 3250,
+      "state": "Recording",
+      "bytes": 24576,
+      "frames": 31,
+      "metersActive": true
+    },
+    {
+      "offsetMs": 5350,
+      "state": "Stopping",
+      "bytes": 65536,
+      "frames": 63,
+      "metersActive": false
+    },
+    {
+      "offsetMs": 266,
+      "state": "Completed",
+      "bytes": 130670,
+      "frames": 63,
+      "metersActive": false
+    }
+  ],
+  "probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "vp8",
+        "codec_long_name": "On2 VP8",
+        "profile": "0",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 640,
+        "height": 360,
+        "coded_width": 640,
+        "coded_height": 360,
+        "closed_captions": 0,
+        "film_grain": 0,
+        "has_b_frames": 0,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "16:9",
+        "pix_fmt": "yuv420p",
+        "level": -99,
+        "color_range": "tv",
+        "field_order": "progressive",
+        "refs": 1,
+        "r_frame_rate": "15/1",
+        "avg_frame_rate": "15/1",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "nb_read_frames": "63",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0
+        },
+        "tags": {
+          "ENCODER": "Lavc60.31.102 libvpx",
+          "DURATION": "00:00:04.200000000"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-sprint-02-I3wWdj\\KNOUX-synthetic-b47f0c4a-9752-47fe-a4ab-ad70128b1155.webm",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "format_name": "matroska,webm",
+      "format_long_name": "Matroska / WebM",
+      "start_time": "0.000000",
+      "duration": "4.200000",
+      "size": "130670",
+      "bit_rate": "248895",
+      "probe_score": 100,
+      "tags": {
+        "ENCODER": "Lavf60.16.100"
+      }
+    }
+  }
+}

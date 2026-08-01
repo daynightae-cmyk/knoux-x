@@ -6,6 +6,7 @@ import type {
   InvokeResultMap,
   OutboundPayloadMap,
 } from './channel-types';
+import { IPC_SOURCE_INVENTORY, type ChannelSourceInventoryEntry } from './channel-source-inventory';
 
 export interface FileDialogFilter { name: string; extensions: string[]; }
 export interface FileDialogOptions { title?: string; defaultPath?: string; buttonLabel?: string; filters?: FileDialogFilter[]; }
@@ -221,7 +222,7 @@ export type TypedInvokeHandler<C extends IpcInvokeChannel = IpcInvokeChannel> = 
 export type TypedInboundListener<C extends IpcInboundChannel = IpcInboundChannel> = (event: IpcMainEvent, ...args: InboundPayload<C>) => void;
 
 export interface IpcShapeReference { schema: 'typescript'; typeId: string; }
-export interface IpcChannelDefinition { channel: string; direction: 'invoke' | 'inbound-listener' | 'outbound-event'; owner: string; exposedBy: string; arguments: IpcShapeReference; result: IpcShapeReference; sourceRoots: string[]; basic: boolean; dynamic?: boolean; }
+export interface IpcChannelDefinition { channel: string; direction: 'invoke' | 'inbound-listener' | 'outbound-event'; owner: string; exposedBy: string; arguments: IpcShapeReference; result: IpcShapeReference; sourceRoots: string[]; lifecycle: 'active' | 'reserved'; reservedReason?: string; basic: boolean; dynamic?: boolean; }
 interface RawIpcChannelDefinition { channel: string; direction: IpcChannelDefinition['direction']; owner: string; exposedBy: string; arguments: string; result: string; basic: boolean; dynamic?: boolean; }
 const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'ai-secure:cancel', direction: 'invoke', owner: 'secure-ai', exposedBy: 'preload-creative', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
@@ -413,58 +414,41 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'window:resize', direction: 'outbound-event', owner: 'core-window', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
 ] as const;
 
-function preloadSource(channel: string, exposedBy: string): string {
-  if (exposedBy.includes('audio-tools')) return 'electron/preload-audio-tools.ts';
-  if (exposedBy.includes('slideshow')) return 'electron/preload-slideshow.ts';
-  if (exposedBy.includes('multitrack')) return 'electron/preload-multitrack.ts';
-  if (exposedBy.includes('recording')) return 'electron/preload-recording.ts';
-  if (exposedBy.includes('creative-expose')) return 'electron/preload-creative-expose.ts';
-  if (exposedBy.includes('creative')) return 'electron/preload-creative.ts';
-  if (channel.startsWith('audio-tools:')) return 'electron/preload-audio-tools.ts';
-  if (channel.startsWith('slideshow:')) return 'electron/preload-slideshow.ts';
-  if (channel.startsWith('clip:') || channel.startsWith('capture:') || channel.startsWith('editor:') || channel.startsWith('export:') || channel.startsWith('recording:') || channel === 'library:scan-progress') return 'electron/preload-creative.ts';
-  return 'electron/preload.ts';
+function sourceInventoryFor(channel: string): ChannelSourceInventoryEntry {
+  const inventory = IPC_SOURCE_INVENTORY[channel as keyof typeof IPC_SOURCE_INVENTORY];
+  if (!inventory) throw new Error(`IPC_SOURCE_INVENTORY_MISSING ${channel}`);
+  return inventory;
 }
 
-function mainSource(channel: string, direction: IpcChannelDefinition['direction']): string {
-  if (direction === 'inbound-listener') {
-    if (channel.startsWith('capture:selector')) return 'electron/creative/region-capture-service.ts';
-    if (channel.startsWith('recording:selector')) return 'electron/creative/recording-region-service.ts';
-    return 'electron/main.ts';
+export const IPC_CHANNEL_DEFINITIONS: readonly IpcChannelDefinition[] = RAW_IPC_CHANNEL_DEFINITIONS.map((definition) => {
+  const inventory = sourceInventoryFor(definition.channel);
+  if (inventory.lifecycle === 'reserved' && definition.direction !== 'outbound-event') {
+    throw new Error(`IPC_SOURCE_INVENTORY_INVALID_RESERVED ${definition.channel}`);
   }
-  if (channel.startsWith('audio-tools:')) return 'electron/ipc/audio-tools-runtime.ts';
-  if (channel.startsWith('clip:')) return 'electron/ipc/clip-extraction-runtime.ts';
-  if (channel.startsWith('multitrack:')) return 'electron/ipc/multitrack-runtime.ts';
-  if (channel.startsWith('slideshow:')) return 'electron/ipc/slideshow-runtime.ts';
-  if (channel === 'recording-region:select') return 'electron/ipc/recording-region-runtime.ts';
-  if (channel.startsWith('capture:') || channel.startsWith('editor:') || channel.startsWith('export:') || channel.startsWith('recording:')) return 'electron/ipc/creative-suite.ts';
-  if (channel.startsWith('creative:') || channel.startsWith('ai-secure:') || channel === 'subtitle:select' || channel === 'subtitle:reload') return channel === 'creative:open-media' || channel === 'creative:path-to-media-url' ? 'electron/ipc/creative-suite.ts' : 'electron/creative-bootstrap.ts';
-  if (channel.startsWith('library:') && ['library:choose-folder', 'library:folders', 'library:query', 'library:scan', 'library:cancel-scan', 'library:remove-folder', 'library:open-item', 'library:set-favorite', 'library:update-playback', 'library:scan-progress'].includes(channel)) return 'electron/ipc/creative-suite.ts';
-  if (direction === 'outbound-event' && (channel === 'system:resume' || channel === 'system:suspend' || channel.startsWith('window:') || channel === 'app:open-media')) return 'electron/main.ts';
-  return 'electron/ipc/setup.ts';
-}
-
-export const IPC_CHANNEL_DEFINITIONS: readonly IpcChannelDefinition[] = RAW_IPC_CHANNEL_DEFINITIONS.map((definition) => ({
-  channel: definition.channel,
-  direction: definition.direction,
-  owner: definition.owner,
-  exposedBy: definition.exposedBy,
-  arguments: {
-    schema: 'typescript',
-    typeId: definition.direction === 'invoke'
-      ? `InvokeArgumentMap["${definition.channel}"]`
-      : definition.direction === 'inbound-listener'
-        ? `InboundPayloadMap["${definition.channel}"]`
-        : `OutboundPayloadMap["${definition.channel}"]`,
-  },
-  result: {
-    schema: 'typescript',
-    typeId: definition.direction === 'invoke' ? `InvokeResultMap["${definition.channel}"]` : 'void',
-  },
-  sourceRoots: [preloadSource(definition.channel, definition.exposedBy), mainSource(definition.channel, definition.direction)],
-  basic: definition.basic,
-  ...(definition.dynamic === undefined ? {} : { dynamic: definition.dynamic }),
-}));
+  return {
+    channel: definition.channel,
+    direction: definition.direction,
+    owner: definition.owner,
+    exposedBy: definition.exposedBy,
+    arguments: {
+      schema: 'typescript',
+      typeId: definition.direction === 'invoke'
+        ? `InvokeArgumentMap["${definition.channel}"]`
+        : definition.direction === 'inbound-listener'
+          ? `InboundPayloadMap["${definition.channel}"]`
+          : `OutboundPayloadMap["${definition.channel}"]`,
+    },
+    result: {
+      schema: 'typescript',
+      typeId: definition.direction === 'invoke' ? `InvokeResultMap["${definition.channel}"]` : 'void',
+    },
+    sourceRoots: [...inventory.sourceRoots],
+    lifecycle: inventory.lifecycle,
+    ...(inventory.reservedReason === undefined ? {} : { reservedReason: inventory.reservedReason }),
+    basic: definition.basic,
+    ...(definition.dynamic === undefined ? {} : { dynamic: definition.dynamic }),
+  };
+});
 
 export const BASIC_INVOKE_CHANNELS = [
   IPC_INVOKE.SETTINGS_GET,

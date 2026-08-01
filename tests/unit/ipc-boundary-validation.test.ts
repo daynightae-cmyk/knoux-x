@@ -6,9 +6,12 @@ import {
   BASIC_INVOKE_CHANNELS,
   EXPOSED_INVOKE_CHANNELS,
   IPC_CHANNEL_DEFINITIONS,
+  IPC_INBOUND,
   IPC_INVOKE,
+  IPC_OUTBOUND,
 } from '../../electron/ipc/contract';
 import { AuthoritativeIpcRegistry } from '../../electron/ipc/registry';
+import { collectProductionIpcSourceRoots } from '../../tools/ipc-source-parity';
 
 interface FakeIpc {
   handlers: Map<string, (...args: unknown[]) => unknown>;
@@ -55,13 +58,60 @@ describe('complete IPC schema and basic boundary', () => {
       expect(definition.arguments).toMatchObject({ schema: 'typescript' });
       expect(definition.arguments.typeId).toContain(definition.channel);
       expect(definition.result.schema).toBe('typescript');
-      expect(definition.sourceRoots.length).toBeGreaterThanOrEqual(2);
+      expect(definition.sourceRoots.length).toBeGreaterThanOrEqual(1);
       expect(definition.sourceRoots.every((sourceRoot) => sourceRoot.endsWith('.ts'))).toBe(true);
       expect(JSON.stringify(definition)).not.toMatch(/typed preload API|typed event payload|unknown\[\]/i);
     }
     const source = fs.readFileSync(path.resolve(__dirname, '../../electron/ipc/channel-types.ts'), 'utf8');
     for (const channel of EXPOSED_INVOKE_CHANNELS) {
       expect(source.match(new RegExp(`'${channel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}':`, 'g'))).toHaveLength(2);
+    }
+  });
+
+  test('manifest roots exactly match every production IPC constant use in both directions', () => {
+    const repositoryRoot = path.resolve(__dirname, '../..');
+    const actualRoots = collectProductionIpcSourceRoots(repositoryRoot, {
+      invoke: IPC_INVOKE,
+      inbound: IPC_INBOUND,
+      outbound: IPC_OUTBOUND,
+    });
+    expect(Object.keys(actualRoots).sort()).toEqual(IPC_CHANNEL_DEFINITIONS.map(({ channel }) => channel).sort());
+    for (const definition of IPC_CHANNEL_DEFINITIONS) {
+      expect(definition.sourceRoots).toEqual(actualRoots[definition.channel]);
+      for (const sourceRoot of definition.sourceRoots) {
+        expect(fs.existsSync(path.join(repositoryRoot, sourceRoot))).toBe(true);
+      }
+    }
+    expect(actualRoots['library:choose-folder']).toContain('electron/preload-creative.ts');
+    expect(actualRoots['subtitle:select']).toContain('electron/preload-creative.ts');
+    expect(actualRoots['library:scan']).toEqual([
+      'electron/ipc/creative-suite.ts',
+      'electron/preload-creative.ts',
+      'electron/preload.ts',
+    ]);
+    expect(actualRoots['app:open-media']).toContain('electron/menu/app-menu.ts');
+  });
+
+  test('every no-emitter outbound declaration is explicitly reserved with a concrete reason', () => {
+    const expectedReserved = [
+      'ai:stream',
+      'audio:visualizer-data',
+      'player:ended',
+      'player:error',
+      'player:state-change',
+      'player:time-update',
+    ];
+    const reserved = IPC_CHANNEL_DEFINITIONS.filter(({ lifecycle }) => lifecycle === 'reserved');
+    expect(reserved.map(({ channel }) => channel).sort()).toEqual(expectedReserved);
+    for (const definition of reserved) {
+      expect(definition.direction).toBe('outbound-event');
+      expect(definition.sourceRoots).toEqual(['electron/preload.ts']);
+      expect(definition.reservedReason).toContain(definition.channel);
+      expect(definition.reservedReason).toContain('no production main-process emitter');
+    }
+    for (const definition of IPC_CHANNEL_DEFINITIONS.filter(({ direction, lifecycle }) => direction === 'outbound-event' && lifecycle === 'active')) {
+      expect(definition.sourceRoots.some((sourceRoot) => !sourceRoot.includes('preload'))).toBe(true);
+      expect(definition.reservedReason).toBeUndefined();
     }
   });
 

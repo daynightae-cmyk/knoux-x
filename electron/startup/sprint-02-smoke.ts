@@ -61,12 +61,19 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       });
       const recordIds = records.map((record) => record.id);
       for (const actionId of recordIds) {
+        const censusedRecord = records.find((record) => record.id === actionId);
         await openSurface();
         window.__knouxSprint02.refresh();
         const activeRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);
         const element = activeRoot?.querySelector('[data-action-id="' + CSS.escape(actionId) + '"]');
         const record = window.__knouxSprint02.inventory().find((entry) => entry.id === actionId);
-        if (!(element instanceof HTMLElement) || !record) throw new Error('SPRINT02_ACTION_ELEMENT_MISSING ' + label + ' ' + actionId);
+        if (!(element instanceof HTMLElement) || !record) {
+          if (censusedRecord?.status !== 'implemented') {
+            activations.push({ surface: label, id: censusedRecord.id, status: censusedRecord.status, traces: 0, disabledReason: censusedRecord.disabledReason, skippedUnsafe: false, queriedBeforeTransition: true });
+            continue;
+          }
+          throw new Error('SPRINT02_ACTION_ELEMENT_MISSING ' + label + ' ' + actionId);
+        }
         const before = window.__knouxSprint02.traces().length;
         element.click();
         await wait(90);

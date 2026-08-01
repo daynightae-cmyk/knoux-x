@@ -296,6 +296,19 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
   const ipcSmokeEvidence = initialArgv.find((argument) => argument.startsWith('--ipc-smoke-evidence='))?.slice('--ipc-smoke-evidence='.length) ?? '';
   const ipcSmokeRoot = ipcSmokeTest ? fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-packaged-ipc-smoke-')) : '';
   if (ipcSmokeTest) app.setPath('userData', ipcSmokeRoot);
+  const sprint02SmokeTest = initialArgv.includes('--sprint-02-smoke');
+  const sprint02Evidence = initialArgv.find((argument) => argument.startsWith('--sprint-02-evidence='))?.slice('--sprint-02-evidence='.length) ?? '';
+  const sprint02RootArgument = initialArgv.find((argument) => argument.startsWith('--sprint-02-root='))?.slice('--sprint-02-root='.length) ?? '';
+  const sprint02Phase = initialArgv.includes('--sprint-02-restart') ? 'restart' as const : 'initial' as const;
+  const sprint02Root = sprint02SmokeTest
+    ? path.resolve(sprint02RootArgument || fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-sprint-02-smoke-')))
+    : '';
+  if (sprint02SmokeTest) {
+    const temporaryRoot = path.resolve(os.tmpdir());
+    if (!sprint02Root.startsWith(`${temporaryRoot}${path.sep}`)) throw new Error('Sprint 02 smoke root must be inside the operating-system temporary directory.');
+    fs.mkdirSync(sprint02Root, { recursive: true });
+    app.setPath('userData', sprint02Root);
+  }
 
   pendingMediaPaths = mediaPathsFromArguments(initialArgv);
 
@@ -347,6 +360,21 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
       app.exit(0);
       return;
     }
+    if (sprint02SmokeTest) {
+      const window = await createMainWindow(false);
+      systemOrchestrator.setMainWindow(window);
+      const { runSprint02Smoke } = await import('./startup/sprint-02-smoke');
+      await runSprint02Smoke({
+        evidencePath: sprint02Evidence,
+        syntheticRoot: sprint02Root,
+        mainWindow: window,
+        phase: sprint02Phase,
+        health,
+      });
+      await cleanupApplication('smoke-complete');
+      app.exit(0);
+      return;
+    }
     await createSplashWindow();
     updateSplash(splashCopy('Securing desktop services', 'تأمين خدمات سطح المكتب'), 18);
     updateSplash(splashCopy('Opening local library', 'فتح المكتبة المحلية'), 40);
@@ -366,7 +394,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
     const window = await createMainWindow();
     systemOrchestrator.setMainWindow(window);
   }).catch(async (error) => {
-    if (ipcSmokeTest) log.error(`KNOUX_IPC_DIAGNOSTICS ${JSON.stringify(authoritativeIpc.diagnosticEvents())}`);
+    if (ipcSmokeTest || sprint02SmokeTest) log.error(`KNOUX_IPC_DIAGNOSTICS ${JSON.stringify(authoritativeIpc.diagnosticEvents())}`);
     log.error('Failed to start KNOUX Player X', error);
     await cleanupApplication('startup-failure').catch((cleanupError) => log.error('KNOUX_RUNTIME_CLEANUP_FAILED', cleanupError));
     app.exit(1);

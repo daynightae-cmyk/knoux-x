@@ -30,7 +30,7 @@ describe('creative media core', () => {
   test('enforces recording transitions and cancellation', () => {
     const countdown = reduceRecordingState(initialRecordingState, { type: 'START_COUNTDOWN' });
     const recording = reduceRecordingState(countdown, { type: 'START' });
-    expect(reduceRecordingState(recording, { type: 'CANCEL' }).status).toBe('canceled');
+    expect(reduceRecordingState(recording, { type: 'CANCEL' }).status).toBe('Cancelled');
     expect(() => reduceRecordingState(initialRecordingState, { type: 'COMPLETE' })).toThrow();
   });
 

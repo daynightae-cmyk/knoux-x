@@ -1997,3 +1997,26 @@ textarea:focus-visible,
   .runtime-badge { display: none; }
   .title-bar .brand-mark span { display: none; }
 }
+/* Sprint 02 Quick Access Toolbar */
+.quick-access-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 4px 10px;
+  border-block: 1px solid var(--knoux-border);
+  background: color-mix(in srgb, var(--knoux-surface) 92%, transparent);
+  z-index: 80;
+}
+.quick-access-toolbar.location-bottom { order: 4; }
+.quick-access-toolbar.location-floating,
+.quick-access-toolbar.mode-floating {
+  position: fixed;
+  max-width: min(92vw, 840px);
+  border: 1px solid var(--knoux-border);
+  border-radius: 12px;
+  box-shadow: var(--knoux-shadow-lg);
+}
+.quick-access-toolbar.size-small { transform-origin: top left; font-size: 0.8rem; }
+.quick-access-toolbar.size-large { min-height: 48px; }
+[dir='rtl'] .quick-access-toolbar { flex-direction: row-reverse; }

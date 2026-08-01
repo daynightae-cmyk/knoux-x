@@ -52,7 +52,7 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
   const storagePath = path.join(root, 'settings', 'application-settings.json');
   const customized: Pick<ApplicationSettings,
     'language' | 'theme' | 'defaultVolume' | 'brightness' | 'contrast'
-    | 'recordingToolbar' | 'shortcuts' | 'workspace' | 'recordingConfiguration'> = {
+    | 'recordingToolbar' | 'quickAccessToolbar' | 'shortcuts' | 'workspace' | 'recordingConfiguration'> = {
       language: 'ar',
       theme: 'obsidian-violet',
       defaultVolume: 0.37,
@@ -61,12 +61,25 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
       recordingToolbar: {
         order: ['stop', 'start', 'pause', 'resume', 'cancel', 'screenshot', 'select-region', 'microphone', 'system-audio', 'camera-overlay', 'countdown', 'marker', 'open-output'],
         hidden: ['camera-overlay', 'marker'],
+        visible: true,
         mode: 'floating',
         size: 'large',
+        location: 'floating',
         position: { x: 360, y: 180 },
+        alwaysOnTop: true,
+        hideFromCapture: true,
+      },
+      quickAccessToolbar: {
+        ...structuredClone(DEFAULT_APPLICATION_SETTINGS.quickAccessToolbar),
+        mode: 'floating',
+        location: 'floating',
+        size: 'large',
+        position: { x: 420, y: 96 },
+        hidden: ['export'],
+        workspaceCommands: { production: ['record-start-stop', 'record-pause-resume', 'screenshot'] },
       },
       shortcuts: DEFAULT_APPLICATION_SETTINGS.shortcuts.map((binding) => binding.command === 'open-file'
-        ? { ...binding, accelerator: 'Ctrl+Shift+KeyO' }
+        ? { ...binding, accelerator: 'Ctrl+Alt+KeyO' }
         : binding.command === 'theater-mode' ? { ...binding, enabled: false } : binding),
       workspace: {
         ...structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace),

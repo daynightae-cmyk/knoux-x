@@ -16,7 +16,7 @@ import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-
 import { ProjectService } from '../creative/project-service';
 import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
-import type { DesktopCaptureRequest } from '../creative/region-capture-service';
+import type { DesktopCaptureOperation } from '../creative/region-capture-service';
 import { RegionCaptureService } from '../creative/region-capture-service';
 import type { LibraryQuery } from '../library/library-service';
 import { LibraryService } from '../library/library-service';
@@ -180,7 +180,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
       appIcon: source.appIcon?.toDataURL() ?? null,
     }));
   }));
-  ipc.handle(IPC_INVOKE.CAPTURE_DESKTOP, trusted(async (_event, request: DesktopCaptureRequest) => regionCapture.capture(request)));
+  ipc.handle(IPC_INVOKE.CAPTURE_DESKTOP, trusted(async (_event, request: DesktopCaptureOperation) => regionCapture.execute(request)));
 
   ipc.handle(IPC_INVOKE.RECORDING_BEGIN, trusted(async (_event, request: BeginRecordingRequest) => recording.begin(request)));
   ipc.handle(IPC_INVOKE.RECORDING_APPEND, trusted(async (_event, sessionId: string, chunk: ArrayBuffer | Uint8Array) =>

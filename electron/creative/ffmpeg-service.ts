@@ -47,6 +47,9 @@ export interface ProbeResult {
     sample_rate?: string;
     channels?: number;
     duration?: string;
+    avg_frame_rate?: string;
+    r_frame_rate?: string;
+    nb_read_frames?: string;
   }>;
 }
 
@@ -58,7 +61,7 @@ function resolveOptionalModule(moduleName: string): unknown {
   }
 }
 
-function candidateExecutable(moduleName: 'ffmpeg-static' | 'ffprobe-static'): string | null {
+function candidateExecutable(moduleName: 'ffmpeg-static' | '@derhuerst/ffprobe-static'): string | null {
   const loaded = resolveOptionalModule(moduleName);
   if (typeof loaded === 'string') return loaded;
   if (loaded && typeof loaded === 'object' && 'path' in loaded && typeof loaded.path === 'string') {
@@ -207,6 +210,7 @@ export class FFmpegService {
       '-v', 'error',
       '-show_format',
       '-show_streams',
+      '-count_frames',
       '-of', 'json',
       resolved,
     ]);
@@ -245,7 +249,7 @@ export class FFmpegService {
     const configured = kind === 'ffmpeg' ? process.env.FFMPEG_PATH : process.env.FFPROBE_PATH;
     const modulePath = kind === 'ffmpeg'
       ? candidateExecutable('ffmpeg-static')
-      : candidateExecutable('ffprobe-static');
+      : candidateExecutable('@derhuerst/ffprobe-static');
     const executableName = process.platform === 'win32' ? `${kind}.exe` : kind;
     const commandNames = process.platform === 'win32' ? [executableName, kind] : [kind];
     const resourceCandidates = typeof process.resourcesPath === 'string'

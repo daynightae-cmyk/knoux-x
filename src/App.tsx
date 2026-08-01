@@ -5,6 +5,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
 import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
 import { CommandShortcutController } from './components/system/CommandShortcutController';
+import { Sprint02CommandRuntime } from './components/system/Sprint02CommandRuntime';
+import { QuickAccessToolbar } from './components/toolbars/QuickAccessToolbar';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
@@ -150,6 +152,7 @@ const App: React.FC = () => {
   return (
     <div className="app-shell" data-current-view={currentView}>
       <TitleBar />
+      <QuickAccessToolbar />
       <div className="app-body">
         {isSidebarOpen && <Sidebar />}
         <main className="main-content" aria-live="polite">
@@ -203,6 +206,7 @@ const App: React.FC = () => {
       )}
       <FirstRunExperience />
       <CommandShortcutController />
+      <Sprint02CommandRuntime />
     </div>
   );
 };

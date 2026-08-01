@@ -17,7 +17,7 @@ import type { ExportJobSnapshot, ExportRequest } from '../creative/export-servic
 import type { FFmpegProgress } from '../creative/ffmpeg-service';
 import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-service';
 import type { BeginRecordingRequest } from '../creative/recording-service';
-import type { DesktopCaptureRequest, RegionAspectPreset } from '../creative/region-capture-service';
+import type { DesktopCaptureOperation, DesktopCaptureOperationResult, RegionAspectPreset } from '../creative/region-capture-service';
 import type { SlideshowRenderSnapshot } from '../creative/slideshow-render-service';
 import type { LibraryQuery, ScanProgress } from '../library/library-service';
 
@@ -61,7 +61,7 @@ export interface InvokeArgumentMap {
   'capture:choose-default-directory': [];
   'capture:contact-sheet': [request: ContactSheetRequest];
   'capture:copy-frame': [dataUrl: string];
-  'capture:desktop': [request: DesktopCaptureRequest];
+  'capture:desktop': [request: DesktopCaptureOperation];
   'capture:desktop-sources': [];
   'capture:get-default-directory': [];
   'capture:recent': [];
@@ -208,7 +208,7 @@ export interface InvokeResultMap {
   'ai:analyze-media': object; 'ai:chat': string; 'ai:generate-playlist': string[]; 'ai:recommendations': object[];
   'audio-tools:analyze': object; 'audio-tools:cancel': boolean; 'audio-tools:jobs': object[]; 'audio-tools:process': object | null;
   'audio:balance': VoidResult; 'audio:dsp': VoidResult; 'audio:effect': VoidResult; 'audio:equalizer': VoidResult; 'audio:muted': VoidResult; 'audio:settings': object; 'audio:visualizer': Uint8Array; 'audio:volume': VoidResult;
-  'capture:choose-default-directory': string | null; 'capture:contact-sheet': string | null; 'capture:copy-frame': VoidResult; 'capture:desktop': object | null; 'capture:desktop-sources': object[]; 'capture:get-default-directory': string | null; 'capture:recent': string[]; 'capture:save-burst': string[]; 'capture:save-frame': string | null; 'capture:show-item': VoidResult;
+  'capture:choose-default-directory': string | null; 'capture:contact-sheet': string | null; 'capture:copy-frame': VoidResult; 'capture:desktop': DesktopCaptureOperationResult; 'capture:desktop-sources': object[]; 'capture:get-default-directory': string | null; 'capture:recent': string[]; 'capture:save-burst': string[]; 'capture:save-frame': string | null; 'capture:show-item': VoidResult;
   'clip:cancel': boolean; 'clip:extract': object | null; 'clip:show-item': VoidResult;
   'creative:open-media': object | null; 'creative:path-to-media-url': string; 'creative:request-media-permission': boolean;
   'editor:autosave': string; 'editor:clear-recent-projects': VoidResult; 'editor:new-project': object; 'editor:open-project': object | null; 'editor:open-recent': object; 'editor:recent-projects': string[]; 'editor:recover-autosaves': object[]; 'editor:save-project': string | null;
@@ -229,7 +229,7 @@ export interface InvokeResultMap {
 export interface InboundPayloadMap {
   'app:renderer-ready': [];
   'capture:selector-cancel': [token: string];
-  'capture:selector-complete': [selection: { token: string; x: number; y: number; width: number; height: number }];
+  'capture:selector-complete': [selection: { token: string; x: number; y: number; width: number; height: number; activation?: 'capture' | 'action-menu' }];
   'recording:selector-cancel': [token: string];
   'recording:selector-complete': [selection: { token: string; x: number; y: number; width: number; height: number }];
 }

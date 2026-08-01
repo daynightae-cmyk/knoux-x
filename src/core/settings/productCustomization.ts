@@ -1,16 +1,19 @@
-export type KnouxCommandCategory = 'playback' | 'recording' | 'editing' | 'workspace' | 'file';
+export type KnouxCommandCategory = 'playback' | 'recording' | 'capture' | 'editing' | 'workspace' | 'file';
+export type KnouxCommandContext = 'global' | 'player' | 'library' | 'capture' | 'recording' | 'editor' | 'image-editor' | 'slideshow' | 'audio-tools' | 'export';
 
 export type KnouxCommandId =
   | 'play-pause' | 'stop' | 'seek-backward' | 'seek-forward' | 'frame-step-backward' | 'frame-step-forward'
   | 'screenshot' | 'record-start-stop' | 'record-pause-resume' | 'region-capture'
   | 'split-clip' | 'trim-in' | 'trim-out' | 'undo' | 'redo' | 'save' | 'export'
-  | 'fullscreen' | 'theater-mode' | 'mute' | 'volume-up' | 'volume-down' | 'open-file';
+  | 'fullscreen' | 'theater-mode' | 'mute' | 'volume-up' | 'volume-down' | 'open-file' | 'open-library-folder'
+  | 'save-as' | 'copy' | 'delete' | 'cancel' | 'confirm';
 
 export interface ShortcutBinding {
   command: KnouxCommandId;
   accelerator: string;
   enabled: boolean;
   category: KnouxCommandCategory;
+  context: KnouxCommandContext;
 }
 
 export type RecordingToolbarButtonId =
@@ -23,9 +26,24 @@ export type ControlSize = 'small' | 'medium' | 'large';
 export interface RecordingToolbarSettings {
   order: RecordingToolbarButtonId[];
   hidden: RecordingToolbarButtonId[];
+  visible: boolean;
   mode: RecordingToolbarMode;
   size: ControlSize;
+  location: 'top' | 'bottom' | 'floating';
   position: { x: number; y: number };
+  alwaysOnTop: boolean;
+  hideFromCapture: boolean;
+}
+
+export interface QuickAccessToolbarSettings {
+  visible: boolean;
+  order: KnouxCommandId[];
+  hidden: KnouxCommandId[];
+  mode: 'full' | 'compact' | 'floating';
+  size: ControlSize;
+  location: 'top' | 'bottom' | 'floating';
+  position: { x: number; y: number };
+  workspaceCommands: Record<string, KnouxCommandId[]>;
 }
 
 export type StudioPresetKind = 'capture' | 'recording' | 'export' | 'slideshow' | 'audio-tools' | 'image-export' | 'video-editing';
@@ -97,38 +115,90 @@ export const STUDIO_PRESET_KINDS: readonly StudioPresetKind[] = [
 ];
 
 export const DEFAULT_SHORTCUTS: ShortcutBinding[] = [
-  { command: 'play-pause', accelerator: 'Space', enabled: true, category: 'playback' },
-  { command: 'stop', accelerator: 'KeyS', enabled: true, category: 'playback' },
-  { command: 'seek-backward', accelerator: 'ArrowLeft', enabled: true, category: 'playback' },
-  { command: 'seek-forward', accelerator: 'ArrowRight', enabled: true, category: 'playback' },
-  { command: 'frame-step-backward', accelerator: 'Shift+ArrowLeft', enabled: true, category: 'playback' },
-  { command: 'frame-step-forward', accelerator: 'Shift+ArrowRight', enabled: true, category: 'playback' },
-  { command: 'screenshot', accelerator: 'Ctrl+Shift+KeyS', enabled: true, category: 'recording' },
-  { command: 'record-start-stop', accelerator: 'Ctrl+Shift+KeyR', enabled: true, category: 'recording' },
-  { command: 'record-pause-resume', accelerator: 'Ctrl+Shift+KeyP', enabled: true, category: 'recording' },
-  { command: 'region-capture', accelerator: 'Ctrl+Shift+KeyC', enabled: true, category: 'recording' },
-  { command: 'split-clip', accelerator: 'KeyB', enabled: true, category: 'editing' },
-  { command: 'trim-in', accelerator: 'KeyI', enabled: true, category: 'editing' },
-  { command: 'trim-out', accelerator: 'KeyO', enabled: true, category: 'editing' },
-  { command: 'undo', accelerator: 'Ctrl+KeyZ', enabled: true, category: 'editing' },
-  { command: 'redo', accelerator: 'Ctrl+Shift+KeyZ', enabled: true, category: 'editing' },
-  { command: 'save', accelerator: 'Ctrl+KeyS', enabled: true, category: 'file' },
-  { command: 'export', accelerator: 'Ctrl+KeyE', enabled: true, category: 'file' },
-  { command: 'fullscreen', accelerator: 'KeyF', enabled: true, category: 'workspace' },
-  { command: 'theater-mode', accelerator: 'KeyT', enabled: true, category: 'workspace' },
-  { command: 'mute', accelerator: 'KeyM', enabled: true, category: 'playback' },
-  { command: 'volume-up', accelerator: 'ArrowUp', enabled: true, category: 'playback' },
-  { command: 'volume-down', accelerator: 'ArrowDown', enabled: true, category: 'playback' },
-  { command: 'open-file', accelerator: 'Ctrl+KeyO', enabled: true, category: 'file' },
+  { command: 'open-file', accelerator: 'Ctrl+KeyO', enabled: true, category: 'file', context: 'global' },
+  { command: 'open-library-folder', accelerator: 'Ctrl+Shift+KeyO', enabled: true, category: 'file', context: 'global' },
+  { command: 'play-pause', accelerator: 'Space', enabled: true, category: 'playback', context: 'player' },
+  { command: 'stop', accelerator: 'KeyS', enabled: true, category: 'playback', context: 'player' },
+  { command: 'seek-backward', accelerator: 'ArrowLeft', enabled: true, category: 'playback', context: 'player' },
+  { command: 'seek-forward', accelerator: 'ArrowRight', enabled: true, category: 'playback', context: 'player' },
+  { command: 'frame-step-backward', accelerator: 'Shift+ArrowLeft', enabled: true, category: 'playback', context: 'player' },
+  { command: 'frame-step-forward', accelerator: 'Shift+ArrowRight', enabled: true, category: 'playback', context: 'player' },
+  { command: 'screenshot', accelerator: 'Ctrl+Shift+KeyS', enabled: true, category: 'capture', context: 'player' },
+  { command: 'copy', accelerator: 'Ctrl+Shift+KeyC', enabled: true, category: 'capture', context: 'capture' },
+  { command: 'record-start-stop', accelerator: 'Ctrl+Shift+KeyR', enabled: true, category: 'recording', context: 'global' },
+  { command: 'record-pause-resume', accelerator: 'Ctrl+Shift+KeyP', enabled: true, category: 'recording', context: 'recording' },
+  { command: 'region-capture', accelerator: 'Ctrl+Shift+KeyS', enabled: true, category: 'capture', context: 'capture' },
+  { command: 'split-clip', accelerator: 'KeyS', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'trim-in', accelerator: 'KeyI', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'trim-out', accelerator: 'KeyO', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'undo', accelerator: 'Ctrl+KeyZ', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'redo', accelerator: 'Ctrl+KeyY', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'save', accelerator: 'Ctrl+KeyS', enabled: true, category: 'file', context: 'editor' },
+  { command: 'save-as', accelerator: 'Ctrl+Shift+KeyS', enabled: true, category: 'file', context: 'editor' },
+  { command: 'export', accelerator: 'Ctrl+KeyE', enabled: true, category: 'file', context: 'editor' },
+  { command: 'fullscreen', accelerator: 'KeyF', enabled: true, category: 'workspace', context: 'player' },
+  { command: 'theater-mode', accelerator: 'KeyT', enabled: true, category: 'workspace', context: 'player' },
+  { command: 'mute', accelerator: 'KeyM', enabled: true, category: 'playback', context: 'player' },
+  { command: 'volume-up', accelerator: 'ArrowUp', enabled: true, category: 'playback', context: 'player' },
+  { command: 'volume-down', accelerator: 'ArrowDown', enabled: true, category: 'playback', context: 'player' },
+  { command: 'delete', accelerator: 'Delete', enabled: true, category: 'editing', context: 'editor' },
+  { command: 'cancel', accelerator: 'Escape', enabled: true, category: 'workspace', context: 'global' },
+  { command: 'confirm', accelerator: 'Enter', enabled: true, category: 'workspace', context: 'global' },
 ];
 
 export const DEFAULT_RECORDING_TOOLBAR: RecordingToolbarSettings = {
   order: [...RECORDING_TOOLBAR_BUTTONS],
   hidden: [],
+  visible: true,
   mode: 'full',
   size: 'medium',
+  location: 'top',
   position: { x: 24, y: 72 },
+  alwaysOnTop: true,
+  hideFromCapture: false,
 };
+
+export const DEFAULT_QUICK_ACCESS_COMMANDS: KnouxCommandId[] = [
+  'open-file', 'open-library-folder', 'play-pause', 'screenshot', 'region-capture', 'record-start-stop', 'export',
+];
+
+export const DEFAULT_QUICK_ACCESS_TOOLBAR: QuickAccessToolbarSettings = {
+  visible: true,
+  order: [...DEFAULT_QUICK_ACCESS_COMMANDS],
+  hidden: [],
+  mode: 'full',
+  size: 'medium',
+  location: 'top',
+  position: { x: 300, y: 44 },
+  workspaceCommands: {},
+};
+
+function workspacePreset(id: string, name: string, visible: WorkspaceModuleId[], commands: KnouxCommandId[]): WorkspacePreset {
+  return {
+    id,
+    name,
+    moduleOrder: [...WORKSPACE_MODULES],
+    hiddenModules: WORKSPACE_MODULES.filter((module) => module !== 'settings' && !visible.includes(module)),
+    sidebarWidth: 252,
+    timelineHeight: id === 'video' ? 360 : 280,
+    panelSizes: { inspector: 320, mediaBin: 280, preview: 520 },
+    collapsedSections: commands.map((command) => `quick:${command}`),
+  };
+}
+
+export const DEFAULT_WORKSPACE_PRESETS: WorkspacePreset[] = [
+  workspacePreset('player', 'Player', ['player', 'library', 'queue'], ['open-file', 'play-pause', 'fullscreen', 'mute']),
+  workspacePreset('library', 'Library', ['library', 'player', 'queue'], ['open-library-folder', 'open-file', 'play-pause']),
+  workspacePreset('recording', 'Recording', ['recording', 'player'], ['record-start-stop', 'record-pause-resume', 'screenshot']),
+  workspacePreset('screenshot', 'Screenshot', ['capture', 'image-editor'], ['screenshot', 'region-capture', 'copy']),
+  workspacePreset('image', 'Image', ['image-editor', 'capture'], ['open-file', 'save', 'save-as', 'export']),
+  workspacePreset('video', 'Video', ['editor', 'player', 'export'], ['split-clip', 'save', 'undo', 'redo', 'export']),
+  workspacePreset('slideshow', 'Slideshow', ['slideshow', 'library', 'export'], ['open-file', 'save', 'export']),
+  workspacePreset('audio', 'Audio', ['audio-tools', 'library', 'export'], ['open-file', 'save', 'export']),
+  workspacePreset('developer', 'Developer', ['settings', 'player'], ['copy', 'cancel', 'confirm']),
+  workspacePreset('minimal', 'Minimal', ['player'], ['open-file', 'play-pause']),
+  workspacePreset('custom', 'Custom', [...WORKSPACE_MODULES], [...DEFAULT_QUICK_ACCESS_COMMANDS]),
+];
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   moduleOrder: [...WORKSPACE_MODULES],
@@ -137,9 +207,9 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   timelineHeight: 280,
   panelSizes: { inspector: 320, mediaBin: 280, preview: 520 },
   collapsedSections: [],
-  selectedWorkspace: 'default',
+  selectedWorkspace: 'player',
   lastOpenedSection: 'player',
-  presets: [],
+  presets: structuredClone(DEFAULT_WORKSPACE_PRESETS),
 };
 
 export const DEFAULT_RECORDING_CONFIGURATION: RecordingConfiguration = {
@@ -198,21 +268,22 @@ export function validateShortcutBindings(value: unknown): ShortcutBinding[] {
     const source = objectValue(entry, `Shortcut ${index + 1}`);
     if (!commands.has(source.command as KnouxCommandId)) throw new TypeError('Shortcut command is unsupported.');
     const defaults = DEFAULT_SHORTCUTS.find((binding) => binding.command === source.command);
-    if (!defaults || source.category !== defaults.category) throw new TypeError('Shortcut category is invalid.');
+    if (!defaults || source.category !== defaults.category || source.context !== defaults.context) throw new TypeError('Shortcut category or context is invalid.');
     const accelerator = boundedString(source.accelerator, 'Shortcut accelerator', 80);
-    if (!/^(?:(?:Ctrl|Alt|Shift|Meta)\+)*(?:Space|Arrow(?:Left|Right|Up|Down)|Key[A-Z]|Digit[0-9]|F(?:[1-9]|1[0-2]))$/i.test(accelerator)) {
+    if (!/^(?:(?:Ctrl|Alt|Shift|Meta)\+)*(?:Space|Enter|Escape|Delete|Arrow(?:Left|Right|Up|Down)|Key[A-Z]|Digit[0-9]|F(?:[1-9]|1[0-2]))$/i.test(accelerator)) {
       throw new TypeError(`Shortcut accelerator is invalid: ${accelerator}`);
     }
     if (typeof source.enabled !== 'boolean') throw new TypeError('Shortcut enabled state must be a boolean.');
-    return { command: source.command as KnouxCommandId, accelerator, enabled: source.enabled, category: defaults.category };
+    return { command: source.command as KnouxCommandId, accelerator, enabled: source.enabled, category: defaults.category, context: defaults.context };
   });
   if (new Set(result.map((binding) => binding.command)).size !== commands.size) throw new TypeError('Shortcut commands must be unique.');
-  const active = new Map<string, KnouxCommandId>();
+  const active: ShortcutBinding[] = [];
   for (const binding of result.filter((entry) => entry.enabled)) {
     const normalized = normalizeAccelerator(binding.accelerator);
-    const conflict = active.get(normalized);
-    if (conflict) throw new TypeError(`Shortcut conflict: ${conflict} and ${binding.command}.`);
-    active.set(normalized, binding.command);
+    const conflict = active.find((entry) => normalizeAccelerator(entry.accelerator) === normalized
+      && (entry.context === 'global' || binding.context === 'global' || entry.context === binding.context));
+    if (conflict) throw new TypeError(`Shortcut conflict: ${conflict.command} (${conflict.context}) and ${binding.command} (${binding.context}).`);
+    active.push(binding);
   }
   return result;
 }
@@ -224,16 +295,59 @@ export function validateRecordingToolbar(value: unknown): RecordingToolbarSettin
   const hidden = exactStringSet(source.hidden, RECORDING_TOOLBAR_BUTTONS, 'Hidden recording controls');
   if (!['full', 'compact', 'floating'].includes(String(source.mode))) throw new TypeError('Recording toolbar mode is unsupported.');
   if (!['small', 'medium', 'large'].includes(String(source.size))) throw new TypeError('Recording control size is unsupported.');
+  if (!['top', 'bottom', 'floating'].includes(String(source.location))) throw new TypeError('Recording toolbar location is unsupported.');
+  if (typeof source.visible !== 'boolean' || typeof source.alwaysOnTop !== 'boolean' || typeof source.hideFromCapture !== 'boolean') {
+    throw new TypeError('Recording toolbar boolean settings are invalid.');
+  }
   const position = objectValue(source.position, 'Recording controller position');
   return {
     order,
     hidden,
+    visible: source.visible,
     mode: source.mode as RecordingToolbarMode,
     size: source.size as ControlSize,
+    location: source.location as RecordingToolbarSettings['location'],
     position: {
       x: boundedNumber(position.x, 'Controller X', 0, 7680),
       y: boundedNumber(position.y, 'Controller Y', 0, 4320),
     },
+    alwaysOnTop: source.alwaysOnTop,
+    hideFromCapture: source.hideFromCapture,
+  };
+}
+
+const ALL_COMMANDS = DEFAULT_SHORTCUTS.map((binding) => binding.command);
+
+function commandList(value: unknown, label: string, complete = false): KnouxCommandId[] {
+  const result = exactStringSet(value, ALL_COMMANDS, label);
+  if (complete && result.length !== ALL_COMMANDS.length) throw new TypeError(`${label} must contain every command.`);
+  return result;
+}
+
+export function validateQuickAccessToolbar(value: unknown): QuickAccessToolbarSettings {
+  const source = objectValue(value, 'Quick Access toolbar');
+  if (typeof source.visible !== 'boolean') throw new TypeError('Quick Access visibility must be a boolean.');
+  if (!['full', 'compact', 'floating'].includes(String(source.mode))) throw new TypeError('Quick Access mode is unsupported.');
+  if (!['small', 'medium', 'large'].includes(String(source.size))) throw new TypeError('Quick Access size is unsupported.');
+  if (!['top', 'bottom', 'floating'].includes(String(source.location))) throw new TypeError('Quick Access location is unsupported.');
+  const position = objectValue(source.position, 'Quick Access position');
+  const workspaces = objectValue(source.workspaceCommands, 'Quick Access workspace commands');
+  if (Object.keys(workspaces).length > 32) throw new TypeError('Quick Access has too many workspace overrides.');
+  return {
+    visible: source.visible,
+    order: commandList(source.order, 'Quick Access order'),
+    hidden: commandList(source.hidden, 'Quick Access hidden commands'),
+    mode: source.mode as QuickAccessToolbarSettings['mode'],
+    size: source.size as ControlSize,
+    location: source.location as QuickAccessToolbarSettings['location'],
+    position: {
+      x: boundedNumber(position.x, 'Quick Access X', 0, 7680),
+      y: boundedNumber(position.y, 'Quick Access Y', 0, 4320),
+    },
+    workspaceCommands: Object.fromEntries(Object.entries(workspaces).map(([id, commands]) => [
+      boundedString(id, 'Workspace command override id', 100),
+      commandList(commands, `Workspace ${id} commands`),
+    ])),
   };
 }
 

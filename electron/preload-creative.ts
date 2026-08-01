@@ -8,6 +8,8 @@ import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from './creative
 import type { FFmpegCapabilities, FFmpegProgress, ProbeResult } from './creative/ffmpeg-service';
 import type { RecordingSessionSnapshot, RecordingSourceKind } from './creative/recording-service';
 import type {
+  DesktopCaptureOperation,
+  DesktopCaptureOperationResult,
   DesktopCaptureRequest,
   DesktopCaptureResult,
 } from './creative/region-capture-service';
@@ -85,7 +87,15 @@ export const creativeAPI = {
     getDesktopSources: (): Promise<DesktopCaptureSource[]> => invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP_SOURCES),
     captureDesktop: (request: DesktopCaptureRequest): Promise<DesktopCaptureResult | null> =>
       invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP, request),
-    completeRegionSelection: (payload: { token: string; x: number; y: number; width: number; height: number }): void =>
+    listRetained: (): Promise<DesktopCaptureOperationResult> =>
+      invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP, { operation: 'list-retained' } satisfies DesktopCaptureOperation),
+    retainedAction: (retainedId: string, action: 'get' | 'copy' | 'pin' | 'unpin' | 'delete'): Promise<DesktopCaptureOperationResult> =>
+      invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP, { operation: 'retained-action', retainedId, action } satisfies DesktopCaptureOperation),
+    createUploadConsent: (retainedId: string, provider: 'google-lens' | 'google-image-search'): Promise<DesktopCaptureOperationResult> =>
+      invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP, { operation: 'create-upload-consent', retainedId, provider } satisfies DesktopCaptureOperation),
+    resolveUploadConsent: (consentId: string, accepted: boolean): Promise<DesktopCaptureOperationResult> =>
+      invokeDesktop(IPC_INVOKE.CAPTURE_DESKTOP, { operation: 'resolve-upload-consent', consentId, accepted } satisfies DesktopCaptureOperation),
+    completeRegionSelection: (payload: { token: string; x: number; y: number; width: number; height: number; activation?: 'capture' | 'action-menu' }): void =>
       sendDesktop(IPC_INBOUND.CAPTURE_SELECTOR_COMPLETE, payload),
     cancelRegionSelection: (token: string): void =>
       sendDesktop(IPC_INBOUND.CAPTURE_SELECTOR_CANCEL, token),

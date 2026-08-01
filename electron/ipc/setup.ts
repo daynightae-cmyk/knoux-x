@@ -26,7 +26,7 @@ import type { AuthoritativeIpcRegistry, IpcRegistrar } from './registry';
 import { cancelledDialogResult, validateFileDialogOptions } from './file-dialog-policy';
 
 const authorizedPaths = authorizedMediaPaths;
-const deterministicDialogCancellation = process.argv.includes('--ipc-smoke-test');
+const deterministicDialogCancellation = process.argv.includes('--ipc-smoke-test') || process.argv.includes('--sprint-02-smoke');
 
 function dialogOwner(event: IpcMainInvokeEvent): BrowserWindow {
   const owner = BrowserWindow.fromWebContents(event.sender);

@@ -9,6 +9,7 @@ import {
   APPLICATION_SETTINGS_SCHEMA_VERSION,
   createApplicationSettingsExport,
   DEFAULT_APPLICATION_SETTINGS,
+  migrateApplicationSettings,
   parseApplicationSettings,
   parseApplicationSettingsExport,
   validateApplicationSetting,
@@ -260,8 +261,9 @@ export class SettingsManager extends EventEmitter {
     const decoded = JSON.parse(raw) as StoredSettingsDocument | ApplicationSettings;
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) throw new Error('Settings document must be an object.');
     if ('settings' in decoded) {
-      if (![1, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
-      return { settings: parseApplicationSettings(decoded.settings), migrated: decoded.schemaVersion !== APPLICATION_SETTINGS_SCHEMA_VERSION };
+      if (![1, 2, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(decoded.schemaVersion)) throw new Error('Settings schema is unsupported.');
+      const migrated = decoded.schemaVersion !== APPLICATION_SETTINGS_SCHEMA_VERSION;
+      return { settings: migrated ? migrateApplicationSettings(decoded.settings) : parseApplicationSettings(decoded.settings), migrated };
     }
     return { settings: parseApplicationSettings(decoded), migrated: true };
   }

@@ -51,9 +51,12 @@ type SettingsCategory =
   | 'customization'
   | 'storage'
   | 'privacy'
+  | 'developer'
+  | 'diagnostics'
   | 'about';
 
 type RuntimeInfo = Awaited<ReturnType<Window['knouxAPI']['system']['getInfo']>>;
+type IpcHealth = Awaited<ReturnType<Window['knouxAPI']['system']['getIpcHealth']>>;
 
 interface Category {
   id: SettingsCategory;
@@ -110,6 +113,7 @@ export const SettingsView: React.FC = () => {
   const [settings, setSettings] = useState<ApplicationSettings | null>(null);
   const [captureDirectory, setCaptureDirectory] = useState<string | null>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
+  const [ipcHealth, setIpcHealth] = useState<IpcHealth | null>(null);
   const [audioDevices, setAudioDevices] = useState<AudioDeviceOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +137,8 @@ export const SettingsView: React.FC = () => {
     { id: 'customization', labelKey: 'settings.customization', icon: <SlidersHorizontal size={18} /> },
     { id: 'storage', labelKey: 'settings.storage', icon: <HardDrive size={18} /> },
     { id: 'privacy', labelKey: 'settings.privacy', icon: <ShieldCheck size={18} /> },
+    { id: 'developer', labelKey: 'settings.developerCenter', icon: <SlidersHorizontal size={18} /> },
+    { id: 'diagnostics', labelKey: 'settings.diagnostics', icon: <HardDrive size={18} /> },
     { id: 'about', labelKey: 'settings.about', icon: <Info size={18} /> },
   ], []);
 
@@ -178,6 +184,10 @@ export const SettingsView: React.FC = () => {
       setAudioDevices(devices);
     }
   }, [t]);
+
+  const refreshIpcHealth = useCallback(async (): Promise<void> => {
+    setIpcHealth(await window.knouxAPI.system.getIpcHealth());
+  }, []);
 
   useEffect(() => {
     void loadSettings();
@@ -338,7 +348,11 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <section className="creative-view settings-view settings-runtime-view" aria-labelledby="settings-title">
+    <section
+      className="creative-view settings-view settings-runtime-view"
+      aria-labelledby="settings-title"
+      data-sprint02-surface={category === 'about' ? 'About' : category === 'developer' ? 'Developer Center' : category === 'diagnostics' ? 'Diagnostics' : 'Settings'}
+    >
       <header className="creative-header">
         <div>
           <span className="creative-eyebrow">KNOUX Player X · Local Preferences</span>
@@ -512,6 +526,40 @@ export const SettingsView: React.FC = () => {
                 <div><ShieldCheck size={22} /><span><strong>{t('settings.localPersistence')}</strong><small>{t('settings.losslessPersistence')}</small></span></div>
                 <div><BotOff size={22} /><span><strong>{t('settings.noTelemetry')}</strong><small>{t('settings.optionalAI')}</small></span></div>
                 <div><HardDrive size={22} /><span><strong>{t('settings.mediaOffline')}</strong><small>{t('settings.ffmpegVerified')}</small></span></div>
+              </div>
+            </NeonPanel>
+          )}
+
+          {category === 'developer' && (
+            <NeonPanel variant="dark" padding="lg" data-component="DeveloperCenter">
+              <h2>{t('settings.developerCenter')}</h2>
+              <p>Typed command, IPC, build identity, and packaged-runtime foundation.</p>
+              <dl className="about-grid">
+                <div><dt>Version</dt><dd>{runtimeInfo?.version ?? '—'}</dd></div>
+                <div><dt>SHA</dt><dd>{runtimeInfo?.sha ?? '—'}</dd></div>
+                <div><dt>Branch</dt><dd>{runtimeInfo?.branch ?? '—'}</dd></div>
+                <div><dt>Runtime</dt><dd>{runtimeInfo?.packaged ? 'Packaged Desktop' : 'Development Desktop'}</dd></div>
+              </dl>
+              <div className="developer-actions">
+                <NeonButton data-command-id="developer.refresh-build" variant="secondary" onClick={() => void loadRuntimeDetails()}>Refresh build identity</NeonButton>
+                <NeonButton data-command-id="developer.copy-build" variant="secondary" disabled={!runtimeInfo} onClick={() => void navigator.clipboard.writeText(JSON.stringify(runtimeInfo, null, 2))}>Copy build identity</NeonButton>
+              </div>
+            </NeonPanel>
+          )}
+
+          {category === 'diagnostics' && (
+            <NeonPanel variant="dark" padding="lg" data-component="DiagnosticsFoundation">
+              <h2>{t('settings.diagnostics')}</h2>
+              <p>Authoritative startup IPC state and recorder diagnostics share the packaged runtime.</p>
+              <dl className="about-grid">
+                <div><dt>Status</dt><dd>{ipcHealth?.status ?? 'Not sampled'}</dd></div>
+                <div><dt>Exposed</dt><dd>{ipcHealth?.exposed.length ?? '—'}</dd></div>
+                <div><dt>Registered</dt><dd>{ipcHealth?.registered.length ?? '—'}</dd></div>
+                <div><dt>Missing</dt><dd>{ipcHealth?.missing.length ?? '—'}</dd></div>
+              </dl>
+              <div className="developer-actions">
+                <NeonButton data-command-id="diagnostics.refresh" variant="secondary" onClick={() => void refreshIpcHealth()}>Refresh diagnostics</NeonButton>
+                <NeonButton data-command-id="diagnostics.open-overlay" variant="secondary" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, shiftKey: true }))}>Open live diagnostics</NeonButton>
               </div>
             </NeonPanel>
           )}

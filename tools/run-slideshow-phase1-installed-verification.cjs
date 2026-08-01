@@ -382,19 +382,36 @@ class CdpDriver {
     );
     if (!info) throw new Error(`Range not found: ${id}`);
     const steps = Math.round((Number(value) - info.min) / info.step);
-    const before = await this.ensureVisible(expression);
-    nativeSetRange(
-      before.rect.x + before.rect.width / 2,
-      before.rect.y + before.rect.height / 2,
-      steps,
-      id,
-      before.viewportWidth,
-      before.viewport
-    );
-    await sleep(250);
-    const after = await (cdp || this).controlState(expression);
+    let before;
+    let after;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      before = await this.ensureVisible(expression);
+      nativeSetRange(
+        before.rect.x + before.rect.width / 2,
+        before.rect.y + before.rect.height / 2,
+        steps,
+        attempt === 0 ? id : `${id}:range-retry-${attempt}`,
+        before.viewportWidth,
+        before.viewport
+      );
+      await sleep(250);
+      after = await (cdp || this).controlState(expression);
+      if (
+        after &&
+        Math.abs(Number(after.value) - Number(value)) <= Math.abs(info.step) / 2
+      )
+        break;
+      await progress('native-input:range-reacquire', {
+        id,
+        attempt: attempt + 1,
+        expected: Number(value),
+        observed: after?.value ?? null,
+      });
+    }
     if (!after || Math.abs(Number(after.value) - Number(value)) > Math.abs(info.step) / 2)
-      throw new Error(`Visible range did not reach ${value}: ${id}`);
+      throw new Error(
+        `Visible range did not reach ${value}: ${id}; observed ${after?.value ?? 'missing'} after 3 attempts`
+      );
     await recordAction(
       id,
       'keyboard-range',

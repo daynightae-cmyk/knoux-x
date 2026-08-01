@@ -49,6 +49,10 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain('nativeFill(');
     expect(source).toContain('Visible text fill did not reach the requested value');
     expect(source).toContain('await activeDriver.controlState(expression)');
+    expect(source).toContain('attempt < 3');
+    expect(source).toContain('native-input:range-reacquire');
+    expect(source).toContain("`${id}:range-retry-${attempt}`");
+    expect(source).toContain('observed ${after?.value');
     const captureSource = fs.readFileSync(
       path.resolve(__dirname, '../../tools/slideshow-phase1-capture-window.ps1'),
       'utf8'

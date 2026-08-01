@@ -32,7 +32,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_RENDERER_TIMEOUT ' + label); await wait(50); }
     };
     await waitFor(() => window.__knouxSprint02 && document.querySelector('.app-shell'), 'command runtime');
-    const firstRunClose = document.querySelector('.first-run-dialog header button');
+    const firstRunClose = document.querySelector('.first-run-backdrop .first-run-header button');
     if (firstRunClose) firstRunClose.click();
     await wait(100);
     const routeLabels = ['Player','Library','Queue','Captures','Recorder','Editor','Image Editor','Slideshow','Audio Tools','Export','Settings'];
@@ -114,7 +114,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
     if (!settingsNav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING Settings');
     settingsNav.click(); await wait(350);
-    const reopenedTour = document.querySelector('.first-run-dialog header button');
+    const reopenedTour = document.querySelector('.first-run-backdrop .first-run-header button');
     if (reopenedTour) { reopenedTour.click(); await wait(100); }
     try { await waitFor(() => document.querySelector('.settings-creative-nav [data-settings-category="developer"]'), 'settings categories'); }
     catch (error) { throw new Error(String(error.message || error) + ' view=' + (document.querySelector('.view-transition')?.textContent || '').slice(0, 800)); }
@@ -215,10 +215,10 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     const waitFor = async (predicate, label, timeout = 10000) => { const started = Date.now(); while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_UI_PROOF_TIMEOUT ' + label); await wait(50); } };
     const closeTour = async () => {
       window.localStorage.setItem('knoux-player-x:first-run-tour:v1', 'complete');
-      if (document.querySelector('.first-run-dialog')) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      const close = document.querySelector('.first-run-dialog header button');
+      if (document.querySelector('.first-run-backdrop')) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      const close = document.querySelector('.first-run-backdrop .first-run-header button');
       if (close) close.click();
-      await waitFor(() => !document.querySelector('.first-run-dialog'), 'tour close');
+      await waitFor(() => !document.querySelector('.first-run-backdrop'), 'tour close');
     };
     await closeTour();
     const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
@@ -248,7 +248,7 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
       await waitFor(() => document.querySelector('[role="menu"][aria-label="Retained capture actions"]'), 'retained action menu');
       const menu = document.querySelector('[role="menu"][aria-label="Retained capture actions"]');
       await wait(300); await closeTour(); await wait(200);
-      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)), tourVisible: Boolean(document.querySelector('.first-run-dialog')) };
+      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)), tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
     }
     await waitFor(() => document.querySelector('.view-transition[data-sprint02-surface="Recorder"]'), 'recorder surface');
     await wait(900);
@@ -256,7 +256,7 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     const controls = [...recorder.querySelectorAll('button, input, select')].filter((entry) => !entry.closest('[hidden]'));
     controls.find((entry) => !entry.disabled)?.focus();
     await closeTour(); await wait(200);
-    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.querySelector('.recording-live-metrics')), tourVisible: Boolean(document.querySelector('.first-run-dialog')) };
+    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.querySelector('.recording-live-metrics')), tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
   })()`, true) as Promise<Record<string, unknown>>;
 }
 

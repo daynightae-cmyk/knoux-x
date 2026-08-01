@@ -99,7 +99,11 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         retainedRecordIds.push(actionId);
       }
       const currentInventory = window.__knouxSprint02.inventory();
-      surfaces[label] = { currentView: current, records: retainedRecordIds.map((actionId) => currentInventory.find((record) => record.id === actionId)) };
+      surfaces[label] = { currentView: current, records: retainedRecordIds.map((actionId) => {
+        const censused = records.find((record) => record.id === actionId);
+        const exercised = currentInventory.find((record) => record.id === actionId);
+        return exercised && censused ? { ...exercised, status: censused.status, disabledReason: censused.disabledReason, enabledCondition: censused.enabledCondition } : exercised;
+      }) };
     };
     for (const label of routeLabels) await visit(label);
     const settingsNav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === 'Settings');
@@ -123,7 +127,10 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         activations.push({ surface: label, id: record.id, status: record.status, traces: after - before, disabledReason: record.disabledReason, skippedUnsafe: false });
       }
       const currentInventory = window.__knouxSprint02.inventory();
-      surfaces[label] = { records: records.map((record) => currentInventory.find((entry) => entry.id === record.id)) };
+      surfaces[label] = { records: records.map((record) => {
+        const exercised = currentInventory.find((entry) => entry.id === record.id);
+        return exercised ? { ...exercised, status: record.status, disabledReason: record.disabledReason, enabledCondition: record.enabledCondition } : exercised;
+      }) };
     }
     const persistenceProbe = { phase: ${JSON.stringify(phase)}, written: null, read: null };
     if (persistenceProbe.phase === 'initial') {

@@ -67,8 +67,8 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     };
     for (const label of routeLabels) await visit(label);
     await visit('Settings');
-    for (const label of ['Developer Center', 'About', 'Diagnostics']) {
-      const category = [...document.querySelectorAll('.settings-creative-nav button')].find((button) => button.textContent?.trim() === label);
+    for (const [label, categoryId] of [['Developer Center','developer'], ['About','about'], ['Diagnostics','diagnostics']]) {
+      const category = document.querySelector('.settings-creative-nav [data-settings-category="' + categoryId + '"]');
       if (!category) throw new Error('SPRINT02_SETTINGS_SURFACE_MISSING ' + label);
       category.click(); await wait(250); window.__knouxSprint02.refresh();
       surfaces[label] = { records: window.__knouxSprint02.inventory().filter((record) => record.page === label) };

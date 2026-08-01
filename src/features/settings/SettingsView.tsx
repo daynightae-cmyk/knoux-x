@@ -373,7 +373,7 @@ export const SettingsView: React.FC = () => {
       <div className="settings-creative-layout settings-runtime-layout">
         <NeonPanel variant="dark" padding="sm" className="settings-creative-nav">
           {visibleCategories.map((entry) => (
-            <button key={entry.id} type="button" className={category === entry.id ? 'active' : ''} onClick={() => setCategory(entry.id)}>
+            <button key={entry.id} type="button" data-settings-category={entry.id} className={category === entry.id ? 'active' : ''} onClick={() => setCategory(entry.id)}>
               {entry.icon}<span>{t(entry.labelKey)}</span>
             </button>
           ))}

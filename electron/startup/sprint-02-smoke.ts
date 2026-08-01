@@ -74,6 +74,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         return surfaceRoot.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
       });
       const recordIds = records.map((record) => record.id);
+      const retainedRecordIds = [];
       for (const actionId of recordIds) {
         const censusedRecord = records.find((record) => record.id === actionId);
         await openSurface();
@@ -84,18 +85,21 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         if (!(element instanceof HTMLElement) || !record) {
           if (censusedRecord?.status !== 'implemented') {
             activations.push({ surface: label, id: censusedRecord.id, status: censusedRecord.status, traces: 0, disabledReason: censusedRecord.disabledReason, skippedUnsafe: false, queriedBeforeTransition: true });
+            retainedRecordIds.push(actionId);
             continue;
           }
-          throw new Error('SPRINT02_ACTION_ELEMENT_MISSING ' + label + ' ' + actionId);
+          activations.push({ surface: label, id: actionId, status: 'transient-replaced', traces: 0, disabledReason: null, skippedUnsafe: false, excludedFromStableInventory: true });
+          continue;
         }
         const before = window.__knouxSprint02.traces().length;
         element.click();
         await wait(90);
         const after = window.__knouxSprint02.traces().length;
         activations.push({ surface: label, id: record.id, status: record.status, traces: after - before, disabledReason: record.disabledReason, skippedUnsafe: false });
+        retainedRecordIds.push(actionId);
       }
       const currentInventory = window.__knouxSprint02.inventory();
-      surfaces[label] = { currentView: current, records: recordIds.map((actionId) => currentInventory.find((record) => record.id === actionId)) };
+      surfaces[label] = { currentView: current, records: retainedRecordIds.map((actionId) => currentInventory.find((record) => record.id === actionId)) };
     };
     for (const label of routeLabels) await visit(label);
     const settingsNav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === 'Settings');

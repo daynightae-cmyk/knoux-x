@@ -93,8 +93,8 @@ function main() {
     const uiProof = initial.evidence.uiProof || [];
     const captureProofs = uiProof.filter((entry) => entry.target === 'Captures');
     const recorderProofs = uiProof.filter((entry) => entry.target === 'Recorder');
-    if (captureProofs.length !== 2 || !captureProofs.every((entry) => entry.menuVisible && entry.menuItems >= 10 && entry.focusInsideMenu && !entry.tourVisible) || !captureProofs.some((entry) => entry.direction === 'ltr') || !captureProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_CAPTURE_MENU_RTL_PROOF_FAILED');
-    if (recorderProofs.length !== 2 || !recorderProofs.every((entry) => entry.controls >= 10 && entry.focusedControl && entry.telemetryVisible && !entry.tourVisible) || !recorderProofs.some((entry) => entry.direction === 'ltr') || !recorderProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_RECORDER_RTL_PROOF_FAILED');
+    if (captureProofs.length !== 2 || !captureProofs.every((entry) => entry.menuVisible && entry.menuInViewport && entry.menuItems >= 10 && entry.focusInsideMenu && !entry.tourVisible) || !captureProofs.some((entry) => entry.direction === 'ltr') || !captureProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_CAPTURE_MENU_RTL_PROOF_FAILED');
+    if (recorderProofs.length !== 2 || !recorderProofs.every((entry) => entry.controls >= 10 && entry.focusedControl && entry.telemetryVisible && entry.surfaceInViewport && !entry.tourVisible) || !recorderProofs.some((entry) => entry.direction === 'ltr') || !recorderProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_RECORDER_RTL_PROOF_FAILED');
     const screenshotFiles = Object.values(initial.evidence.screenshots || {});
     if (screenshotFiles.length !== 4 || !screenshotFiles.every((filePath) => path.isAbsolute(filePath) && fs.existsSync(filePath) && fs.statSync(filePath).size > 10_000)) throw new Error('SPRINT02_UI_SCREENSHOT_PROOF_FAILED');
     waitForFile(stubConfig.requestEvidencePath);

@@ -240,6 +240,8 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     targetNav.click();
     await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === expectedView, target + ' view');
     await closeTour();
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) { mainContent.scrollTop = 0; mainContent.scrollLeft = 0; }
     if (target === 'Captures') {
       await waitFor(() => document.querySelector('.capture-result-preview'), 'retained capture preview');
       const preview = document.querySelector('.capture-result-preview');
@@ -247,16 +249,20 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
       preview.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true }));
       await waitFor(() => document.querySelector('[role="menu"][aria-label="Retained capture actions"]'), 'retained action menu');
       const menu = document.querySelector('[role="menu"][aria-label="Retained capture actions"]');
+      preview.scrollIntoView({ block: 'center', inline: 'center' });
       await wait(300); await closeTour(); await wait(200);
-      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)), tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
+      const menuRect = menu?.getBoundingClientRect();
+      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuInViewport: Boolean(menuRect && menuRect.bottom > 0 && menuRect.top < window.innerHeight && menuRect.right > 0 && menuRect.left < window.innerWidth), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)), tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
     }
     await waitFor(() => document.querySelector('.view-transition[data-sprint02-surface="Recorder"]'), 'recorder surface');
     await wait(900);
     const recorder = document.querySelector('.view-transition[data-sprint02-surface="Recorder"]');
+    recorder.scrollIntoView({ block: 'start', inline: 'nearest' });
     const controls = [...recorder.querySelectorAll('button, input, select')].filter((entry) => !entry.closest('[hidden]'));
     controls.find((entry) => !entry.disabled)?.focus();
     await closeTour(); await wait(200);
-    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.querySelector('.recording-live-metrics')), tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
+    const recorderRect = recorder.getBoundingClientRect();
+    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.querySelector('.recording-live-metrics')), surfaceInViewport: recorderRect.bottom > 0 && recorderRect.top < window.innerHeight, tourVisible: Boolean(document.querySelector('.first-run-backdrop')) };
   })()`, true) as Promise<Record<string, unknown>>;
 }
 

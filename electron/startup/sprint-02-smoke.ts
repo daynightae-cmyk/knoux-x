@@ -66,10 +66,14 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       }
     };
     for (const label of routeLabels) await visit(label);
-    await visit('Settings');
+    const settingsNav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === 'Settings');
+    if (!settingsNav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING Settings');
+    settingsNav.click(); await wait(350);
+    const reopenedTour = document.querySelector('.first-run-dialog header button');
+    if (reopenedTour) { reopenedTour.click(); await wait(100); }
     for (const [label, categoryId] of [['Developer Center','developer'], ['About','about'], ['Diagnostics','diagnostics']]) {
       const category = document.querySelector('.settings-creative-nav [data-settings-category="' + categoryId + '"]');
-      if (!category) throw new Error('SPRINT02_SETTINGS_SURFACE_MISSING ' + label);
+      if (!category) throw new Error('SPRINT02_SETTINGS_SURFACE_MISSING ' + label + ' debug=' + JSON.stringify({ currentView: document.querySelector('.app-shell')?.dataset.currentView, categories: [...document.querySelectorAll('[data-settings-category]')].map((entry) => ({ id: entry.getAttribute('data-settings-category'), text: entry.textContent?.trim() })) }));
       category.click(); await wait(250); window.__knouxSprint02.refresh();
       surfaces[label] = { records: window.__knouxSprint02.inventory().filter((record) => record.page === label) };
       const action = document.querySelector('.settings-runtime-content [data-action-id]');

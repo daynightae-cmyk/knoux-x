@@ -140,7 +140,9 @@ export function createSprint02CommandRuntime(root: HTMLElement): Sprint02Command
     const ordinals = new Map<string, number>();
     for (const element of candidates) {
       if (element.closest('[data-inventory-exclude="true"]')) continue;
-      const surface = elementSurface(element);
+      const detectedSurface = elementSurface(element);
+      const surface = (element.dataset.actionSurface as Sprint02Surface | undefined) ?? detectedSurface;
+      element.dataset.actionSurface = surface;
       const label = actionLabel(element);
       const base = `${slug(surface)}.${slug(label)}`;
       const ordinal = (ordinals.get(base) ?? 0) + 1;

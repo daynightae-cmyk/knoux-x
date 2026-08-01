@@ -109,8 +109,28 @@ class CdpDriver {
   call(method, params = {}) {
     return new Promise((resolve, reject) => {
       const id = ++this.nextId;
-      this.pending.set(id, { resolve, reject });
-      this.socket.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        if (!this.pending.has(id)) return;
+        this.pending.delete(id);
+        reject(new Error(`CDP ${method} timed out`));
+      }, 10_000);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (reason) => {
+          clearTimeout(timer);
+          reject(reason);
+        },
+      });
+      try {
+        this.socket.send(JSON.stringify({ id, method, params }));
+      } catch (reason) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(reason);
+      }
     });
   }
 
@@ -452,49 +472,81 @@ async function launch() {
     { detached: false, windowsHide: false, stdio: ['ignore', stdout, stderr] }
   );
   progress('launch:spawned', { pid: appProcess.pid });
-  const deadline = Date.now() + 30_000;
-  let target;
-  let stableTargetId = null;
-  let stableTargetPolls = 0;
+  const deadline = Date.now() + 45_000;
+  let connectionAttempt = 0;
   while (Date.now() < deadline) {
-    try {
-      const targets = await getJson(`http://127.0.0.1:${port}/json`);
-      target = targets.find((entry) => entry.type === 'page');
-      if (target?.id === stableTargetId) stableTargetPolls += 1;
-      else {
-        stableTargetId = target?.id || null;
-        stableTargetPolls = target ? 1 : 0;
+    let target;
+    let stableTargetId = null;
+    let stableTargetPolls = 0;
+    while (Date.now() < deadline && stableTargetPolls < 12) {
+      try {
+        const targets = await getJson(`http://127.0.0.1:${port}/json`);
+        target = targets.find((entry) => entry.type === 'page');
+        if (target?.id === stableTargetId) stableTargetPolls += 1;
+        else {
+          stableTargetId = target?.id || null;
+          stableTargetPolls = target ? 1 : 0;
+        }
+      } catch {
+        target = undefined;
+        stableTargetId = null;
+        stableTargetPolls = 0;
       }
-      if (target && stableTargetPolls >= 5) break;
-    } catch {}
-    await sleep(250);
+      await sleep(200);
+    }
+    if (!target) break;
+    connectionAttempt += 1;
+    progress('launch:target', { targetId: target.id, connectionAttempt });
+    const socket = new WebSocket(target.webSocketDebuggerUrl);
+    try {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('CDP WebSocket open timed out')), 10_000);
+        socket.once('open', () => {
+          clearTimeout(timer);
+          resolve();
+        });
+        socket.once('error', (reason) => {
+          clearTimeout(timer);
+          reject(reason);
+        });
+      });
+      cdp = new CdpDriver(socket, target, appProcess.pid);
+      progress('launch:socket', { connectionAttempt });
+      await cdp.call('Network.enable');
+      await cdp.call('Page.enable');
+      await cdp.waitFor(
+        'document.readyState',
+        (value) => value === 'complete',
+        12_000,
+        'installed DOM ready'
+      );
+      progress('launch:dom-ready', { connectionAttempt });
+      await cdp.waitFor(
+        `Boolean(document.querySelector('button.nav-item'))`,
+        Boolean,
+        12_000,
+        'React navigation mount'
+      );
+      const currentTargets = await getJson(`http://127.0.0.1:${port}/json`);
+      const currentTarget = currentTargets.find((entry) => entry.type === 'page');
+      if (currentTarget?.id !== target.id)
+        throw new Error(`Renderer target changed from ${target.id} to ${currentTarget?.id || 'none'}`);
+      progress('launch:react-ready', { connectionAttempt });
+      return appProcess.pid;
+    } catch (reason) {
+      progress('launch:target-retry', {
+        connectionAttempt,
+        targetId: target.id,
+        reason: reason instanceof Error ? reason.message : String(reason),
+      });
+      try {
+        cdp?.close();
+        socket.close();
+      } catch {}
+      await sleep(250);
+    }
   }
-  if (!target) throw new Error(`Installed app did not expose CDP on ${port}.`);
-  progress('launch:target', { targetId: target.id });
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    socket.once('open', resolve);
-    socket.once('error', reject);
-  });
-  cdp = new CdpDriver(socket, target, appProcess.pid);
-  progress('launch:socket');
-  await cdp.call('Network.enable');
-  await cdp.call('Page.enable');
-  await cdp.waitFor(
-    'document.readyState',
-    (value) => value === 'complete',
-    20_000,
-    'installed DOM ready'
-  );
-  progress('launch:dom-ready');
-  await cdp.waitFor(
-    `Boolean(document.querySelector('button.nav-item'))`,
-    Boolean,
-    20_000,
-    'React navigation mount'
-  );
-  progress('launch:react-ready');
-  return appProcess.pid;
+  throw new Error(`Installed app did not expose a stable React CDP target on ${port}.`);
 }
 
 async function closeVisible(id) {

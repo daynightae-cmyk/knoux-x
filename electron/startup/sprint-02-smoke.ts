@@ -71,6 +71,8 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     settingsNav.click(); await wait(350);
     const reopenedTour = document.querySelector('.first-run-dialog header button');
     if (reopenedTour) { reopenedTour.click(); await wait(100); }
+    try { await waitFor(() => document.querySelector('.settings-creative-nav [data-settings-category="developer"]'), 'settings categories'); }
+    catch (error) { throw new Error(String(error.message || error) + ' view=' + (document.querySelector('.view-transition')?.textContent || '').slice(0, 800)); }
     for (const [label, categoryId] of [['Developer Center','developer'], ['About','about'], ['Diagnostics','diagnostics']]) {
       const category = document.querySelector('.settings-creative-nav [data-settings-category="' + categoryId + '"]');
       if (!category) throw new Error('SPRINT02_SETTINGS_SURFACE_MISSING ' + label + ' debug=' + JSON.stringify({ currentView: document.querySelector('.app-shell')?.dataset.currentView, categories: [...document.querySelectorAll('[data-settings-category]')].map((entry) => ({ id: entry.getAttribute('data-settings-category'), text: entry.textContent?.trim() })) }));

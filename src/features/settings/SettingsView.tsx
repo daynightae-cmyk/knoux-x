@@ -328,7 +328,7 @@ export const SettingsView: React.FC = () => {
   }, [t]);
 
   if (!settings) {
-    return <section className="creative-view"><div className="creative-loading">{t('settings.loadFailed')}</div></section>;
+    return <section className="creative-view"><div className={error ? 'creative-error' : 'creative-loading'}>{error ?? t('settings.loadFailed')}</div></section>;
   }
 
   const toggle = (key: ApplicationSettingKey, labelKey: string, description?: string): React.ReactElement => {

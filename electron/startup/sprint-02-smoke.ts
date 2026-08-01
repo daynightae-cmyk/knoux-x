@@ -213,7 +213,8 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
   return window.webContents.executeJavaScript(`(async () => {
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const waitFor = async (predicate, label, timeout = 10000) => { const started = Date.now(); while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_UI_PROOF_TIMEOUT ' + label); await wait(50); } };
-    document.querySelector('.first-run-dialog header button')?.click();
+    const closeTour = async () => { const close = document.querySelector('.first-run-dialog header button'); if (close) { close.click(); await waitFor(() => !document.querySelector('.first-run-dialog'), 'tour close'); } };
+    await closeTour();
     const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
     if (!settingsNav) throw new Error('SPRINT02_UI_PROOF_SETTINGS_NAV_MISSING');
     settingsNav.click();
@@ -225,12 +226,14 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     language.value = ${JSON.stringify(locale)};
     language.dispatchEvent(new Event('change', { bubbles: true }));
     await waitFor(() => document.documentElement.dir === ${JSON.stringify(locale === 'ar' ? 'rtl' : 'ltr')}, 'document direction');
+    await closeTour();
     const target = ${JSON.stringify(target)};
     const expectedView = target === 'Captures' ? 'capture' : 'recording';
     const targetNav = document.querySelector('.nav-item[data-view-id="' + expectedView + '"]');
     if (!targetNav) throw new Error('SPRINT02_UI_PROOF_TARGET_NAV_MISSING ' + target);
     targetNav.click();
     await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === expectedView, target + ' view');
+    await closeTour();
     if (target === 'Captures') {
       await waitFor(() => document.querySelector('.capture-result-preview'), 'retained capture preview');
       const preview = document.querySelector('.capture-result-preview');
@@ -241,6 +244,7 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
       return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)) };
     }
     await waitFor(() => document.querySelector('[data-sprint02-surface="Recorder"]'), 'recorder surface');
+    await wait(900);
     const recorder = document.querySelector('[data-sprint02-surface="Recorder"]');
     const controls = [...recorder.querySelectorAll('button, input, select')].filter((entry) => !entry.closest('[hidden]'));
     controls.find((entry) => !entry.disabled)?.focus();

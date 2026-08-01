@@ -19,6 +19,7 @@ import type { NewProjectRequest, SaveProjectRequest } from '../creative/project-
 import type { BeginRecordingRequest } from '../creative/recording-service';
 import type { DesktopCaptureOperation, DesktopCaptureOperationResult, RegionAspectPreset } from '../creative/region-capture-service';
 import type { SlideshowRenderSnapshot } from '../creative/slideshow-render-service';
+import type { SlideshowAssetFamily } from '../creative/slideshow-asset-service';
 import type { LibraryQuery, ScanProgress } from '../library/library-service';
 
 export type StructuredValue =
@@ -161,12 +162,20 @@ export interface InvokeArgumentMap {
   'slideshow:cancel-render': [jobId: string];
   'slideshow:clear-recent': [];
   'slideshow:create': [name: string, template: SlideshowTemplate];
+  'slideshow:import-files': [];
+  'slideshow:import-folder': [];
   'slideshow:open': [];
+  'slideshow:open-output': [jobId: string];
   'slideshow:open-recent': [filePath: string];
+  'slideshow:preflight': [project: SlideshowProject];
   'slideshow:recent': [];
+  'slideshow:recover-backup': [originalPath: string, quarantinePath: string, backupPath: string];
   'slideshow:recoveries': [];
+  'slideshow:relink-file': [family: SlideshowAssetFamily];
+  'slideshow:relink-folder': [project: SlideshowProject];
   'slideshow:render': [project: SlideshowProject, format: SlideshowRenderFormat];
   'slideshow:render-jobs': [];
+  'slideshow:reveal-output': [jobId: string];
   'slideshow:save': [project: SlideshowProject, filePath?: string, saveAs?: boolean];
   'subtitle:delay': [delay: number];
   'subtitle:download': [subtitleId: string];
@@ -219,7 +228,7 @@ export interface InvokeResultMap {
   'player:load': VoidResult; 'player:loop': VoidResult; 'player:muted': VoidResult; 'player:next': VoidResult; 'player:pause': VoidResult; 'player:play': VoidResult; 'player:previous': VoidResult; 'player:rate': VoidResult; 'player:seek': VoidResult; 'player:shuffle': VoidResult; 'player:state': object; 'player:stop': VoidResult; 'player:volume': VoidResult;
   'recording-region:select': object | null; 'recording:append': object; 'recording:begin': object | null; 'recording:cancel': object; 'recording:finish': object; 'recording:list': object[]; 'recording:pause': object; 'recording:resume': object; 'recording:show-item': VoidResult;
   'settings:export': string; 'settings:get': StructuredValue | undefined; 'settings:get-all': object; 'settings:import': VoidResult; 'settings:reset': VoidResult; 'settings:set': VoidResult;
-  'slideshow:autosave': string; 'slideshow:cancel-render': boolean; 'slideshow:clear-recent': VoidResult; 'slideshow:create': object; 'slideshow:open': object | null; 'slideshow:open-recent': object; 'slideshow:recent': string[]; 'slideshow:recoveries': object[]; 'slideshow:render': object | null; 'slideshow:render-jobs': object[]; 'slideshow:save': string | null;
+  'slideshow:autosave': string; 'slideshow:cancel-render': boolean; 'slideshow:clear-recent': VoidResult; 'slideshow:create': object; 'slideshow:import-files': object; 'slideshow:import-folder': object; 'slideshow:open': object | null; 'slideshow:open-output': VoidResult; 'slideshow:open-recent': object; 'slideshow:preflight': object[]; 'slideshow:recent': string[]; 'slideshow:recover-backup': object; 'slideshow:recoveries': object[]; 'slideshow:relink-file': object | null; 'slideshow:relink-folder': object; 'slideshow:render': object | null; 'slideshow:render-jobs': object[]; 'slideshow:reveal-output': VoidResult; 'slideshow:save': string | null;
   'subtitle:delay': VoidResult; 'subtitle:download': string; 'subtitle:enabled': VoidResult; 'subtitle:load': VoidResult; 'subtitle:reload': object; 'subtitle:search': object[]; 'subtitle:select': object | null; 'subtitle:settings': object; 'subtitle:style': VoidResult; 'subtitle:sync-ai': VoidResult; 'subtitle:translate-ai': VoidResult;
   'system:get-build-info': object; 'system:get-ipc-health': object; 'system:info': object; 'system:memory': object; 'system:open-external': VoidResult; 'system:show-item': VoidResult;
   'video:brightness': VoidResult; 'video:contrast': VoidResult; 'video:crop': VoidResult; 'video:gamma': VoidResult; 'video:hue': VoidResult; 'video:saturation': VoidResult; 'video:screenshot': string; 'video:settings': object; 'video:zoom': VoidResult;

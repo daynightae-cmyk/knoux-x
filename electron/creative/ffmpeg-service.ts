@@ -42,6 +42,7 @@ export interface ProbeResult {
   streams?: Array<{
     codec_type?: string;
     codec_name?: string;
+    pix_fmt?: string;
     width?: number;
     height?: number;
     sample_rate?: string;
@@ -50,6 +51,7 @@ export interface ProbeResult {
     avg_frame_rate?: string;
     r_frame_rate?: string;
     nb_read_frames?: string;
+    nb_read_packets?: string;
   }>;
 }
 
@@ -161,6 +163,7 @@ export class FFmpegService {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       this.jobs.set(jobId, child);
+      onProgress?.({ jobId });
       let stdout = '';
       let stderr = '';
 
@@ -211,6 +214,7 @@ export class FFmpegService {
       '-show_format',
       '-show_streams',
       '-count_frames',
+      '-count_packets',
       '-of', 'json',
       resolved,
     ]);

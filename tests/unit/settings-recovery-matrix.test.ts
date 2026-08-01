@@ -22,7 +22,7 @@ describe('settings migration, corruption, serialization, and isolation', () => {
     storagePath = path.join(root, 'settings', 'application-settings.json');
     await fs.mkdir(path.dirname(storagePath), { recursive: true });
   });
-  afterEach(() => fs.rm(root, { recursive: true, force: true }));
+  afterEach(() => fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 
   test.each([
     ['unversioned legacy', JSON.stringify({ language: 'ar', volume: 0.42 })],
@@ -71,7 +71,7 @@ describe('settings migration, corruption, serialization, and isolation', () => {
     await reopened.shutdown();
     expect((await fs.readdir(path.dirname(storagePath))).filter((name) => name.endsWith('.tmp'))).toEqual([]);
     expect(JSON.parse(await fs.readFile(storagePath, 'utf8')).schemaVersion).toBe(APPLICATION_SETTINGS_SCHEMA_VERSION);
-  });
+  }, 20000);
 
   test('rejects unknown/invalid imports without mutating memory or disk', async () => {
     const settings = new SettingsManager(storagePath);

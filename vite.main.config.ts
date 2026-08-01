@@ -8,8 +8,19 @@ function gitValue(args: string[]): string {
   return value;
 }
 
+function currentBranch(): string {
+  // `git branch --show-current` is empty on a detached HEAD, which is how CI
+  // checks out pull-request and tag builds. Fall back to the CI-provided
+  // branch/ref name in that case instead of failing the build.
+  const local = execFileSync('git', ['branch', '--show-current'], { cwd: __dirname, encoding: 'utf8' }).trim();
+  if (local) return local;
+  const ci = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME;
+  if (ci) return ci;
+  throw new Error('Build identity command returned no value: git branch --show-current');
+}
+
 const buildSha = gitValue(['rev-parse', 'HEAD']);
-const buildBranch = gitValue(['branch', '--show-current']);
+const buildBranch = currentBranch();
 const buildTimestamp = new Date().toISOString();
 
 if (!/^[0-9a-f]{40}$/i.test(buildSha) || /^(unknown|dev)$/i.test(buildBranch)) {

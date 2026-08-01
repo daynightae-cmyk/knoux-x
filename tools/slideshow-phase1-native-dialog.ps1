@@ -368,7 +368,7 @@ $payload = if ($PayloadBase64) {
   [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64)) | ConvertFrom-Json
 } else { @() }
 
-$dialogState = Get-DialogState
+$dialogState = Get-DialogState -TimeoutSeconds 20
 $dialog = $dialogState.Dialog
 $title = Get-WindowTextValue $dialog
 $controls = @($dialogState.Controls)

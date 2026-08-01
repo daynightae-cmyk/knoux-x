@@ -722,7 +722,7 @@ function nativeDialog(mode, payload, id, confirmOverwrite = false) {
     screenshotPath,
   ];
   if (confirmOverwrite) args.push('-ConfirmOverwrite');
-  const output = execFileSync('powershell.exe', args, { encoding: 'utf8', timeout: 30_000 }).trim();
+  const output = execFileSync('powershell.exe', args, { encoding: 'utf8', timeout: 45_000 }).trim();
   const record = { ...JSON.parse(output.split(/\r?\n/).at(-1)), id, expectedHead };
   if (fs.existsSync(screenshotPath)) record.screenshotSha256 = hashFile(screenshotPath);
   appendJsonLine(dialogLog, record);

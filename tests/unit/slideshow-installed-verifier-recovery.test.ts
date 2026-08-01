@@ -13,6 +13,7 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain('[Windows.Automation.AutomationElement]::ProcessIdProperty');
     expect(source).toContain('$Dialog = [IntPtr]::Zero');
     expect(source).toContain('[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)');
+    expect(source).toContain('$dialogState = Get-DialogState -TimeoutSeconds 20');
     expect(source).toContain("Wait-DialogClosed $dialog 'Native Save dialog'");
     expect(source).toContain("Wait-DialogClosed $overwriteDialog 'Native overwrite dialog'");
   });
@@ -25,6 +26,7 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain('async function connectRenderer');
     expect(source).toContain('if (!appIsAlive())');
     expect(source).toContain('attempt < 8');
+    expect(source).toContain("timeout: 45_000");
     expect(source).toContain("type: 'mouseReleased'");
     expect(source).toContain("type: 'keyUp'");
     expect(source).toContain('pointer-recovered-after-uncertain-press');

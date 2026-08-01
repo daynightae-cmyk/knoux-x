@@ -38,6 +38,7 @@ public static class KnouxNativeDialog {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, string lParam);
   [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
   public struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
 }
 '@
@@ -204,6 +205,23 @@ function Click-Control([IntPtr]$Handle) {
   Start-Sleep -Milliseconds 180
 }
 
+function Confirm-DialogDismissed([IntPtr]$Dialog, [object[]]$AutomationControls) {
+  $deadline = [DateTime]::UtcNow.AddSeconds(2)
+  while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
+    Start-Sleep -Milliseconds 100
+  }
+  if ([KnouxNativeDialog]::IsWindow($Dialog)) {
+    Invoke-AutomationButton $AutomationControls '1' 'Save' | Out-Null
+    $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
+      Start-Sleep -Milliseconds 100
+    }
+  }
+  if ([KnouxNativeDialog]::IsWindow($Dialog)) {
+    throw 'Native Save dialog remained open after visible confirmation.'
+  }
+}
+
 function Click-DialogAddress([IntPtr]$Handle) {
   $bounds = [KnouxNativeDialog+Rect]::new()
   if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
@@ -365,6 +383,7 @@ if ($Mode -eq 'Cancel') {
       Invoke-AutomationButton $automationControls '1' 'Save' -Asynchronous | Out-Null
     } else {
       Click-Control $button.Handle
+      Confirm-DialogDismissed $dialog $automationControls
     }
   }
 }

@@ -1742,6 +1742,41 @@ export const SlideshowView: React.FC = () => {
               }
             />
           </label>
+          <label>
+            <span>{l('Global transition', 'الانتقال العام')}</span>
+            <select
+              data-testid="slideshow-global-transition"
+              value={project.defaultTransition}
+              onChange={(event) =>
+                commit({
+                  ...project,
+                  defaultTransition: event.target.value as SlideshowTransition,
+                })
+              }
+            >
+              {transitions.map((entry) => (
+                <option key={entry}>{entry}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{l('Global transition duration', 'مدة الانتقال العام')}</span>
+            <input
+              data-testid="slideshow-global-transition-duration"
+              type="number"
+              min="0"
+              max="86400"
+              step="0.05"
+              value={project.defaultTransitionDuration}
+              disabled={project.defaultTransition === 'none'}
+              onChange={(event) =>
+                commit({
+                  ...project,
+                  defaultTransitionDuration: clamp(Number(event.target.value), 0, 86_400),
+                })
+              }
+            />
+          </label>
           <NeonButton
             variant="ghost"
             size="sm"

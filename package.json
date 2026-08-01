@@ -29,6 +29,7 @@
     "verify:sprint-02": "node tools/run-sprint-02-verification.cjs",
     "verify:browser-preview": "node tools/verify-browser-preview.cjs",
     "phase1:fixtures": "node tools/create-slideshow-phase1-fixtures.cjs",
+    "phase1:installed-verify": "node tools/run-slideshow-phase1-installed-verification.cjs",
     "brand:manifest": "node tools/validate-brand-assets.cjs --write",
     "brand:verify": "node tools/validate-brand-assets.cjs",
     "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"

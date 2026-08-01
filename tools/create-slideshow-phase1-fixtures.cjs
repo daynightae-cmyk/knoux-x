@@ -9,12 +9,13 @@ const sharp = require('sharp');
 const root = path.resolve(
   process.argv[2] || path.join('reports', 'offline-creative-studio', 'phase-01', 'fixtures')
 );
-const photos = path.join(root, 'photos');
-const nested = path.join(root, 'nested-import', 'level-1', 'level-2');
+const visuals = path.join(root, 'visuals');
+const photos = path.join(visuals, 'photos');
+const nested = path.join(visuals, 'nested-import', 'level-1', 'level-2');
 const audio = path.join(root, 'audio');
 const outputs = path.join(root, 'outputs');
 
-for (const directory of [root, photos, nested, audio, outputs]) {
+for (const directory of [root, visuals, photos, nested, audio, outputs]) {
   fs.mkdirSync(directory, { recursive: true });
 }
 
@@ -52,20 +53,44 @@ async function createFixtures() {
 
   for (let index = 21; index <= 22; index += 1) {
     const filePath = path.join(nested, `nested-photo-${String(index).padStart(2, '0')}.png`);
-    await sharp(photoSvg(index, 1024, 576)).png().toFile(filePath);
+    await sharp(photoSvg(index, 1024, 576))
+      .png()
+      .toFile(filePath);
   }
 
   const watermarkPath = path.join(root, 'knoux-watermark.png');
   await sharp(
-    Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="180"><rect x="4" y="4" width="592" height="172" rx="30" fill="#140b2f" fill-opacity=".86" stroke="#ae8cff" stroke-width="8"/><circle cx="88" cy="90" r="47" fill="#ae8cff"/><path d="M66 90l18 18 32-39" fill="none" stroke="#120922" stroke-width="14"/><text x="158" y="112" font-family="Segoe UI,Arial" font-size="66" font-weight="800" fill="#fff">KNOUX</text></svg>`)
-  ).png().toFile(watermarkPath);
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="180"><rect x="4" y="4" width="592" height="172" rx="30" fill="#140b2f" fill-opacity=".86" stroke="#ae8cff" stroke-width="8"/><circle cx="88" cy="90" r="47" fill="#ae8cff"/><path d="M66 90l18 18 32-39" fill="none" stroke="#120922" stroke-width="14"/><text x="158" y="112" font-family="Segoe UI,Arial" font-size="66" font-weight="800" fill="#fff">KNOUX</text></svg>`
+    )
+  )
+    .png()
+    .toFile(watermarkPath);
 
-  const videoPath = path.join(root, 'marker-video.mp4');
+  const videoPath = path.join(visuals, 'marker-video.mp4');
   runFfmpeg([
-    '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30:duration=8',
-    '-f', 'lavfi', '-i', 'sine=frequency=330:sample_rate=48000:duration=8',
-    '-vf', "drawtext=font='Segoe UI':text='VIDEO %{pts\\:hms}':fontcolor=white:fontsize=64:box=1:boxcolor=black@0.65:x=48:y=48,drawbox=x='100+100*t':y=500:w=100:h=100:color=yellow@0.9:t=fill",
-    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '160k', '-shortest', videoPath,
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc2=size=1280x720:rate=30:duration=8',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=330:sample_rate=48000:duration=8',
+    '-vf',
+    "drawtext=font='Segoe UI':text='VIDEO %{pts\\:hms}':fontcolor=white:fontsize=64:box=1:boxcolor=black@0.65:x=48:y=48,drawbox=x='100+100*t':y=500:w=100:h=100:color=yellow@0.9:t=fill",
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-preset',
+    'veryfast',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '160k',
+    '-shortest',
+    videoPath,
   ]);
 
   const audioSpecs = [
@@ -77,25 +102,54 @@ async function createFixtures() {
   for (const [name, mainTone, markerTone] of audioSpecs) {
     const outputPath = path.join(audio, name);
     runFfmpeg([
-      '-f', 'lavfi', '-i', `sine=frequency=${mainTone}:sample_rate=48000:duration=14`,
-      '-f', 'lavfi', '-i', `sine=frequency=${markerTone}:sample_rate=48000:duration=0.35`,
-      '-filter_complex', '[0:a]volume=0.35[main];[1:a]volume=0.8,adelay=0|0[start];[1:a]volume=0.8,adelay=13650|13650[end];[main][start][end]amix=inputs=3:normalize=0,alimiter=limit=0.96[out]',
-      '-map', '[out]', '-c:a', 'pcm_s16le', outputPath,
+      '-f',
+      'lavfi',
+      '-i',
+      `sine=frequency=${mainTone}:sample_rate=48000:duration=14`,
+      '-f',
+      'lavfi',
+      '-i',
+      `sine=frequency=${markerTone}:sample_rate=48000:duration=0.35`,
+      '-filter_complex',
+      '[0:a]volume=0.35[main];[1:a]volume=0.8,adelay=0|0[start];[1:a]volume=0.8,adelay=13650|13650[end];[main][start][end]amix=inputs=3:normalize=0,alimiter=limit=0.96[out]',
+      '-map',
+      '[out]',
+      '-c:a',
+      'pcm_s16le',
+      outputPath,
     ]);
   }
 
-  fs.writeFileSync(path.join(root, 'unsupported.txt'), 'KNOUX unsupported fixture\n', 'utf8');
-  fs.writeFileSync(path.join(nested, 'unsupported.bin'), Buffer.from([0x4b, 0x4e, 0x4f, 0x55, 0x58]));
+  fs.writeFileSync(path.join(visuals, 'unsupported.txt'), 'KNOUX unsupported fixture\n', 'utf8');
+  fs.writeFileSync(
+    path.join(nested, 'unsupported.bin'),
+    Buffer.from([0x4b, 0x4e, 0x4f, 0x55, 0x58])
+  );
 
   const preexisting = path.join(outputs, 'phase-01-final.mp4');
   runFfmpeg([
-    '-f', 'lavfi', '-i', 'color=c=red:size=640x360:rate=30:duration=1',
-    '-f', 'lavfi', '-i', 'sine=frequency=180:sample_rate=48000:duration=1',
-    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', preexisting,
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=red:size=640x360:rate=30:duration=1',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=180:sample_rate=48000:duration=1',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-shortest',
+    preexisting,
   ]);
 
   const files = [];
-  for (const filePath of fs.readdirSync(root, { recursive: true }).map((entry) => path.join(root, entry))) {
+  for (const filePath of fs
+    .readdirSync(root, { recursive: true })
+    .map((entry) => path.join(root, entry))) {
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) continue;
     if (path.basename(filePath) === 'manifest.json') continue;
     files.push({
@@ -112,7 +166,11 @@ async function createFixtures() {
     root,
     files,
   };
-  fs.writeFileSync(path.join(root, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    'utf8'
+  );
   process.stdout.write(`${JSON.stringify(manifest, null, 2)}\n`);
 }
 

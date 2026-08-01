@@ -41,14 +41,16 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
     const activations = [];
     const visit = async (label) => {
       const openSurface = async () => {
+        let navigated = false;
         if (document.querySelector('.app-shell')?.dataset.currentView !== routeViewIds[label]) {
           const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
           if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
           nav.click();
+          navigated = true;
         }
         await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === routeViewIds[label], 'current view ' + label);
         await waitFor(() => [...document.querySelectorAll('.view-transition')].some((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label), 'surface ' + label);
-        await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
+        if (navigated) await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
       };
       await openSurface();
       window.__knouxSprint02.refresh();

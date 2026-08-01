@@ -42,16 +42,18 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
       if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
       nav.click();
+      await waitFor(() => [...document.querySelectorAll('.view-transition')].some((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label), 'surface ' + label);
       await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
       window.__knouxSprint02.refresh();
       const current = document.querySelector('.app-shell')?.dataset.currentView;
+      const surfaceRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);
+      if (!(surfaceRoot instanceof HTMLElement)) throw new Error('SPRINT02_SURFACE_ROOT_MISSING ' + label);
       const records = window.__knouxSprint02.inventory().filter((record) => {
         if (record.page !== label) return false;
-        const element = document.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
-        return element && element.closest('.view-transition');
+        return surfaceRoot.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
       });
       surfaces[label] = { currentView: current, records };
-      const elements = [...document.querySelectorAll('.view-transition [data-action-id]')];
+      const elements = [...surfaceRoot.querySelectorAll('[data-action-id]')];
       for (const element of elements) {
         if (!(element instanceof HTMLElement) || !element.isConnected) continue;
         const record = window.__knouxSprint02.inventory().find((entry) => entry.id === element.dataset.actionId);

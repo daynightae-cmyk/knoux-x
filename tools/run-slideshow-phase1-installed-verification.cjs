@@ -22,6 +22,7 @@ const projects = path.join(evidenceRoot, 'projects');
 const outputs = path.join(evidenceRoot, 'outputs');
 const actionLog = path.join(evidenceRoot, 'actions.jsonl');
 const dialogLog = path.join(evidenceRoot, 'native-dialogs.jsonl');
+const progressLog = path.join(evidenceRoot, 'progress.jsonl');
 const nativeHelper = path.resolve('tools', 'slideshow-phase1-native-dialog.ps1');
 const port = Number(argument('--port', '9337'));
 
@@ -49,6 +50,11 @@ function hashFile(filePath) {
 
 function appendJsonLine(filePath, value) {
   fs.appendFileSync(filePath, `${JSON.stringify(value)}\n`, 'utf8');
+}
+
+function progress(stage, detail = {}) {
+  appendJsonLine(progressLog, { at: new Date().toISOString(), stage, ...detail });
+  process.stdout.write(`[phase1] ${stage}\n`);
 }
 
 function sleep(milliseconds) {
@@ -94,6 +100,10 @@ class CdpDriver {
         });
       }
     });
+    socket.on('close', () => {
+      for (const pending of this.pending.values()) pending.reject(new Error('CDP socket closed'));
+      this.pending.clear();
+    });
   }
 
   call(method, params = {}) {
@@ -122,15 +132,17 @@ class CdpDriver {
 
   async controlState(expression) {
     return this.read(
-      `(()=>{const e=${expression};if(!e)return null;const r=e.getBoundingClientRect();return {tag:e.tagName,text:(e.innerText||'').trim().slice(0,400),aria:e.getAttribute('aria-label'),testid:e.getAttribute('data-testid'),value:'value'in e?e.value:null,checked:'checked'in e?e.checked:null,disabled:'disabled'in e?e.disabled:null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:innerHeight}})()`
+      `(()=>{let e;try{e=${expression}}catch{return null}if(!e)return null;const r=e.getBoundingClientRect();return {tag:e.tagName,text:(e.innerText||'').trim().slice(0,400),aria:e.getAttribute('aria-label'),testid:e.getAttribute('data-testid'),value:'value'in e?e.value:null,checked:'checked'in e?e.checked:null,disabled:'disabled'in e?e.disabled:null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:innerHeight}})()`
     );
   }
 
-  async ensureVisible(expression) {
+  async ensureVisible(expression, allowViewportTop = false) {
     for (let attempt = 0; attempt < 28; attempt += 1) {
       const state = await this.controlState(expression);
       if (!state) throw new Error(`Visible control not found: ${expression}`);
-      if (state.rect.y >= 96 && state.rect.y + state.rect.height <= state.viewport - 40)
+      const topBoundary = allowViewportTop ? 0 : 96;
+      const bottomBoundary = allowViewportTop ? state.viewport : state.viewport - 40;
+      if (state.rect.y >= topBoundary && state.rect.y + state.rect.height <= bottomBoundary)
         return state;
       const deltaY =
         state.rect.y < 96
@@ -148,8 +160,10 @@ class CdpDriver {
     throw new Error(`Unable to scroll visible control into view: ${expression}`);
   }
 
-  async pointerClick(expression, id, screenshotName) {
-    const before = await this.ensureVisible(expression);
+  async pointerClick(expression, id, screenshotName, allowViewportTop = false) {
+    progress('pointer-click:start', { id });
+    const before = await this.ensureVisible(expression, allowViewportTop);
+    progress('pointer-click:visible', { id });
     if (before.disabled) throw new Error(`Control is disabled: ${id}`);
     const x = before.rect.x + before.rect.width / 2;
     const y = before.rect.y + before.rect.height / 2;
@@ -177,6 +191,7 @@ class CdpDriver {
       await this.controlState(expression),
       screenshotName
     );
+    progress('pointer-click:complete', { id });
   }
 
   async key(key, options = {}) {
@@ -423,6 +438,7 @@ function getJson(url) {
 }
 
 async function launch() {
+  progress('launch:start', { launchCount: launchCount + 1 });
   launchCount += 1;
   const stdout = fs.openSync(path.join(evidenceRoot, `installed-stdout-${launchCount}.log`), 'a');
   const stderr = fs.openSync(path.join(evidenceRoot, `installed-stderr-${launchCount}.log`), 'a');
@@ -435,23 +451,33 @@ async function launch() {
     ],
     { detached: false, windowsHide: false, stdio: ['ignore', stdout, stderr] }
   );
+  progress('launch:spawned', { pid: appProcess.pid });
   const deadline = Date.now() + 30_000;
   let target;
+  let stableTargetId = null;
+  let stableTargetPolls = 0;
   while (Date.now() < deadline) {
     try {
       const targets = await getJson(`http://127.0.0.1:${port}/json`);
       target = targets.find((entry) => entry.type === 'page');
-      if (target) break;
+      if (target?.id === stableTargetId) stableTargetPolls += 1;
+      else {
+        stableTargetId = target?.id || null;
+        stableTargetPolls = target ? 1 : 0;
+      }
+      if (target && stableTargetPolls >= 5) break;
     } catch {}
     await sleep(250);
   }
   if (!target) throw new Error(`Installed app did not expose CDP on ${port}.`);
+  progress('launch:target', { targetId: target.id });
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.once('open', resolve);
     socket.once('error', reject);
   });
   cdp = new CdpDriver(socket, target, appProcess.pid);
+  progress('launch:socket');
   await cdp.call('Network.enable');
   await cdp.call('Page.enable');
   await cdp.waitFor(
@@ -460,11 +486,60 @@ async function launch() {
     20_000,
     'installed DOM ready'
   );
+  progress('launch:dom-ready');
+  await cdp.waitFor(
+    `Boolean(document.querySelector('button.nav-item'))`,
+    Boolean,
+    20_000,
+    'React navigation mount'
+  );
+  progress('launch:react-ready');
   return appProcess.pid;
 }
 
 async function closeVisible(id) {
-  await cdp.pointerClick(button('Close KNOUX Player X'), id, `${id}-close`);
+  const expression = button('Close KNOUX Player X');
+  progress('pointer-click:start', { id });
+  const before = await cdp.ensureVisible(expression, true);
+  progress('pointer-click:visible', { id });
+  const runtime = await cdp.metadata();
+  const screenshot = await cdp.screenshot(`${id}-close`);
+  const record = {
+    at: new Date().toISOString(),
+    id,
+    pid: appProcess.pid,
+    expectedHead,
+    executable,
+    input: 'pointer-close',
+    selector: expression,
+    dom: { before, after: null },
+    runtime,
+    screenshot,
+  };
+  actions.push(record);
+  appendJsonLine(actionLog, record);
+  const x = before.rect.x + before.rect.width / 2;
+  const y = before.rect.y + before.rect.height / 2;
+  try {
+    await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    await cdp.call('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    });
+    await cdp.call('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    });
+  } catch (reason) {
+    if (!String(reason).includes('CDP socket closed')) throw reason;
+  }
+  progress('pointer-click:complete', { id });
   cdp.close();
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline && !appProcess.killed) {
@@ -600,6 +675,7 @@ async function openRecent(id) {
 }
 
 async function main() {
+  progress('main:start');
   const visualRoot = path.join(fixtureRoot, 'visuals');
   const photos = Array.from({ length: 20 }, (_, index) =>
     path.join(visualRoot, 'photos', `photo-${String(index + 1).padStart(2, '0')}.jpg`)
@@ -614,9 +690,11 @@ async function main() {
   const job2Output = path.join(fixtureRoot, 'outputs', 'phase-01-final.mp4');
 
   await launch();
+  progress('main:first-launch-complete');
   const firstRunVisible = await cdp.read(
     `document.body.innerText.includes('First-run setup tour')`
   );
+  progress('main:first-run-state', { firstRunVisible });
   if (firstRunVisible) {
     await cdp.pointerClick(
       button('العربية\nواجهة كاملة من اليمين إلى اليسار'),
@@ -848,11 +926,12 @@ async function main() {
   await cdp.pointerClick(button('Save As'), 'U13-save-as-activate');
   nativeDialog('Save', [projectPath], 'U13-save-as');
   await cdp.waitFor(
-    `document.body.innerText.includes('Saved')||document.body.innerText.includes('تم الحفظ')`,
+    `(()=>{const b=${button('Save As')};return Boolean(b&&!b.disabled)})()`,
     Boolean,
     15_000,
     'Save As complete'
   );
+  if (!fs.existsSync(projectPath)) throw new Error(`Save As did not create ${projectPath}`);
   await selectTimeline('photo-02.jpg', 'U13-save-edit-1-select');
   await cdp.fill(labelControl('Caption'), 'Backup version one · النسخة الأولى', 'U13-save-edit-1');
   await cdp.pointerClick(button('Save changes'), 'U13-save-overwrite-1');
@@ -874,12 +953,14 @@ async function main() {
   await navigateSlideshow('U14-restart-navigate');
   const recovery = `[...document.querySelectorAll('.slideshow-project-link')].find(e=>e.innerText.includes('KNOUX Phase 01 Acceptance')&&!e.innerText.includes('.knouxslide'))`;
   await cdp.pointerClick(recovery, 'U14-recover', 'U14-recovered');
+  await selectTimeline('photo-02.jpg', 'U14-recovered-select');
   await cdp.waitFor(
-    `document.body.innerText.includes('AUTOSAVE RECOVERY MARKER 2026')`,
-    Boolean,
+    `(${labelControl('Caption')})?.value||''`,
+    (value) => value === 'AUTOSAVE RECOVERY MARKER 2026',
     10_000,
     'autosave marker recovery'
   );
+  await cdp.screenshot('U14-autosave-marker-visible');
   await closeVisible('U15-close-before-corruption');
 
   const goodProjectBytes = fs.readFileSync(projectPath);
@@ -1000,12 +1081,15 @@ async function main() {
     15_000,
     'job 1 canceled'
   );
-  const completedRows = await cdp.waitFor(
+  const terminalRows = await cdp.waitFor(
     `[...document.querySelectorAll('.slideshow-render-job')].map(e=>e.innerText)`,
-    (rows) => rows.some((row) => row.includes('completed')),
+    (rows) => rows.some((row) => row.includes('completed') || row.includes('failed')),
     900_000,
-    'job 2 completed'
+    'job 2 terminal state'
   );
+  if (!terminalRows.some((row) => row.includes('completed')))
+    throw new Error(`Job 2 failed: ${terminalRows.join(' | ')}`);
+  const completedRows = terminalRows;
   await cdp.screenshot('U21-render-completed');
   const finalOutputHash = hashFile(job2Output);
   appendJsonLine(actionLog, {
@@ -1037,6 +1121,7 @@ async function main() {
     'U22-history-open-reveal'
   );
   await sleep(1500);
+  await closeVisible('U22-final-close');
 
   const summary = {
     success: true,
@@ -1093,5 +1178,9 @@ main().catch(async (error) => {
     'utf8'
   );
   console.error(error);
+  try {
+    cdp?.close();
+    appProcess?.kill();
+  } catch {}
   process.exitCode = 1;
 });

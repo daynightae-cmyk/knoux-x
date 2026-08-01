@@ -91,6 +91,7 @@ describe('KNOUX slideshow render planning', () => {
     expect(graph).toContain('scale=2160:3840');
     expect(graph).toContain('xfade=transition=slideleft');
     expect(graph).toContain('amix=inputs=2');
+    expect(graph).toContain('[aa0][sa1]amix=inputs=2:duration=longest');
     expect(graph).toContain('afade=t=in');
     expect(graph).toContain('afade=t=out');
   });

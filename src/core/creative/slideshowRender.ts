@@ -176,7 +176,8 @@ export function buildSlideshowRenderPlan(
   const ranges = slideTimelineRanges(project.slides);
   const args: string[] = ['-hide_banner', '-nostdin', '-y'];
   const filters: string[] = [];
-  const audioLabels: string[] = [];
+  const slideAudioLabels: string[] = [];
+  const trackAudioLabels: string[] = [];
   const slideOverlays = assets.slideOverlays ?? {};
   const overlayInputIndices = new Map<string, number>();
 
@@ -262,7 +263,7 @@ export function buildSlideshowRenderPlan(
       filters.push(
         `[${index}:a]atrim=start=0:end=${seconds(slide.duration)},asetpts=PTS-STARTPTS,volume=${filterNumber(slide.volume)},adelay=${delay}|${delay}[sa${index}]`
       );
-      audioLabels.push(`[sa${index}]`);
+      slideAudioLabels.push(`[sa${index}]`);
     }
   });
 
@@ -345,7 +346,7 @@ export function buildSlideshowRenderPlan(
       );
     chain.push(`adelay=${delay}|${delay}[aa${audioIndex}]`);
     filters.push(chain.join(','));
-    audioLabels.push(`[aa${audioIndex}]`);
+    trackAudioLabels.push(`[aa${audioIndex}]`);
   });
 
   let finalVideoLabel = currentVideoLabel;
@@ -356,6 +357,11 @@ export function buildSlideshowRenderPlan(
     finalVideoLabel = '[gifout]';
   }
 
+  // Put full-length timeline tracks first. FFmpeg 6.x amix can terminate at the
+  // leading silence boundary when a delayed embedded-video stream is input 0,
+  // even with duration=longest. The order does not change the mix, but prevents
+  // that premature EOF and keeps AAC padded to the persisted project duration.
+  const audioLabels = [...trackAudioLabels, ...slideAudioLabels];
   const hasAudio = format !== 'gif' && audioLabels.length > 0;
   if (hasAudio) {
     filters.push(

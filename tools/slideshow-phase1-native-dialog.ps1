@@ -124,7 +124,7 @@ function Get-AutomationControls([IntPtr]$Dialog) {
   return $items
 }
 
-function Set-AutomationValue([object[]]$Elements, [string]$AutomationId, [string]$Value) {
+function Set-AutomationValue([object[]]$Elements, [string]$AutomationId, [string]$Value, [switch]$Commit) {
   $element = $null
   $pattern = $null
   foreach ($candidate in $Elements) {
@@ -138,9 +138,11 @@ function Set-AutomationValue([object[]]$Elements, [string]$AutomationId, [string
   }
   if (-not $element -or -not $pattern) { throw "Native edit control $AutomationId was not found through UI Automation." }
   $pattern.SetValue($Value)
-  $element.SetFocus()
-  [System.Windows.Forms.SendKeys]::SendWait('{END} {BACKSPACE}')
-  Start-Sleep -Milliseconds 120
+  if ($Commit) {
+    $element.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait('{END} {BACKSPACE}')
+    Start-Sleep -Milliseconds 120
+  }
 }
 
 function Invoke-AutomationButton([object[]]$Elements, [string]$AutomationId, [string]$NamePattern = '', [switch]$Asynchronous) {
@@ -242,11 +244,19 @@ if ($Mode -eq 'Cancel') {
   $text = if ($Mode -eq 'Open' -and $payload.Count -gt 1) {
     ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
   } else { [string]$payload[0] }
-  Set-AutomationValue $automationControls ([string]$controlId) $text
+  if ($Mode -eq 'Open') {
+    [KnouxNativeDialog]::SendMessage($editor.Handle, 0x000C, [IntPtr]::Zero, $text) | Out-Null
+  } else {
+    Set-AutomationValue $automationControls ([string]$controlId) $text -Commit
+  }
   Capture-Window $dialog $ScreenshotPath
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 } | Select-Object -First 1
   if (-not $button) { throw "Native $Mode confirmation button was not found." }
-  Invoke-AutomationButton $automationControls '1' 'Open|Save' -Asynchronous:$ConfirmOverwrite | Out-Null
+  if ($Mode -eq 'Open') {
+    [KnouxNativeDialog]::SendMessage($button.Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+  } else {
+    Invoke-AutomationButton $automationControls '1' 'Save' -Asynchronous:$ConfirmOverwrite | Out-Null
+  }
 }
 
 if ($ConfirmOverwrite) {

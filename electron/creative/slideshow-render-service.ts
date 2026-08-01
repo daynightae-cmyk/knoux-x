@@ -531,6 +531,7 @@ export class SlideshowRenderService {
     const frameCount = numeric(video.nb_read_frames);
     const videoDuration = numeric(video.duration) || numeric(probe.format?.duration);
     const audioDuration = audio ? numeric(audio.duration) || numeric(probe.format?.duration) : null;
+    const audioPacketCount = numeric(audio?.nb_read_packets);
     const { width, height } = slideshowOutputSize(project);
     if (format === 'mp4') {
       if (video.codec_name !== 'h264' || video.pix_fmt !== 'yuv420p')
@@ -547,11 +548,13 @@ export class SlideshowRenderService {
         throw new Error('Rendered slideshow requires an AAC audio stream.');
       if (
         audio &&
-        (numeric(audio.nb_read_packets) <= 0 ||
+        (audioPacketCount <= 0 ||
           audioDuration === null ||
           Math.abs(audioDuration - expectedDuration) > AUDIO_DURATION_TOLERANCE)
       )
-        throw new Error('Rendered slideshow audio packets or duration are invalid.');
+        throw new Error(
+          `Rendered slideshow audio packets or duration are invalid (packets=${audioPacketCount}, duration=${audioDuration ?? 'null'}, expected=${expectedDuration}, tolerance=${AUDIO_DURATION_TOLERANCE}).`
+        );
     }
     const videoPackets = numeric(video.nb_read_packets);
     if (videoPackets <= 0 || frameCount <= 0)
@@ -574,7 +577,7 @@ export class SlideshowRenderService {
         pixelFormat: video.pix_fmt ?? '',
         audioCodec: audio?.codec_name ?? null,
         videoPackets,
-        audioPackets: numeric(audio?.nb_read_packets),
+        audioPackets: audioPacketCount,
       },
     };
   }

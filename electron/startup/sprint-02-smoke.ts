@@ -209,6 +209,45 @@ async function googleAdapterProof(): Promise<Record<string, unknown> | null> {
   return { trustedMainOnly: true, rendererParameterized: false, synthetic: true, ...result };
 }
 
+async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recorder', locale: 'en' | 'ar'): Promise<Record<string, unknown>> {
+  return window.webContents.executeJavaScript(`(async () => {
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const waitFor = async (predicate, label, timeout = 10000) => { const started = Date.now(); while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_UI_PROOF_TIMEOUT ' + label); await wait(50); } };
+    document.querySelector('.first-run-dialog header button')?.click();
+    const settingsNav = [...document.querySelectorAll('.nav-item')].find((entry) => entry.getAttribute('aria-label') === 'Settings');
+    if (!settingsNav) throw new Error('SPRINT02_UI_PROOF_SETTINGS_NAV_MISSING');
+    settingsNav.click();
+    await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === 'settings', 'settings view');
+    await waitFor(() => document.querySelector('[data-settings-category="general"]'), 'general settings');
+    document.querySelector('[data-settings-category="general"]').click();
+    await waitFor(() => [...document.querySelectorAll('.settings-runtime-content select')].some((select) => [...select.options].some((option) => option.value === 'ar') && [...select.options].some((option) => option.value === 'en')), 'language selector');
+    const language = [...document.querySelectorAll('.settings-runtime-content select')].find((select) => [...select.options].some((option) => option.value === 'ar') && [...select.options].some((option) => option.value === 'en'));
+    language.value = ${JSON.stringify(locale)};
+    language.dispatchEvent(new Event('change', { bubbles: true }));
+    await waitFor(() => document.documentElement.dir === ${JSON.stringify(locale === 'ar' ? 'rtl' : 'ltr')}, 'document direction');
+    const target = ${JSON.stringify(target)};
+    const expectedView = target === 'Captures' ? 'capture' : 'recording';
+    const targetNav = [...document.querySelectorAll('.nav-item')].find((entry) => entry.getAttribute('aria-label') === target || entry.textContent?.includes(target));
+    if (!targetNav) throw new Error('SPRINT02_UI_PROOF_TARGET_NAV_MISSING ' + target);
+    targetNav.click();
+    await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === expectedView, target + ' view');
+    if (target === 'Captures') {
+      await waitFor(() => document.querySelector('.capture-result-preview'), 'retained capture preview');
+      const preview = document.querySelector('.capture-result-preview');
+      preview.focus();
+      preview.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true }));
+      await waitFor(() => document.querySelector('[role="menu"][aria-label="Retained capture actions"]'), 'retained action menu');
+      const menu = document.querySelector('[role="menu"][aria-label="Retained capture actions"]');
+      return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, keyboard: 'Shift+F10', menuVisible: Boolean(menu && menu.getClientRects().length), menuItems: menu?.querySelectorAll('[role="menuitem"]').length ?? 0, focusInsideMenu: Boolean(menu?.contains(document.activeElement)) };
+    }
+    await waitFor(() => document.querySelector('[data-sprint02-surface="Recorder"]'), 'recorder surface');
+    const recorder = document.querySelector('[data-sprint02-surface="Recorder"]');
+    const controls = [...recorder.querySelectorAll('button, input, select')].filter((entry) => !entry.closest('[hidden]'));
+    controls.find((entry) => !entry.disabled)?.focus();
+    return { target, locale: ${JSON.stringify(locale)}, direction: document.documentElement.dir, controls: controls.length, focusedControl: document.activeElement?.tagName ?? null, telemetryVisible: Boolean(recorder.textContent?.match(/bytes|frames|duration|البايت|الإطارات/i)) };
+  })()`, true) as Promise<Record<string, unknown>>;
+}
+
 export async function runSprint02Smoke(options: Sprint02SmokeOptions): Promise<void> {
   if (!app.isPackaged) throw new Error('Sprint 02 smoke refuses to run outside a packaged executable.');
   const startedAt = new Date().toISOString();
@@ -216,12 +255,14 @@ export async function runSprint02Smoke(options: Sprint02SmokeOptions): Promise<v
   await fs.mkdir(root, { recursive: true });
   const renderer = await rendererCensus(options.mainWindow, options.phase);
   const evidenceDirectory = path.dirname(options.evidencePath);
-  const screenshotPath = path.join(evidenceDirectory, `ui-${options.phase}-ltr.png`);
-  await fs.writeFile(screenshotPath, (await options.mainWindow.webContents.capturePage()).toPNG());
-  await options.mainWindow.webContents.executeJavaScript(`window.knouxAPI.settings.set('language', 'ar')`, true);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const rtlScreenshotPath = path.join(evidenceDirectory, `ui-${options.phase}-ar.png`);
-  await fs.writeFile(rtlScreenshotPath, (await options.mainWindow.webContents.capturePage()).toPNG());
+  const uiProof: Record<string, unknown>[] = [];
+  const screenshotPaths: Record<string, string> = {};
+  for (const [target, locale, suffix] of [['Captures', 'en', 'capture-ltr'], ['Captures', 'ar', 'capture-ar'], ['Recorder', 'en', 'recorder-ltr'], ['Recorder', 'ar', 'recorder-ar']] as const) {
+    uiProof.push(await prepareUiProof(options.mainWindow, target, locale));
+    const screenshotPath = path.join(evidenceDirectory, `ui-${options.phase}-${suffix}.png`);
+    await fs.writeFile(screenshotPath, (await options.mainWindow.webContents.capturePage()).toPNG());
+    screenshotPaths[suffix] = screenshotPath;
+  }
   const recording = options.phase === 'initial' ? await syntheticRecording(root) : null;
   const googleAdapter = options.phase === 'initial' ? await googleAdapterProof() : null;
   await atomicJson(options.evidencePath, {
@@ -237,7 +278,8 @@ export async function runSprint02Smoke(options: Sprint02SmokeOptions): Promise<v
     renderer,
     recording,
     googleAdapter,
-    screenshots: { ltr: screenshotPath, rtl: rtlScreenshotPath },
+    uiProof,
+    screenshots: screenshotPaths,
     startedAt,
     completedAt: new Date().toISOString(),
   });

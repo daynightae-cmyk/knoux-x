@@ -18,6 +18,7 @@ import type { BeginRecordingRequest } from '../creative/recording-service';
 import { RecordingService } from '../creative/recording-service';
 import type { DesktopCaptureOperation } from '../creative/region-capture-service';
 import { RegionCaptureService } from '../creative/region-capture-service';
+import type { RetainedCaptureSummary } from '../creative/retained-capture-store';
 import type { LibraryQuery } from '../library/library-service';
 import { LibraryService } from '../library/library-service';
 import { authorizedMediaPaths } from '../security/path-registry';
@@ -26,6 +27,7 @@ import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
 import type { IpcRegistrar } from './registry';
 
 export interface CreativeSuiteController {
+  seedSyntheticCaptureForSmoke(): RetainedCaptureSummary;
   shutdown(): Promise<void>;
 }
 
@@ -228,6 +230,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
   }));
 
   return {
+    seedSyntheticCaptureForSmoke: () => regionCapture.seedSyntheticCaptureForSmoke(),
     async shutdown(): Promise<void> {
       regionCapture.close();
       exports.shutdown();

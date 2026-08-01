@@ -113,6 +113,11 @@ export function registerCreativeRuntimeIfPrimary(): void {
   registerCreativeRuntime();
 }
 
+export function seedSprint02SyntheticCapture(): void {
+  if (!process.argv.includes('--sprint-02-smoke') || !controller) throw new Error('Sprint 02 synthetic capture seed is unavailable.');
+  controller.seedSyntheticCaptureForSmoke();
+}
+
 // Export permission and cleanup handlers for main.ts to call.
 export function setupCreativePermissionHandlers(): void {
   app.on('web-contents-created', (_event, contents) => {

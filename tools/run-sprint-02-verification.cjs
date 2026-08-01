@@ -90,6 +90,13 @@ function main() {
     if (!recording || recording.bytes < 32768 || recording.frames < 45 || recording.duration < 3.5 || recording.probe?.streams?.find((stream) => stream.codec_type === 'video')?.codec_name !== 'vp8') throw new Error('SPRINT02_RECORDING_PROOF_INVALID');
     const persisted = restart.evidence.renderer?.persistenceProbe?.read;
     if (!persisted || persisted.location !== 'floating' || persisted.mode !== 'compact' || persisted.position?.x !== 444) throw new Error('SPRINT02_RESTART_PERSISTENCE_FAILED');
+    const uiProof = initial.evidence.uiProof || [];
+    const captureProofs = uiProof.filter((entry) => entry.target === 'Captures');
+    const recorderProofs = uiProof.filter((entry) => entry.target === 'Recorder');
+    if (captureProofs.length !== 2 || !captureProofs.every((entry) => entry.menuVisible && entry.menuItems >= 10 && entry.focusInsideMenu) || !captureProofs.some((entry) => entry.direction === 'ltr') || !captureProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_CAPTURE_MENU_RTL_PROOF_FAILED');
+    if (recorderProofs.length !== 2 || !recorderProofs.every((entry) => entry.controls >= 10 && entry.focusedControl && entry.telemetryVisible) || !recorderProofs.some((entry) => entry.direction === 'ltr') || !recorderProofs.some((entry) => entry.direction === 'rtl')) throw new Error('SPRINT02_RECORDER_RTL_PROOF_FAILED');
+    const screenshotFiles = Object.values(initial.evidence.screenshots || {});
+    if (screenshotFiles.length !== 4 || !screenshotFiles.every((filePath) => path.isAbsolute(filePath) && fs.existsSync(filePath) && fs.statSync(filePath).size > 10_000)) throw new Error('SPRINT02_UI_SCREENSHOT_PROOF_FAILED');
     waitForFile(stubConfig.requestEvidencePath);
     const stubEvidence = JSON.parse(fs.readFileSync(stubConfig.requestEvidencePath, 'utf8'));
     if (!stubEvidence.requests?.length || !stubEvidence.requests.every((request) => request.method === 'POST' && request.hasEncodedImagePart && request.hasKnouxMarker)) throw new Error('SPRINT02_HTTPS_ADAPTER_PROOF_FAILED');

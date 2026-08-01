@@ -23,7 +23,7 @@ import { authorizeMediaPaths, setupIPCHandlers } from './ipc/setup';
 import { createApplicationMenu } from './menu/app-menu';
 import { createSystemTray, destroyTray } from './menu/system-tray';
 import { mediaPathsFromArguments, validateExternalUrl } from './security/validation';
-import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime } from './creative-bootstrap';
+import { registerCreativeRuntimeIfPrimary, setupCreativePermissionHandlers, cleanupCreativeRuntime, seedSprint02SyntheticCapture } from './creative-bootstrap';
 import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from './window-security';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
@@ -361,6 +361,7 @@ export function startPrimaryApplication(initialArgv: readonly string[]): {
       return;
     }
     if (sprint02SmokeTest) {
+      seedSprint02SyntheticCapture();
       const window = await createMainWindow(false);
       systemOrchestrator.setMainWindow(window);
       const { runSprint02Smoke } = await import('./startup/sprint-02-smoke');

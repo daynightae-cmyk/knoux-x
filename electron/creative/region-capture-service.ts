@@ -215,6 +215,15 @@ export class RegionCaptureService {
     private readonly captureService: CaptureService,
   ) {}
 
+  seedSyntheticCaptureForSmoke(): RetainedCaptureSummary {
+    if (!process.argv.includes('--sprint-02-smoke')) throw new Error('Synthetic capture seeding is restricted to the trusted Sprint 02 packaged verifier.');
+    const buffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    return this.retained.insert(buffer, {
+      sourceId: 'synthetic:sprint-02', sourceName: 'Synthetic Sprint 02 Fixture', displayId: null,
+      format: 'png', width: 1, height: 1, outputPath: null,
+    });
+  }
+
   async execute(operation: DesktopCaptureOperation): Promise<DesktopCaptureOperationResult> {
     if ('operation' in operation) {
       if (operation.operation === 'list-retained') return this.retained.list();

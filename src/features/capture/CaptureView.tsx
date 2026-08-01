@@ -91,6 +91,21 @@ export const CaptureView: React.FC = () => {
       setSelectedSourceId((current) => (
         nextSources.some((source) => source.id === current) ? current : nextSources[0]?.id ?? ''
       ));
+      const retainedResponse = await window.knouxCreativeAPI.capture.listRetained();
+      const retained = Array.isArray(retainedResponse) ? retainedResponse[0] : null;
+      if (retained) {
+        const stored = await window.knouxCreativeAPI.capture.retainedAction(retained.id, 'get');
+        if (stored && !Array.isArray(stored) && 'summary' in stored && 'dataUrl' in stored) {
+          setResult((current) => current ?? {
+            retained: stored.summary, sourceId: stored.summary.sourceId, sourceName: stored.summary.sourceName,
+            displayId: stored.summary.displayId, mode: 'region', format: stored.summary.format, dataUrl: stored.dataUrl,
+            outputPath: stored.summary.outputPath,
+            selection: { x: 0, y: 0, width: stored.summary.width, height: stored.summary.height },
+            pixelSelection: { x: 0, y: 0, width: stored.summary.width, height: stored.summary.height },
+            imageSize: { width: stored.summary.width, height: stored.summary.height }, scale: { x: 1, y: 1 }, openActionMenu: false,
+          });
+        }
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('capture.loadFailed'));
     } finally {

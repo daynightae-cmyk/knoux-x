@@ -73,8 +73,10 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         if (record.page !== label) return false;
         return surfaceRoot.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
       });
-      const recordIds = records.map((record) => record.id);
+      const mutatesSurfaceState = (record) => /\b(start|capture|record|create|open|delete|reset|import|export|clear)\b/i.test(record.label + ' ' + record.command);
+      const recordIds = [...records].sort((left, right) => Number(mutatesSurfaceState(left)) - Number(mutatesSurfaceState(right))).map((record) => record.id);
       const retainedRecordIds = [];
+      const proofState = new Map();
       for (const actionId of recordIds) {
         const censusedRecord = records.find((record) => record.id === actionId);
         await openSurface();
@@ -86,12 +88,14 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
           if (censusedRecord?.status !== 'implemented') {
             activations.push({ surface: label, id: censusedRecord.id, status: censusedRecord.status, traces: 0, disabledReason: censusedRecord.disabledReason, skippedUnsafe: false, queriedBeforeTransition: true });
             retainedRecordIds.push(actionId);
+            proofState.set(actionId, censusedRecord);
             continue;
           }
           activations.push({ surface: label, id: actionId, status: 'transient-replaced', traces: 0, disabledReason: null, skippedUnsafe: false, excludedFromStableInventory: true });
           continue;
         }
         const before = window.__knouxSprint02.traces().length;
+        proofState.set(actionId, record);
         element.click();
         await wait(90);
         const after = window.__knouxSprint02.traces().length;
@@ -102,7 +106,8 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       surfaces[label] = { currentView: current, records: retainedRecordIds.map((actionId) => {
         const censused = records.find((record) => record.id === actionId);
         const exercised = currentInventory.find((record) => record.id === actionId);
-        return exercised && censused ? { ...exercised, status: censused.status, disabledReason: censused.disabledReason, enabledCondition: censused.enabledCondition } : exercised;
+        const proven = proofState.get(actionId) ?? censused;
+        return exercised && proven ? { ...exercised, status: proven.status, disabledReason: proven.disabledReason, enabledCondition: proven.enabledCondition } : exercised;
       }) };
     };
     for (const label of routeLabels) await visit(label);

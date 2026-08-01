@@ -721,7 +721,8 @@ export class SlideshowRenderService {
   }
 
   private async syncFile(filePath: string): Promise<void> {
-    const handle = await fs.open(filePath, 'r');
+    // Windows rejects FlushFileBuffers on a read-only handle with EPERM.
+    const handle = await fs.open(filePath, process.platform === 'win32' ? 'r+' : 'r');
     try {
       await handle.sync();
     } finally {
@@ -732,7 +733,20 @@ export class SlideshowRenderService {
   private async syncDirectory(directory: string): Promise<void> {
     const handle = await fs.open(directory, 'r');
     try {
-      await handle.sync();
+      try {
+        await handle.sync();
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        // Node cannot FlushFileBuffers on a Windows directory handle. The file itself is
+        // synchronously flushed before every rename; accept only the documented Windows
+        // directory-handle errors and preserve all other durability failures.
+        if (
+          process.platform !== 'win32' ||
+          (code !== 'EPERM' && code !== 'EINVAL' && code !== 'EBADF')
+        ) {
+          throw error;
+        }
+      }
     } finally {
       await handle.close();
     }

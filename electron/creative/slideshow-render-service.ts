@@ -89,7 +89,14 @@ interface RenderContext {
   onProgress?: (snapshot: SlideshowRenderSnapshot) => void;
 }
 
-type PromotionFault =
+export type SlideshowRenderFault =
+  | 'partial-create'
+  | 'partial-write'
+  | 'ffmpeg'
+  | 'cancel-during-render'
+  | 'probe-validation'
+  | 'decoded-validation'
+  | 'hash-validation'
   | 'before-previous'
   | 'after-previous'
   | 'after-promote'
@@ -229,7 +236,7 @@ export class SlideshowRenderService {
   private readonly ready: Promise<void>;
   private activeJobId: string | null = null;
 
-  constructor(private readonly faultAt: PromotionFault | null = null) {
+  constructor(private readonly faultAt: SlideshowRenderFault | null = null) {
     this.store = new Store<SlideshowRenderStoreSchema>({
       name: 'slideshow-render-history',
       defaults: { terminalHistory: [] },
@@ -402,6 +409,11 @@ export class SlideshowRenderService {
       context.snapshot.status = 'rendering';
       this.emit(context);
       blockerId = powerSaveBlocker.start('prevent-app-suspension');
+      this.fault('partial-create');
+      await fs.writeFile(context.partialPath, new Uint8Array(), { flag: 'wx' });
+      await this.syncFile(context.partialPath);
+      this.fault('partial-write');
+      this.fault('ffmpeg');
       await this.ffmpeg.run(plan.args, (progress) => {
         context.ffmpegJobId = progress.jobId;
         context.snapshot.progress = progress;
@@ -412,6 +424,10 @@ export class SlideshowRenderService {
           );
         }
         this.emit(context);
+        if (this.faultAt === 'cancel-during-render' && !context.cancelRequested) {
+          context.cancelRequested = true;
+          this.ffmpeg.cancel(progress.jobId);
+        }
       });
       context.ffmpegJobId = null;
       if (context.cancelRequested) throw new Error('Render canceled.');
@@ -528,6 +544,7 @@ export class SlideshowRenderService {
     const stats = await fs.stat(filePath);
     if (!stats.isFile() || stats.size <= MIN_OUTPUT_BYTES)
       throw new Error('Slideshow render output is too small.');
+    this.fault('probe-validation');
     const probe = await this.ffmpeg.probe(filePath);
     const video = (probe.streams ?? []).find((stream) => stream.codec_type === 'video');
     const audio = (probe.streams ?? []).find((stream) => stream.codec_type === 'audio');
@@ -565,6 +582,8 @@ export class SlideshowRenderService {
     const videoPackets = numeric(video.nb_read_packets);
     if (videoPackets <= 0 || frameCount <= 0)
       throw new Error('Rendered slideshow has no decoded video packet/frame evidence.');
+    this.fault('decoded-validation');
+    this.fault('hash-validation');
     const hash = await sha256(filePath);
     return {
       probe,
@@ -817,7 +836,7 @@ export class SlideshowRenderService {
     }
   }
 
-  private fault(stage: PromotionFault): void {
-    if (this.faultAt === stage) throw new Error(`Injected slideshow promotion fault: ${stage}`);
+  private fault(stage: SlideshowRenderFault): void {
+    if (this.faultAt === stage) throw new Error(`Injected slideshow render fault: ${stage}`);
   }
 }

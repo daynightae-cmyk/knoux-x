@@ -451,17 +451,19 @@ export class SlideshowRenderService {
       this.persistTerminal(context.snapshot);
       this.emit(context);
     } catch (error) {
-      if (context.cancelRequested) {
-        context.snapshot.status = 'canceled';
-        context.snapshot.error = null;
-      } else {
-        context.snapshot.status = 'failed';
-        context.snapshot.error =
-          error instanceof Error ? error.message : 'Slideshow render failed.';
-      }
-      context.snapshot.completedAt = new Date().toISOString();
+      const terminalStatus = context.cancelRequested ? 'canceled' : 'failed';
+      const terminalError = context.cancelRequested
+        ? null
+        : error instanceof Error
+          ? error.message
+          : 'Slideshow render failed.';
+      // A terminal snapshot is a durability boundary: do not expose failed/canceled
+      // until the previous output has been restored and all job-owned debris is gone.
       await this.restoreBeforeCommit(context);
       await this.cleanupOwned(context);
+      context.snapshot.status = terminalStatus;
+      context.snapshot.error = terminalError;
+      context.snapshot.completedAt = new Date().toISOString();
       this.persistTerminal(context.snapshot);
       this.emit(context);
     } finally {

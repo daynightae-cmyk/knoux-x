@@ -14,6 +14,7 @@ import { useTranslation } from './i18n';
 import { useAppStore } from './store/appStore';
 import type { ViewType } from './store/appStore';
 import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
+import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/creative-suite.css';
@@ -160,6 +161,7 @@ const App: React.FC = () => {
             <motion.div
               key={currentView}
               className="view-transition"
+              data-sprint02-surface={sprint02SurfaceForView(currentView)}
               initial={motionEnabled ? { opacity: 0, y: 8 } : false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}

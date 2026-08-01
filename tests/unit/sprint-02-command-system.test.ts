@@ -32,4 +32,19 @@ describe('Sprint 02 DOM action command runtime', () => {
     expect(SPRINT_02_SURFACES).toHaveLength(14);
     expect(new Set(SPRINT_02_SURFACES).size).toBe(14);
   });
+
+  test('keeps exiting and current view actions attributed to their own surface', () => {
+    document.body.innerHTML = `
+      <div class="app-shell" data-current-view="queue">
+        <main>
+          <div class="view-transition" data-sprint02-surface="Library"><button>Import</button></div>
+          <div class="view-transition" data-sprint02-surface="Queue"><button>Clear queue</button></div>
+        </main>
+      </div>`;
+    const runtime = createSprint02CommandRuntime(document.querySelector('.app-shell')!);
+    expect(runtime.inventory()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'library.import', page: 'Library' }),
+      expect.objectContaining({ id: 'queue.clear-queue', page: 'Queue' }),
+    ]));
+  });
 });

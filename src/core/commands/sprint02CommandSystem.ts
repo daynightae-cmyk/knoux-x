@@ -65,17 +65,23 @@ const VIEW_SURFACES: Record<string, Sprint02Surface> = {
   'image-editor': 'Image Editor', slideshow: 'Slideshow', 'audio-tools': 'Audio Tools', export: 'Export', settings: 'Settings',
 };
 
+export function sprint02SurfaceForView(view: string): Sprint02Surface {
+  return VIEW_SURFACES[view] ?? 'Player';
+}
+
 function slug(value: string): string {
   const normalized = value.normalize('NFKD').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, '-').replace(/^-+|-+$/g, '');
   return normalized || 'unlabelled-action';
 }
 
 function actionLabel(element: HTMLElement): string {
-  return (element.getAttribute('aria-label')
-    ?? element.getAttribute('title')
-    ?? (element instanceof HTMLInputElement ? element.value : '')
-    ?? element.textContent
-    ?? '').replace(/\s+/g, ' ').trim() || 'Unlabelled action';
+  const candidates = [
+    element.getAttribute('aria-label'),
+    element.getAttribute('title'),
+    element instanceof HTMLInputElement ? element.value : null,
+    element.textContent,
+  ];
+  return candidates.map((candidate) => candidate?.replace(/\s+/g, ' ').trim() ?? '').find(Boolean) || 'Unlabelled action';
 }
 
 function componentName(element: HTMLElement): string {
@@ -89,7 +95,7 @@ function elementSurface(element: HTMLElement): Sprint02Surface {
   const explicit = element.closest<HTMLElement>('[data-sprint02-surface]')?.dataset.sprint02Surface;
   if (explicit && SPRINT_02_SURFACES.includes(explicit as Sprint02Surface)) return explicit as Sprint02Surface;
   const view = document.querySelector<HTMLElement>('.app-shell')?.dataset.currentView ?? 'player';
-  return VIEW_SURFACES[view] ?? 'Player';
+  return sprint02SurfaceForView(view);
 }
 
 function visible(element: HTMLElement): boolean {
@@ -140,8 +146,7 @@ export function createSprint02CommandRuntime(root: HTMLElement): Sprint02Command
     const ordinals = new Map<string, number>();
     for (const element of candidates) {
       if (element.closest('[data-inventory-exclude="true"]')) continue;
-      const detectedSurface = elementSurface(element);
-      const surface = (element.dataset.actionSurface as Sprint02Surface | undefined) ?? detectedSurface;
+      const surface = elementSurface(element);
       element.dataset.actionSurface = surface;
       const label = actionLabel(element);
       const base = `${slug(surface)}.${slug(label)}`;

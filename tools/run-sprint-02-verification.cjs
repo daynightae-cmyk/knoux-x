@@ -83,6 +83,8 @@ function main() {
     const surfaces = initial.evidence.renderer?.surfaces || {};
     const missingSurfaces = requiredSurfaces.filter((surface) => !surfaces[surface]);
     if (missingSurfaces.length) throw new Error(`SPRINT02_SURFACE_CENSUS_MISSING ${missingSurfaces.join(',')}`);
+    const emptySurfaces = requiredSurfaces.filter((surface) => !Array.isArray(surfaces[surface]?.records) || surfaces[surface].records.length === 0);
+    if (emptySurfaces.length) throw new Error(`SPRINT02_SURFACE_ACTIONS_MISSING ${emptySurfaces.join(',')}`);
     if (initial.evidence.startupHealth?.status !== 'ready' || initial.evidence.startupHealth?.missing?.length || initial.evidence.startupHealth?.duplicates?.length) throw new Error('SPRINT02_IPC_REGRESSION');
     const recording = initial.evidence.recording;
     if (!recording || recording.bytes < 32768 || recording.frames < 45 || recording.duration < 3.5 || recording.probe?.streams?.find((stream) => stream.codec_type === 'video')?.codec_name !== 'vp8') throw new Error('SPRINT02_RECORDING_PROOF_INVALID');
@@ -111,6 +113,7 @@ function main() {
       testedBranch: branch,
       requiredSurfaces,
       missingSurfaces,
+      emptySurfaces,
       actionInventory: inventoryById,
       statusSummary,
       commandTrace: initial.evidence.renderer.snapshot?.traces || [],

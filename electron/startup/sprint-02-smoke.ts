@@ -46,6 +46,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       window.__knouxSprint02.refresh();
       const current = document.querySelector('.app-shell')?.dataset.currentView;
       const records = window.__knouxSprint02.inventory().filter((record) => {
+        if (record.page !== label) return false;
         const element = document.querySelector('[data-action-id="' + CSS.escape(record.id) + '"]');
         return element && element.closest('.view-transition');
       });

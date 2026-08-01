@@ -53,6 +53,18 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
         if (navigated) await wait(label === 'Captures' || label === 'Recorder' ? 900 : 250);
       };
       await openSurface();
+      let previousActionSet = '';
+      let stableActionSamples = 0;
+      while (stableActionSamples < 3) {
+        window.__knouxSprint02.refresh();
+        const candidateRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);
+        const actionSet = candidateRoot instanceof HTMLElement
+          ? [...candidateRoot.querySelectorAll('[data-action-id]')].map((entry) => entry.getAttribute('data-action-id')).sort().join('|')
+          : '';
+        stableActionSamples = actionSet && actionSet === previousActionSet ? stableActionSamples + 1 : 0;
+        previousActionSet = actionSet;
+        await wait(100);
+      }
       window.__knouxSprint02.refresh();
       const current = document.querySelector('.app-shell')?.dataset.currentView;
       const surfaceRoot = [...document.querySelectorAll('.view-transition')].find((entry) => entry instanceof HTMLElement && entry.dataset.sprint02Surface === label);

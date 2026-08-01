@@ -217,6 +217,7 @@ export const Sidebar: React.FC = () => {
                 <motion.button
                   key={item.id}
                   type="button"
+                  data-view-id={item.id}
                   className={`nav-item ${currentView === item.id ? 'active' : ''}`}
                   onClick={() => setView(item.id)}
                   whileTap={{ scale: 0.98 }}

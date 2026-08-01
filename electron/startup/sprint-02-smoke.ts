@@ -43,7 +43,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       const openSurface = async () => {
         let navigated = false;
         if (document.querySelector('.app-shell')?.dataset.currentView !== routeViewIds[label]) {
-          const nav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === label);
+          const nav = document.querySelector('.nav-item[data-view-id="' + routeViewIds[label] + '"]');
           if (!nav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING ' + label);
           nav.click();
           navigated = true;
@@ -111,7 +111,7 @@ async function rendererCensus(window: BrowserWindow, phase: 'initial' | 'restart
       }) };
     };
     for (const label of routeLabels) await visit(label);
-    const settingsNav = [...document.querySelectorAll('.nav-item')].find((button) => button.getAttribute('aria-label') === 'Settings');
+    const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
     if (!settingsNav) throw new Error('SPRINT02_ROUTE_BUTTON_MISSING Settings');
     settingsNav.click(); await wait(350);
     const reopenedTour = document.querySelector('.first-run-dialog header button');
@@ -214,7 +214,7 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const waitFor = async (predicate, label, timeout = 10000) => { const started = Date.now(); while (!predicate()) { if (Date.now() - started > timeout) throw new Error('SPRINT02_UI_PROOF_TIMEOUT ' + label); await wait(50); } };
     document.querySelector('.first-run-dialog header button')?.click();
-    const settingsNav = [...document.querySelectorAll('.nav-item')].find((entry) => entry.getAttribute('aria-label') === 'Settings');
+    const settingsNav = document.querySelector('.nav-item[data-view-id="settings"]');
     if (!settingsNav) throw new Error('SPRINT02_UI_PROOF_SETTINGS_NAV_MISSING');
     settingsNav.click();
     await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === 'settings', 'settings view');
@@ -227,7 +227,7 @@ async function prepareUiProof(window: BrowserWindow, target: 'Captures' | 'Recor
     await waitFor(() => document.documentElement.dir === ${JSON.stringify(locale === 'ar' ? 'rtl' : 'ltr')}, 'document direction');
     const target = ${JSON.stringify(target)};
     const expectedView = target === 'Captures' ? 'capture' : 'recording';
-    const targetNav = [...document.querySelectorAll('.nav-item')].find((entry) => entry.getAttribute('aria-label') === target || entry.textContent?.includes(target));
+    const targetNav = document.querySelector('.nav-item[data-view-id="' + expectedView + '"]');
     if (!targetNav) throw new Error('SPRINT02_UI_PROOF_TARGET_NAV_MISSING ' + target);
     targetNav.click();
     await waitFor(() => document.querySelector('.app-shell')?.dataset.currentView === expectedView, target + ' view');

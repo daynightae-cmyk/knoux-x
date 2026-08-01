@@ -34,6 +34,7 @@ public static class KnouxNativeDialog {
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
+  [DllImport("user32.dll")] public static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr deviceContext, uint flags);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, string lParam);
   [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
@@ -125,17 +126,10 @@ function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 5) {
       # RPC_E_CALL_REJECTED or UIA_E_ELEMENTNOTAVAILABLE from FindAll.
       $root = [Windows.Automation.AutomationElement]::FromHandle($Dialog)
       if (-not $root) { throw [Runtime.InteropServices.COMException]::new('UI Automation did not expose the dialog root.') }
-      $dialogCollection = $root.FindAll(
-        [Windows.Automation.TreeScope]::Descendants,
-        [Windows.Automation.Condition]::TrueCondition
-      )
       $items = @()
-      for ($index = 0; $index -lt $dialogCollection.Count; $index += 1) {
-        $items += $dialogCollection.Item($index)
-      }
-      # Explorer's folder picker exposes its path edit through the process UIA tree but
-      # not consistently as a descendant of the #32770 HWND. Reacquire that root inside
-      # the same bounded attempt and merge it with the dialog-scoped controls.
+      # Explorer's common dialogs expose several controls only through the process UIA
+      # tree. Reacquire that tree after validating the intended #32770 root, matching the
+      # independently proven Save helper while retaining bounded COM/root retries.
       $processCondition = [Windows.Automation.PropertyCondition]::new(
         [Windows.Automation.AutomationElement]::ProcessIdProperty,
         $ProcessId
@@ -292,7 +286,7 @@ function Click-DialogAddress([IntPtr]$Handle) {
   if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
     throw 'Unable to resolve native dialog bounds for address navigation.'
   }
-  $x = $bounds.Left + [Math]::Round(($bounds.Right - $bounds.Left) * 0.61)
+  $x = $bounds.Left + [Math]::Round(($bounds.Right - $bounds.Left) * 0.52)
   $y = $bounds.Top + 48
   [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new($x, $y)
   [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
@@ -301,33 +295,20 @@ function Click-DialogAddress([IntPtr]$Handle) {
 }
 
 function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
-  $ownerPid = [uint32]0
-  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($Handle, [ref]$ownerPid)
-  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
-  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
-  try {
-    [KnouxNativeDialog]::PostMessage($Handle, 0x0100, [IntPtr]0x73, [IntPtr]::Zero) | Out-Null
-    [KnouxNativeDialog]::PostMessage($Handle, 0x0101, [IntPtr]0x73, [IntPtr]::Zero) | Out-Null
-    $addressDeadline = [DateTime]::UtcNow.AddSeconds(3)
-    do {
-      Start-Sleep -Milliseconds 150
-      $address = Get-AutomationControls $Handle | Where-Object {
-        $_.Current.AutomationId -eq '41477' -and $_.Current.ClassName -eq 'Edit'
-      } | Select-Object -First 1
-      if ($address) { break }
-    } while ([DateTime]::UtcNow -lt $addressDeadline)
-    if (-not $address) { throw 'Native Save address edit was not exposed after F4.' }
-    $addressPattern = $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)
-    $addressPattern.SetValue($Directory)
-    Start-Sleep -Milliseconds 120
-    $addressHandle = [IntPtr]$address.Current.NativeWindowHandle
-    [KnouxNativeDialog]::PostMessage($addressHandle, 0x0100, [IntPtr]0x0D, [IntPtr]::Zero) | Out-Null
-    [KnouxNativeDialog]::PostMessage($addressHandle, 0x0101, [IntPtr]0x0D, [IntPtr]::Zero) | Out-Null
-  } finally {
-    if ($attached) {
-      [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null
-    }
+  Activate-Dialog $Handle
+  $controls = @(Get-Controls $Handle)
+  $filenameEditor = $controls | Where-Object {
+    $_.Class -eq 'Edit' -and $_.Id -eq 1001
+  } | Select-Object -First 1
+  $confirm = $controls | Where-Object {
+    $_.Class -eq 'Button' -and $_.Id -eq 1
+  } | Select-Object -First 1
+  if (-not $filenameEditor -or -not $confirm) {
+    throw 'Native Save directory-navigation controls were not found.'
   }
+  Type-Control $filenameEditor.Handle $Directory
+  Click-Control $confirm.Handle
+  Start-Sleep -Milliseconds 900
 }
 
 function Paste-Control([IntPtr]$Handle, [string]$Value) {
@@ -397,7 +378,7 @@ if ($Mode -eq 'Cancel') {
   $folderPath = [string]$payload[0]
   $folderEditor = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq 1152 } | Select-Object -First 1
   if (-not $folderEditor) { throw 'Native folder path control was not found.' }
-  Set-AutomationValue $automationControls '1152' $folderPath
+  [KnouxNativeDialog]::SendMessage($folderEditor.Handle, 0x000C, [IntPtr]::Zero, $folderPath) | Out-Null
   Capture-Window $dialog $ScreenshotPath
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 } | Select-Object -First 1
   if (-not $button) { throw 'Native Select Folder button was not found.' }

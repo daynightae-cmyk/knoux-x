@@ -24,6 +24,8 @@ const actionLog = path.join(evidenceRoot, 'actions.jsonl');
 const dialogLog = path.join(evidenceRoot, 'native-dialogs.jsonl');
 const progressLog = path.join(evidenceRoot, 'progress.jsonl');
 const nativeHelper = path.resolve('tools', 'slideshow-phase1-native-dialog.ps1');
+const nativeCaptureHelper = path.resolve('tools', 'slideshow-phase1-capture-window.ps1');
+const nativeInputHelper = path.resolve('tools', 'slideshow-phase1-native-input.ps1');
 const port = Number(argument('--port', '9337'));
 
 if (!executable || !expectedHead || !fixtureRoot || !evidenceRoot) {
@@ -43,6 +45,7 @@ const networkEvents = [];
 let appProcess = null;
 let cdp = null;
 let launchCount = 0;
+let useNativeScreenshotCapture = false;
 
 function hashFile(filePath) {
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
@@ -135,14 +138,14 @@ class CdpDriver {
     });
   }
 
-  call(method, params = {}) {
+  call(method, params = {}, timeoutMs = 10_000) {
     return new Promise((resolve, reject) => {
       const id = ++this.nextId;
       const timer = setTimeout(() => {
         if (!this.pending.has(id)) return;
         this.pending.delete(id);
         reject(new Error(`CDP ${method} timed out`));
-      }, 10_000);
+      }, timeoutMs);
       this.pending.set(id, {
         resolve: (value) => {
           clearTimeout(timer);
@@ -209,6 +212,7 @@ class CdpDriver {
       } catch (reason) {
         if (!isRecoverableCdpFailure(reason)) throw reason;
         driver = await recoverCdpInput('scroll', { x: 1180, y: 620 });
+        nativeMouseWheel(deltaY);
         // A wheel may already have been delivered. Re-observe visibility on the next
         // iteration before issuing another idempotent scroll toward the same control.
       }
@@ -464,11 +468,22 @@ class CdpDriver {
 
   async screenshot(name) {
     const outputPath = path.join(screenshots, `${name}.png`);
-    const result = await this.call('Page.captureScreenshot', {
-      format: 'png',
-      fromSurface: true,
-      captureBeyondViewport: false,
-    });
+    if (useNativeScreenshotCapture) return captureInstalledWindow(outputPath);
+    const params = { format: 'png', fromSurface: true, captureBeyondViewport: false };
+    let driver = cdp || this;
+    let result;
+    try {
+      result = await driver.call('Page.captureScreenshot', params, 15_000);
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      driver = await recoverCdpInput(`screenshot:${name}`);
+      await driver.metadata();
+      // A timed-out Page.captureScreenshot can remain wedged on the target. After the
+      // same-process session/DOM is re-observed, use the visible native window for this
+      // and subsequent non-mutating evidence captures without replaying an action.
+      useNativeScreenshotCapture = true;
+      return captureInstalledWindow(outputPath);
+    }
     fs.writeFileSync(outputPath, Buffer.from(result.data, 'base64'));
     return { path: outputPath, sha256: hashFile(outputPath), bytes: fs.statSync(outputPath).size };
   }
@@ -523,6 +538,23 @@ function getJson(url) {
       })
       .on('error', reject);
   });
+}
+
+function captureInstalledWindow(outputPath) {
+  execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeCaptureHelper,
+    '-ProcessId', String(appProcess.pid), '-OutputPath', outputPath,
+  ], { encoding: 'utf8', timeout: 20_000 });
+  return { path: outputPath, sha256: hashFile(outputPath), bytes: fs.statSync(outputPath).size };
+}
+
+function nativeMouseWheel(deltaY) {
+  execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Wheel',
+    '-X', '1180', '-Y', '620', '-DeltaY', String(Math.round(deltaY)),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:wheel', { deltaY });
 }
 
 function isRecoverableCdpFailure(reason) {

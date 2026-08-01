@@ -112,20 +112,67 @@ function Capture-Window([IntPtr]$Handle, [string]$OutputPath) {
   }
 }
 
-function Get-AutomationControls([IntPtr]$Dialog) {
-  $condition = [Windows.Automation.PropertyCondition]::new(
-    [Windows.Automation.AutomationElement]::ProcessIdProperty,
-    $ProcessId
-  )
-  $collection = [Windows.Automation.AutomationElement]::RootElement.FindAll(
-    [Windows.Automation.TreeScope]::Descendants,
-    $condition
-  )
-  $items = @()
-  for ($index = 0; $index -lt $collection.Count; $index += 1) {
-    $items += $collection.Item($index)
-  }
-  return $items
+function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 5) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  $lastError = $null
+  do {
+    try {
+      if (-not [KnouxNativeDialog]::IsWindow($Dialog)) {
+        throw [Runtime.InteropServices.COMException]::new('The native dialog handle is no longer valid.')
+      }
+      # Recreate the UIA root on every attempt. Cached AutomationElement instances become
+      # disconnected while Explorer refreshes a Save/Open dialog and can transiently throw
+      # RPC_E_CALL_REJECTED or UIA_E_ELEMENTNOTAVAILABLE from FindAll.
+      $root = [Windows.Automation.AutomationElement]::FromHandle($Dialog)
+      if (-not $root) { throw [Runtime.InteropServices.COMException]::new('UI Automation did not expose the dialog root.') }
+      $collection = $root.FindAll(
+        [Windows.Automation.TreeScope]::Descendants,
+        [Windows.Automation.Condition]::TrueCondition
+      )
+      $items = @()
+      for ($index = 0; $index -lt $collection.Count; $index += 1) {
+        $items += $collection.Item($index)
+      }
+      return $items
+    } catch {
+      $lastError = $_.Exception
+      Start-Sleep -Milliseconds 125
+    }
+  } while ([DateTime]::UtcNow -lt $deadline)
+  throw "UI Automation controls did not stabilize within $TimeoutSeconds seconds: $($lastError.Message)"
+}
+
+function Get-DialogState(
+  [IntPtr]$Dialog = [IntPtr]::Zero,
+  [IntPtr]$Exclude = [IntPtr]::Zero,
+  [int]$TimeoutSeconds = 8
+) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  $lastError = $null
+  do {
+    try {
+      if ($Dialog -eq [IntPtr]::Zero -or -not [KnouxNativeDialog]::IsWindow($Dialog)) {
+        $Dialog = Find-Dialog -Exclude $Exclude -TimeoutSeconds 1
+      }
+      Activate-Dialog $Dialog
+      $controls = @(Get-Controls $Dialog)
+      $automationControls = @(Get-AutomationControls $Dialog -TimeoutSeconds 1)
+      if ($controls.Count -eq 0 -or $automationControls.Count -eq 0) {
+        throw [Runtime.InteropServices.COMException]::new('The native dialog control tree is empty.')
+      }
+      return [pscustomobject]@{
+        Dialog = $Dialog
+        Controls = $controls
+        AutomationControls = $automationControls
+      }
+    } catch {
+      $lastError = $_.Exception
+      # Discard every cached handle/control/root and reacquire the intended visible dialog.
+      $Dialog = [IntPtr]::Zero
+      Start-Sleep -Milliseconds 150
+    }
+  } while ([DateTime]::UtcNow -lt $deadline)
+  throw "Native dialog/root/control reacquisition failed within $TimeoutSeconds seconds: $($lastError.Message)"
 }
 
 function Set-AutomationValue([object[]]$Elements, [string]$AutomationId, [string]$Value, [switch]$Commit) {
@@ -205,6 +252,16 @@ function Click-Control([IntPtr]$Handle) {
   Start-Sleep -Milliseconds 180
 }
 
+function Wait-DialogClosed([IntPtr]$Dialog, [string]$Label, [int]$TimeoutSeconds = 5) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
+    Start-Sleep -Milliseconds 100
+  }
+  if ([KnouxNativeDialog]::IsWindow($Dialog)) {
+    throw "$Label remained open after visible confirmation."
+  }
+}
+
 function Confirm-DialogDismissed([IntPtr]$Dialog, [object[]]$AutomationControls) {
   $deadline = [DateTime]::UtcNow.AddSeconds(2)
   while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
@@ -212,14 +269,8 @@ function Confirm-DialogDismissed([IntPtr]$Dialog, [object[]]$AutomationControls)
   }
   if ([KnouxNativeDialog]::IsWindow($Dialog)) {
     Invoke-AutomationButton $AutomationControls '1' 'Save' | Out-Null
-    $deadline = [DateTime]::UtcNow.AddSeconds(2)
-    while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
-      Start-Sleep -Milliseconds 100
-    }
   }
-  if ([KnouxNativeDialog]::IsWindow($Dialog)) {
-    throw 'Native Save dialog remained open after visible confirmation.'
-  }
+  Wait-DialogClosed $Dialog 'Native Save dialog' 3
 }
 
 function Click-DialogAddress([IntPtr]$Handle) {
@@ -303,11 +354,11 @@ $payload = if ($PayloadBase64) {
   [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64)) | ConvertFrom-Json
 } else { @() }
 
-$dialog = Find-Dialog
-$null = Activate-Dialog $dialog
+$dialogState = Get-DialogState
+$dialog = $dialogState.Dialog
 $title = Get-WindowTextValue $dialog
-$controls = @(Get-Controls $dialog)
-$automationControls = @(Get-AutomationControls $dialog)
+$controls = @($dialogState.Controls)
+$automationControls = @($dialogState.AutomationControls)
 Capture-Window $dialog $ScreenshotPath
 
 $record = [ordered]@{
@@ -349,12 +400,14 @@ if ($Mode -eq 'Cancel') {
     }
     Navigate-DialogAddress $dialog $saveDirectory
     Start-Sleep -Milliseconds 1200
-    $dialog = Find-Dialog -TimeoutSeconds 5
-    $null = Activate-Dialog $dialog
+    $dialogState = Get-DialogState -TimeoutSeconds 8
+    $dialog = $dialogState.Dialog
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
-      $controls = @(Get-Controls $dialog)
-      $automationControls = @(Get-AutomationControls $dialog)
+      $dialogState = Get-DialogState -Dialog $dialog -TimeoutSeconds 2
+      $dialog = $dialogState.Dialog
+      $controls = @($dialogState.Controls)
+      $automationControls = @($dialogState.AutomationControls)
       $saveEditorReady = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq 1001 } | Select-Object -First 1
       if ($saveEditorReady) { break }
       Start-Sleep -Milliseconds 200
@@ -389,9 +442,9 @@ if ($Mode -eq 'Cancel') {
 }
 
 if ($ConfirmOverwrite) {
-  $overwriteDialog = Find-Dialog -Exclude $dialog
-  $null = Activate-Dialog $overwriteDialog
-  $overwriteControls = @(Get-Controls $overwriteDialog)
+  $overwriteState = Get-DialogState -Exclude $dialog -TimeoutSeconds 20
+  $overwriteDialog = $overwriteState.Dialog
+  $overwriteControls = @($overwriteState.Controls)
   $overwriteTitle = Get-WindowTextValue $overwriteDialog
   $yes = $overwriteControls | Where-Object {
     $_.Class -eq 'Button' -and ($_.Text -match 'Yes|Replace|Save')
@@ -403,6 +456,10 @@ if ($ConfirmOverwrite) {
     chosen = $yes.Text
   }
   [KnouxNativeDialog]::PostMessage($yes.Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+  Wait-DialogClosed $overwriteDialog 'Native overwrite dialog'
+  Wait-DialogClosed $dialog 'Native Save dialog'
+} elseif ($Mode -ne 'Save') {
+  Wait-DialogClosed $dialog "Native $Mode dialog"
 }
 
 Start-Sleep -Milliseconds 350

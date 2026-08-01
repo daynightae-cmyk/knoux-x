@@ -186,8 +186,9 @@ class CdpDriver {
   }
 
   async ensureVisible(expression, allowViewportTop = false) {
+    let driver = this;
     for (let attempt = 0; attempt < 28; attempt += 1) {
-      const state = await this.controlState(expression);
+      const state = await driver.controlState(expression);
       if (!state) throw new Error(`Visible control not found: ${expression}`);
       const topBoundary = allowViewportTop ? 0 : 96;
       const bottomBoundary = allowViewportTop ? state.viewport : state.viewport - 40;
@@ -197,13 +198,20 @@ class CdpDriver {
         state.rect.y < 96
           ? -Math.min(650, 120 + Math.abs(state.rect.y))
           : Math.min(650, state.rect.y - state.viewport + 180);
-      await this.call('Input.dispatchMouseEvent', {
-        type: 'mouseWheel',
-        x: 1180,
-        y: 620,
-        deltaX: 0,
-        deltaY,
-      });
+      try {
+        await driver.call('Input.dispatchMouseEvent', {
+          type: 'mouseWheel',
+          x: 1180,
+          y: 620,
+          deltaX: 0,
+          deltaY,
+        });
+      } catch (reason) {
+        if (!isRecoverableCdpFailure(reason)) throw reason;
+        driver = await recoverCdpInput('scroll', { x: 1180, y: 620 });
+        // A wheel may already have been delivered. Re-observe visibility on the next
+        // iteration before issuing another idempotent scroll toward the same control.
+      }
       await sleep(90);
     }
     throw new Error(`Unable to scroll visible control into view: ${expression}`);
@@ -214,30 +222,54 @@ class CdpDriver {
     const before = await this.ensureVisible(expression, allowViewportTop);
     progress('pointer-click:visible', { id });
     if (before.disabled) throw new Error(`Control is disabled: ${id}`);
-    const x = before.rect.x + before.rect.width / 2;
-    const y = before.rect.y + before.rect.height / 2;
-    await this.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-    await this.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await this.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
+    let driver = cdp || this;
+    let current = before;
+    let x = current.rect.x + current.rect.width / 2;
+    let y = current.rect.y + current.rect.height / 2;
+    try {
+      await driver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      driver = await recoverCdpInput(`${id}:move`, { x, y });
+      current = await driver.controlState(expression);
+      if (!current || current.disabled) throw new Error(`Control changed during CDP move recovery: ${id}`);
+      x = current.rect.x + current.rect.width / 2;
+      y = current.rect.y + current.rect.height / 2;
+      await driver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    }
+    try {
+      await driver.call('Input.dispatchMouseEvent', {
+        type: 'mousePressed', x, y, button: 'left', clickCount: 1,
+      });
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      driver = await recoverCdpInput(`${id}:press`, { x, y });
+      // The press may have reached Chromium. Recovery sends only button-up and then
+      // observes the DOM; blindly replaying this possibly non-idempotent click is forbidden.
+      await driver.controlState(expression);
+      await sleep(420);
+      await recordAction(id, 'pointer-recovered-after-uncertain-press', expression, before,
+        await driver.controlState(expression), screenshotName);
+      progress('pointer-click:complete', { id, recoveredAfter: 'press' });
+      return;
+    }
+    try {
+      await driver.call('Input.dispatchMouseEvent', {
+        type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
+      });
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      driver = await recoverCdpInput(`${id}:release`, { x, y });
+      // Mouse-up is idempotent and is the only event repeated after an uncertain release.
+      await driver.controlState(expression);
+    }
     await sleep(420);
     await recordAction(
       id,
       'pointer',
       expression,
       before,
-      await this.controlState(expression),
+      await driver.controlState(expression),
       screenshotName
     );
     progress('pointer-click:complete', { id });
@@ -247,50 +279,55 @@ class CdpDriver {
     const modifiers = options.modifiers || 0;
     const code = options.code || key;
     const windowsVirtualKeyCode = options.windowsVirtualKeyCode;
-    await this.call('Input.dispatchKeyEvent', {
-      type: 'rawKeyDown',
-      key,
-      code,
-      modifiers,
-      windowsVirtualKeyCode,
-    });
-    await this.call('Input.dispatchKeyEvent', {
-      type: 'keyUp',
-      key,
-      code,
-      modifiers,
-      windowsVirtualKeyCode,
-    });
+    let driver = cdp || this;
+    try {
+      await driver.call('Input.dispatchKeyEvent', {
+        type: 'rawKeyDown', key, code, modifiers, windowsVirtualKeyCode,
+      });
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      await recoverCdpInput(`key:${key}:down`, { key, code, modifiers, windowsVirtualKeyCode });
+      return;
+    }
+    try {
+      await driver.call('Input.dispatchKeyEvent', {
+        type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode,
+      });
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      await recoverCdpInput(`key:${key}:up`, { key, code, modifiers, windowsVirtualKeyCode });
+    }
   }
 
   async fill(expression, value, id, screenshotName) {
     const before = await this.ensureVisible(expression);
+    const driver = cdp || this;
     const x = before.rect.x + before.rect.width / 2;
     const y = before.rect.y + before.rect.height / 2;
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.key('a', { code: 'KeyA', modifiers: 2, windowsVirtualKeyCode: 65 });
-    await this.call('Input.insertText', { text: String(value) });
-    await this.key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
+    await driver.key('a', { code: 'KeyA', modifiers: 2, windowsVirtualKeyCode: 65 });
+    await (cdp || driver).call('Input.insertText', { text: String(value) });
+    await (cdp || driver).key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
     await sleep(260);
     await recordAction(
       id,
       'keyboard-fill',
       expression,
       before,
-      await this.controlState(expression),
+      await (cdp || driver).controlState(expression),
       screenshotName
     );
   }
@@ -301,33 +338,34 @@ class CdpDriver {
     );
     if (index < 0) throw new Error(`Select option ${value} not found for ${id}.`);
     const before = await this.ensureVisible(expression);
+    const driver = cdp || this;
     const x = before.rect.x + before.rect.width / 2;
     const y = before.rect.y + before.rect.height / 2;
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
+    await driver.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
     for (let step = 0; step < index; step += 1)
-      await this.key('ArrowDown', { code: 'ArrowDown', windowsVirtualKeyCode: 40 });
-    await this.key('Enter', { code: 'Enter', windowsVirtualKeyCode: 13 });
+      await (cdp || driver).key('ArrowDown', { code: 'ArrowDown', windowsVirtualKeyCode: 40 });
+    await (cdp || driver).key('Enter', { code: 'Enter', windowsVirtualKeyCode: 13 });
     await sleep(300);
     await recordAction(
       id,
       'keyboard-select',
       expression,
       before,
-      await this.controlState(expression),
+      await (cdp || driver).controlState(expression),
       screenshotName
     );
   }
@@ -339,33 +377,34 @@ class CdpDriver {
     if (!info) throw new Error(`Range not found: ${id}`);
     const steps = Math.round((Number(value) - info.min) / info.step);
     const before = await this.ensureVisible(expression);
+    const driver = cdp || this;
     const x = before.rect.x + before.rect.width / 2;
     const y = before.rect.y + before.rect.height / 2;
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mousePressed',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.call('Input.dispatchMouseEvent', {
+    await driver.call('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x,
       y,
       button: 'left',
       clickCount: 1,
     });
-    await this.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
+    await driver.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
     for (let step = 0; step < steps; step += 1)
-      await this.key('ArrowRight', { code: 'ArrowRight', windowsVirtualKeyCode: 39 });
-    await this.key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
+      await (cdp || driver).key('ArrowRight', { code: 'ArrowRight', windowsVirtualKeyCode: 39 });
+    await (cdp || driver).key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
     await sleep(250);
     await recordAction(
       id,
       'keyboard-range',
       expression,
       before,
-      await this.controlState(expression),
+      await (cdp || driver).controlState(expression),
       screenshotName
     );
   }
@@ -486,6 +525,108 @@ function getJson(url) {
   });
 }
 
+function isRecoverableCdpFailure(reason) {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  return /CDP .* timed out|CDP socket closed|WebSocket|ECONNREFUSED|not opened/i.test(message);
+}
+
+function appIsAlive() {
+  if (!appProcess?.pid) return false;
+  try {
+    process.kill(appProcess.pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function connectRenderer(reason, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  let lastError = null;
+  while (Date.now() < deadline && attempt < 8) {
+    attempt += 1;
+    if (!appIsAlive()) throw new Error(`Installed app exited during CDP ${reason} recovery.`);
+    let target;
+    let stableId = null;
+    let stablePolls = 0;
+    while (Date.now() < deadline && stablePolls < 4) {
+      try {
+        const targets = await getJson(`http://127.0.0.1:${port}/json`);
+        target = targets.find((entry) => entry.type === 'page');
+        if (target?.id === stableId) stablePolls += 1;
+        else {
+          stableId = target?.id || null;
+          stablePolls = target ? 1 : 0;
+        }
+      } catch (error) {
+        lastError = error;
+        target = undefined;
+        stableId = null;
+        stablePolls = 0;
+      }
+      if (stablePolls < 4) await sleep(150);
+    }
+    if (!target) continue;
+    const socket = new WebSocket(target.webSocketDebuggerUrl);
+    try {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('CDP WebSocket open timed out')), 6_000);
+        socket.once('open', () => { clearTimeout(timer); resolve(); });
+        socket.once('error', (error) => { clearTimeout(timer); reject(error); });
+      });
+      const driver = new CdpDriver(socket, target, appProcess.pid);
+      await driver.call('Network.enable');
+      await driver.call('Page.enable');
+      await driver.waitFor('document.readyState', (value) => value === 'complete', 10_000,
+        `installed DOM ready after ${reason}`);
+      await driver.waitFor(`Boolean(document.querySelector('button.nav-item'))`, Boolean, 10_000,
+        `React navigation after ${reason}`);
+      const targets = await getJson(`http://127.0.0.1:${port}/json`);
+      const current = targets.find((entry) => entry.type === 'page');
+      if (current?.id !== target.id)
+        throw new Error(`Renderer target changed during ${reason}: ${target.id} -> ${current?.id || 'none'}`);
+      const previous = cdp;
+      cdp = driver;
+      if (previous && previous !== driver) {
+        try { previous.close(); } catch {}
+      }
+      progress('cdp-session-ready', { reason, attempt, targetId: target.id });
+      return driver;
+    } catch (error) {
+      lastError = error;
+      progress('cdp-session-retry', {
+        reason, attempt, targetId: target.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      try { socket.close(); } catch {}
+      await sleep(200);
+    }
+  }
+  throw new Error(`Unable to reacquire a stable CDP renderer for ${reason}: ${lastError?.message || 'timeout'}`);
+}
+
+async function recoverCdpInput(reason, state = {}) {
+  progress('cdp-input-recovery:start', { reason });
+  try { cdp?.close(); } catch {}
+  cdp = null;
+  const driver = await connectRenderer(reason);
+  if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
+    await driver.call('Input.dispatchMouseEvent', {
+      type: 'mouseReleased', x: state.x, y: state.y, button: 'left', clickCount: 1,
+    });
+  }
+  if (state.key) {
+    await driver.call('Input.dispatchKeyEvent', {
+      type: 'keyUp', key: state.key, code: state.code || state.key,
+      modifiers: state.modifiers || 0, windowsVirtualKeyCode: state.windowsVirtualKeyCode,
+    });
+  }
+  await driver.metadata();
+  progress('cdp-input-recovery:complete', { reason, targetId: driver.target.id });
+  return driver;
+}
+
 async function launch() {
   progress('launch:start', { launchCount: launchCount + 1 });
   launchCount += 1;
@@ -501,81 +642,9 @@ async function launch() {
     { detached: false, windowsHide: false, stdio: ['ignore', stdout, stderr] }
   );
   progress('launch:spawned', { pid: appProcess.pid });
-  const deadline = Date.now() + 45_000;
-  let connectionAttempt = 0;
-  while (Date.now() < deadline) {
-    let target;
-    let stableTargetId = null;
-    let stableTargetPolls = 0;
-    while (Date.now() < deadline && stableTargetPolls < 12) {
-      try {
-        const targets = await getJson(`http://127.0.0.1:${port}/json`);
-        target = targets.find((entry) => entry.type === 'page');
-        if (target?.id === stableTargetId) stableTargetPolls += 1;
-        else {
-          stableTargetId = target?.id || null;
-          stableTargetPolls = target ? 1 : 0;
-        }
-      } catch {
-        target = undefined;
-        stableTargetId = null;
-        stableTargetPolls = 0;
-      }
-      await sleep(200);
-    }
-    if (!target) break;
-    connectionAttempt += 1;
-    progress('launch:target', { targetId: target.id, connectionAttempt });
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    try {
-      await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('CDP WebSocket open timed out')), 10_000);
-        socket.once('open', () => {
-          clearTimeout(timer);
-          resolve();
-        });
-        socket.once('error', (reason) => {
-          clearTimeout(timer);
-          reject(reason);
-        });
-      });
-      cdp = new CdpDriver(socket, target, appProcess.pid);
-      progress('launch:socket', { connectionAttempt });
-      await cdp.call('Network.enable');
-      await cdp.call('Page.enable');
-      await cdp.waitFor(
-        'document.readyState',
-        (value) => value === 'complete',
-        12_000,
-        'installed DOM ready'
-      );
-      progress('launch:dom-ready', { connectionAttempt });
-      await cdp.waitFor(
-        `Boolean(document.querySelector('button.nav-item'))`,
-        Boolean,
-        12_000,
-        'React navigation mount'
-      );
-      const currentTargets = await getJson(`http://127.0.0.1:${port}/json`);
-      const currentTarget = currentTargets.find((entry) => entry.type === 'page');
-      if (currentTarget?.id !== target.id)
-        throw new Error(`Renderer target changed from ${target.id} to ${currentTarget?.id || 'none'}`);
-      progress('launch:react-ready', { connectionAttempt });
-      return appProcess.pid;
-    } catch (reason) {
-      progress('launch:target-retry', {
-        connectionAttempt,
-        targetId: target.id,
-        reason: reason instanceof Error ? reason.message : String(reason),
-      });
-      try {
-        cdp?.close();
-        socket.close();
-      } catch {}
-      await sleep(250);
-    }
-  }
-  throw new Error(`Installed app did not expose a stable React CDP target on ${port}.`);
+  await connectRenderer(`launch-${launchCount}`, 45_000);
+  progress('launch:react-ready', { targetId: cdp.target.id });
+  return appProcess.pid;
 }
 
 async function closeVisible(id) {

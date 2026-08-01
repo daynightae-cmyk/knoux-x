@@ -57,6 +57,7 @@ export interface SlideshowRenderSnapshot {
   probe: ProbeResult | null;
   validation: SlideshowRenderValidation | null;
   previousOutputSha256: string | null;
+  outputExists?: boolean;
 }
 
 interface SlideshowRenderStoreSchema {
@@ -240,9 +241,12 @@ export class SlideshowRenderService {
 
   async list(): Promise<SlideshowRenderSnapshot[]> {
     await this.ready;
-    return [...this.jobs.values()]
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .map((job) => structuredClone(job));
+    const snapshots = [...this.jobs.values()]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return Promise.all(snapshots.map(async (job) => ({
+      ...structuredClone(job),
+      outputExists: Boolean(job.outputPath && await exists(job.outputPath)),
+    })));
   }
 
   async enqueue(
@@ -337,13 +341,13 @@ export class SlideshowRenderService {
   }
 
   async openOutput(jobId: string): Promise<void> {
-    const snapshot = this.requireCompleted(jobId);
+    const snapshot = await this.requireCompleted(jobId);
     const error = await shell.openPath(snapshot.outputPath!);
     if (error) throw new Error(error);
   }
 
   async revealOutput(jobId: string): Promise<void> {
-    const snapshot = this.requireCompleted(jobId);
+    const snapshot = await this.requireCompleted(jobId);
     shell.showItemInFolder(snapshot.outputPath!);
   }
 
@@ -352,10 +356,12 @@ export class SlideshowRenderService {
     for (const context of this.contexts.values()) context.cancelRequested = true;
   }
 
-  private requireCompleted(jobId: string): SlideshowRenderSnapshot {
+  private async requireCompleted(jobId: string): Promise<SlideshowRenderSnapshot> {
     const snapshot = this.jobs.get(jobId);
     if (!snapshot || snapshot.status !== 'completed' || !snapshot.outputPath)
       throw new Error('A completed slideshow output is required.');
+    if (!(await exists(snapshot.outputPath)))
+      throw new Error('The completed slideshow output is missing from disk.');
     return snapshot;
   }
 
@@ -689,13 +695,41 @@ export class SlideshowRenderService {
   private async writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const temporary = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+    const previous = `${filePath}.replace`;
     await fs.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
-    await fs.rm(filePath, { force: true });
-    await fs.rename(temporary, filePath);
+    await this.syncFile(temporary);
+    if (await exists(filePath)) {
+      if (await exists(previous)) await fs.rm(previous, { force: true });
+      await fs.rename(filePath, previous);
+    }
+    try {
+      await fs.rename(temporary, filePath);
+      await this.syncDirectory(path.dirname(filePath));
+      await fs.rm(previous, { force: true });
+    } catch (error) {
+      if (!(await exists(filePath)) && await exists(previous)) await fs.rename(previous, filePath);
+      await fs.rm(temporary, { force: true });
+      throw error;
+    }
   }
 
   private async recoverTransactions(): Promise<void> {
     await fs.mkdir(this.transactionDirectory, { recursive: true });
+    const replacementEntries = await fs.readdir(this.transactionDirectory, { withFileTypes: true });
+    for (const entry of replacementEntries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json.replace')) continue;
+      const previous = path.join(this.transactionDirectory, entry.name);
+      const current = previous.slice(0, -'.replace'.length);
+      if (await exists(current)) {
+        try {
+          JSON.parse(await fs.readFile(current, 'utf8'));
+          await fs.rm(previous, { force: true });
+        } catch {
+          await fs.rm(current, { force: true });
+          await fs.rename(previous, current);
+        }
+      } else await fs.rename(previous, current);
+    }
     const entries = await fs.readdir(this.transactionDirectory, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
@@ -705,12 +739,22 @@ export class SlideshowRenderService {
           await fs.readFile(manifestPath, 'utf8')
         ) as RenderTransactionManifest;
         if (manifest.committed) {
-          if (
-            (await exists(manifest.outputPath)) &&
-            (!manifest.validatedSha256 ||
-              (await sha256(manifest.outputPath)) === manifest.validatedSha256)
-          )
+          const finalValid = (await exists(manifest.outputPath)) &&
+            (!manifest.validatedSha256 || (await sha256(manifest.outputPath)) === manifest.validatedSha256);
+          if (finalValid) {
             await fs.rm(manifest.previousPath, { force: true });
+          } else if (
+            (await exists(manifest.previousPath)) &&
+            (!manifest.priorSha256 || (await sha256(manifest.previousPath)) === manifest.priorSha256)
+          ) {
+            await fs.rm(manifest.outputPath, { force: true });
+            await fs.rename(manifest.previousPath, manifest.outputPath);
+            await this.syncFile(manifest.outputPath);
+            await this.syncDirectory(path.dirname(manifest.outputPath));
+          } else {
+            // The transaction is still actionable; retain every job-owned file and manifest.
+            continue;
+          }
         } else if (await exists(manifest.previousPath)) {
           await fs.rm(manifest.outputPath, { force: true });
           await fs.rename(manifest.previousPath, manifest.outputPath);

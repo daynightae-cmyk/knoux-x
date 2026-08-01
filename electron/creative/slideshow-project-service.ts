@@ -147,6 +147,19 @@ export class SlideshowProjectService {
       const entries = await fs.readdir(directory, { withFileTypes: true });
       const results: SlideshowRecovery[] = [];
       for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(`${PROJECT_EXTENSION}.autosave.quarantined.json`)) {
+          try {
+            const marker = JSON.parse(await fs.readFile(path.join(directory, entry.name), 'utf8')) as {
+              filePath: string; quarantinePath: string; modifiedAt: string; error: string;
+            };
+            if (await this.isFile(marker.quarantinePath)) {
+              results.push({ status: 'corrupt', project: null, ...marker, backups: [] });
+            }
+          } catch {
+            // A malformed marker is retained for diagnostics but is never expanded repeatedly.
+          }
+          continue;
+        }
         if (!entry.isFile() || !entry.name.endsWith(`${PROJECT_EXTENSION}.autosave`)) continue;
         const filePath = path.join(directory, entry.name);
         try {
@@ -163,14 +176,22 @@ export class SlideshowProjectService {
           });
         } catch (error) {
           const stats = await fs.stat(filePath);
-          const quarantinePath = await this.quarantineCopy(filePath);
+          const quarantinePath = await this.quarantineOnce(filePath);
+          const message = error instanceof Error ? error.message : 'Autosave is corrupt.';
+          await this.atomicWrite(`${filePath}.quarantined.json`, `${JSON.stringify({
+            filePath,
+            quarantinePath,
+            modifiedAt: stats.mtime.toISOString(),
+            error: message,
+          }, null, 2)}\n`);
+          await fs.rm(filePath, { force: true });
           results.push({
             status: 'corrupt',
             project: null,
             filePath,
             modifiedAt: stats.mtime.toISOString(),
             quarantinePath,
-            error: error instanceof Error ? error.message : 'Autosave is corrupt.',
+            error: message,
             backups: [],
           });
         }
@@ -221,6 +242,7 @@ export class SlideshowProjectService {
     const content = await fs.readFile(backup, 'utf8');
     const project = parseSlideshowProject(JSON.parse(content) as unknown);
     await this.atomicWrite(original, content);
+    await fs.rm(`${original}.quarantined.json`, { force: true });
     await this.remember(original);
     return { project, filePath: original };
   }
@@ -361,6 +383,24 @@ export class SlideshowProjectService {
     );
     await fs.copyFile(filePath, destination);
     return destination;
+  }
+
+  private async quarantineOnce(filePath: string): Promise<string> {
+    const bytes = await fs.readFile(filePath);
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const directory = this.store.get('quarantineDirectory');
+    await fs.mkdir(directory, { recursive: true });
+    const destination = path.join(directory, `${path.basename(filePath)}.${digest}.corrupt`);
+    if (!(await this.isFile(destination))) await fs.writeFile(destination, bytes, { flag: 'wx' });
+    return destination;
+  }
+
+  private async isFile(filePath: string): Promise<boolean> {
+    try {
+      return (await fs.stat(filePath)).isFile();
+    } catch {
+      return false;
+    }
   }
 
   private requireInside(candidate: string, root: string, name: string): void {

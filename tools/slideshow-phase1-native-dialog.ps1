@@ -244,10 +244,8 @@ if ($Mode -eq 'Cancel') {
   $text = if ($Mode -eq 'Open' -and $payload.Count -gt 1) {
     ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
   } else { [string]$payload[0] }
-  if ($Mode -eq 'Open') {
+  if ($Mode -eq 'Open' -or $Mode -eq 'Save') {
     [KnouxNativeDialog]::SendMessage($editor.Handle, 0x000C, [IntPtr]::Zero, $text) | Out-Null
-  } else {
-    Set-AutomationValue $automationControls ([string]$controlId) $text -Commit
   }
   Capture-Window $dialog $ScreenshotPath
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 } | Select-Object -First 1

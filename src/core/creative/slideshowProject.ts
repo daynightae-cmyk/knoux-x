@@ -281,7 +281,22 @@ export function reorderSlide(
   const target = Math.max(0, Math.min(next.length - 1, Math.round(destination)));
   const [selected] = next.splice(index, 1);
   next.splice(target, 0, selected);
-  return next;
+  return constrainSlideTransitions(next);
+}
+
+export function transitionDurationMaximum(slides: SlideshowSlide[], index: number): number {
+  const slide = slides[index];
+  if (!slide) return 0;
+  if (index === 0) return slide.duration / 2;
+  return Math.min(slide.duration / 2, slides[index - 1].duration / 2);
+}
+
+export function constrainSlideTransitions(slides: SlideshowSlide[]): SlideshowSlide[] {
+  const next = slides.map((slide) => clone(slide));
+  return next.map((slide, index) => ({
+    ...slide,
+    transitionDuration: Math.min(slide.transitionDuration, transitionDurationMaximum(next, index)),
+  }));
 }
 
 export function duplicateSlide(
@@ -304,7 +319,7 @@ export function applyDurationToImages(
   duration: number
 ): SlideshowSlide[] {
   const value = positive(duration, 'Image duration');
-  return slides.map((slide) =>
+  return constrainSlideTransitions(slides.map((slide) =>
     slide.kind === 'image'
       ? {
           ...clone(slide),
@@ -312,7 +327,7 @@ export function applyDurationToImages(
           transitionDuration: Math.min(slide.transitionDuration, value / 2),
         }
       : clone(slide)
-  );
+  ));
 }
 
 export function slideshowDuration(project: Pick<SlideshowProject, 'slides'>): number {
@@ -435,6 +450,30 @@ export function audioGainAt(
   return Math.max(0, Math.min(4, track.volume * fade));
 }
 
+export function previewDuckGainAt(
+  timelineTime: number,
+  duckingGain: number,
+  voiceIntervals: Array<{ start: number; end: number }>
+): number {
+  let gain = 1;
+  for (const interval of voiceIntervals) {
+    const attackStart = interval.start - SLIDESHOW_LIMITS.duckAttackSeconds;
+    const releaseEnd = interval.end + SLIDESHOW_LIMITS.duckReleaseSeconds;
+    let intervalGain = 1;
+    if (timelineTime >= attackStart && timelineTime < interval.start) {
+      const progress = (timelineTime - attackStart) / SLIDESHOW_LIMITS.duckAttackSeconds;
+      intervalGain = 1 - (1 - duckingGain) * progress;
+    } else if (timelineTime >= interval.start && timelineTime <= interval.end) {
+      intervalGain = duckingGain;
+    } else if (timelineTime > interval.end && timelineTime <= releaseEnd) {
+      const progress = (timelineTime - interval.end) / SLIDESHOW_LIMITS.duckReleaseSeconds;
+      intervalGain = duckingGain + (1 - duckingGain) * progress;
+    }
+    gain = Math.min(gain, intervalGain);
+  }
+  return Math.max(0, Math.min(1, gain));
+}
+
 export function kenBurnsTransform(
   mode: KenBurnsMode,
   progress: number
@@ -510,7 +549,7 @@ export function parseSlideshowProject(value: unknown): SlideshowProject {
   validColor(project.backgroundColor ?? '');
   slideshowOutputSize(project as SlideshowProject);
   const ids = new Set<string>();
-  project.slides.forEach((slide) => {
+  project.slides.forEach((slide, index) => {
     validId(slide.id, 'Slide ID');
     if (ids.has(slide.id)) throw new Error('Duplicate slide ID.');
     ids.add(slide.id);
@@ -559,7 +598,11 @@ export function parseSlideshowProject(value: unknown): SlideshowProject {
       SLIDESHOW_LIMITS.mediaVolumeMax,
       'Slide volume'
     );
-    if (slide.transitionDuration < 0 || slide.transitionDuration > slide.duration / 2)
+    const previousDuration = index === 0 ? 0 : project.slides![index - 1].duration;
+    const transitionMaximum = index === 0
+      ? slide.duration / 2
+      : Math.min(slide.duration / 2, previousDuration / 2);
+    if (slide.transitionDuration < 0 || slide.transitionDuration > transitionMaximum)
       throw new RangeError('Slide transition duration is invalid.');
     if (slide.kind === 'video') {
       if (slide.sourceOut === null || slide.sourceDuration === null)

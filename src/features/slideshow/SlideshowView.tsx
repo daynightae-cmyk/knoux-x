@@ -41,15 +41,18 @@ import {
   addAudioTrack,
   applyDurationToImages,
   audioGainAt,
+  constrainSlideTransitions,
   createSlideshowSlide,
   duplicateSlide,
   effectiveAudioDuration,
   kenBurnsTransform,
+  previewDuckGainAt,
   reorderSlide,
   slideTimelineRanges,
   slideshowDuration,
   slideshowOutputSize,
   SLIDESHOW_LIMITS,
+  transitionDurationMaximum,
 } from '../../core/creative/slideshowProject';
 import type {
   CaptionDirection,
@@ -178,6 +181,8 @@ export const SlideshowView: React.FC = () => {
   const previewTimeRef = useRef(0);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const audioElements = useRef(new Map<string, HTMLAudioElement>());
+  const previewAudioContext = useRef<AudioContext | null>(null);
+  const previewGainNodes = useRef(new Map<HTMLMediaElement, GainNode>());
   const { locale, t } = useTranslation();
   const l = useCallback((en: string, ar: string): string => (locale === 'ar' ? ar : en), [locale]);
 
@@ -200,6 +205,10 @@ export const SlideshowView: React.FC = () => {
     () => project?.slides.find((slide) => slide.id === selectedSlideId) ?? null,
     [project, selectedSlideId]
   );
+  const selectedSlideIndex = project?.slides.findIndex((slide) => slide.id === selectedSlideId) ?? -1;
+  const selectedTransitionMaximum = project && selectedSlideIndex >= 0
+    ? transitionDurationMaximum(project.slides, selectedSlideIndex)
+    : 0;
   const missingAssets = useMemo(
     () => assetStatuses.filter((entry) => entry.status !== 'present'),
     [assetStatuses]
@@ -314,22 +323,39 @@ export const SlideshowView: React.FC = () => {
 
   useEffect(() => {
     if (!project) return;
+    const context = previewAudioContext.current ?? new AudioContext();
+    previewAudioContext.current = context;
+    if (previewPlaying && context.state === 'suspended') void context.resume();
+    const setMediaGain = (element: HTMLMediaElement, gain: number): void => {
+      let node = previewGainNodes.current.get(element);
+      if (!node) {
+        const source = context.createMediaElementSource(element);
+        node = context.createGain();
+        source.connect(node).connect(context.destination);
+        previewGainNodes.current.set(element, node);
+      }
+      element.volume = 1;
+      node.gain.setValueAtTime(clamp(gain, 0, 2), context.currentTime);
+    };
     visibleSlides.forEach(({ slide, range }) => {
       if (slide.kind !== 'video') return;
       const element = videoRefs.current.get(slide.id);
       if (!element) return;
       const target = slide.sourceIn + clamp(previewTime - range.start, 0, slide.duration);
       if (Math.abs(element.currentTime - target) > 0.1) element.currentTime = target;
-      element.volume = slide.muted ? 0 : clamp(slide.volume, 0, 1);
+      setMediaGain(element, slide.muted ? 0 : slide.volume);
       if (previewPlaying) void element.play().catch(() => undefined);
       else element.pause();
     });
 
-    const activeVoices = project.audioTracks.filter((track) => {
+    const voiceIntervals = project.audioTracks.filter((track) => {
       if (track.kind !== 'voice-over') return false;
       const mediaLength = track.sourceDuration ?? track.sourceOut ?? SLIDESHOW_LIMITS.audioTrimMin;
       const effective = effectiveAudioDuration(track, mediaLength, duration);
-      return previewTime >= track.start && previewTime <= track.start + effective;
+      return effective > 0;
+    }).map((track) => {
+      const mediaLength = track.sourceDuration ?? track.sourceOut ?? SLIDESHOW_LIMITS.audioTrimMin;
+      return { start: track.start, end: track.start + effectiveAudioDuration(track, mediaLength, duration) };
     });
     const activeIds = new Set(project.audioTracks.map((track) => track.id));
     for (const [id, element] of audioElements.current) {
@@ -361,11 +387,10 @@ export const SlideshowView: React.FC = () => {
       const trimLength = (track.sourceOut ?? mediaLength) - track.sourceIn;
       const sourceTime = track.sourceIn + (track.loop ? local % trimLength : local);
       if (Math.abs(element.currentTime - sourceTime) > 0.1) element.currentTime = sourceTime;
-      const duck =
-        track.kind === 'music' && track.duckingEnabled && activeVoices.length > 0
-          ? track.duckingGain
-          : 1;
-      element.volume = clamp(audioGainAt(track, previewTime, mediaLength, duration) * duck, 0, 1);
+      const duck = track.kind === 'music' && track.duckingEnabled
+        ? previewDuckGainAt(previewTime, track.duckingGain, voiceIntervals)
+        : 1;
+      setMediaGain(element, audioGainAt(track, previewTime, mediaLength, duration) * duck);
       void element.play().catch(() => undefined);
     });
   }, [assetStatuses, duration, previewPlaying, previewTime, project, visibleSlides]);
@@ -376,6 +401,9 @@ export const SlideshowView: React.FC = () => {
         element.pause();
         element.removeAttribute('src');
       }
+      previewGainNodes.current.clear();
+      void previewAudioContext.current?.close();
+      previewAudioContext.current = null;
     },
     []
   );
@@ -401,7 +429,11 @@ export const SlideshowView: React.FC = () => {
     const current = projectRef.current;
     if (current) setUndoHistory((history) => [...history, structuredClone(current)].slice(-100));
     setRedoHistory([]);
-    setProject({ ...structuredClone(next), updatedAt: new Date().toISOString() });
+    setProject({
+      ...structuredClone(next),
+      slides: constrainSlideTransitions(next.slides),
+      updatedAt: new Date().toISOString(),
+    });
     setDirty(true);
   }, []);
 
@@ -1572,7 +1604,7 @@ export const SlideshowView: React.FC = () => {
                   <input
                     type="number"
                     min="0"
-                    max={selectedSlide.duration / 2}
+                    max={selectedTransitionMaximum}
                     step="0.05"
                     value={selectedSlide.transitionDuration}
                     disabled={selectedSlide.transition === 'none'}
@@ -1582,7 +1614,7 @@ export const SlideshowView: React.FC = () => {
                         transitionDuration: clamp(
                           Number(event.target.value),
                           0,
-                          slide.duration / 2
+                          selectedTransitionMaximum
                         ),
                       }))
                     }
@@ -1800,7 +1832,8 @@ export const SlideshowView: React.FC = () => {
                   transition: index === 0 ? slide.transition : project.defaultTransition,
                   transitionDuration: Math.min(
                     project.defaultTransitionDuration,
-                    slide.duration / 2
+                    slide.duration / 2,
+                    index === 0 ? slide.duration / 2 : project.slides[index - 1].duration / 2
                   ),
                 })),
               })
@@ -2175,6 +2208,9 @@ export const SlideshowView: React.FC = () => {
                     variant="secondary"
                     size="sm"
                     leftIcon={<Play size={14} />}
+                    disabled={job.outputExists === false}
+                    title={job.outputExists === false ? l('Output file is missing.', 'ملف الناتج مفقود.') : undefined}
+                    data-disabled-reason={job.outputExists === false ? 'Completed output file is missing from disk.' : undefined}
                     onClick={() => void window.knouxSlideshowAPI.openOutput(job.id)}
                   >
                     {l('Open Output', 'فتح الناتج')}
@@ -2183,6 +2219,9 @@ export const SlideshowView: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     leftIcon={<ExternalLink size={14} />}
+                    disabled={job.outputExists === false}
+                    title={job.outputExists === false ? l('Output file is missing.', 'ملف الناتج مفقود.') : undefined}
+                    data-disabled-reason={job.outputExists === false ? 'Completed output file is missing from disk.' : undefined}
                     onClick={() => void window.knouxSlideshowAPI.revealOutput(job.id)}
                   >
                     {l('Reveal', 'إظهار في المجلد')}

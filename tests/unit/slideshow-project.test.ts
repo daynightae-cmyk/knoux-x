@@ -8,10 +8,12 @@ import {
   effectiveAudioDuration,
   kenBurnsTransform,
   parseSlideshowProject,
+  previewDuckGainAt,
   reorderSlide,
   slideTimelineRanges,
   slideshowDuration,
   slideshowOutputSize,
+  constrainSlideTransitions,
 } from '../../src/core/creative/slideshowProject';
 
 describe('KNOUX slideshow project calculations', () => {
@@ -107,6 +109,17 @@ describe('KNOUX slideshow project calculations', () => {
     expect(updated.find((slide) => slide.id === 'video')?.duration).toBe(7);
   });
 
+  test('enforces the transition maximum from both asymmetric neighbors after edits and reorder', () => {
+    const short = createSlideshowSlide({ id: 'short', sourcePath: 's.jpg', kind: 'image', duration: 0.2 });
+    const long = createSlideshowSlide({ id: 'long', sourcePath: 'l.jpg', kind: 'image', duration: 10, transitionDuration: 5 });
+    const constrained = constrainSlideTransitions([short, long]);
+    expect(constrained[1].transitionDuration).toBe(0.1);
+    expect(reorderSlide([long, short], 'long', 1)[1].transitionDuration).toBe(0.1);
+    const project = createSlideshowProject('asymmetric', 'Asymmetric');
+    project.slides = [short, long];
+    expect(() => parseSlideshowProject(project)).toThrow('transition duration');
+  });
+
   test('duplicates a slide with a new identity and all editable fields', () => {
     const image = createSlideshowSlide({
       id: 'source-slide',
@@ -162,6 +175,15 @@ describe('KNOUX slideshow project calculations', () => {
     expect(audioGainAt(track, 2, 3, 10)).toBeCloseTo(0.4);
     expect(audioGainAt(track, 9.5, 3, 10)).toBeCloseTo(0.2);
     expect(audioGainAt(track, 11, 3, 10)).toBe(0);
+  });
+
+  test('matches the clocked 150ms attack and 300ms release duck envelope', () => {
+    const intervals = [{ start: 2, end: 4 }];
+    expect(previewDuckGainAt(1.85, 0.25, intervals)).toBeCloseTo(1);
+    expect(previewDuckGainAt(1.925, 0.25, intervals)).toBeCloseTo(0.625);
+    expect(previewDuckGainAt(2, 0.25, intervals)).toBeCloseTo(0.25);
+    expect(previewDuckGainAt(4.15, 0.25, intervals)).toBeCloseTo(0.625);
+    expect(previewDuckGainAt(4.3, 0.25, intervals)).toBeCloseTo(1);
   });
 
   test('round-trips a valid versioned slideshow project and rejects duplicates', () => {

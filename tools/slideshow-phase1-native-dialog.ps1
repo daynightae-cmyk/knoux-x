@@ -27,6 +27,9 @@ public static class KnouxNativeDialog {
   [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect bounds);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint source, uint target, bool attach);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
@@ -181,20 +184,99 @@ function Click-Control([IntPtr]$Handle) {
   if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
     throw "Unable to resolve native control bounds for $Handle."
   }
-  $x = [Math]::Round(($bounds.Left + $bounds.Right) / 2)
-  $y = [Math]::Round(($bounds.Top + $bounds.Bottom) / 2)
+  $root = $Handle
+  while ([KnouxNativeDialog]::GetParent($root) -ne [IntPtr]::Zero) { $root = [KnouxNativeDialog]::GetParent($root) }
+  $ownerPid = [uint32]0
+  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($root, [ref]$ownerPid)
+  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
+  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
+  try {
+    [KnouxNativeDialog]::SetForegroundWindow($root) | Out-Null
+    [KnouxNativeDialog]::SetFocus($Handle) | Out-Null
+    $x = [Math]::Round(($bounds.Left + $bounds.Right) / 2)
+    $y = [Math]::Round(($bounds.Top + $bounds.Bottom) / 2)
+    [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new($x, $y)
+    [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+  } finally {
+    if ($attached) { [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null }
+  }
+  Start-Sleep -Milliseconds 180
+}
+
+function Click-DialogAddress([IntPtr]$Handle) {
+  $bounds = [KnouxNativeDialog+Rect]::new()
+  if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
+    throw 'Unable to resolve native dialog bounds for address navigation.'
+  }
+  $x = $bounds.Left + [Math]::Round(($bounds.Right - $bounds.Left) * 0.61)
+  $y = $bounds.Top + 48
   [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new($x, $y)
   [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
   [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
   Start-Sleep -Milliseconds 180
 }
 
+function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
+  $ownerPid = [uint32]0
+  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($Handle, [ref]$ownerPid)
+  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
+  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
+  try {
+    [KnouxNativeDialog]::PostMessage($Handle, 0x0100, [IntPtr]0x73, [IntPtr]::Zero) | Out-Null
+    [KnouxNativeDialog]::PostMessage($Handle, 0x0101, [IntPtr]0x73, [IntPtr]::Zero) | Out-Null
+    $addressDeadline = [DateTime]::UtcNow.AddSeconds(3)
+    do {
+      Start-Sleep -Milliseconds 150
+      $address = Get-AutomationControls $Handle | Where-Object {
+        $_.Current.AutomationId -eq '41477' -and $_.Current.ClassName -eq 'Edit'
+      } | Select-Object -First 1
+      if ($address) { break }
+    } while ([DateTime]::UtcNow -lt $addressDeadline)
+    if (-not $address) { throw 'Native Save address edit was not exposed after F4.' }
+    $addressPattern = $address.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern)
+    $addressPattern.SetValue($Directory)
+    Start-Sleep -Milliseconds 120
+    $addressHandle = [IntPtr]$address.Current.NativeWindowHandle
+    [KnouxNativeDialog]::PostMessage($addressHandle, 0x0100, [IntPtr]0x0D, [IntPtr]::Zero) | Out-Null
+    [KnouxNativeDialog]::PostMessage($addressHandle, 0x0101, [IntPtr]0x0D, [IntPtr]::Zero) | Out-Null
+  } finally {
+    if ($attached) {
+      [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null
+    }
+  }
+}
+
 function Paste-Control([IntPtr]$Handle, [string]$Value) {
-  Click-Control $Handle
-  [System.Windows.Forms.Clipboard]::SetText($Value)
-  [System.Windows.Forms.SendKeys]::SendWait('^a')
-  Start-Sleep -Milliseconds 80
-  [System.Windows.Forms.SendKeys]::SendWait('^v')
+  $bounds = [KnouxNativeDialog+Rect]::new()
+  if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) { throw 'Unable to resolve native edit bounds.' }
+  $root = $Handle
+  while ([KnouxNativeDialog]::GetParent($root) -ne [IntPtr]::Zero) { $root = [KnouxNativeDialog]::GetParent($root) }
+  $ownerPid = [uint32]0
+  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($root, [ref]$ownerPid)
+  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
+  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
+  try {
+    [KnouxNativeDialog]::SetForegroundWindow($root) | Out-Null
+    [KnouxNativeDialog]::SetFocus($Handle) | Out-Null
+    [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new([Math]::Round(($bounds.Left + $bounds.Right) / 2), [Math]::Round(($bounds.Top + $bounds.Bottom) / 2))
+    [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+    [System.Windows.Forms.Clipboard]::SetText($Value)
+    [System.Windows.Forms.SendKeys]::SendWait('^a')
+    Start-Sleep -Milliseconds 80
+    [System.Windows.Forms.SendKeys]::SendWait('^v')
+    Start-Sleep -Milliseconds 120
+  } finally {
+    if ($attached) { [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null }
+  }
+}
+
+function Type-Control([IntPtr]$Handle, [string]$Value) {
+  [KnouxNativeDialog]::SendMessage($Handle, 0x00B1, [IntPtr]::Zero, [IntPtr](-1)) | Out-Null
+  foreach ($character in $Value.ToCharArray()) {
+    [KnouxNativeDialog]::SendMessage($Handle, 0x0102, [IntPtr][int][char]$character, [IntPtr]::Zero) | Out-Null
+  }
   Start-Sleep -Milliseconds 120
 }
 
@@ -247,15 +329,18 @@ if ($Mode -eq 'Cancel') {
     if (-not [IO.Directory]::Exists($saveDirectory)) {
       throw "Requested Save directory does not exist: $saveDirectory"
     }
-    [System.Windows.Forms.Clipboard]::SetText($saveDirectory)
-    [System.Windows.Forms.SendKeys]::SendWait('^l')
-    Start-Sleep -Milliseconds 150
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    Start-Sleep -Milliseconds 120
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 700
-    $controls = @(Get-Controls $dialog)
-    $automationControls = @(Get-AutomationControls $dialog)
+    Navigate-DialogAddress $dialog $saveDirectory
+    Start-Sleep -Milliseconds 1200
+    $dialog = Find-Dialog -TimeoutSeconds 5
+    $null = Activate-Dialog $dialog
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+      $controls = @(Get-Controls $dialog)
+      $automationControls = @(Get-AutomationControls $dialog)
+      $saveEditorReady = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq 1001 } | Select-Object -First 1
+      if ($saveEditorReady) { break }
+      Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
     $record.navigatedDirectory = $saveDirectory
     $record.enteredFilename = $saveFilename
   }
@@ -265,7 +350,9 @@ if ($Mode -eq 'Cancel') {
   $text = if ($Mode -eq 'Open' -and $payload.Count -gt 1) {
     ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
   } elseif ($Mode -eq 'Save') { $saveFilename } else { [string]$payload[0] }
-  if ($Mode -eq 'Open' -or $Mode -eq 'Save') {
+  if ($Mode -eq 'Save') {
+    Type-Control $editor.Handle $text
+  } elseif ($Mode -eq 'Open') {
     [KnouxNativeDialog]::SendMessage($editor.Handle, 0x000C, [IntPtr]::Zero, $text) | Out-Null
   }
   Capture-Window $dialog $ScreenshotPath
@@ -274,7 +361,11 @@ if ($Mode -eq 'Cancel') {
   if ($Mode -eq 'Open') {
     [KnouxNativeDialog]::SendMessage($button.Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
   } else {
-    Invoke-AutomationButton $automationControls '1' 'Save' -Asynchronous:$ConfirmOverwrite | Out-Null
+    if ($ConfirmOverwrite) {
+      Invoke-AutomationButton $automationControls '1' 'Save' -Asynchronous | Out-Null
+    } else {
+      Click-Control $button.Handle
+    }
   }
 }
 

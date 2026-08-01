@@ -35,24 +35,48 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain("timeout: 45_000");
     expect(source).toContain("type: 'mouseReleased'");
     expect(source).toContain("type: 'keyUp'");
-    expect(source).toContain('pointer-recovered-after-uncertain-press');
-    expect(source).toContain('blindly replaying this possibly non-idempotent click is forbidden');
+    expect(source).toContain('recoverCdpInput(`${id}:uncertain-click`');
+    expect(source).toContain('pointer-click:idempotent-retry');
+    expect(source).toContain('idempotentRetry &&');
+    expect(source).toContain("recoverCdpInput('idempotent-dom-read')");
+    expect(source).toContain('return driver.rawRead(expression)');
+    expect(source).toContain('nativePointerDrag(start, end, id, source.viewportWidth, source.viewport)');
     expect(source).toContain('recoverCdpInput(`screenshot:${name}`)');
     expect(source).toContain('useNativeScreenshotCapture = true');
-    expect(source).toContain('captureInstalledWindow(outputPath)');
-    expect(source).toContain('nativeMouseWheel(deltaY)');
+    expect(source).toContain('captureInstalledWindow(outputPath, viewport)');
+    expect(source).toContain('nativeMouseWheel(deltaY, state.viewportWidth, state.viewport)');
+    expect(source).toContain("recoverCdpInput('idempotent-scroll'");
+    expect(source).toContain('nativeFill(');
+    expect(source).toContain('Visible text fill did not reach the requested value');
+    expect(source).toContain('await activeDriver.controlState(expression)');
     const captureSource = fs.readFileSync(
       path.resolve(__dirname, '../../tools/slideshow-phase1-capture-window.ps1'),
       'utf8'
     );
     expect(captureSource).toContain('[KnouxInstalledWindowCapture]::PrintWindow');
-    expect(captureSource).toContain('Sort-Object Area -Descending');
+    expect(captureSource).toContain('Sort-Object ViewportError');
     expect(captureSource).toContain('$script:processIds -contains $ownerPid');
     const inputSource = fs.readFileSync(
       path.resolve(__dirname, '../../tools/slideshow-phase1-native-input.ps1'),
       'utf8'
     );
     expect(inputSource).toContain('[KnouxInstalledNativeInput]::mouse_event(0x0800');
+    expect(inputSource).toContain("[ValidateSet('Wheel', 'Click', 'Drag', 'Select', 'Range', 'Fill')]");
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::ClientToScreen');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::SetWindowPos');
+    expect(inputSource).toContain('$script:processIds -notcontains $foregroundAfterPid');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::AttachThreadInput');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::keybd_event(0x12');
+    expect(inputSource).toContain('$bounds.Top + 10');
+    expect(inputSource).toContain('activationClick = $activationClick');
+    expect(inputSource).toContain('foregroundVerified = $foregroundVerified');
+    expect(inputSource).toContain('Sort-Object ViewportError');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::GetDpiForWindow');
+    expect(inputSource).toContain('$X * $scale');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::mouse_event(0x0002');
+    expect(inputSource).toContain('Send-VirtualKey 0x24');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::SendChord(0x11, 0x41)');
+    expect(inputSource).toContain('[KnouxInstalledNativeInput]::SendUnicodeText($text)');
     expect(inputSource).toContain('[KnouxInstalledNativeInput]::EnumWindows');
   });
 });

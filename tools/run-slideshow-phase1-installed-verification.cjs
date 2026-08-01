@@ -166,7 +166,7 @@ class CdpDriver {
     });
   }
 
-  async read(expression) {
+  async rawRead(expression) {
     const result = await this.call('Runtime.evaluate', {
       expression,
       returnByValue: true,
@@ -176,20 +176,30 @@ class CdpDriver {
     return result.result.value;
   }
 
+  async read(expression) {
+    try {
+      return await this.rawRead(expression);
+    } catch (reason) {
+      if (!isRecoverableCdpFailure(reason)) throw reason;
+      const driver = await recoverCdpInput('idempotent-dom-read');
+      return driver.rawRead(expression);
+    }
+  }
+
   async metadata() {
     return this.read(
-      `({route:location.hash,locale:document.documentElement.lang,dir:document.documentElement.dir,title:document.title,bodyText:document.body.innerText.slice(0,500)})`
+      `({route:location.hash,locale:document.documentElement.lang,dir:document.documentElement.dir,title:document.title,viewportWidth:innerWidth,viewportHeight:innerHeight,bodyText:document.body.innerText.slice(0,500)})`
     );
   }
 
   async controlState(expression) {
     return this.read(
-      `(()=>{let e;try{e=${expression}}catch{return null}if(!e)return null;const r=e.getBoundingClientRect();return {tag:e.tagName,text:(e.innerText||'').trim().slice(0,400),aria:e.getAttribute('aria-label'),testid:e.getAttribute('data-testid'),value:'value'in e?e.value:null,checked:'checked'in e?e.checked:null,disabled:'disabled'in e?e.disabled:null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:innerHeight}})()`
+      `(()=>{let e;try{e=${expression}}catch{return null}if(!e)return null;const r=e.getBoundingClientRect();return {tag:e.tagName,text:(e.innerText||'').trim().slice(0,400),aria:e.getAttribute('aria-label'),testid:e.getAttribute('data-testid'),value:'value'in e?e.value:null,checked:'checked'in e?e.checked:null,disabled:'disabled'in e?e.disabled:null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewportWidth:innerWidth,viewport:innerHeight}})()`
     );
   }
 
   async ensureVisible(expression, allowViewportTop = false) {
-    let driver = this;
+    let driver = cdp || this;
     for (let attempt = 0; attempt < 28; attempt += 1) {
       const state = await driver.controlState(expression);
       if (!state) throw new Error(`Visible control not found: ${expression}`);
@@ -203,77 +213,86 @@ class CdpDriver {
           : Math.min(650, state.rect.y - state.viewport + 180);
       try {
         await driver.call('Input.dispatchMouseEvent', {
-          type: 'mouseWheel',
-          x: 1180,
-          y: 620,
-          deltaX: 0,
-          deltaY,
-        });
+          type: 'mouseWheel', x: 1180, y: 620, deltaX: 0, deltaY,
+        }, 15_000);
       } catch (reason) {
         if (!isRecoverableCdpFailure(reason)) throw reason;
-        driver = await recoverCdpInput('scroll', { x: 1180, y: 620 });
-        nativeMouseWheel(deltaY);
-        // A wheel may already have been delivered. Re-observe visibility on the next
-        // iteration before issuing another idempotent scroll toward the same control.
+        driver = await recoverCdpInput('idempotent-scroll', { x: 1180, y: 620 });
+        nativeMouseWheel(deltaY, state.viewportWidth, state.viewport);
       }
+      // Scrolling is idempotent toward the same observed control. Re-observe its DOM
+      // rectangle before issuing any further visible wheel boundary.
       await sleep(90);
     }
     throw new Error(`Unable to scroll visible control into view: ${expression}`);
   }
 
-  async pointerClick(expression, id, screenshotName, allowViewportTop = false) {
+  async pointerClick(
+    expression,
+    id,
+    screenshotName,
+    allowViewportTop = false,
+    idempotentRetry = false
+  ) {
     progress('pointer-click:start', { id });
     const before = await this.ensureVisible(expression, allowViewportTop);
     progress('pointer-click:visible', { id });
     if (before.disabled) throw new Error(`Control is disabled: ${id}`);
-    let driver = cdp || this;
-    let current = before;
-    let x = current.rect.x + current.rect.width / 2;
-    let y = current.rect.y + current.rect.height / 2;
+    const driver = cdp || this;
+    const runtimeBefore = await driver.metadata();
+    const x = before.rect.x + before.rect.width / 2;
+    const y = before.rect.y + before.rect.height / 2;
+    let activeDriver = driver;
+    let uncertain = false;
     try {
-      await driver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-    } catch (reason) {
-      if (!isRecoverableCdpFailure(reason)) throw reason;
-      driver = await recoverCdpInput(`${id}:move`, { x, y });
-      current = await driver.controlState(expression);
-      if (!current || current.disabled) throw new Error(`Control changed during CDP move recovery: ${id}`);
-      x = current.rect.x + current.rect.width / 2;
-      y = current.rect.y + current.rect.height / 2;
-      await driver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-    }
-    try {
-      await driver.call('Input.dispatchMouseEvent', {
+      await activeDriver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, 15_000);
+      await activeDriver.call('Input.dispatchMouseEvent', {
         type: 'mousePressed', x, y, button: 'left', clickCount: 1,
-      });
-    } catch (reason) {
-      if (!isRecoverableCdpFailure(reason)) throw reason;
-      driver = await recoverCdpInput(`${id}:press`, { x, y });
-      // The press may have reached Chromium. Recovery sends only button-up and then
-      // observes the DOM; blindly replaying this possibly non-idempotent click is forbidden.
-      await driver.controlState(expression);
-      await sleep(420);
-      await recordAction(id, 'pointer-recovered-after-uncertain-press', expression, before,
-        await driver.controlState(expression), screenshotName);
-      progress('pointer-click:complete', { id, recoveredAfter: 'press' });
-      return;
-    }
-    try {
-      await driver.call('Input.dispatchMouseEvent', {
+      }, 15_000);
+      await activeDriver.call('Input.dispatchMouseEvent', {
         type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
-      });
+      }, 15_000);
     } catch (reason) {
       if (!isRecoverableCdpFailure(reason)) throw reason;
-      driver = await recoverCdpInput(`${id}:release`, { x, y });
-      // Mouse-up is idempotent and is the only event repeated after an uncertain release.
-      await driver.controlState(expression);
+      activeDriver = await recoverCdpInput(`${id}:uncertain-click`, { x, y });
+      uncertain = true;
     }
     await sleep(420);
+    let after = await activeDriver.controlState(expression);
+    let runtimeAfter = await activeDriver.metadata();
+    if (
+      idempotentRetry &&
+      JSON.stringify(after) === JSON.stringify(before) &&
+      JSON.stringify(runtimeAfter) === JSON.stringify(runtimeBefore)
+    ) {
+      const retry = await this.ensureVisible(expression, allowViewportTop);
+      const retryX = retry.rect.x + retry.rect.width / 2;
+      const retryY = retry.rect.y + retry.rect.height / 2;
+      try {
+        await activeDriver.call('Input.dispatchMouseEvent', {
+          type: 'mouseMoved', x: retryX, y: retryY,
+        }, 15_000);
+        await activeDriver.call('Input.dispatchMouseEvent', {
+          type: 'mousePressed', x: retryX, y: retryY, button: 'left', clickCount: 1,
+        }, 15_000);
+        await activeDriver.call('Input.dispatchMouseEvent', {
+          type: 'mouseReleased', x: retryX, y: retryY, button: 'left', clickCount: 1,
+        }, 15_000);
+      } catch (reason) {
+        if (!isRecoverableCdpFailure(reason)) throw reason;
+        activeDriver = await recoverCdpInput(`${id}:idempotent-retry`, { x: retryX, y: retryY });
+      }
+      progress('pointer-click:idempotent-retry', { id, uncertain });
+      await sleep(420);
+      after = await activeDriver.controlState(expression);
+      runtimeAfter = await activeDriver.metadata();
+    }
     await recordAction(
       id,
       'pointer',
       expression,
       before,
-      await driver.controlState(expression),
+      after,
       screenshotName
     );
     progress('pointer-click:complete', { id });
@@ -305,71 +324,54 @@ class CdpDriver {
 
   async fill(expression, value, id, screenshotName) {
     const before = await this.ensureVisible(expression);
-    const driver = cdp || this;
-    const x = before.rect.x + before.rect.width / 2;
-    const y = before.rect.y + before.rect.height / 2;
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.key('a', { code: 'KeyA', modifiers: 2, windowsVirtualKeyCode: 65 });
-    await (cdp || driver).call('Input.insertText', { text: String(value) });
-    await (cdp || driver).key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
+    nativeFill(
+      before.rect.x + before.rect.width / 2,
+      before.rect.y + before.rect.height / 2,
+      String(value),
+      id,
+      before.viewportWidth,
+      before.viewport
+    );
     await sleep(260);
+    const after = await (cdp || this).controlState(expression);
+    if (String(after?.value) !== String(value))
+      throw new Error(
+        `Visible text fill did not reach the requested value: ${id}; actual=${JSON.stringify(after?.value)}`
+      );
     await recordAction(
       id,
       'keyboard-fill',
       expression,
       before,
-      await (cdp || driver).controlState(expression),
+      after,
       screenshotName
     );
   }
 
   async select(expression, value, id, screenshotName) {
-    const index = await this.read(
-      `(()=>{const e=${expression};return e?[...e.options].findIndex(o=>o.value===${JSON.stringify(String(value))}||o.text===${JSON.stringify(String(value))}):-1})()`
+    const option = await this.read(
+      `(()=>{const e=${expression};if(!e)return null;const index=[...e.options].findIndex(o=>o.value===${JSON.stringify(String(value))}||o.text===${JSON.stringify(String(value))});return index<0?null:{index,value:e.options[index].value}})()`
     );
-    if (index < 0) throw new Error(`Select option ${value} not found for ${id}.`);
+    if (!option) throw new Error(`Select option ${value} not found for ${id}.`);
     const before = await this.ensureVisible(expression);
-    const driver = cdp || this;
-    const x = before.rect.x + before.rect.width / 2;
-    const y = before.rect.y + before.rect.height / 2;
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
-    for (let step = 0; step < index; step += 1)
-      await (cdp || driver).key('ArrowDown', { code: 'ArrowDown', windowsVirtualKeyCode: 40 });
-    await (cdp || driver).key('Enter', { code: 'Enter', windowsVirtualKeyCode: 13 });
+    nativeSelect(
+      before.rect.x + before.rect.width / 2,
+      before.rect.y + before.rect.height / 2,
+      option.index,
+      id,
+      before.viewportWidth,
+      before.viewport
+    );
     await sleep(300);
+    const after = await (cdp || this).controlState(expression);
+    if (after?.value !== option.value)
+      throw new Error(`Visible select did not reach ${option.value}: ${id}`);
     await recordAction(
       id,
       'keyboard-select',
       expression,
       before,
-      await (cdp || driver).controlState(expression),
+      after,
       screenshotName
     );
   }
@@ -381,34 +383,24 @@ class CdpDriver {
     if (!info) throw new Error(`Range not found: ${id}`);
     const steps = Math.round((Number(value) - info.min) / info.step);
     const before = await this.ensureVisible(expression);
-    const driver = cdp || this;
-    const x = before.rect.x + before.rect.width / 2;
-    const y = before.rect.y + before.rect.height / 2;
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await driver.key('Home', { code: 'Home', windowsVirtualKeyCode: 36 });
-    for (let step = 0; step < steps; step += 1)
-      await (cdp || driver).key('ArrowRight', { code: 'ArrowRight', windowsVirtualKeyCode: 39 });
-    await (cdp || driver).key('Tab', { code: 'Tab', windowsVirtualKeyCode: 9 });
+    nativeSetRange(
+      before.rect.x + before.rect.width / 2,
+      before.rect.y + before.rect.height / 2,
+      steps,
+      id,
+      before.viewportWidth,
+      before.viewport
+    );
     await sleep(250);
+    const after = await (cdp || this).controlState(expression);
+    if (!after || Math.abs(Number(after.value) - Number(value)) > Math.abs(info.step) / 2)
+      throw new Error(`Visible range did not reach ${value}: ${id}`);
     await recordAction(
       id,
       'keyboard-range',
       expression,
       before,
-      await (cdp || driver).controlState(expression),
+      after,
       screenshotName
     );
   }
@@ -433,28 +425,7 @@ class CdpDriver {
       x: target.rect.x + target.rect.width / 2,
       y: target.rect.y + target.rect.height / 2,
     };
-    await this.call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...start });
-    await this.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      ...start,
-      button: 'left',
-      clickCount: 1,
-    });
-    for (let step = 1; step <= 12; step += 1) {
-      await this.call('Input.dispatchMouseEvent', {
-        type: 'mouseMoved',
-        x: start.x + ((end.x - start.x) * step) / 12,
-        y: start.y + ((end.y - start.y) * step) / 12,
-        button: 'left',
-      });
-      await sleep(30);
-    }
-    await this.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      ...end,
-      button: 'left',
-      clickCount: 1,
-    });
+    nativePointerDrag(start, end, id, source.viewportWidth, source.viewport);
     await sleep(350);
     await recordAction(
       id,
@@ -468,7 +439,10 @@ class CdpDriver {
 
   async screenshot(name) {
     const outputPath = path.join(screenshots, `${name}.png`);
-    if (useNativeScreenshotCapture) return captureInstalledWindow(outputPath);
+    if (useNativeScreenshotCapture) {
+      const viewport = await (cdp || this).metadata();
+      return captureInstalledWindow(outputPath, viewport);
+    }
     const params = { format: 'png', fromSurface: true, captureBeyondViewport: false };
     let driver = cdp || this;
     let result;
@@ -477,12 +451,12 @@ class CdpDriver {
     } catch (reason) {
       if (!isRecoverableCdpFailure(reason)) throw reason;
       driver = await recoverCdpInput(`screenshot:${name}`);
-      await driver.metadata();
+      const viewport = await driver.metadata();
       // A timed-out Page.captureScreenshot can remain wedged on the target. After the
       // same-process session/DOM is re-observed, use the visible native window for this
       // and subsequent non-mutating evidence captures without replaying an action.
       useNativeScreenshotCapture = true;
-      return captureInstalledWindow(outputPath);
+      return captureInstalledWindow(outputPath, viewport);
     }
     fs.writeFileSync(outputPath, Buffer.from(result.data, 'base64'));
     return { path: outputPath, sha256: hashFile(outputPath), bytes: fs.statSync(outputPath).size };
@@ -540,21 +514,86 @@ function getJson(url) {
   });
 }
 
-function captureInstalledWindow(outputPath) {
+function captureInstalledWindow(outputPath, viewport) {
   execFileSync('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeCaptureHelper,
     '-ProcessId', String(appProcess.pid), '-OutputPath', outputPath,
+    '-ViewportWidth', String(viewport.viewportWidth),
+    '-ViewportHeight', String(viewport.viewportHeight),
   ], { encoding: 'utf8', timeout: 20_000 });
   return { path: outputPath, sha256: hashFile(outputPath), bytes: fs.statSync(outputPath).size };
 }
 
-function nativeMouseWheel(deltaY) {
-  execFileSync('powershell.exe', [
+function nativeMouseWheel(deltaY, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
     '-ProcessId', String(appProcess.pid), '-Action', 'Wheel',
     '-X', '1180', '-Y', '620', '-DeltaY', String(Math.round(deltaY)),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
   ], { encoding: 'utf8', timeout: 20_000 });
-  progress('native-input:wheel', { deltaY });
+  progress('native-input:wheel', { deltaY, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)) });
+}
+
+function nativePointerClick(x, y, id, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Click',
+    '-X', String(Math.round(x)), '-Y', String(Math.round(y)),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:focus-click', {
+    id, x, y, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)),
+  });
+}
+
+function nativePointerDrag(start, end, id, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Drag',
+    '-X', String(Math.round(start.x)), '-Y', String(Math.round(start.y)),
+    '-TargetX', String(Math.round(end.x)), '-TargetY', String(Math.round(end.y)),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:drag', {
+    id, start, end, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)),
+  });
+}
+
+function nativeSelect(x, y, steps, id, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Select',
+    '-X', String(Math.round(x)), '-Y', String(Math.round(y)), '-Steps', String(steps),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:select', {
+    id, steps, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)),
+  });
+}
+
+function nativeSetRange(x, y, steps, id, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Range',
+    '-X', String(Math.round(x)), '-Y', String(Math.round(y)), '-Steps', String(steps),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:range', {
+    id, steps, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)),
+  });
+}
+
+function nativeFill(x, y, value, id, viewportWidth, viewportHeight) {
+  const output = execFileSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', nativeInputHelper,
+    '-ProcessId', String(appProcess.pid), '-Action', 'Fill',
+    '-X', String(Math.round(x)), '-Y', String(Math.round(y)),
+    '-TextBase64', Buffer.from(value, 'utf8').toString('base64'),
+    '-ViewportWidth', String(viewportWidth), '-ViewportHeight', String(viewportHeight),
+  ], { encoding: 'utf8', timeout: 20_000 });
+  progress('native-input:fill', {
+    id, native: JSON.parse(output.trim().split(/\r?\n/).at(-1)),
+  });
 }
 
 function isRecoverableCdpFailure(reason) {
@@ -654,7 +693,9 @@ async function recoverCdpInput(reason, state = {}) {
       modifiers: state.modifiers || 0, windowsVirtualKeyCode: state.windowsVirtualKeyCode,
     });
   }
-  await driver.metadata();
+  await driver.rawRead(
+    `({route:location.hash,locale:document.documentElement.lang,dir:document.documentElement.dir,title:document.title,viewportWidth:innerWidth,viewportHeight:innerHeight})`
+  );
   progress('cdp-input-recovery:complete', { reason, targetId: driver.target.id });
   return driver;
 }
@@ -702,25 +743,7 @@ async function closeVisible(id) {
   appendJsonLine(actionLog, record);
   const x = before.rect.x + before.rect.width / 2;
   const y = before.rect.y + before.rect.height / 2;
-  try {
-    await cdp.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-    await cdp.call('Input.dispatchMouseEvent', {
-      type: 'mousePressed',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await cdp.call('Input.dispatchMouseEvent', {
-      type: 'mouseReleased',
-      x,
-      y,
-      button: 'left',
-      clickCount: 1,
-    });
-  } catch (reason) {
-    if (!String(reason).includes('CDP socket closed')) throw reason;
-  }
+  nativePointerClick(x, y, id, before.viewportWidth, before.viewport);
   progress('pointer-click:complete', { id });
   cdp.close();
   const deadline = Date.now() + 20_000;
@@ -764,7 +787,7 @@ function nativeDialog(mode, payload, id, confirmOverwrite = false) {
 async function navigateSlideshow(id) {
   const labels = ['Slideshow', 'عرض الشرائح'];
   const expression = `[...document.querySelectorAll('button.nav-item')].find(e=>${labels.map((label) => `(e.getAttribute('aria-label')||'')===${JSON.stringify(label)}`).join('||')})`;
-  await cdp.pointerClick(expression, id, `${id}-slideshow`);
+  await cdp.pointerClick(expression, id, `${id}-slideshow`, false, true);
   await cdp.waitFor(
     `document.querySelector('#slideshow-title')?.textContent||''`,
     (value) => value.length > 0,
@@ -881,10 +904,18 @@ async function main() {
     await cdp.pointerClick(
       button('العربية\nواجهة كاملة من اليمين إلى اليسار'),
       'U02-locale-ar',
-      'U02-ar'
+      'U02-ar',
+      false,
+      true
     );
-    await cdp.pointerClick(button('English\nLeft-to-right interface'), 'U02-locale-en', 'U02-en');
-    await cdp.pointerClick(button('Skip tour', 1), 'U01-skip-tour');
+    await cdp.pointerClick(
+      button('English\nLeft-to-right interface'),
+      'U02-locale-en',
+      'U02-en',
+      false,
+      true
+    );
+    await cdp.pointerClick(button('Skip tour', 1), 'U01-skip-tour', undefined, false, true);
   }
   await navigateSlideshow('U01-navigate');
   await cdp.fill(

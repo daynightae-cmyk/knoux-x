@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][int]$ProcessId,
-  [Parameter(Mandatory = $true)][string]$OutputPath
+  [Parameter(Mandatory = $true)][string]$OutputPath,
+  [Parameter(Mandatory = $true)][int]$ViewportWidth,
+  [Parameter(Mandatory = $true)][int]$ViewportHeight
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,6 +17,7 @@ public static class KnouxInstalledWindowCapture {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect bounds);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out Rect bounds);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr deviceContext, uint flags);
   public struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
 }
@@ -46,10 +49,15 @@ $script:candidates = @()
       $width = $bounds.Right - $bounds.Left
       $height = $bounds.Bottom - $bounds.Top
       if ($width -ge 640 -and $height -ge 480) {
+        $client = [KnouxInstalledWindowCapture+Rect]::new()
+        [KnouxInstalledWindowCapture]::GetClientRect($handle, [ref]$client) | Out-Null
+        $clientWidth = $client.Right - $client.Left
+        $clientHeight = $client.Bottom - $client.Top
         $script:candidates += [pscustomobject]@{
           Handle = $handle
           Bounds = $bounds
           Area = $width * $height
+          ViewportError = [Math]::Abs($clientWidth - $ViewportWidth) + [Math]::Abs($clientHeight - $ViewportHeight)
         }
       }
     }
@@ -57,7 +65,7 @@ $script:candidates = @()
   return $true
 }, [IntPtr]::Zero) | Out-Null
 
-$window = $script:candidates | Sort-Object Area -Descending | Select-Object -First 1
+$window = $script:candidates | Sort-Object ViewportError, @{ Expression = 'Area'; Descending = $true } | Select-Object -First 1
 if (-not $window) { throw "No visible installed application window was found for process $ProcessId." }
 $width = $window.Bounds.Right - $window.Bounds.Left
 $height = $window.Bounds.Bottom - $window.Bounds.Top
@@ -85,5 +93,8 @@ try {
   windowHandle = $window.Handle.ToInt64()
   width = $width
   height = $height
+  viewportWidth = $ViewportWidth
+  viewportHeight = $ViewportHeight
+  viewportError = $window.ViewportError
   outputPath = $OutputPath
 } | ConvertTo-Json -Compress

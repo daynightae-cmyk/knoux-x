@@ -125,13 +125,27 @@ function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 5) {
       # RPC_E_CALL_REJECTED or UIA_E_ELEMENTNOTAVAILABLE from FindAll.
       $root = [Windows.Automation.AutomationElement]::FromHandle($Dialog)
       if (-not $root) { throw [Runtime.InteropServices.COMException]::new('UI Automation did not expose the dialog root.') }
-      $collection = $root.FindAll(
+      $dialogCollection = $root.FindAll(
         [Windows.Automation.TreeScope]::Descendants,
         [Windows.Automation.Condition]::TrueCondition
       )
       $items = @()
-      for ($index = 0; $index -lt $collection.Count; $index += 1) {
-        $items += $collection.Item($index)
+      for ($index = 0; $index -lt $dialogCollection.Count; $index += 1) {
+        $items += $dialogCollection.Item($index)
+      }
+      # Explorer's folder picker exposes its path edit through the process UIA tree but
+      # not consistently as a descendant of the #32770 HWND. Reacquire that root inside
+      # the same bounded attempt and merge it with the dialog-scoped controls.
+      $processCondition = [Windows.Automation.PropertyCondition]::new(
+        [Windows.Automation.AutomationElement]::ProcessIdProperty,
+        $ProcessId
+      )
+      $processCollection = [Windows.Automation.AutomationElement]::RootElement.FindAll(
+        [Windows.Automation.TreeScope]::Descendants,
+        $processCondition
+      )
+      for ($index = 0; $index -lt $processCollection.Count; $index += 1) {
+        $items += $processCollection.Item($index)
       }
       return $items
     } catch {

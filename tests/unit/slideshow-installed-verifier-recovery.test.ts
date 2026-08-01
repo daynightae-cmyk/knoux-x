@@ -9,6 +9,8 @@ describe('installed slideshow verifier recovery boundaries', () => {
     );
     expect(source).toContain('function Get-DialogState');
     expect(source).toContain('[Windows.Automation.AutomationElement]::FromHandle($Dialog)');
+    expect(source).toContain('[Windows.Automation.AutomationElement]::RootElement.FindAll(');
+    expect(source).toContain('[Windows.Automation.AutomationElement]::ProcessIdProperty');
     expect(source).toContain('$Dialog = [IntPtr]::Zero');
     expect(source).toContain('[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)');
     expect(source).toContain("Wait-DialogClosed $dialog 'Native Save dialog'");

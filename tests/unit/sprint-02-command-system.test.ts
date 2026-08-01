@@ -28,6 +28,15 @@ describe('Sprint 02 DOM action command runtime', () => {
     expect(runtime.traces()).toHaveLength(0);
   });
 
+  test('treats a reasoned runtime transition to disabled as a passing non-dispatch proof', () => {
+    document.body.innerHTML = '<div class="app-shell" data-current-view="recording"><button>System audio</button></div>';
+    const runtime = createSprint02CommandRuntime(document.querySelector('.app-shell')!);
+    const button = document.querySelector<HTMLButtonElement>('button')!;
+    button.disabled = true;
+    button.dataset.disabledReason = 'Unavailable';
+    expect(runtime.refresh()[0]).toMatchObject({ status: 'disabled', pass: true, actual: 'disabled:Unavailable' });
+  });
+
   test('declares the complete fourteen-surface census', () => {
     expect(SPRINT_02_SURFACES).toHaveLength(14);
     expect(new Set(SPRINT_02_SURFACES).size).toBe(14);

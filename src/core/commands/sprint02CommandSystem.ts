@@ -168,8 +168,8 @@ export function createSprint02CommandRuntime(root: HTMLElement): Sprint02Command
         disabledReason: status === 'beta' ? (element.dataset.disabledReason ?? 'Planned for a future sprint.') : reason,
         runtime: runtimeFor(element), ipc: element.dataset.ipcChannel ?? null,
         expected: element.dataset.expectedEffect ?? 'Exactly one command trace and completion of the bound real DOM handler.',
-        actual: existing?.actual ?? (reason ? `disabled:${reason}` : 'not-exercised'),
-        automated: existing?.automated ?? false, manual: false, pass: existing?.pass ?? Boolean(reason), status,
+        actual: reason ? `disabled:${reason}` : (existing?.actual ?? 'not-exercised'),
+        automated: existing?.automated ?? false, manual: false, pass: reason ? true : (existing?.pass ?? false), status,
       });
       elements.set(actionId, element);
     }

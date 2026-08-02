@@ -18,54 +18,79 @@ public static class KnouxInstalledWindowCapture {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect bounds);
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out Rect bounds);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr deviceContext, uint flags);
   public struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
 }
 '@
 
-$allProcesses = @(Get-CimInstance Win32_Process)
-$script:processIds = @([uint32]$ProcessId)
+$deadline = [DateTime]::UtcNow.AddSeconds(12)
+$attempts = 0
+$window = $null
 do {
-  $added = $false
-  foreach ($process in $allProcesses) {
-    if (
-      $script:processIds -contains [uint32]$process.ParentProcessId -and
-      $script:processIds -notcontains [uint32]$process.ProcessId
-    ) {
-      $script:processIds += [uint32]$process.ProcessId
-      $added = $true
+  $attempts += 1
+  $allProcesses = @(Get-CimInstance Win32_Process)
+  $script:processIds = @([uint32]$ProcessId)
+  do {
+    $added = $false
+    foreach ($process in $allProcesses) {
+      if (
+        $script:processIds -contains [uint32]$process.ParentProcessId -and
+        $script:processIds -notcontains [uint32]$process.ProcessId
+      ) {
+        $script:processIds += [uint32]$process.ProcessId
+        $added = $true
+      }
     }
-  }
-} while ($added)
+  } while ($added)
 
-$script:candidates = @()
-[KnouxInstalledWindowCapture]::EnumWindows({
-  param([IntPtr]$handle, [IntPtr]$state)
-  $ownerPid = [uint32]0
-  [KnouxInstalledWindowCapture]::GetWindowThreadProcessId($handle, [ref]$ownerPid) | Out-Null
-  if ($script:processIds -contains $ownerPid -and [KnouxInstalledWindowCapture]::IsWindowVisible($handle)) {
-    $bounds = [KnouxInstalledWindowCapture+Rect]::new()
-    if ([KnouxInstalledWindowCapture]::GetWindowRect($handle, [ref]$bounds)) {
-      $width = $bounds.Right - $bounds.Left
-      $height = $bounds.Bottom - $bounds.Top
-      if ($width -ge 640 -and $height -ge 480) {
-        $client = [KnouxInstalledWindowCapture+Rect]::new()
-        [KnouxInstalledWindowCapture]::GetClientRect($handle, [ref]$client) | Out-Null
-        $clientWidth = $client.Right - $client.Left
-        $clientHeight = $client.Bottom - $client.Top
-        $script:candidates += [pscustomobject]@{
-          Handle = $handle
-          Bounds = $bounds
-          Area = $width * $height
-          ViewportError = [Math]::Abs($clientWidth - $ViewportWidth) + [Math]::Abs($clientHeight - $ViewportHeight)
+  $script:candidates = @()
+  [KnouxInstalledWindowCapture]::EnumWindows({
+    param([IntPtr]$handle, [IntPtr]$state)
+    $ownerPid = [uint32]0
+    [KnouxInstalledWindowCapture]::GetWindowThreadProcessId($handle, [ref]$ownerPid) | Out-Null
+    if ($script:processIds -contains $ownerPid) {
+      $bounds = [KnouxInstalledWindowCapture+Rect]::new()
+      if ([KnouxInstalledWindowCapture]::GetWindowRect($handle, [ref]$bounds)) {
+        $width = $bounds.Right - $bounds.Left
+        $height = $bounds.Bottom - $bounds.Top
+        if ($width -ge 640 -and $height -ge 480) {
+          $client = [KnouxInstalledWindowCapture+Rect]::new()
+          [KnouxInstalledWindowCapture]::GetClientRect($handle, [ref]$client) | Out-Null
+          $clientWidth = $client.Right - $client.Left
+          $clientHeight = $client.Bottom - $client.Top
+          $script:candidates += [pscustomobject]@{
+            Handle = $handle
+            Bounds = $bounds
+            Area = $width * $height
+            Visible = [KnouxInstalledWindowCapture]::IsWindowVisible($handle)
+            ViewportError = [Math]::Abs($clientWidth - $ViewportWidth) + [Math]::Abs($clientHeight - $ViewportHeight)
+          }
         }
       }
     }
-  }
-  return $true
-}, [IntPtr]::Zero) | Out-Null
+    return $true
+  }, [IntPtr]::Zero) | Out-Null
 
-$window = $script:candidates | Sort-Object ViewportError, @{ Expression = 'Area'; Descending = $true } | Select-Object -First 1
+  $window = $script:candidates |
+    Where-Object Visible |
+    Sort-Object ViewportError, @{ Expression = 'Area'; Descending = $true } |
+    Select-Object -First 1
+  if ($window) { break }
+
+  $hiddenWindow = $script:candidates |
+    Sort-Object ViewportError, @{ Expression = 'Area'; Descending = $true } |
+    Select-Object -First 1
+  if ($hiddenWindow) {
+    [KnouxInstalledWindowCapture]::ShowWindow($hiddenWindow.Handle, 9) | Out-Null
+    [KnouxInstalledWindowCapture]::BringWindowToTop($hiddenWindow.Handle) | Out-Null
+    [KnouxInstalledWindowCapture]::SetForegroundWindow($hiddenWindow.Handle) | Out-Null
+  }
+  Start-Sleep -Milliseconds 300
+} while ([DateTime]::UtcNow -lt $deadline)
+
 if (-not $window) { throw "No visible installed application window was found for process $ProcessId." }
 $width = $window.Bounds.Right - $window.Bounds.Left
 $height = $window.Bounds.Bottom - $window.Bounds.Top
@@ -96,5 +121,6 @@ try {
   viewportWidth = $ViewportWidth
   viewportHeight = $ViewportHeight
   viewportError = $window.ViewportError
+  acquisitionAttempts = $attempts
   outputPath = $OutputPath
 } | ConvertTo-Json -Compress

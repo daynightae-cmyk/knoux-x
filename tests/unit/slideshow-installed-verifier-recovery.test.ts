@@ -62,6 +62,11 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(captureSource).toContain('[KnouxInstalledWindowCapture]::PrintWindow');
     expect(captureSource).toContain('Sort-Object ViewportError');
     expect(captureSource).toContain('$script:processIds -contains $ownerPid');
+    expect(captureSource).toContain('[DateTime]::UtcNow.AddSeconds(12)');
+    expect(captureSource).toContain('[KnouxInstalledWindowCapture]::ShowWindow');
+    expect(captureSource).toContain('[KnouxInstalledWindowCapture]::SetForegroundWindow');
+    expect(captureSource).toContain('Where-Object Visible');
+    expect(captureSource).toContain('acquisitionAttempts = $attempts');
     const inputSource = fs.readFileSync(
       path.resolve(__dirname, '../../tools/slideshow-phase1-native-input.ps1'),
       'utf8'

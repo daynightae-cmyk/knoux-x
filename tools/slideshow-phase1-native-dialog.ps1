@@ -113,7 +113,7 @@ function Capture-Window([IntPtr]$Handle, [string]$OutputPath) {
   }
 }
 
-function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 5) {
+function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 10) {
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
   $lastError = $null
   do {
@@ -164,7 +164,7 @@ function Get-DialogState(
       }
       Activate-Dialog $Dialog
       $controls = @(Get-Controls $Dialog)
-      $automationControls = @(Get-AutomationControls $Dialog -TimeoutSeconds 1)
+      $automationControls = @(Get-AutomationControls $Dialog -TimeoutSeconds 5)
       if ($controls.Count -eq 0 -or $automationControls.Count -eq 0) {
         throw [Runtime.InteropServices.COMException]::new('The native dialog control tree is empty.')
       }

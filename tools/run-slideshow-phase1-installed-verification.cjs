@@ -244,18 +244,23 @@ class CdpDriver {
     const y = before.rect.y + before.rect.height / 2;
     let activeDriver = driver;
     let uncertain = false;
-    try {
-      await activeDriver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, 15_000);
-      await activeDriver.call('Input.dispatchMouseEvent', {
-        type: 'mousePressed', x, y, button: 'left', clickCount: 1,
-      }, 15_000);
-      await activeDriver.call('Input.dispatchMouseEvent', {
-        type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
-      }, 15_000);
-    } catch (reason) {
-      if (!isRecoverableCdpFailure(reason)) throw reason;
-      activeDriver = await recoverCdpInput(`${id}:uncertain-click`, { x, y });
-      uncertain = true;
+    let clickAttempt = 0;
+    while (clickAttempt < 2) {
+      try {
+        await activeDriver.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, 15_000);
+        await activeDriver.call('Input.dispatchMouseEvent', {
+          type: 'mousePressed', x, y, button: 'left', clickCount: 1,
+        }, 15_000);
+        await activeDriver.call('Input.dispatchMouseEvent', {
+          type: 'mouseReleased', x, y, button: 'left', clickCount: 1,
+        }, 15_000);
+        break;
+      } catch (reason) {
+        if (!isRecoverableCdpFailure(reason)) throw reason;
+        activeDriver = await recoverCdpInput(`${id}:uncertain-click`, { x, y });
+        uncertain = true;
+        clickAttempt += 1;
+      }
     }
     await sleep(420);
     let after = await activeDriver.controlState(expression);
@@ -303,22 +308,31 @@ class CdpDriver {
     const code = options.code || key;
     const windowsVirtualKeyCode = options.windowsVirtualKeyCode;
     let driver = cdp || this;
-    try {
-      await driver.call('Input.dispatchKeyEvent', {
-        type: 'rawKeyDown', key, code, modifiers, windowsVirtualKeyCode,
-      });
-    } catch (reason) {
-      if (!isRecoverableCdpFailure(reason)) throw reason;
-      await recoverCdpInput(`key:${key}:down`, { key, code, modifiers, windowsVirtualKeyCode });
-      return;
+    let keyAttempt = 0;
+    while (keyAttempt < 2) {
+      try {
+        await driver.call('Input.dispatchKeyEvent', {
+          type: 'rawKeyDown', key, code, modifiers, windowsVirtualKeyCode,
+        });
+        break;
+      } catch (reason) {
+        if (!isRecoverableCdpFailure(reason)) throw reason;
+        driver = await recoverCdpInput(`key:${key}:down`, { key, code, modifiers, windowsVirtualKeyCode });
+        keyAttempt += 1;
+      }
     }
-    try {
-      await driver.call('Input.dispatchKeyEvent', {
-        type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode,
-      });
-    } catch (reason) {
-      if (!isRecoverableCdpFailure(reason)) throw reason;
-      await recoverCdpInput(`key:${key}:up`, { key, code, modifiers, windowsVirtualKeyCode });
+    keyAttempt = 0;
+    while (keyAttempt < 2) {
+      try {
+        await driver.call('Input.dispatchKeyEvent', {
+          type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode,
+        });
+        break;
+      } catch (reason) {
+        if (!isRecoverableCdpFailure(reason)) throw reason;
+        driver = await recoverCdpInput(`key:${key}:up`, { key, code, modifiers, windowsVirtualKeyCode });
+        keyAttempt += 1;
+      }
     }
   }
 

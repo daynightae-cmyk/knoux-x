@@ -184,6 +184,32 @@ describe('NeonSelect', () => {
     unmount();
   });
 
+  test('Enter opens the list from a closed trigger', () => {
+    const onChange = jest.fn();
+    const { container, unmount } = renderUi(
+      <NeonSelect value="small" onChange={onChange} options={OPTIONS} aria-label="size" />,
+    );
+    expect(listboxOf(container)).toBeNull();
+    keyOn(triggerOf(container), 'Enter');
+    expect(listboxOf(container)).not.toBeNull();
+    expect(triggerOf(container).getAttribute('aria-expanded')).toBe('true');
+    expect(onChange).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  test('Space opens the list from a closed trigger', () => {
+    const onChange = jest.fn();
+    const { container, unmount } = renderUi(
+      <NeonSelect value="small" onChange={onChange} options={OPTIONS} aria-label="size" />,
+    );
+    expect(listboxOf(container)).toBeNull();
+    keyOn(triggerOf(container), ' ');
+    expect(listboxOf(container)).not.toBeNull();
+    expect(triggerOf(container).getAttribute('aria-expanded')).toBe('true');
+    expect(onChange).not.toHaveBeenCalled();
+    unmount();
+  });
+
   test('navigates options with ArrowDown and ArrowUp', () => {
     const { container, unmount } = renderUi(
       <NeonSelect value="small" onChange={jest.fn()} options={OPTIONS} aria-label="size" />,

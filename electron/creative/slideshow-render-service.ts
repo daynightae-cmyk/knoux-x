@@ -9,11 +9,13 @@ import sharp from 'sharp';
 
 import {
   buildSlideshowRenderPlan,
-  MAX_INLINE_FILTER_LENGTH,
   type SlideshowMediaMetadata,
   type SlideshowRenderAssets,
   type SlideshowRenderFormat,
 } from '../../src/core/creative/slideshowRender';
+import {
+  buildSlideshowExecution,
+} from '../../src/core/creative/slideshowExecution';
 import {
   parseSlideshowProject,
   slideshowDuration,
@@ -59,6 +61,8 @@ export interface SlideshowRenderSnapshot {
   validation: SlideshowRenderValidation | null;
   previousOutputSha256: string | null;
   outputExists?: boolean;
+  executionStrategy?: string;
+  commandLineLength?: number;
 }
 
 interface SlideshowRenderStoreSchema {
@@ -408,30 +412,19 @@ export class SlideshowRenderService {
       );
       context.snapshot.durationSeconds = plan.durationSeconds;
 
-      // Preflight guard: when the filter graph exceeds the safe inline
-      // threshold, write it to a bounded temporary script file so the
-      // child_process spawn argument buffer stays well below the Windows
-      // ~8191-character CreateProcess limit.
-      let filterScriptPath: string | undefined;
-      if (plan.filterComplexString.length > MAX_INLINE_FILTER_LENGTH) {
-        filterScriptPath = path.join(
-          context.temporaryDirectory,
-          `${createHash('sha256').update(plan.filterComplexString).digest('hex').slice(0, 12)}.filter`
-        );
-        await fs.writeFile(filterScriptPath, plan.filterComplexString, 'utf8');
-        const filterIndex = plan.args.indexOf('-filter_complex');
-        if (filterIndex >= 0) {
-          plan.args.splice(filterIndex, 2, '-filter_complex_script', filterScriptPath);
-        }
-      }
-
-      // Preflight: verify the serialized argument buffer is bounded.
-      const serializedArgs = plan.args.join('\0');
-      if (serializedArgs.length > 64 * 1024) {
-        throw new Error(
-          `Slideshow render plan exceeds the safe spawn argument buffer (${serializedArgs.length} bytes).`
-        );
-      }
+      // Bound the final command line: move oversized filters to a job-owned script file and
+      // stage long/many user inputs to short aliases, then recalculate the exact Windows
+      // command length for the final argument array before it is handed to spawn.
+      const capability = await this.ffmpeg.detectFilterCapabilities();
+      const executionPlan = await buildSlideshowExecution(plan, {
+        executablePath: capability.executablePath,
+        capability,
+        isWindows: this.ffmpeg.isWindowsPlatform(),
+        workspaceRoot: context.temporaryDirectory,
+      });
+      const renderArgs = executionPlan.args;
+      context.snapshot.executionStrategy = executionPlan.strategy;
+      context.snapshot.commandLineLength = executionPlan.commandLineLength;
 
       context.snapshot.status = 'rendering';
       this.emit(context);
@@ -441,7 +434,7 @@ export class SlideshowRenderService {
       await this.syncFile(context.partialPath);
       this.fault('partial-write');
       this.fault('ffmpeg');
-      await this.ffmpeg.run(plan.args, (progress) => {
+      await this.ffmpeg.run(renderArgs, (progress) => {
         context.ffmpegJobId = progress.jobId;
         context.snapshot.progress = progress;
         if (progress.timeSeconds !== undefined && plan.durationSeconds > 0) {
@@ -456,6 +449,7 @@ export class SlideshowRenderService {
           this.ffmpeg.cancel(progress.jobId);
         }
       });
+
       context.ffmpegJobId = null;
       if (context.cancelRequested) throw new Error('Render canceled.');
       context.snapshot.status = 'validating';

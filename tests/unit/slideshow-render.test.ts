@@ -1,4 +1,7 @@
-import { buildSlideshowRenderPlan } from '../../src/core/creative/slideshowRender';
+import {
+  MAX_INLINE_FILTER_LENGTH,
+  buildSlideshowRenderPlan,
+} from '../../src/core/creative/slideshowRender';
 import {
   addAudioTrack,
   createSlideshowProject,
@@ -220,5 +223,159 @@ describe('KNOUX slideshow render planning', () => {
     expect(graph).toContain('0.15');
     expect(graph).toContain('0.3');
     expect(graph).toContain('alimiter=limit=0.8913');
+  });
+
+  test('a 72-slide plan produces a filter graph that the service will script', () => {
+    const project = createSlideshowProject('large', 'Large', 'social-vertical');
+    project.resolution = '1080p';
+    project.fps = 30;
+    project.slides = Array.from({ length: 72 }, (_, index) =>
+      createSlideshowSlide({
+        id: `slide-${String(index).padStart(3, '0')}`,
+        sourcePath: `media/slide-${index}.jpg`,
+        kind: 'image',
+        duration: 3,
+        transition: 'crossfade',
+        transitionDuration: 0.5,
+      })
+    );
+    const plan = buildSlideshowRenderPlan(
+      project,
+      {
+        slideSources: Object.fromEntries(
+          project.slides.map((slide) => [slide.id, slide.sourcePath])
+        ),
+        slideMetadata: Object.fromEntries(
+          project.slides.map((slide) => [slide.id, { duration: slide.duration, hasAudio: false }])
+        ),
+        audioMetadata: {},
+      },
+      'output.mp4',
+      'mp4'
+    );
+    expect(plan.filterComplexString.length).toBeGreaterThan(MAX_INLINE_FILTER_LENGTH);
+    const serializedArgs = plan.args.join('\0');
+    expect(serializedArgs.length).toBeLessThanOrEqual(64 * 1024);
+  });
+
+  test('a 100-slide plan produces a filter graph that the service will script', () => {
+    const project = createSlideshowProject('huge', 'Huge', 'social-vertical');
+    project.resolution = '1080p';
+    project.fps = 30;
+    project.slides = Array.from({ length: 100 }, (_, index) =>
+      createSlideshowSlide({
+        id: `slide-${String(index).padStart(3, '0')}`,
+        sourcePath: `media/slide-${index}.jpg`,
+        kind: 'image',
+        duration: 2,
+        transition: 'crossfade',
+        transitionDuration: 0.3,
+      })
+    );
+    const plan = buildSlideshowRenderPlan(
+      project,
+      {
+        slideSources: Object.fromEntries(
+          project.slides.map((slide) => [slide.id, slide.sourcePath])
+        ),
+        slideMetadata: Object.fromEntries(
+          project.slides.map((slide) => [slide.id, { duration: slide.duration, hasAudio: false }])
+        ),
+        audioMetadata: {},
+      },
+      'output.mp4',
+      'mp4'
+    );
+    expect(plan.filterComplexString.length).toBeGreaterThan(MAX_INLINE_FILTER_LENGTH);
+    const serializedArgs = plan.args.join('\0');
+    expect(serializedArgs.length).toBeLessThanOrEqual(64 * 1024);
+  });
+
+test('a 250-slide plan produces a filter graph that the service will script', () => {
+     const project = createSlideshowProject('massive', 'Massive', 'social-vertical');
+     project.resolution = '720p';
+     project.fps = 24;
+     project.slides = Array.from({ length: 250 }, (_, index) =>
+       createSlideshowSlide({
+         id: `slide-${String(index).padStart(3, '0')}`,
+         sourcePath: `media/slide-${index}.jpg`,
+         kind: 'image',
+         duration: 1.5,
+         transition: 'crossfade',
+         transitionDuration: 0.2,
+       })
+     );
+     const plan = buildSlideshowRenderPlan(
+       project,
+       {
+         slideSources: Object.fromEntries(
+           project.slides.map((slide) => [slide.id, slide.sourcePath])
+         ),
+         slideMetadata: Object.fromEntries(
+           project.slides.map((slide) => [slide.id, { duration: slide.duration, hasAudio: false }])
+         ),
+         audioMetadata: {},
+       },
+       'output.mp4',
+       'mp4'
+     );
+     expect(plan.filterComplexString.length).toBeGreaterThan(MAX_INLINE_FILTER_LENGTH);
+     const serializedArgs = plan.args.join('\0');
+     expect(serializedArgs.length).toBeGreaterThan(64 * 1024);
+     expect(plan.args.length).toBeGreaterThan(1000);
+   });
+
+  test('paths containing Arabic and spaces work in the plan', () => {
+    const project = createSlideshowProject('arabic', 'Arabic', 'social-vertical');
+    project.resolution = '1080p';
+    project.slides = [
+      createSlideshowSlide({
+        id: 'slide-1',
+        sourcePath: 'media/صورة ١.jpg',
+        kind: 'image',
+        duration: 3,
+        transition: 'crossfade',
+        transitionDuration: 0.5,
+      }),
+    ];
+    const plan = buildSlideshowRenderPlan(
+      project,
+      {
+        slideSources: { 'slide-1': 'media/صورة ١.jpg' },
+        slideMetadata: { 'slide-1': { duration: 3, hasAudio: false } },
+        audioMetadata: {},
+      },
+      'output with spaces.mp4',
+      'mp4'
+    );
+    expect(plan.args).toContain('media/صورة ١.jpg');
+    expect(plan.args).toContain('output with spaces.mp4');
+  });
+
+  test('filterComplexString is returned for service-level script handling', () => {
+    const project = createSlideshowProject('script-test', 'Script', 'social-vertical');
+    project.resolution = '1080p';
+    project.slides = [
+      createSlideshowSlide({
+        id: 'slide-1',
+        sourcePath: 'photo.jpg',
+        kind: 'image',
+        duration: 3,
+        transition: 'crossfade',
+        transitionDuration: 0.5,
+      }),
+    ];
+    const plan = buildSlideshowRenderPlan(
+      project,
+      {
+        slideSources: { 'slide-1': 'photo.jpg' },
+        slideMetadata: { 'slide-1': { duration: 3, hasAudio: false } },
+        audioMetadata: {},
+      },
+      'output.mp4',
+      'mp4'
+    );
+    expect(typeof plan.filterComplexString).toBe('string');
+    expect(plan.filterComplexString.length).toBeGreaterThan(0);
   });
 });

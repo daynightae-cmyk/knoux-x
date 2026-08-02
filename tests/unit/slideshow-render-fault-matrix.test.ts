@@ -48,6 +48,16 @@ jest.mock('sharp', () => ({
 
 jest.mock('../../electron/creative/ffmpeg-service', () => ({
   FFmpegService: class {
+    isWindowsPlatform() { return false; }
+    detectFilterCapabilities() {
+      return Promise.resolve({
+        executablePath: 'ffmpeg',
+        version: 'mock ffmpeg version 6.0',
+        supportsFilterComplexScript: true,
+        supportsModernFilterFileSyntax: true,
+        detectedAt: '2026-08-02T00:00:00.000Z',
+      });
+    }
     run(args: string[], onProgress: (value: { jobId: string; timeSeconds: number }) => void) {
       return mockRun(args, onProgress);
     }

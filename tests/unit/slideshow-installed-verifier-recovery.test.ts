@@ -95,8 +95,8 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(inputSource).toContain('$X * $scale');
     expect(inputSource).toContain('[KnouxInstalledNativeInput]::mouse_event(0x0002');
     expect(inputSource).toContain('Send-VirtualKey 0x24');
-    expect(inputSource).toContain(
-      'Click-CurrentPointer\n  # Chromium may acknowledge the physical click'
+    expect(inputSource).toMatch(
+      /Click-CurrentPointer\r?\n\s+# Chromium may acknowledge the physical click/
     );
     expect(inputSource).toContain('Start-Sleep -Milliseconds 180');
     expect(inputSource).toContain('[KnouxInstalledNativeInput]::SendChord(0x11, 0x41)');

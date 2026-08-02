@@ -7,6 +7,24 @@ import { randomUUID } from 'crypto';
 const requireForRuntime = createRequire(import.meta.url);
 const MAX_OUTPUT_CAPTURE = 2 * 1024 * 1024;
 
+export interface FFmpegFilterCapability {
+  executablePath: string | null;
+  version: string | null;
+  supportsFilterComplexScript: boolean;
+  supportsModernFilterFileSyntax: boolean;
+  detectedAt: string;
+}
+
+export function unsupportedFilterCapability(executablePath: string | null): FFmpegFilterCapability {
+  return {
+    executablePath,
+    version: null,
+    supportsFilterComplexScript: false,
+    supportsModernFilterFileSyntax: false,
+    detectedAt: new Date().toISOString(),
+  };
+}
+
 export interface FFmpegCapabilities {
   available: boolean;
   ffmpegPath: string | null;
@@ -90,9 +108,58 @@ function safeDisplay(message: string): string {
 export class FFmpegService {
   private readonly jobs = new Map<string, ChildProcessWithoutNullStreams>();
   private cachedCapabilities: FFmpegCapabilities | null = null;
+  private cachedFilterCapability: { executablePath: string; capability: FFmpegFilterCapability } | null =
+    null;
 
   get activeJobCount(): number {
     return this.jobs.size;
+  }
+
+  /** Windows route-relevant platform check, exposed as a public typed capability query. */
+  public isWindowsPlatform(): boolean {
+    return process.platform === 'win32';
+  }
+
+  /**
+   * Detect what filter-graph file-loading syntax the actual bundled FFmpeg supports.
+   * Inspects the running binary (`-version`, `-h`) rather than hard-coding success, caches
+   * per executable path, and distinguishes an unsupported option from a process failure.
+   */
+  async detectFilterCapabilities(force = false): Promise<FFmpegFilterCapability> {
+    const executablePath = await this.resolveExecutable('ffmpeg');
+    if (!executablePath) return unsupportedFilterCapability(null);
+    if (!force && this.cachedFilterCapability?.executablePath === executablePath)
+      return structuredClone(this.cachedFilterCapability.capability);
+
+    let version: string | null = null;
+    let supportsFilterComplexScript = false;
+    try {
+      const versionResult = await this.execute(executablePath, ['-hide_banner', '-version']);
+      version = versionResult.stdout.split(/\r?\n/)[0]?.trim() || null;
+    } catch {
+      // Version probe failure is not itself an unsupported-syntax signal.
+    }
+    try {
+      const helpResult = await this.execute(executablePath, ['-hide_banner', '-h']);
+      const helpText = `${helpResult.stdout}\n${helpResult.stderr}`;
+      supportsFilterComplexScript = /filter_complex_script\b/.test(helpText);
+    } catch {
+      // A readiness failure means we cannot rely on scripted filters; treat as unsupported.
+    }
+    const major = /version\s+(\d+)\.(\d+)/.exec(version ?? '');
+    const majorNumber = major ? Number(major[1]) : 0;
+    const minorNumber = major ? Number(major[2]) : 0;
+    const capability: FFmpegFilterCapability = {
+      executablePath,
+      version,
+      supportsFilterComplexScript,
+      supportsModernFilterFileSyntax:
+        supportsFilterComplexScript &&
+        (majorNumber > 4 || (majorNumber === 4 && minorNumber >= 0)),
+      detectedAt: new Date().toISOString(),
+    };
+    this.cachedFilterCapability = { executablePath, capability: structuredClone(capability) };
+    return structuredClone(capability);
   }
 
   async discoverCapabilities(force = false): Promise<FFmpegCapabilities> {

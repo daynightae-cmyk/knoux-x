@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "testedHead": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
+  "testedHead": "003924b4bccad95547e95e00c17d9d8f215824f0",
   "channels": [
     {
       "channel": "ai-secure:cancel",
@@ -2754,6 +2754,50 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:import-files",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:import-files\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:import-files\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:import-folder",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:import-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:import-folder\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:open",
       "direction": "invoke",
       "owner": "slideshow",
@@ -2765,6 +2809,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:open-output",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:open-output\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:open-output\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",
@@ -2798,6 +2864,28 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:preflight",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:preflight\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:preflight\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:recent",
       "direction": "invoke",
       "owner": "slideshow",
@@ -2820,6 +2908,28 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:recover-backup",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:recover-backup\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:recover-backup\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:recoveries",
       "direction": "invoke",
       "owner": "slideshow",
@@ -2831,6 +2941,50 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:recoveries\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:relink-file",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:relink-file\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:relink-file\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:relink-folder",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:relink-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:relink-folder\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",
@@ -2875,6 +3029,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:render-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:reveal-output",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:reveal-output\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:reveal-output\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",

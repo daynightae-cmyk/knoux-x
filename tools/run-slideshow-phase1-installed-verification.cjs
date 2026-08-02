@@ -364,19 +364,32 @@ class CdpDriver {
       `(()=>{const e=${expression};if(!e)return null;const index=[...e.options].findIndex(o=>o.value===${JSON.stringify(String(value))}||o.text===${JSON.stringify(String(value))});return index<0?null:{index,value:e.options[index].value}})()`
     );
     if (!option) throw new Error(`Select option ${value} not found for ${id}.`);
-    const before = await this.ensureVisible(expression);
-    nativeSelect(
-      before.rect.x + before.rect.width / 2,
-      before.rect.y + before.rect.height / 2,
-      option.index,
-      id,
-      before.viewportWidth,
-      before.viewport
-    );
-    await sleep(300);
-    const after = await (cdp || this).controlState(expression);
+    let before;
+    let after;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      before = await this.ensureVisible(expression);
+      nativeSelect(
+        before.rect.x + before.rect.width / 2,
+        before.rect.y + before.rect.height / 2,
+        option.index,
+        attempt === 0 ? id : `${id}:select-retry-${attempt}`,
+        before.viewportWidth,
+        before.viewport
+      );
+      await sleep(300);
+      after = await (cdp || this).controlState(expression);
+      if (after?.value === option.value) break;
+      await progress('native-input:select-reacquire', {
+        id,
+        attempt: attempt + 1,
+        expected: option.value,
+        observed: after?.value ?? null,
+      });
+    }
     if (after?.value !== option.value)
-      throw new Error(`Visible select did not reach ${option.value}: ${id}`);
+      throw new Error(
+        `Visible select did not reach ${option.value}: ${id}; observed ${after?.value ?? 'missing'} after 3 attempts`
+      );
     await recordAction(
       id,
       'keyboard-select',

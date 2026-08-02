@@ -52,6 +52,8 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain('attempt < 3');
     expect(source).toContain('native-input:fill-reacquire');
     expect(source).toContain("`${id}:fill-retry-${attempt}`");
+    expect(source).toContain('native-input:select-reacquire');
+    expect(source).toContain("`${id}:select-retry-${attempt}`");
     expect(source).toContain('native-input:range-reacquire');
     expect(source).toContain("`${id}:range-retry-${attempt}`");
     expect(source).toContain('observed ${after?.value');

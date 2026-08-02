@@ -243,6 +243,10 @@ if ($Action -eq 'Wheel') {
   if (-not $TextBase64) { throw 'Fill requires TextBase64.' }
   $text = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($TextBase64))
   Click-CurrentPointer
+  # Chromium may acknowledge the physical click before it commits focus to the
+  # input element. Let that visible focus transition settle before Ctrl+A so a
+  # retry cannot type into the previously focused control.
+  Start-Sleep -Milliseconds 180
   [KnouxInstalledNativeInput]::SendChord(0x11, 0x41)
   [KnouxInstalledNativeInput]::SendUnicodeText($text)
   Send-VirtualKey 0x09

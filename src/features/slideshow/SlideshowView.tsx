@@ -69,6 +69,7 @@ import type {
 } from '../../core/creative/slideshowProject';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
@@ -960,15 +961,12 @@ export const SlideshowView: React.FC = () => {
             </label>
             <label>
               <span>{l('Template', 'القالب')}</span>
-              <select
-                data-testid="slideshow-new-template"
+              <NeonSelect
                 value={newTemplate}
-                onChange={(event) => setNewTemplate(event.target.value as SlideshowTemplate)}
-              >
-                {templates.map((entry) => (
-                  <option key={entry}>{entry}</option>
-                ))}
-              </select>
+                onChange={(val) => setNewTemplate(val as SlideshowTemplate)}
+                options={templates.map((entry) => ({ value: entry, label: entry }))}
+                label={l('Template', 'القالب')}
+              />
             </label>
             <NeonButton
               variant="primary"
@@ -1450,19 +1448,17 @@ export const SlideshowView: React.FC = () => {
               </label>
               <label>
                 <span>{l('Caption direction', 'اتجاه النص')}</span>
-                <select
+                <NeonSelect
                   value={selectedSlide.captionDirection}
-                  onChange={(event) =>
+                  onChange={(val) =>
                     patchSelectedSlide((slide) => ({
                       ...slide,
-                      captionDirection: event.target.value as CaptionDirection,
+                      captionDirection: val as CaptionDirection,
                     }))
                   }
-                >
-                  {directions.map((entry) => (
-                    <option key={entry}>{entry}</option>
-                  ))}
-                </select>
+                  options={directions.map((entry) => ({ value: entry, label: entry }))}
+                  label={l('Caption direction', 'اتجاه النص')}
+                />
               </label>
               <label>
                 <span>{t('slideshow.duration')}</span>
@@ -1536,36 +1532,32 @@ export const SlideshowView: React.FC = () => {
               <div className="slideshow-two-columns">
                 <label>
                   <span>{t('slideshow.fit')}</span>
-                  <select
+                  <NeonSelect
                     value={selectedSlide.fit}
-                    onChange={(event) =>
+                    onChange={(val) =>
                       patchSelectedSlide((slide) => ({
                         ...slide,
-                        fit: event.target.value as SlideshowFit,
+                        fit: val as SlideshowFit,
                       }))
                     }
-                  >
-                    {fits.map((entry) => (
-                      <option key={entry}>{entry}</option>
-                    ))}
-                  </select>
+                    options={fits.map((entry) => ({ value: entry, label: entry }))}
+                    label={t('slideshow.fit')}
+                  />
                 </label>
                 <label>
                   <span>{t('slideshow.motion')}</span>
-                  <select
+                  <NeonSelect
                     value={selectedSlide.kenBurns}
                     disabled={selectedSlide.kind !== 'image'}
-                    onChange={(event) =>
+                    onChange={(val) =>
                       patchSelectedSlide((slide) => ({
                         ...slide,
-                        kenBurns: event.target.value as KenBurnsMode,
+                        kenBurns: val as KenBurnsMode,
                       }))
                     }
-                  >
-                    {motions.map((entry) => (
-                      <option key={entry}>{entry}</option>
-                    ))}
-                  </select>
+                    options={motions.map((entry) => ({ value: entry, label: entry }))}
+                    label={t('slideshow.motion')}
+                  />
                 </label>
               </div>
               <div className="slideshow-three-columns">
@@ -1621,19 +1613,17 @@ export const SlideshowView: React.FC = () => {
               <div className="slideshow-two-columns">
                 <label>
                   <span>{t('slideshow.transition')}</span>
-                  <select
-                    value={selectedSlide.transition}
-                    onChange={(event) =>
-                      patchSelectedSlide((slide) => ({
-                        ...slide,
-                        transition: event.target.value as SlideshowTransition,
-                      }))
-                    }
-                  >
-                    {transitions.map((entry) => (
-                      <option key={entry}>{entry}</option>
-                    ))}
-                  </select>
+<NeonSelect
+                  value={selectedSlide.transition}
+                  onChange={(val) =>
+                    patchSelectedSlide((slide) => ({
+                      ...slide,
+                      transition: val as SlideshowTransition,
+                    }))
+                  }
+                  options={transitions.map((entry) => ({ value: entry, label: entry }))}
+                  label={t('slideshow.transition')}
+                />
                 </label>
                 <label>
                   <span>{t('slideshow.transitionDuration')}</span>
@@ -1700,55 +1690,47 @@ export const SlideshowView: React.FC = () => {
         <div className="slideshow-settings-grid">
           <label>
             <span>{t('slideshow.template')}</span>
-            <select
+            <NeonSelect
               value={project.template}
-              onChange={(event) =>
-                commit({ ...project, template: event.target.value as SlideshowTemplate })
+              onChange={(val) =>
+                commit({ ...project, template: val as SlideshowTemplate })
               }
-            >
-              {templates.map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={templates.map((entry) => ({ value: entry, label: entry }))}
+              label={t('slideshow.template')}
+            />
           </label>
           <label>
             <span>{t('slideshow.aspect')}</span>
-            <select
+            <NeonSelect
               value={project.aspect}
-              onChange={(event) =>
-                commit({ ...project, aspect: event.target.value as SlideshowAspect })
+              onChange={(val) =>
+                commit({ ...project, aspect: val as SlideshowAspect })
               }
-            >
-              {aspects.map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={aspects.map((entry) => ({ value: entry, label: entry }))}
+              label={t('slideshow.aspect')}
+            />
           </label>
           <label>
             <span>{t('slideshow.resolution')}</span>
-            <select
+            <NeonSelect
               value={project.resolution}
-              onChange={(event) =>
-                commit({ ...project, resolution: event.target.value as SlideshowResolution })
+              onChange={(val) =>
+                commit({ ...project, resolution: val as SlideshowResolution })
               }
-            >
-              {resolutions.map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={resolutions.map((entry) => ({ value: entry, label: entry }))}
+              label={t('slideshow.resolution')}
+            />
           </label>
           <label>
             <span>{t('slideshow.fps')}</span>
-            <select
-              value={project.fps}
-              onChange={(event) =>
-                commit({ ...project, fps: Number(event.target.value) as SlideshowProject['fps'] })
+            <NeonSelect
+              value={String(project.fps)}
+              onChange={(val) =>
+                commit({ ...project, fps: Number(val) as SlideshowProject['fps'] })
               }
-            >
-              {[24, 25, 30, 50, 60].map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={[24, 25, 30, 50, 60].map((entry) => ({ value: String(entry), label: `${entry}` }))}
+              label={t('slideshow.fps')}
+            />
           </label>
           {project.aspect === 'custom' && (
             <>
@@ -1812,20 +1794,18 @@ export const SlideshowView: React.FC = () => {
           </label>
           <label>
             <span>{l('Global transition', 'الانتقال العام')}</span>
-            <select
+<NeonSelect
               data-testid="slideshow-global-transition"
               value={project.defaultTransition}
-              onChange={(event) =>
+              onChange={(val) =>
                 commit({
                   ...project,
-                  defaultTransition: event.target.value as SlideshowTransition,
+                  defaultTransition: val as SlideshowTransition,
                 })
               }
-            >
-              {transitions.map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={transitions.map((entry) => ({ value: entry, label: entry }))}
+              label={l('Global transition', 'الانتقال العام')}
+            />
           </label>
           <label>
             <span>{l('Global transition duration', 'مدة الانتقال العام')}</span>
@@ -2103,24 +2083,24 @@ export const SlideshowView: React.FC = () => {
           </div>
           <label>
             {l('Position', 'الموضع')}
-            <select
+            <NeonSelect
               value={project.watermark.position}
-              onChange={(event) =>
+              onChange={(val) =>
                 commit({
                   ...project,
                   watermark: {
                     ...project.watermark!,
-                    position: event.target.value as SlideshowProject['watermark'] extends infer _T
+                    position: val as SlideshowProject['watermark'] extends infer _T
                       ? 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center'
                       : never,
                   },
                 })
               }
-            >
-              {['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].map((entry) => (
-                <option key={entry}>{entry}</option>
-              ))}
-            </select>
+              options={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'].map(
+                (entry) => ({ value: entry, label: entry }),
+              )}
+              label={l('Position', 'الموضع')}
+            />
           </label>
           <label>
             {l('Scale', 'الحجم')}
@@ -2183,14 +2163,11 @@ export const SlideshowView: React.FC = () => {
               : t('slideshow.renderDescription')}
           </p>
         </div>
-        <select
+        <NeonSelect
           value={renderFormat}
-          onChange={(event) => setRenderFormat(event.target.value as SlideshowRenderFormat)}
-        >
-          {renderFormats.map((entry) => (
-            <option key={entry}>{entry.toUpperCase()}</option>
-          ))}
-        </select>
+          onChange={(val) => setRenderFormat(val as SlideshowRenderFormat)}
+          options={renderFormats.map((entry) => ({ value: entry, label: entry.toUpperCase() }))}
+        />
         <NeonButton
           variant="primary"
           leftIcon={<Film size={16} />}

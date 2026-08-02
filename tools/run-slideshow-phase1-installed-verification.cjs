@@ -323,20 +323,31 @@ class CdpDriver {
   }
 
   async fill(expression, value, id, screenshotName) {
-    const before = await this.ensureVisible(expression);
-    nativeFill(
-      before.rect.x + before.rect.width / 2,
-      before.rect.y + before.rect.height / 2,
-      String(value),
-      id,
-      before.viewportWidth,
-      before.viewport
-    );
-    await sleep(260);
-    const after = await (cdp || this).controlState(expression);
+    let before;
+    let after;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      before = await this.ensureVisible(expression);
+      nativeFill(
+        before.rect.x + before.rect.width / 2,
+        before.rect.y + before.rect.height / 2,
+        String(value),
+        attempt === 0 ? id : `${id}:fill-retry-${attempt}`,
+        before.viewportWidth,
+        before.viewport
+      );
+      await sleep(260);
+      after = await (cdp || this).controlState(expression);
+      if (String(after?.value) === String(value)) break;
+      await progress('native-input:fill-reacquire', {
+        id,
+        attempt: attempt + 1,
+        expected: String(value),
+        observed: after?.value ?? null,
+      });
+    }
     if (String(after?.value) !== String(value))
       throw new Error(
-        `Visible text fill did not reach the requested value: ${id}; actual=${JSON.stringify(after?.value)}`
+        `Visible text fill did not reach the requested value: ${id}; actual=${JSON.stringify(after?.value)} after 3 attempts`
       );
     await recordAction(
       id,

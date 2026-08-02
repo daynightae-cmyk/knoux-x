@@ -294,6 +294,17 @@ function Click-DialogAddress([IntPtr]$Handle) {
   Start-Sleep -Milliseconds 180
 }
 
+function Click-DialogAddressGo([IntPtr]$Handle) {
+  $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
+  $toolbar = @($state.AutomationControls) | Where-Object {
+    $_.Current.ClassName -eq 'ToolbarWindow32' -and
+    $_.Current.Name -eq 'Address band toolbar' -and
+    $_.Current.NativeWindowHandle -ne 0
+  } | Select-Object -First 1
+  if (-not $toolbar) { throw 'Native dialog address Go toolbar was not found.' }
+  Click-Control ([IntPtr]$toolbar.Current.NativeWindowHandle)
+}
+
 function Send-DialogKey([IntPtr]$Handle, [int]$VirtualKey) {
   if (-not [KnouxNativeDialog]::PostMessage($Handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]::Zero)) {
     throw "Unable to post key-down $VirtualKey to the native dialog."
@@ -309,32 +320,46 @@ function Send-VisibleDialogKey([IntPtr]$Handle, [int]$VirtualKey) {
   [KnouxNativeDialog]::keybd_event([byte]$VirtualKey, 0, 0x0002, [UIntPtr]::Zero)
 }
 
-function Get-AutomationValueControl([object[]]$Elements, [string]$AutomationId) {
-  foreach ($candidate in $Elements) {
-    if ($candidate.Current.AutomationId -ne $AutomationId) { continue }
-    $pattern = $null
-    if ($candidate.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
-      return [pscustomobject]@{ Element = $candidate; Pattern = $pattern }
-    }
-  }
-  return $null
-}
-
 function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
   $canonicalDirectory = [IO.Path]::GetFullPath($Directory).TrimEnd([IO.Path]::DirectorySeparatorChar)
   Activate-Dialog $Handle
 
-  # Windows common dialogs keep the address editor inside an Address Band root whose
-  # UIA/native IDs vary by host. Ctrl+L is the stable visible command for that editor.
-  [System.Windows.Forms.SendKeys]::SendWait('^l')
-  Start-Sleep -Milliseconds 180
-  [System.Windows.Forms.Clipboard]::SetText($canonicalDirectory)
-  [System.Windows.Forms.SendKeys]::SendWait('^a')
-  Start-Sleep -Milliseconds 100
-  [System.Windows.Forms.SendKeys]::SendWait('^v')
-  Start-Sleep -Milliseconds 120
-  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-  Start-Sleep -Milliseconds 900
+  # The Windows address editor is hosted by control 41477. Post F4 to that host,
+  # reacquire it after the shell swaps its child tree, then enter the canonical path
+  # through WM_CHAR so the active keyboard layout cannot transform the text.
+  $observedDirectory = $null
+  for ($attempt = 1; $attempt -le 3; $attempt += 1) {
+    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
+    $addressEditor = @($state.Controls) | Where-Object {
+      $_.Class -eq 'Edit' -and $_.Id -eq 41477
+    } | Select-Object -First 1
+    if (-not $addressEditor) { throw 'Native dialog address edit 41477 was not found.' }
+    Send-DialogKey $addressEditor.Handle 0x73
+    Start-Sleep -Milliseconds 240
+    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
+    $addressEditor = @($state.Controls) | Where-Object {
+      $_.Class -eq 'Edit' -and $_.Id -eq 41477
+    } | Select-Object -First 1
+    if (-not $addressEditor) { throw 'Native dialog address edit 41477 was not reacquired after F4.' }
+    Type-Control $addressEditor.Handle $canonicalDirectory
+    Click-DialogAddressGo $Handle
+    Start-Sleep -Milliseconds 900
+
+    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
+    $addressLabel = @($state.AutomationControls) | Where-Object {
+      $_.Current.ClassName -eq 'ToolbarWindow32' -and $_.Current.Name -match '^Address:\s*'
+    } | Select-Object -First 1
+    if ($addressLabel) {
+      $observedDirectory = ([string]$addressLabel.Current.Name -replace '^Address:\s*', '').Trim()
+      if ([IO.Path]::GetFullPath($observedDirectory).TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $canonicalDirectory) {
+        break
+      }
+    }
+  }
+  if (-not $observedDirectory -or
+      [IO.Path]::GetFullPath($observedDirectory).TrimEnd([IO.Path]::DirectorySeparatorChar) -ne $canonicalDirectory) {
+    throw "Native dialog directory mismatch after 3 attempts: requested '$canonicalDirectory', observed '$observedDirectory'."
+  }
 
   $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
   $filenameEditor = @($state.Controls) | Where-Object {
@@ -379,9 +404,10 @@ function Type-Control([IntPtr]$Handle, [string]$Value) {
 }
 
 Add-Type -AssemblyName System.Windows.Forms
-$payload = if ($PayloadBase64) {
+$parsedPayload = if ($PayloadBase64) {
   [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64)) | ConvertFrom-Json
 } else { @() }
+$payload = @($parsedPayload)
 
 $dialogState = Get-DialogState -TimeoutSeconds 20
 $dialog = $dialogState.Dialog

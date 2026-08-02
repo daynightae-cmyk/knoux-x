@@ -12,9 +12,12 @@ describe('installed slideshow verifier recovery boundaries', () => {
     expect(source).toContain('[Windows.Automation.AutomationElement]::RootElement.FindAll(');
     expect(source).toContain('[Windows.Automation.AutomationElement]::ProcessIdProperty');
     expect(source).toContain("$_.Class -eq 'Edit' -and $_.Id -eq 1001");
-    expect(source).toContain('Type-Control $filenameEditor.Handle $Directory');
-    expect(source).toContain('$Directory');
-    expect(source).toContain('Click-Control $confirm.Handle');
+    expect(source).toContain("[System.Windows.Forms.SendKeys]::SendWait('^l')");
+    expect(source).toContain('[System.Windows.Forms.Clipboard]::SetText($canonicalDirectory)');
+    expect(source).toContain("[System.Windows.Forms.SendKeys]::SendWait('^a')");
+    expect(source).toContain("[System.Windows.Forms.SendKeys]::SendWait('^v')");
+    expect(source).toContain("[System.Windows.Forms.SendKeys]::SendWait('{ENTER}')");
+    expect(source).not.toContain('Type-Control $filenameEditor.Handle $Directory');
     expect(source).toContain('$Dialog = [IntPtr]::Zero');
     expect(source).toContain('[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)');
     expect(source).toContain('$dialogState = Get-DialogState -TimeoutSeconds 20');

@@ -294,21 +294,55 @@ function Click-DialogAddress([IntPtr]$Handle) {
   Start-Sleep -Milliseconds 180
 }
 
-function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
+function Send-DialogKey([IntPtr]$Handle, [int]$VirtualKey) {
+  if (-not [KnouxNativeDialog]::PostMessage($Handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]::Zero)) {
+    throw "Unable to post key-down $VirtualKey to the native dialog."
+  }
+  if (-not [KnouxNativeDialog]::PostMessage($Handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::Zero)) {
+    throw "Unable to post key-up $VirtualKey to the native dialog."
+  }
+}
+
+function Send-VisibleDialogKey([IntPtr]$Handle, [int]$VirtualKey) {
   Activate-Dialog $Handle
-  $controls = @(Get-Controls $Handle)
-  $filenameEditor = $controls | Where-Object {
+  [KnouxNativeDialog]::keybd_event([byte]$VirtualKey, 0, 0, [UIntPtr]::Zero)
+  [KnouxNativeDialog]::keybd_event([byte]$VirtualKey, 0, 0x0002, [UIntPtr]::Zero)
+}
+
+function Get-AutomationValueControl([object[]]$Elements, [string]$AutomationId) {
+  foreach ($candidate in $Elements) {
+    if ($candidate.Current.AutomationId -ne $AutomationId) { continue }
+    $pattern = $null
+    if ($candidate.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) {
+      return [pscustomobject]@{ Element = $candidate; Pattern = $pattern }
+    }
+  }
+  return $null
+}
+
+function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
+  $canonicalDirectory = [IO.Path]::GetFullPath($Directory).TrimEnd([IO.Path]::DirectorySeparatorChar)
+  Activate-Dialog $Handle
+
+  # Windows common dialogs keep the address editor inside an Address Band root whose
+  # UIA/native IDs vary by host. Ctrl+L is the stable visible command for that editor.
+  [System.Windows.Forms.SendKeys]::SendWait('^l')
+  Start-Sleep -Milliseconds 180
+  [System.Windows.Forms.Clipboard]::SetText($canonicalDirectory)
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  Start-Sleep -Milliseconds 100
+  [System.Windows.Forms.SendKeys]::SendWait('^v')
+  Start-Sleep -Milliseconds 120
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Start-Sleep -Milliseconds 900
+
+  $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
+  $filenameEditor = @($state.Controls) | Where-Object {
     $_.Class -eq 'Edit' -and $_.Id -eq 1001
   } | Select-Object -First 1
-  $confirm = $controls | Where-Object {
-    $_.Class -eq 'Button' -and $_.Id -eq 1
-  } | Select-Object -First 1
-  if (-not $filenameEditor -or -not $confirm) {
-    throw 'Native Save directory-navigation controls were not found.'
-  }
-  Type-Control $filenameEditor.Handle $Directory
-  Click-Control $confirm.Handle
-  Start-Sleep -Milliseconds 900
+  if (-not $filenameEditor) { throw 'Native Save filename control was not restored after address navigation.' }
+
+  Start-Sleep -Milliseconds 180
 }
 
 function Paste-Control([IntPtr]$Handle, [string]$Value) {

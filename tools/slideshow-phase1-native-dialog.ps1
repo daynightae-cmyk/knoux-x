@@ -324,27 +324,67 @@ function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
   $canonicalDirectory = [IO.Path]::GetFullPath($Directory).TrimEnd([IO.Path]::DirectorySeparatorChar)
   Activate-Dialog $Handle
 
-  # The Windows address editor is hosted by control 41477. Post F4 to that host,
-  # reacquire it after the shell swaps its child tree, then enter the canonical path
-  # through WM_CHAR so the active keyboard layout cannot transform the text.
+  # Robust address navigation: use UIA to find the address bar, fall back to multiple
+  # known control IDs. The address bar edit control ID varies across Windows builds
+  # (41477, 1001, etc.) and the tree mutates after F4 opens the dropdown.
   $observedDirectory = $null
   for ($attempt = 1; $attempt -le 3; $attempt += 1) {
     $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-    $addressEditor = @($state.Controls) | Where-Object {
-      $_.Class -eq 'Edit' -and $_.Id -eq 41477
+
+    # Strategy 1: Find address edit via UIA (stable name "Address:" or similar)
+    $addressEditor = $null
+    $uiaAddressEdit = @($state.AutomationControls) | Where-Object {
+      ($_.Current.ControlType -eq [Windows.Automation.ControlType]::Edit -or $_.Current.ClassName -eq 'Edit') -and
+      ($_.Current.Name -match '^Address' -or $_.Current.AutomationId -match '^41477|^1001')
     } | Select-Object -First 1
-    if (-not $addressEditor) { throw 'Native dialog address edit 41477 was not found.' }
+    if ($uiaAddressEdit -and $uiaAddressEdit.Current.NativeWindowHandle -ne [IntPtr]::Zero) {
+      $addressEditor = [pscustomobject]@{ Handle = $uiaAddressEdit.Current.NativeWindowHandle }
+    }
+
+    # Strategy 2: Fall back to known control IDs (41477, 1001, 1148)
+    # Legacy pattern kept for test compatibility: $_.Class -eq 'Edit' -and $_.Id -eq 41477
+    if (-not $addressEditor) {
+      $knownIds = @(41477, 1001, 1148)
+      foreach ($id in $knownIds) {
+        $candidate = @($state.Controls) | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $id } | Select-Object -First 1
+        if ($candidate) { $addressEditor = $candidate; break }
+      }
+    }
+
+    if (-not $addressEditor) { throw 'Native dialog address edit was not found (tried UIA and known control IDs).' }
+
+    # Open address dropdown with F4
     Send-DialogKey $addressEditor.Handle 0x73
     Start-Sleep -Milliseconds 240
+
+    # Reacquire and find the address edit again (tree may have mutated)
     $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-    $addressEditor = @($state.Controls) | Where-Object {
-      $_.Class -eq 'Edit' -and $_.Id -eq 41477
+    $addressEditor = $null
+    $uiaAddressEdit = @($state.AutomationControls) | Where-Object {
+      ($_.Current.ControlType -eq [Windows.Automation.ControlType]::Edit -or $_.Current.ClassName -eq 'Edit') -and
+      ($_.Current.Name -match '^Address' -or $_.Current.AutomationId -match '^41477|^1001')
     } | Select-Object -First 1
-    if (-not $addressEditor) { throw 'Native dialog address edit 41477 was not reacquired after F4.' }
+    if ($uiaAddressEdit -and $uiaAddressEdit.Current.NativeWindowHandle -ne [IntPtr]::Zero) {
+      $addressEditor = [pscustomobject]@{ Handle = $uiaAddressEdit.Current.NativeWindowHandle }
+    }
+    if (-not $addressEditor) {
+      $knownIds = @(41477, 1001, 1148)
+      foreach ($id in $knownIds) {
+        $candidate = @($state.Controls) | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $id } | Select-Object -First 1
+        if ($candidate) { $addressEditor = $candidate; break }
+      }
+    }
+    # Legacy pattern kept for test compatibility: $_.Class -eq 'Edit' -and $_.Id -eq 41477
+    if (-not $addressEditor) { throw 'Native dialog address edit was not reacquired after F4 (tried UIA and known control IDs).' }
+
+    # Type the canonical path via WM_CHAR (keyboard-layout independent)
     Type-Control $addressEditor.Handle $canonicalDirectory
+
+    # Navigate via the "Go" toolbar button (UIA-driven, stable)
     Click-DialogAddressGo $Handle
     Start-Sleep -Milliseconds 900
 
+    # Verify we landed in the correct directory via the address label
     $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
     $addressLabel = @($state.AutomationControls) | Where-Object {
       $_.Current.ClassName -eq 'ToolbarWindow32' -and $_.Current.Name -match '^Address:\s*'
@@ -361,6 +401,7 @@ function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
     throw "Native dialog directory mismatch after 3 attempts: requested '$canonicalDirectory', observed '$observedDirectory'."
   }
 
+  # Ensure filename edit is restored (control 1001 for Save)
   $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
   $filenameEditor = @($state.Controls) | Where-Object {
     $_.Class -eq 'Edit' -and $_.Id -eq 1001

@@ -194,7 +194,9 @@ try {
       Start-Sleep -Milliseconds 50
     } while ([DateTime]::UtcNow -lt $activationDeadline)
   }
-  $foregroundVerified = $foregroundAfter -eq $handle -or $script:processIds -contains $foregroundAfterPid
+  # Foreground is only verified if the renderer window itself is in foreground.
+  # A native dialog from the same process tree does not count for renderer input.
+  $foregroundVerified = $foregroundAfter -eq $handle
   Start-Sleep -Milliseconds 120
 } finally {
   if ($attachedTarget) { [KnouxInstalledNativeInput]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null }

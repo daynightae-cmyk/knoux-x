@@ -26,6 +26,7 @@ import {
 import { BrandMark } from '../../components/brand/BrandMark';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { KNOUX_BRAND } from '../../config/brand';
 import {
   APPLICATION_SETTING_KEYS,
@@ -386,9 +387,7 @@ export const SettingsView: React.FC = () => {
               <h2>{t('settings.general')}</h2>
               <div className="setting-card">
                 <div><strong>{t('settings.language')}</strong><span>{localeCoverage()[settings.language].percentage}%</span></div>
-                <select value={settings.language} disabled={busy} onChange={(event) => void updateSetting('language', event.target.value === 'ar' ? 'ar' : 'en')}>
-                  <option value="en">English</option><option value="ar">العربية</option>
-                </select>
+                <NeonSelect value={settings.language} disabled={busy} onChange={(language) => void updateSetting('language', language === 'ar' ? 'ar' : 'en')} options={[{ value: 'en', label: 'English' }, { value: 'ar', label: 'العربية' }]} />
               </div>
               {toggle('minimizeToTray', 'settings.minimizeToTray')}
               {toggle('showNotifications', 'settings.showNotifications')}
@@ -403,14 +402,14 @@ export const SettingsView: React.FC = () => {
               {toggle('resumePlayback', 'settings.resumePlayback')}
               {toggle('muted', 'settings.muted')}
               <label className="settings-range-card"><span>{t('settings.defaultVolume')} · {Math.round(settings.defaultVolume * 100)}%</span><input type="range" min="0" max="1" step="0.01" value={settings.defaultVolume} onChange={(event) => void updateSetting('defaultVolume', Number(event.target.value))} /></label>
-              <div className="setting-card"><div><strong>{t('settings.playbackRate')}</strong></div><select value={settings.playbackRate} onChange={(event) => void updateSetting('playbackRate', Number(event.target.value))}>{[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}</select></div>
+              <div className="setting-card"><div><strong>{t('settings.playbackRate')}</strong></div><NeonSelect value={String(settings.playbackRate)} onChange={(rate) => void updateSetting('playbackRate', Number(rate))} options={[{ value: '0.5', label: '0.5×' }, { value: '0.75', label: '0.75×' }, { value: '1', label: '1×' }, { value: '1.25', label: '1.25×' }, { value: '1.5', label: '1.5×' }, { value: '2', label: '2×' }]} /></div>
             </NeonPanel>
           )}
 
           {category === 'audio' && (
             <NeonPanel variant="dark" padding="lg">
               <h2>{t('settings.audio')}</h2>
-              <div className="setting-card"><div><strong>{t('settings.audioDevice')}</strong></div><select value={settings.audioDevice} onChange={(event) => void updateSetting('audioDevice', event.target.value)}><option value="default">{t('settings.systemDefault')}</option>{audioDevices.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}</select></div>
+              <div className="setting-card"><div><strong>{t('settings.audioDevice')}</strong></div><NeonSelect value={settings.audioDevice} onChange={(device) => void updateSetting('audioDevice', device)} options={[{ value: 'default', label: t('settings.systemDefault') }, ...audioDevices.map((device) => ({ value: device.id, label: device.label }))]} /></div>
               {toggle('enableDSP', 'settings.enableDSP')}
               <div className="settings-section-heading"><strong>{t('settings.equalizer')}</strong><NeonButton variant="ghost" size="sm" leftIcon={<RotateCcw size={14} />} onClick={() => void updateSetting('equalizer', new Array(10).fill(0))}>{t('settings.resetEqualizer')}</NeonButton></div>
               <div className="settings-equalizer-grid">
@@ -448,7 +447,7 @@ export const SettingsView: React.FC = () => {
                   onChange={(event) => void updateSetting('contrast', Number(event.target.value))}
                 />
               </label>
-              <div className="setting-card"><div><strong>{t('settings.aspectRatio')}</strong></div><select value={settings.aspectRatio} onChange={(event) => void updateSetting('aspectRatio', event.target.value as ApplicationSettings['aspectRatio'])}>{['auto', '16:9', '4:3', '21:9', '1:1'].map((ratio) => <option key={ratio} value={ratio}>{ratio}</option>)}</select></div>
+              <div className="setting-card"><div><strong>{t('settings.aspectRatio')}</strong></div><NeonSelect value={settings.aspectRatio} onChange={(ratio) => void updateSetting('aspectRatio', ratio as ApplicationSettings['aspectRatio'])} options={['auto', '16:9', '4:3', '21:9', '1:1'].map((ratio) => ({ value: ratio, label: ratio }))} /></div>
             </NeonPanel>
           )}
 
@@ -457,8 +456,8 @@ export const SettingsView: React.FC = () => {
               <h2>{t('settings.subtitles')}</h2>
               {toggle('subtitleEnabled', 'settings.subtitleEnabled')}
               <div className="settings-two-columns">
-                <label><span>{t('settings.subtitleLanguage')}</span><select value={settings.subtitleLanguage} onChange={(event) => void updateSetting('subtitleLanguage', event.target.value)}><option value="auto">Auto</option><option value="en">English</option><option value="ar">العربية</option></select></label>
-                <label><span>{t('settings.subtitlePosition')}</span><select value={settings.subtitlePosition} onChange={(event) => void updateSetting('subtitlePosition', event.target.value as ApplicationSettings['subtitlePosition'])}><option value="top">{t('settings.top')}</option><option value="center">{t('settings.center')}</option><option value="bottom">{t('settings.bottom')}</option></select></label>
+                <label><span>{t('settings.subtitleLanguage')}</span><NeonSelect value={settings.subtitleLanguage} onChange={(lang) => void updateSetting('subtitleLanguage', lang)} options={[{ value: 'auto', label: 'Auto' }, { value: 'en', label: 'English' }, { value: 'ar', label: 'العربية' }]} /></label>
+                <label><span>{t('settings.subtitlePosition')}</span><NeonSelect value={settings.subtitlePosition} onChange={(position) => void updateSetting('subtitlePosition', position as ApplicationSettings['subtitlePosition'])} options={[{ value: 'top', label: t('settings.top') }, { value: 'center', label: t('settings.center') }, { value: 'bottom', label: t('settings.bottom') }]} /></label>
                 <label><span>{t('settings.subtitleSize')} · {settings.subtitleSize}px</span><input type="range" min="12" max="96" step="1" value={settings.subtitleSize} onChange={(event) => void updateSetting('subtitleSize', Number(event.target.value))} /></label>
                 <label><span>{t('settings.subtitleColor')}</span><input type="color" value={settings.subtitleColor.slice(0, 7)} onChange={(event) => void updateSetting('subtitleColor', event.target.value)} /></label>
                 <label><span>{t('settings.subtitleBackground')}</span><input type="color" value={settings.subtitleBackground.slice(0, 7)} onChange={(event) => void updateSetting('subtitleBackground', `${event.target.value}cc`)} /></label>
@@ -510,7 +509,7 @@ export const SettingsView: React.FC = () => {
               </div>
               {toggle('autoScan', 'settings.autoScan')}
               <label className="settings-range-card"><span>{t('settings.cacheSize')} · {settings.cacheSizeMB} MB</span><input type="range" min="64" max="8192" step="64" value={settings.cacheSizeMB} onChange={(event) => void updateSetting('cacheSizeMB', Number(event.target.value))} /></label>
-              <div className="setting-card"><div><strong>{t('settings.logLevel')}</strong></div><select value={settings.logLevel} onChange={(event) => void updateSetting('logLevel', event.target.value as ApplicationSettings['logLevel'])}>{['debug', 'info', 'warn', 'error'].map((level) => <option key={level} value={level}>{level.toUpperCase()}</option>)}</select></div>
+              <div className="setting-card"><div><strong>{t('settings.logLevel')}</strong></div><NeonSelect value={settings.logLevel} onChange={(level) => void updateSetting('logLevel', level as ApplicationSettings['logLevel'])} options={['debug', 'info', 'warn', 'error'].map((level) => ({ value: level, label: level.toUpperCase() }))} /></div>
               <div className="settings-backup-actions">
                 <NeonButton variant="secondary" leftIcon={<Download size={15} />} onClick={() => void exportSettings()} disabled={busy}>{t('settings.exportSettings')}</NeonButton>
                 <NeonButton variant="secondary" leftIcon={<Upload size={15} />} onClick={() => void importSettings()} disabled={busy}>{t('settings.importSettings')}</NeonButton>

@@ -3,6 +3,7 @@ import { Ban, FileVideo, RefreshCw, Share2 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
@@ -152,9 +153,7 @@ export const ExportView: React.FC = () => {
 
             <label>
               <span>{t('export.preset')}</span>
-              <select value={presetId} onChange={(event) => setPresetId(event.target.value as ExportPresetId)} disabled={running}>
-                {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-              </select>
+              <NeonSelect value={presetId} onChange={(value) => setPresetId(value as ExportPresetId)} disabled={running} options={presets.map((preset) => ({ value: preset.id, label: preset.name }))} />
             </label>
             <label>
               <span>{t('export.container')}</span>

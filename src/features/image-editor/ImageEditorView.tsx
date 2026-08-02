@@ -28,6 +28,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
@@ -724,7 +725,7 @@ export const ImageEditorView: React.FC = () => {
               </div>
             )}
             <div className="image-editor-export-box">
-              <label><span>{t('imageEditor.exportFormat')}</span><select value={exportFormat} onChange={(event) => setExportFormat(event.target.value as CaptureFormat)} disabled={!hasDocument}><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select></label>
+              <label><span>{t('imageEditor.exportFormat')}</span><NeonSelect value={exportFormat} onChange={(value) => setExportFormat(value as CaptureFormat)} disabled={!hasDocument} options={[{ value: 'png', label: 'PNG' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }]} /></label>
               <NeonButton variant="primary" leftIcon={<Download size={16} />} onClick={() => void exportImage()} disabled={!hasDocument || busy} fullWidth>{t('imageEditor.exportCopy')}</NeonButton>
             </div>
             <NeonButton variant="ghost" onClick={closeDocument} disabled={!hasDocument || busy} fullWidth>{t('imageEditor.closeDocument')}</NeonButton>

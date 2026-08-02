@@ -24,6 +24,7 @@ import {
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSlider } from '../../components/neon/NeonSlider';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { BrandMark } from '../../components/brand/BrandMark';
 import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
@@ -530,11 +531,7 @@ export const PlayerView: React.FC = () => {
                     </div>
                   )}
                   <button type="button" className="control-btn" onClick={() => void selectSubtitle()} title="Open SRT or VTT subtitles" aria-label="Open subtitles"><Captions size={18} /></button>
-                  <select value={captureFormat} onChange={(event) => setCaptureFormat(event.target.value as CaptureFormat)} aria-label={t('player.screenshotFormat')}>
-                    <option value="png">PNG</option>
-                    <option value="jpeg">JPEG</option>
-                    <option value="webp">WebP</option>
-                  </select>
+                  <NeonSelect value={captureFormat} onChange={(value) => setCaptureFormat(value as CaptureFormat)} aria-label={t('player.screenshotFormat')} options={[{ value: 'png', label: 'PNG' }, { value: 'jpeg', label: 'JPEG' }, { value: 'webp', label: 'WebP' }]} />
                   <button type="button" className="control-btn" onClick={() => void saveCurrentFrame()} title={`${t('player.saveFrame')} (S)`} aria-label={t('player.saveFrame')} disabled={capturing}><Camera size={18} /></button>
                   <button type="button" className="control-btn" onClick={() => void copyCurrentFrame()} title={t('player.copyFrame')} aria-label={t('player.copyFrame')} disabled={capturing}><Clipboard size={18} /></button>
                   <button type="button" className="control-btn" onClick={() => void saveBurstCapture()} title={t('player.burstCapture')} aria-label={t('player.burstCapture')} disabled={capturing}><Images size={18} /></button>
@@ -565,9 +562,7 @@ export const PlayerView: React.FC = () => {
                     <button type="button" className="control-btn" onClick={toggleMute} title={t('player.mute')} aria-label={t('player.mute')}>{muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
                     <div className="volume-slider"><NeonSlider value={muted ? 0 : volume * 100} min={0} max={100} onChange={handleVolumeChange} glowColor="#8b5cf6" height="sm" /></div>
                   </div>
-                  <select className="playback-rate-select" value={playbackRate} onChange={(event) => setPlaybackRate(Number(event.target.value))} aria-label={t('player.speed')}>
-                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
-                  </select>
+                  <NeonSelect className="playback-rate-select" value={String(playbackRate)} onChange={(value) => setPlaybackRate(Number(value))} aria-label={t('player.speed')} options={[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => ({ value: String(rate), label: `${rate}×` }))} />
                   <div className="control-group">
                     <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title={t('player.pip')} aria-label={t('player.pip')} disabled={!document.pictureInPictureEnabled}><PictureInPicture size={18} /></button>
                     <button type="button" className="control-btn" onClick={() => void toggleFullscreen()} title={t('player.fullscreen')} aria-label={t('player.fullscreen')}><Maximize size={18} /></button>

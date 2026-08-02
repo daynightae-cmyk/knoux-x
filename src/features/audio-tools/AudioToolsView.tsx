@@ -25,6 +25,7 @@ import {
 } from '../../core/creative/audioTools';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
@@ -473,10 +474,10 @@ export const AudioToolsView: React.FC = () => {
 
           <NeonPanel variant="dark" padding="md">
             <div className="audio-panel-heading"><FileAudio size={19} /><h2>{t('audioTools.output')}</h2></div>
-            <label><span>{t('audioTools.format')}</span><select value={format} onChange={(event) => setFormat(event.target.value as AudioOutputFormat)}>{formats.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select></label>
-            <label><span>{t('audioTools.outputSampleRate')}</span><select value={sampleRate} onChange={(event) => setSampleRate(Number(event.target.value) as (typeof sampleRates)[number])}>{sampleRates.map((value) => <option key={value} value={value}>{value} Hz</option>)}</select></label>
-            <label><span>{t('audioTools.outputChannels')}</span><select value={channels} onChange={(event) => setChannels(Number(event.target.value) as AudioChannelMode)}><option value={1}>{t('audioTools.mono')}</option><option value={2}>{t('audioTools.stereo')}</option></select></label>
-            <label><span>{t('audioTools.outputBitrate')}</span><select value={bitrate} onChange={(event) => setBitrate(Number(event.target.value) as (typeof bitrates)[number])} disabled={lossless}>{bitrates.map((value) => <option key={value} value={value}>{value} kbps</option>)}</select></label>
+            <label><span>{t('audioTools.format')}</span><NeonSelect value={format} onChange={(value) => setFormat(value as AudioOutputFormat)} options={formats.map((item) => ({ value: item, label: item.toUpperCase() }))} /></label>
+            <label><span>{t('audioTools.outputSampleRate')}</span><NeonSelect value={String(sampleRate)} onChange={(value) => setSampleRate(Number(value) as (typeof sampleRates)[number])} options={sampleRates.map((value) => ({ value: String(value), label: `${value} Hz` }))} /></label>
+            <label><span>{t('audioTools.outputChannels')}</span><NeonSelect value={String(channels)} onChange={(value) => setChannels(Number(value) as AudioChannelMode)} options={[{ value: '1', label: t('audioTools.mono') }, { value: '2', label: t('audioTools.stereo') }]} /></label>
+            <label><span>{t('audioTools.outputBitrate')}</span><NeonSelect value={String(bitrate)} onChange={(value) => setBitrate(Number(value) as (typeof bitrates)[number])} disabled={lossless} options={bitrates.map((value) => ({ value: String(value), label: `${value} kbps` }))} /></label>
             <div className={`audio-format-badge ${lossless ? 'lossless' : 'lossy'}`}>{lossless ? t('audioTools.lossless') : t('audioTools.lossy')}</div>
             <div className="audio-output-duration">{t('audioTools.duration')}: <strong dir="ltr">{formatTime(outputDuration)}</strong></div>
           </NeonPanel>

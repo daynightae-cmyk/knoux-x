@@ -10,6 +10,8 @@ import {
   type SlideshowWatermark,
 } from './slideshowProject';
 
+export const MAX_INLINE_FILTER_LENGTH = 4000;
+
 export type SlideshowRenderFormat = 'mp4' | 'webm' | 'gif';
 
 export interface SlideshowMediaMetadata {
@@ -32,6 +34,7 @@ export interface SlideshowRenderPlan {
   fps: number;
   hasAudio: boolean;
   format: SlideshowRenderFormat;
+  filterComplexString: string;
 }
 
 function seconds(value: number): string {
@@ -369,7 +372,9 @@ export function buildSlideshowRenderPlan(
     );
   }
 
-  args.push('-filter_complex', filters.join(';'), '-map', finalVideoLabel);
+  const filterComplexString = filters.join(';');
+
+  args.push('-filter_complex', filterComplexString, '-map', finalVideoLabel);
   if (hasAudio) args.push('-map', '[aout]');
   else args.push('-an');
 
@@ -403,5 +408,6 @@ export function buildSlideshowRenderPlan(
     fps: project.fps,
     hasAudio,
     format,
+    filterComplexString,
   };
 }

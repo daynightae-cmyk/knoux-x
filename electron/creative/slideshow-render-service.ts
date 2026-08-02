@@ -9,6 +9,7 @@ import sharp from 'sharp';
 
 import {
   buildSlideshowRenderPlan,
+  MAX_INLINE_FILTER_LENGTH,
   type SlideshowMediaMetadata,
   type SlideshowRenderAssets,
   type SlideshowRenderFormat,
@@ -406,6 +407,32 @@ export class SlideshowRenderService {
         context.format
       );
       context.snapshot.durationSeconds = plan.durationSeconds;
+
+      // Preflight guard: when the filter graph exceeds the safe inline
+      // threshold, write it to a bounded temporary script file so the
+      // child_process spawn argument buffer stays well below the Windows
+      // ~8191-character CreateProcess limit.
+      let filterScriptPath: string | undefined;
+      if (plan.filterComplexString.length > MAX_INLINE_FILTER_LENGTH) {
+        filterScriptPath = path.join(
+          context.temporaryDirectory,
+          `${createHash('sha256').update(plan.filterComplexString).digest('hex').slice(0, 12)}.filter`
+        );
+        await fs.writeFile(filterScriptPath, plan.filterComplexString, 'utf8');
+        const filterIndex = plan.args.indexOf('-filter_complex');
+        if (filterIndex >= 0) {
+          plan.args.splice(filterIndex, 2, '-filter_complex_script', filterScriptPath);
+        }
+      }
+
+      // Preflight: verify the serialized argument buffer is bounded.
+      const serializedArgs = plan.args.join('\0');
+      if (serializedArgs.length > 64 * 1024) {
+        throw new Error(
+          `Slideshow render plan exceeds the safe spawn argument buffer (${serializedArgs.length} bytes).`
+        );
+      }
+
       context.snapshot.status = 'rendering';
       this.emit(context);
       blockerId = powerSaveBlocker.start('prevent-app-suspension');

@@ -21,6 +21,10 @@ import type { DesktopCaptureOperation, DesktopCaptureOperationResult, RegionAspe
 import type { SlideshowRenderSnapshot } from '../creative/slideshow-render-service';
 import type { SlideshowAssetFamily } from '../creative/slideshow-asset-service';
 import type { LibraryQuery, ScanProgress } from '../library/library-service';
+import type { ImageLayer, ImageTask, ImageBlendMode, ImageTransform, LayerMask } from '../../src/core/image-studio/document/schema';
+import type { ExportPlan } from '../../src/core/image-studio/export/export';
+import type { AIImageProvenance } from '../../src/core/image-studio/document/schema';
+import type { DeferredAiJob } from '../../src/core/image-studio/ai/offline';
 
 export type StructuredValue =
   | string
@@ -210,6 +214,63 @@ export interface InvokeArgumentMap {
   'window:is-maximized': [];
   'window:maximize': [];
   'window:minimize': [];
+  // Image Studio
+  'image-studio:create': [request: { title?: string; width?: number; height?: number; backgroundMode?: string; backgroundColor?: string; applicationVersion?: string }];
+  'image-studio:open': [filePath: string];
+  'image-studio:save': [filePath?: string];
+  'image-studio:save-as': [filePath: string];
+  'image-studio:close': [filePath?: string];
+  'image-studio:get-current': [];
+  'image-studio:recent': [];
+  'image-studio:migrate': [filePath: string];
+  'image-studio:validate': [filePath: string];
+  'image-studio:recover': [filePath: string];
+  'image-studio:create-layer': [layer: ImageLayer];
+  'image-studio:delete-layer': [layerId: string];
+  'image-studio:duplicate-layer': [layerId: string];
+  'image-studio:rename-layer': [layerId: string, name: string];
+  'image-studio:reorder-layers': [layerIds: string[]];
+  'image-studio:group-layers': [layerIds: string[], groupName?: string];
+  'image-studio:ungroup-layers': [groupLayerId: string];
+  'image-studio:set-visibility': [layerId: string, visible: boolean];
+  'image-studio:set-locked': [layerId: string, locked: boolean];
+  'image-studio:set-opacity': [layerId: string, opacity: number];
+  'image-studio:set-blend-mode': [layerId: string, blendMode: ImageBlendMode];
+  'image-studio:set-transform': [layerId: string, transform: ImageTransform];
+  'image-studio:add-mask': [layerId: string, mask: LayerMask];
+  'image-studio:update-mask': [layerId: string, mask: Partial<LayerMask>];
+  'image-studio:remove-mask': [layerId: string];
+  'image-studio:apply-adjustment': [layerId: string, adjustmentType: string, parameters: object];
+  'image-studio:undo': [];
+  'image-studio:redo': [];
+  'image-studio:can-undo': [];
+  'image-studio:can-redo': [];
+  'image-studio:create-checkpoint': [];
+  'image-studio:import-image': [filePath: string];
+  'image-studio:import-as-layer': [filePath: string];
+  'image-studio:export-document': [options?: ExportPlan];
+  'image-studio:export-flattened': [options: ExportPlan];
+  'image-studio:export-layer': [layerId: string, options: ExportPlan];
+  'image-studio:inspect-format': [filePath: string];
+  'image-studio:autosave-status': [filePath: string];
+  'image-studio:trigger-autosave': [filePath: string];
+  'image-studio:recovery-sessions': [filePath: string];
+  'image-studio:restore-recovery': [recoveryPath: string];
+  'image-studio:discard-recovery': [recoveryPath: string];
+  'image-studio:list-providers': [];
+  'image-studio:provider-status': [];
+  'image-studio:list-models': [task?: ImageTask];
+  'image-studio:refresh-models': [];
+  'image-studio:validate-credential': [provider: string, apiKey: string];
+  'image-studio:set-credential': [provider: string, apiKey: string, scopes?: string[]];
+  'image-studio:remove-credential': [provider: string];
+  'image-studio:create-job': [job: Omit<DeferredAiJob, 'jobId' | 'enqueuedAt' | 'attempt' | 'reason'> & { jobId?: string }];
+  'image-studio:cancel-job': [jobId: string];
+  'image-studio:retry-job': [jobId: string];
+  'image-studio:get-job': [jobId: string];
+  'image-studio:list-jobs': [];
+  'image-studio:remove-job': [jobId: string];
+  'image-studio:import-result': [jobId: string, accept: boolean];
 }
 
 export interface InvokeResultMap {
@@ -233,6 +294,8 @@ export interface InvokeResultMap {
   'system:get-build-info': object; 'system:get-ipc-health': object; 'system:info': object; 'system:memory': object; 'system:open-external': VoidResult; 'system:show-item': VoidResult;
   'video:brightness': VoidResult; 'video:contrast': VoidResult; 'video:crop': VoidResult; 'video:gamma': VoidResult; 'video:hue': VoidResult; 'video:saturation': VoidResult; 'video:screenshot': string; 'video:settings': object; 'video:zoom': VoidResult;
   'window:always-on-top': VoidResult; 'window:close': VoidResult; 'window:fullscreen': VoidResult; 'window:is-fullscreen': boolean; 'window:is-maximized': boolean; 'window:maximize': VoidResult; 'window:minimize': VoidResult;
+  // Image Studio
+  'image-studio:create': object; 'image-studio:open': object | null; 'image-studio:save': string | null; 'image-studio:save-as': string | null; 'image-studio:close': VoidResult; 'image-studio:get-current': object | null; 'image-studio:recent': string[]; 'image-studio:migrate': object; 'image-studio:validate': object; 'image-studio:recover': object; 'image-studio:create-layer': object; 'image-studio:delete-layer': boolean; 'image-studio:duplicate-layer': object; 'image-studio:rename-layer': boolean; 'image-studio:reorder-layers': boolean; 'image-studio:group-layers': object; 'image-studio:ungroup-layers': boolean; 'image-studio:set-visibility': boolean; 'image-studio:set-locked': boolean; 'image-studio:set-opacity': boolean; 'image-studio:set-blend-mode': boolean; 'image-studio:set-transform': boolean; 'image-studio:add-mask': boolean; 'image-studio:update-mask': boolean; 'image-studio:remove-mask': boolean; 'image-studio:apply-adjustment': boolean; 'image-studio:undo': boolean; 'image-studio:redo': boolean; 'image-studio:can-undo': boolean; 'image-studio:can-redo': boolean; 'image-studio:create-checkpoint': boolean; 'image-studio:import-image': object; 'image-studio:import-as-layer': object; 'image-studio:export-document': object; 'image-studio:export-flattened': object; 'image-studio:export-layer': object; 'image-studio:inspect-format': object; 'image-studio:autosave-status': object; 'image-studio:trigger-autosave': string; 'image-studio:recovery-sessions': object[]; 'image-studio:restore-recovery': object; 'image-studio:discard-recovery': boolean; 'image-studio:list-providers': object[]; 'image-studio:provider-status': object; 'image-studio:list-models': object[]; 'image-studio:refresh-models': object[]; 'image-studio:validate-credential': object; 'image-studio:set-credential': object; 'image-studio:remove-credential': boolean; 'image-studio:create-job': string; 'image-studio:cancel-job': boolean; 'image-studio:retry-job': string; 'image-studio:get-job': object | null; 'image-studio:list-jobs': object[]; 'image-studio:remove-job': boolean; 'image-studio:import-result': object;
 }
 
 export interface InboundPayloadMap {
@@ -261,4 +324,10 @@ export interface OutboundPayloadMap {
   'system:suspend': [];
   'window:fullscreen-change': [fullscreen: boolean];
   'window:resize': [size: { width: number; height: number }];
+  // Image Studio
+  'image-studio:autosave': [filePath: string];
+  'image-studio:job-progress': [job: DeferredAiJob];
+  'image-studio:job-complete': [jobId: string, provenance: AIImageProvenance];
+  'image-studio:job-failed': [jobId: string, error: string];
+  'image-studio:recovery-available': [session: object];
 }

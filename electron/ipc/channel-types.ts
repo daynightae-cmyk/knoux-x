@@ -21,9 +21,8 @@ import type { DesktopCaptureOperation, DesktopCaptureOperationResult, RegionAspe
 import type { SlideshowRenderSnapshot } from '../creative/slideshow-render-service';
 import type { SlideshowAssetFamily } from '../creative/slideshow-asset-service';
 import type { LibraryQuery, ScanProgress } from '../library/library-service';
-import type { ImageLayer, ImageTask, ImageBlendMode, ImageTransform, LayerMask } from '../../src/core/image-studio/document/schema';
 import type { ExportPlan } from '../../src/core/image-studio/export/export';
-import type { AIImageProvenance } from '../../src/core/image-studio/document/schema';
+import type { AIImageProvenance, ImageLayer, ImageTask, ImageBlendMode, ImageTransform, LayerMask } from '../../src/core/image-studio/document/schema';
 import type { DeferredAiJob } from '../../src/core/image-studio/ai/offline';
 
 export type StructuredValue =

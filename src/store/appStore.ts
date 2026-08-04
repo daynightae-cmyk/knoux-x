@@ -11,6 +11,7 @@ export type ViewType =
   | 'recording'
   | 'editor'
   | 'image-editor'
+  | 'image-studio'
   | 'slideshow'
   | 'audio-tools'
   | 'export'

@@ -116,14 +116,14 @@ describe('image-studio runtime', () => {
     return handler(trustedEvent(), ...args);
   }
 
-  async function createDocument(): Promise<Record<string, any>> {
+  async function createDocument(): Promise<Record<string, unknown>> {
     return (await invoke(IPC_INVOKE.IMAGE_STUDIO_CREATE, {
       title: 'Test Canvas',
       width: 320,
       height: 240,
       backgroundMode: 'solid',
       backgroundColor: '#ffffff',
-    })) as Record<string, any>;
+    })) as Record<string, unknown>;
   }
 
   test('registers every Image Studio invoke and outbound channel', () => {
@@ -146,7 +146,7 @@ describe('image-studio runtime', () => {
     expect(document.documentId).toBeTruthy();
     expect(document.schema).toBe('knoux-image-studio');
 
-    const current = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT)) as Record<string, any> | null;
+    const current = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT)) as Record<string, unknown> | null;
     expect(current?.documentId).toBe(document.documentId);
 
     const target = path.join(mockUserData, 'canvas.knouximage');
@@ -179,12 +179,12 @@ describe('image-studio runtime', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const document = (await invoke(IPC_INVOKE.IMAGE_STUDIO_CREATE_LAYER, layer)) as Record<string, any>;
+    const document = (await invoke(IPC_INVOKE.IMAGE_STUDIO_CREATE_LAYER, layer)) as Record<string, unknown>;
     expect(document.layers).toHaveLength(1);
     expect(await invoke(IPC_INVOKE.IMAGE_STUDIO_RENAME_LAYER, 'layer-1', 'Renamed')).toBe(true);
     expect(await invoke(IPC_INVOKE.IMAGE_STUDIO_SET_OPACITY, 'layer-1', 0.5)).toBe(true);
     expect(await invoke(IPC_INVOKE.IMAGE_STUDIO_DELETE_LAYER, 'layer-1')).toBe(true);
-    const afterDelete = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT)) as Record<string, any>;
+    const afterDelete = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT)) as Record<string, unknown>;
     expect(afterDelete.layers).toHaveLength(0);
   });
 
@@ -195,16 +195,16 @@ describe('image-studio runtime', () => {
     };
     expect(validation.ok).toBe(true);
 
-    const status = (await invoke(IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL, 'openrouter', key)) as Record<string, any>;
+    const status = (await invoke(IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL, 'openrouter', key)) as Record<string, unknown>;
     expect(status.configured).toBe(true);
     expect(status.storageMode).toBe('encrypted-at-rest');
 
-    const all = (await invoke(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS)) as Record<string, any>;
+    const all = (await invoke(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS)) as Record<string, unknown>;
     expect(all.openrouter.storageMode).toBe('encrypted-at-rest');
     expect(all.openrouter.keyMasked).not.toContain(key.slice(10));
 
     expect(await invoke(IPC_INVOKE.IMAGE_STUDIO_REMOVE_CREDENTIAL, 'openrouter')).toBe(true);
-    const afterRemove = (await invoke(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS)) as Record<string, any>;
+    const afterRemove = (await invoke(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS)) as Record<string, unknown>;
     expect(afterRemove.openrouter.configured).toBe(false);
   });
 
@@ -216,7 +216,7 @@ describe('image-studio runtime', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     const key = 'sk-or-v1-testkey1234567890';
-    const status = (await invoke(IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL, 'openrouter', key)) as Record<string, any>;
+    const status = (await invoke(IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL, 'openrouter', key)) as Record<string, unknown>;
     expect(status.configured).toBe(true);
     expect(status.storageMode).toBe('session-only');
     const persisted = mockStores.get('image-studio-secrets')?.secrets ?? {};
@@ -228,14 +228,14 @@ describe('image-studio runtime', () => {
     const jobId = (await invoke(IPC_INVOKE.IMAGE_STUDIO_CREATE_JOB, mockJob())) as string;
     expect(jobId).toBeTruthy();
 
-    const snapshot = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_JOB, jobId)) as Record<string, any>;
+    const snapshot = (await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_JOB, jobId)) as Record<string, unknown>;
     expect(snapshot.status).toBe('completed');
 
-    const document = (await invoke(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, jobId, true)) as Record<string, any>;
-    expect(document.layers.some((entry: Record<string, any>) => entry.jobId === jobId)).toBe(true);
+    const document = (await invoke(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, jobId, true)) as Record<string, unknown>;
+    expect(document.layers.some((entry: Record<string, unknown>) => entry.jobId === jobId)).toBe(true);
     expect(
       document.aiProvenance.some(
-        (entry: Record<string, any>) => entry.jobId === jobId && entry.accepted === true
+        (entry: Record<string, unknown>) => entry.jobId === jobId && entry.accepted === true
       )
     ).toBe(true);
 

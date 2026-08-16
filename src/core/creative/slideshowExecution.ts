@@ -197,6 +197,7 @@ export async function buildSlideshowExecution(
   input: BuildSlideshowExecutionInput
 ): Promise<SlideshowExecutionPlan> {
   const { executablePath, capability, isWindows, workspaceRoot } = input;
+  await fs.mkdir(workspaceRoot, { recursive: true });
   let args = [...plan.args];
   const stagedInputs: StagedInputRecord[] = [];
   let filterScriptPath: string | undefined;

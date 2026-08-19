@@ -54,7 +54,9 @@ validateRepair(
   'electron/ipc/slideshow-runtime.ts',
   ["import { authorizedMediaPaths } from '../security/path-registry';\n\nimport { SlideshowProjectService"],
   [
-    "import { SlideshowProjectService } from '../creative/slideshow-project-service';\nimport { SlideshowRenderService } from '../creative/slideshow-render-service';\nimport { SlideshowAssetService",
+    "import { SlideshowProjectService from",
+    "import { SlideshowRenderService from",
+    'SlideshowAssetService,',
     "import { authorizedMediaPaths } from '../security/path-registry';",
   ],
 );

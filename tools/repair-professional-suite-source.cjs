@@ -62,7 +62,7 @@ validateRepair(
 validateRepair(
   'src/features/slideshow/SlideshowView.tsx',
   ['  }, [duration, previewPlaying]);\n'],
-  ['  }, [duration, previewPlaying, previewTime];'],
+  ['  }, [duration, previewPlaying, previewTime]);'],
 );
 
 validateRepair(

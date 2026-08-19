@@ -8,6 +8,8 @@ import {
   Crop,
   Download,
   Eraser,
+  Eye,
+  EyeOff,
   FileImage,
   FlipHorizontal2,
   FlipVertical2,
@@ -18,17 +20,22 @@ import {
   Maximize2,
   Minus,
   MousePointer2,
+  Palette,
   Redo2,
   RefreshCw,
   RotateCcw,
   RotateCw,
   Save,
+  Scissors,
   ShieldOff,
   Sparkles,
   Square,
+  Star,
   Type,
   Undo2,
+  Wand2,
   X,
+  Zap,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
@@ -38,7 +45,20 @@ import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useTranslation } from '../../i18n';
-import { useImageEditorStore, type ImageEditorAiJob } from '../../store/imageEditorStore';
+import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../../store/imageEditorStore';
+import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
+import {
+  blemishRemoval,
+  cloneImageData,
+  colorAdjust,
+  eyeEnhancement,
+  liquifyWarp,
+  redEyeRemoval,
+  sharpen,
+  skinSmoothing,
+  skinToneAdjustment,
+  teethWhitening,
+} from './beauty/beautyOperations';
 
 interface CanvasSnapshot {
   dataUrl: string;
@@ -206,6 +226,19 @@ export const ImageEditorView: React.FC = () => {
   const setAiError = useImageEditorStore((state) => state.setAiError);
   const clearAiError = useImageEditorStore((state) => state.clearAiError);
   const clearAiResult = useImageEditorStore((state) => state.clearAiResult);
+  // Beauty state
+  const beautyTool = useImageEditorStore((state) => state.beautyTool);
+  const setBeautyTool = useImageEditorStore((state) => state.setBeautyTool);
+  const beautyStrength = useImageEditorStore((state) => state.beautyStrength);
+  const setBeautyStrength = useImageEditorStore((state) => state.setBeautyStrength);
+  const beautyMask = useImageEditorStore((state) => state.beautyMask);
+  const setBeautyMask = useImageEditorStore((state) => state.setBeautyMask);
+  const beautyBeforeSnapshot = useImageEditorStore((state) => state.beautyBeforeSnapshot);
+  const setBeautyBeforeSnapshot = useImageEditorStore((state) => state.setBeautyBeforeSnapshot);
+  const beautyPreviewDataUrl = useImageEditorStore((state) => state.beautyPreviewDataUrl);
+  const setBeautyPreview = useImageEditorStore((state) => state.setBeautyPreview);
+  const beautyBusy = useImageEditorStore((state) => state.beautyBusy);
+  const setBeautyBusy = useImageEditorStore((state) => state.setBeautyBusy);
   const [hasDocument, setHasDocument] = useState(false);
   const [tool, setTool] = useState<ImageTool>('select');
   const [color, setColor] = useState('#00efff');
@@ -874,6 +907,200 @@ export const ImageEditorView: React.FC = () => {
       : Boolean(aiProviderConfig?.configured && aiProviderConfig?.consented)
   );
 
+  // ── Beauty handlers ──
+
+  const getCanvasImageData = useCallback((): ImageData | null => {
+    const canvas = baseCanvasRef.current;
+    if (!canvas || canvas.width < 1 || canvas.height < 1) return null;
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return null;
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const applyImageDataToCanvas = useCallback((imageData: ImageData): void => {
+    const canvas = baseCanvasRef.current;
+    if (!canvas) return;
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return;
+    context.putImageData(imageData, 0, 0);
+  }, []);
+
+  const handleBeautyPreview = useCallback((): void => {
+    if (!hasDocument || beautyBusy) return;
+    const imageData = getCanvasImageData();
+    if (!imageData) return;
+
+    setBeautyBusy(true);
+    setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
+
+    try {
+      let result = cloneImageData(imageData);
+      const mask = beautyMask ?? undefined;
+
+      switch (beautyTool) {
+        case 'skin-smoothing':
+          result = skinSmoothing(imageData, beautyStrength, mask);
+          break;
+        case 'blemish-removal':
+          result = blemishRemoval(imageData, 5, 30 + beautyStrength * 20, mask);
+          break;
+        case 'teeth-whitening':
+          result = teethWhitening(imageData, beautyStrength, mask);
+          break;
+        case 'red-eye':
+          result = redEyeRemoval(imageData, mask);
+          break;
+        case 'skin-tone':
+          result = skinToneAdjustment(imageData, beautyStrength * 2 - 1, 0, mask);
+          break;
+        case 'sharpen':
+          result = sharpen(imageData, beautyStrength, mask);
+          break;
+        case 'color-adjust':
+          result = colorAdjust(imageData, beautyStrength * 0.5, beautyStrength * 0.3, beautyStrength * 0.2, mask);
+          break;
+        case 'eye-enhance':
+          result = eyeEnhancement(imageData, beautyStrength, mask);
+          break;
+        case 'liquify':
+          result = liquifyWarp(imageData, imageData.width / 2, imageData.height / 2, Math.min(imageData.width, imageData.height) * 0.3, beautyStrength * 0.5, 'push');
+          break;
+        default:
+          break;
+      }
+
+      // Create preview canvas
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = result.width;
+      previewCanvas.height = result.height;
+      previewCanvas.getContext('2d')?.putImageData(result, 0, 0);
+      setBeautyPreview(previewCanvas.toDataURL('image/png'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Beauty preview failed.');
+    } finally {
+      setBeautyBusy(false);
+    }
+  }, [hasDocument, beautyBusy, beautyTool, beautyStrength, beautyMask, getCanvasImageData, setBeautyBusy, setBeautyBeforeSnapshot, setBeautyPreview, setError]);
+
+  const handleBeautyApply = useCallback((): void => {
+    if (!hasDocument || !beautyPreviewDataUrl) return;
+    const imageData = getCanvasImageData();
+    if (!imageData) return;
+
+    setBeautyBusy(true);
+    try {
+      let result = cloneImageData(imageData);
+      const mask = beautyMask ?? undefined;
+
+      switch (beautyTool) {
+        case 'skin-smoothing':
+          result = skinSmoothing(imageData, beautyStrength, mask);
+          break;
+        case 'blemish-removal':
+          result = blemishRemoval(imageData, 5, 30 + beautyStrength * 20, mask);
+          break;
+        case 'teeth-whitening':
+          result = teethWhitening(imageData, beautyStrength, mask);
+          break;
+        case 'red-eye':
+          result = redEyeRemoval(imageData, mask);
+          break;
+        case 'skin-tone':
+          result = skinToneAdjustment(imageData, beautyStrength * 2 - 1, 0, mask);
+          break;
+        case 'sharpen':
+          result = sharpen(imageData, beautyStrength, mask);
+          break;
+        case 'color-adjust':
+          result = colorAdjust(imageData, beautyStrength * 0.5, beautyStrength * 0.3, beautyStrength * 0.2, mask);
+          break;
+        case 'eye-enhance':
+          result = eyeEnhancement(imageData, beautyStrength, mask);
+          break;
+        case 'liquify':
+          result = liquifyWarp(imageData, imageData.width / 2, imageData.height / 2, Math.min(imageData.width, imageData.height) * 0.3, beautyStrength * 0.5, 'push');
+          break;
+        default:
+          break;
+      }
+
+      applyImageDataToCanvas(result);
+      commit();
+      setBeautyPreview(null);
+      setBeautyBeforeSnapshot(null);
+      setBeautyMask(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Beauty apply failed.');
+    } finally {
+      setBeautyBusy(false);
+    }
+  }, [hasDocument, beautyPreviewDataUrl, beautyTool, beautyStrength, beautyMask, getCanvasImageData, applyImageDataToCanvas, commit, setBeautyBusy, setBeautyPreview, setBeautyBeforeSnapshot, setBeautyMask, setError]);
+
+  const handleBeautyCancel = useCallback((): void => {
+    setBeautyPreview(null);
+    setBeautyBeforeSnapshot(null);
+    setBeautyTool(null);
+    setBeautyMask(null);
+  }, [setBeautyPreview, setBeautyBeforeSnapshot, setBeautyTool, setBeautyMask]);
+
+  const handlePresetApply = useCallback((presetId: string): void => {
+    const preset = getPreset(presetId);
+    if (!preset || !hasDocument) return;
+    const imageData = getCanvasImageData();
+    if (!imageData) return;
+
+    setBeautyBusy(true);
+    setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
+
+    try {
+      let result = cloneImageData(imageData);
+      for (const op of preset.operations) {
+        switch (op.type) {
+          case 'skin-smoothing':
+            result = skinSmoothing(result, op.params.strength ?? 0.3);
+            break;
+          case 'blemish-removal':
+            result = blemishRemoval(result, op.params.radius ?? 5, op.params.threshold ?? 30);
+            break;
+          case 'teeth-whitening':
+            result = teethWhitening(result, op.params.strength ?? 0.5);
+            break;
+          case 'red-eye':
+            result = redEyeRemoval(result);
+            break;
+          case 'skin-tone':
+            result = skinToneAdjustment(result, op.params.warmth ?? 0, op.params.brightness ?? 0);
+            break;
+          case 'sharpen':
+            result = sharpen(result, op.params.amount ?? 0.2);
+            break;
+          case 'color-adjust':
+            result = colorAdjust(result, op.params.saturation ?? 0, op.params.contrast ?? 0, op.params.brightness ?? 0);
+            break;
+          case 'eye-enhance':
+            result = eyeEnhancement(result, op.params.strength ?? 0.3);
+            break;
+          default:
+            break;
+        }
+      }
+
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = result.width;
+      previewCanvas.height = result.height;
+      previewCanvas.getContext('2d')?.putImageData(result, 0, 0);
+      setBeautyPreview(previewCanvas.toDataURL('image/png'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Preset preview failed.');
+    } finally {
+      setBeautyBusy(false);
+    }
+  }, [hasDocument, getCanvasImageData, setBeautyBusy, setBeautyBeforeSnapshot, setBeautyPreview, setError]);
+
+  const [beautyShowBefore, setBeautyShowBefore] = useState(false);
+
   return (
     <section className="creative-view image-editor-view" aria-labelledby="image-editor-title">
       <header className="creative-header">
@@ -1064,6 +1291,118 @@ export const ImageEditorView: React.FC = () => {
                   </div>
                 </div>
               )}
+            </NeonPanel>
+
+            {/* ── Beauty / Retouch Panel ── */}
+            <NeonPanel variant="dark" padding="md" className="image-editor-beauty-panel">
+              <div className="creative-section-heading compact-heading"><h2><Palette size={18} /> {t('imageEditor.beautyPanel')}</h2></div>
+              <p className="image-editor-ai-description">{t('imageEditor.beautyDescription')}</p>
+
+              {!hasDocument && (
+                <div className="image-editor-beauty-notice">{t('imageEditor.beautyNoDocument')}</div>
+              )}
+
+              {/* Beauty tool selector */}
+              <div className="image-editor-beauty-tools">
+                {([
+                  { id: 'skin-smoothing' as BeautyTool, icon: <Wand2 size={14} />, labelKey: 'imageEditor.beautySkinSmoothing' },
+                  { id: 'blemish-removal' as BeautyTool, icon: <Scissors size={14} />, labelKey: 'imageEditor.beautyBlemishRemoval' },
+                  { id: 'teeth-whitening' as BeautyTool, icon: <Star size={14} />, labelKey: 'imageEditor.beautyTeethWhitening' },
+                  { id: 'red-eye' as BeautyTool, icon: <EyeOff size={14} />, labelKey: 'imageEditor.beautyRedEye' },
+                  { id: 'skin-tone' as BeautyTool, icon: <Palette size={14} />, labelKey: 'imageEditor.beautySkinTone' },
+                  { id: 'sharpen' as BeautyTool, icon: <Zap size={14} />, labelKey: 'imageEditor.beautySharpen' },
+                  { id: 'color-adjust' as BeautyTool, icon: <Palette size={14} />, labelKey: 'imageEditor.beautyColorAdjust' },
+                  { id: 'eye-enhance' as BeautyTool, icon: <Eye size={14} />, labelKey: 'imageEditor.beautyEyeEnhance' },
+                  { id: 'liquify' as BeautyTool, icon: <Wand2 size={14} />, labelKey: 'imageEditor.beautyLiquify' },
+                ] as Array<{ id: BeautyTool; icon: React.ReactNode; labelKey: string }>).map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={beautyTool === entry.id ? 'active' : ''}
+                    onClick={() => { setBeautyTool(beautyTool === entry.id ? null : entry.id); setBeautyPreview(null); }}
+                    disabled={!hasDocument || beautyBusy}
+                  >
+                    {entry.icon}<span>{t(entry.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Beauty controls */}
+              {beautyTool && (
+                <div className="image-editor-beauty-controls">
+                  <label><span>{t('imageEditor.beautyStrength')} · {Math.round(beautyStrength * 100)}%</span>
+                    <input type="range" min="0.05" max="1" step="0.05" value={beautyStrength} onChange={(e) => setBeautyStrength(Number(e.target.value))} />
+                  </label>
+
+                  {beautyTool === 'liquify' && (
+                    <label><span>{t('imageEditor.beautyLiquifyMode')}</span>
+                      <NeonSelect
+                        value="push"
+                        onChange={() => {}}
+                        options={[
+                          { value: 'push', label: t('imageEditor.beautyLiquifyPush') },
+                          { value: 'pinch', label: t('imageEditor.beautyLiquifyPinch') },
+                          { value: 'expand', label: t('imageEditor.beautyLiquifyExpand') },
+                        ]}
+                      />
+                    </label>
+                  )}
+
+                  {/* Face detection notice */}
+                  <div className="image-editor-beauty-notice">{t('imageEditor.beautyFaceDetectionUnavailable')}</div>
+
+                  {/* Before/After toggle */}
+                  {beautyPreviewDataUrl && (
+                    <div className="image-editor-before-after">
+                      <button
+                        type="button"
+                        className={!beautyShowBefore ? 'active' : ''}
+                        onPointerDown={() => setBeautyShowBefore(false)}
+                        onPointerUp={() => setBeautyShowBefore(true)}
+                      >
+                        {t('imageEditor.beautyAfter')}
+                      </button>
+                      <button
+                        type="button"
+                        className={beautyShowBefore ? 'active' : ''}
+                        onPointerDown={() => setBeautyShowBefore(true)}
+                        onPointerUp={() => setBeautyShowBefore(false)}
+                      >
+                        {t('imageEditor.beautyBefore')}
+                      </button>
+                      <span className="image-editor-ai-hint">{t('imageEditor.beautyHoldToCompare')}</span>
+                    </div>
+                  )}
+
+                  {/* Preview image */}
+                  {beautyPreviewDataUrl && !beautyShowBefore && (
+                    <div className="image-editor-ai-result-preview">
+                      <img src={beautyPreviewDataUrl} alt="Beauty preview" />
+                    </div>
+                  )}
+                  {beautyBeforeSnapshot && beautyShowBefore && (
+                    <div className="image-editor-ai-result-preview">
+                      <img src={beautyBeforeSnapshot} alt="Before" />
+                    </div>
+                  )}
+
+                  <div className="image-editor-beauty-actions">
+                    <NeonButton variant="primary" size="sm" leftIcon={<Check size={14} />} onClick={handleBeautyApply} disabled={!hasDocument || beautyBusy || !beautyPreviewDataUrl} fullWidth>{t('imageEditor.beautyApply')}</NeonButton>
+                    <NeonButton variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={handleBeautyCancel} disabled={beautyBusy} fullWidth>{t('imageEditor.beautyCancel')}</NeonButton>
+                  </div>
+                  <NeonButton variant="ghost" size="sm" leftIcon={<Eye size={14} />} onClick={handleBeautyPreview} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyPreview')}</NeonButton>
+                </div>
+              )}
+
+              {/* Presets */}
+              <div className="creative-section-heading compact-heading"><h3><Star size={14} /> {t('imageEditor.beautyPresets')}</h3></div>
+              <div className="image-editor-beauty-presets">
+                {BEAUTY_PRESETS.map((preset) => (
+                  <button key={preset.id} type="button" onClick={() => handlePresetApply(preset.id)} disabled={!hasDocument || beautyBusy}>
+                    {t(`imageEditor.beautyPreset${preset.id.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join('')}` as any)}
+                  </button>
+                ))}
+              </div>
             </NeonPanel>
 
             <NeonPanel variant="dark" padding="md" className="image-editor-inspector">

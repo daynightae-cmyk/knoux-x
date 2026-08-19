@@ -1,5 +1,16 @@
 import { create } from 'zustand';
 
+export type BeautyTool =
+  | 'skin-smoothing'
+  | 'blemish-removal'
+  | 'teeth-whitening'
+  | 'red-eye'
+  | 'skin-tone'
+  | 'sharpen'
+  | 'color-adjust'
+  | 'eye-enhance'
+  | 'liquify';
+
 export interface ImageEditorSource {
   dataUrl: string;
   name: string;
@@ -46,6 +57,20 @@ interface ImageEditorState {
   setAiError(error: string): void;
   clearAiError(): void;
   clearAiResult(): void;
+
+  // Beauty state
+  beautyTool: BeautyTool | null;
+  setBeautyTool(tool: BeautyTool | null): void;
+  beautyStrength: number;
+  setBeautyStrength(strength: number): void;
+  beautyMask: ImageData | null;
+  setBeautyMask(mask: ImageData | null): void;
+  beautyBeforeSnapshot: string | null; // dataUrl of canvas before edit
+  setBeautyBeforeSnapshot(dataUrl: string | null): void;
+  beautyPreviewDataUrl: string | null;
+  setBeautyPreview(dataUrl: string | null): void;
+  beautyBusy: boolean;
+  setBeautyBusy(busy: boolean): void;
 }
 
 export const useImageEditorStore = create<ImageEditorState>((set) => ({
@@ -80,4 +105,18 @@ export const useImageEditorStore = create<ImageEditorState>((set) => ({
   setAiError: (error) => set({ aiError: error }),
   clearAiError: () => set({ aiError: null }),
   clearAiResult: () => set({ aiResult: null }),
+
+  // Beauty state defaults
+  beautyTool: null,
+  setBeautyTool: (tool) => set({ beautyTool: tool }),
+  beautyStrength: 0.5,
+  setBeautyStrength: (strength) => set({ beautyStrength: strength }),
+  beautyMask: null,
+  setBeautyMask: (mask) => set({ beautyMask: mask }),
+  beautyBeforeSnapshot: null,
+  setBeautyBeforeSnapshot: (dataUrl) => set({ beautyBeforeSnapshot: dataUrl }),
+  beautyPreviewDataUrl: null,
+  setBeautyPreview: (dataUrl) => set({ beautyPreviewDataUrl: dataUrl }),
+  beautyBusy: false,
+  setBeautyBusy: (busy) => set({ beautyBusy: busy }),
 }));

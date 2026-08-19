@@ -284,7 +284,7 @@ export interface HistoryCheckpoint {
 export interface AIImageProvenance {
   provenanceId: string;
   jobId: string | null;
-  provider: 'openrouter' | 'huggingface' | 'local' | 'mock' | 'manual';
+  provider: 'openrouter' | 'huggingface' | 'fal' | 'knoux-cloud' | 'local' | 'mock' | 'manual';
   modelId: string;
   endpoint: string | null;
   task: ImageTask;

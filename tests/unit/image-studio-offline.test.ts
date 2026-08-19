@@ -11,6 +11,8 @@ import type { ProviderAvailability } from '../../src/core/image-studio/ai/router
 const ALL_ONLINE: ProviderAvailability = {
   openrouter: true,
   huggingface: true,
+  fal: true,
+  'knoux-cloud': true,
   local: true,
   mock: true,
 };
@@ -18,6 +20,8 @@ const ALL_ONLINE: ProviderAvailability = {
 const ALL_OFFLINE: ProviderAvailability = {
   openrouter: false,
   huggingface: false,
+  fal: false,
+  'knoux-cloud': false,
   local: true,
   mock: true,
 };

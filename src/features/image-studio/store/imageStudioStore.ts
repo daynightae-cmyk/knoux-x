@@ -26,6 +26,7 @@ export interface ProviderInfo {
   healthy: boolean;
   storageMode: string;
   keyMasked: string;
+  wired?: boolean;
 }
 
 export interface ModelInfo {
@@ -33,6 +34,7 @@ export interface ModelInfo {
   name: string;
   task: string;
   pricing: string;
+  provider?: string;
 }
 
 export interface AiJobInfo {

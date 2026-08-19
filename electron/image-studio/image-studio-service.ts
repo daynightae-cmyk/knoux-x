@@ -4,6 +4,14 @@ import path from 'node:path';
 
 import sharp from 'sharp';
 
+import { emptyEntitlement } from '../../src/core/image-studio/ai/entitlement';
+import { AiGateway, buildGatewayRequest } from '../ai-gateway/orchestrator';
+import type { ResultFinalizer } from '../ai-gateway/orchestrator';
+import { createHttpClient } from '../ai-gateway/http-client';
+import type { HttpClient } from '../ai-gateway/http-client';
+import { FalAdapter } from '../ai-gateway/fal-adapter';
+import { HfAdapter } from '../ai-gateway/hf-adapter';
+import { KnouxCloudAdapter } from '../ai-gateway/knoux-adapter';
 import { adjustmentKinds } from '../../src/core/image-studio/adjustments/adjustments';
 import {
   findImageModel,
@@ -168,6 +176,12 @@ export interface ImageStudioServiceOptions {
   autosaveIntervalMs?: number;
   connectivity?: OfflineConnectivityAdapter;
   maxQueueSize?: number;
+  /** HTTP client for the AI gateway (injectable for tests). */
+  http?: HttpClient;
+  /** KNOUX Cloud gateway base URL; empty disables KNOUX Cloud jobs. */
+  gatewayBaseUrl?: string;
+  /** Static session token or resolver for KNOUX Cloud. */
+  gatewaySessionToken?: string | (() => Promise<string | null>);
 }
 
 interface HistorySnapshot {
@@ -295,6 +309,73 @@ const sharpDecoder: ImageDecoder = {
   },
 };
 
+/** Re-encode a remote result to PNG with real measured dimensions. */
+const sharpResultFinalizer: ResultFinalizer = {
+  async finalize(bytes, mime) {
+    const image = await sharpDecoder.decode(bytes, mime);
+    return {
+      dataUrl: dataUrlOf(encodePng(image.buffer), 'image/png'),
+      width: image.width,
+      height: image.height,
+    };
+  },
+};
+
+/**
+ * Normalize a static or resolver-style KNOUX Cloud session token into a
+ * resolver, with an explicit narrowing helper for TypeScript.
+ */
+function gatewaySessionTokenOf(
+  value: string | (() => Promise<string | null>) | undefined
+): () => Promise<string | null> {
+  if (typeof value === 'function') return value;
+  return () => Promise.resolve(value ?? null);
+}
+
+/**
+ * Build the real AI gateway for this build: Hugging Face and fal.ai run
+ * through their committed adapters; KNOUX Cloud runs only when a gateway
+ * base URL and session token are configured, otherwise it is honestly
+ * reported as unconfigured by the orchestrator.
+ */
+function createGateway(options: {
+  credentials: ImageStudioCredentialManager;
+  http: HttpClient;
+  gatewayBaseUrl: string;
+  gatewaySessionToken: () => Promise<string | null>;
+}): AiGateway {
+  const knouxAdapter = new KnouxCloudAdapter({
+    gatewayBaseUrl: () => options.gatewayBaseUrl,
+    sessionToken: options.gatewaySessionToken,
+    http: options.http,
+  });
+  return new AiGateway({
+    adapters: {
+      huggingface: new HfAdapter({
+        apiKey: () => options.credentials.resolveKey('huggingface').catch(() => null),
+        http: options.http,
+      }),
+      fal: new FalAdapter({
+        apiKey: () => options.credentials.resolveKey('fal').catch(() => null),
+        http: options.http,
+      }),
+      'knoux-cloud': knouxAdapter,
+      openrouter: undefined,
+      local: undefined,
+      mock: undefined,
+    },
+    getCredential: (provider) => options.credentials.resolveKey(provider).catch(() => null),
+    getEntitlement: async () => {
+      try {
+        return await knouxAdapter.fetchEntitlement();
+      } catch {
+        return emptyEntitlement();
+      }
+    },
+    finalizer: sharpResultFinalizer,
+  });
+}
+
 const sharpRasterEncoder: RasterEncoder = {
   async encode(buffer, plan) {
     switch (plan.format) {
@@ -353,6 +434,8 @@ export class ImageStudioService {
   private redoStack: HistorySnapshot[] = [];
   private readonly jobHistory = new Map<string, JobRecord>();
   private runningJobs = new Set<string>();
+  private readonly gateway: AiGateway;
+  private readonly gatewayConfigured: boolean;
 
   constructor(options: ImageStudioServiceOptions) {
     this.userDataDir = assertAbsolutePath(options.userDataDir, 'Image Studio data directory');
@@ -367,11 +450,18 @@ export class ImageStudioService {
     this.jobsStore = options.jobsStore ?? this.defaultJobsStore();
     this.connectivity = options.connectivity ?? { isOnline: async () => false };
     this.maxQueueSize = options.maxQueueSize ?? 50;
+    this.gatewayConfigured = Boolean(options.gatewayBaseUrl) && Boolean(gatewaySessionTokenOf(options.gatewaySessionToken));
 
     const consentStore = options.consentStore ?? new MemoryConsentStore();
     const consent = new ConsentManager(consentStore);
     const vault = options.vault ?? new MemorySecretVault(createMemoryCipher());
     this.credentials = new ImageStudioCredentialManager(vault, consent);
+    this.gateway = createGateway({
+      credentials: this.credentials,
+      http: options.http ?? createHttpClient(),
+      gatewayBaseUrl: options.gatewayBaseUrl ?? '',
+      gatewaySessionToken: gatewaySessionTokenOf(options.gatewaySessionToken),
+    });
 
     this.autosaveController = new ImageStudioAutosaveController({
       adapter: this.adapter,
@@ -399,7 +489,12 @@ export class ImageStudioService {
       onFlushed: (jobIds) => {
         for (const jobId of jobIds) {
           const record = this.jobHistory.get(jobId);
-          if (record) this.events.jobProgress(record.job);
+          if (!record) continue;
+          const queued = this.queue.queuedJobs().find((entry) => entry.jobId === jobId);
+          if (queued) this.events.jobProgress(queued);
+          if (this.runningJobs.has(jobId)) continue;
+          const job = this.jobHistory.get(jobId)?.job ?? queued;
+          if (job) void this.executeJob(job).catch(() => undefined);
         }
       },
     });
@@ -1077,6 +1172,7 @@ export class ImageStudioService {
       requiresKey: provider.requiresKey,
       freeTier: provider.freeTier,
       keyDescription: provider.keyDescription,
+      wired: provider.wired,
     }));
   }
 
@@ -1088,6 +1184,7 @@ export class ImageStudioService {
         ...status,
         storageMode: this.credentialStorageMode,
         keyDescription: provider.keyDescription,
+        gatewayConfigured: this.gatewayConfigured,
       };
     }
     return statuses;
@@ -1502,14 +1599,41 @@ export class ImageStudioService {
       const online = this.queue.connectivityState === 'online';
       if (!online) {
         record.status = 'queued';
+        record.error = null;
+        this.jobsStore.saveHistory([...this.jobHistory.values()]);
         this.runningJobs.delete(job.jobId);
         return;
       }
-      const status = await this.credentials.status(job.provider);
-      if (!status.configured || !status.consented) {
-        throw new Error(`${job.provider} requires consent and a configured credential before generation.`);
+      if (job.provider === 'openrouter') {
+        throw new Error('OpenRouter generation is not wired in this build.');
       }
-      throw new Error(`${job.provider} generation is not yet wired in this build.`);
+      const request = buildGatewayRequest({
+        provider: job.provider,
+        modelId: job.modelId,
+        task: job.task,
+        prompt: job.prompt,
+        negativePrompt: job.negativePrompt ?? null,
+        seed: job.seed,
+        width: clampInteger(job.width ?? 256, 1, 4096),
+        height: clampInteger(job.height ?? 256, 1, 4096),
+        references: [],
+      });
+      const result = await this.gateway.submit(request);
+      const outputHash = await this.hash(
+        Buffer.from(result.dataUrl.slice(result.dataUrl.indexOf(',') + 1), 'base64')
+      );
+      const provenance = this.provenanceFor(job, record.provenanceId, {
+        width: result.width,
+        height: result.height,
+        outputHash,
+      });
+      record.status = 'completed';
+      record.outputDataUrl = result.dataUrl;
+      record.provenanceId = provenance.provenanceId;
+      record.finishedAt = new Date().toISOString();
+      this.jobsStore.saveHistory([...this.jobHistory.values()]);
+      await this.queue.complete(job.jobId);
+      this.events.jobComplete(job.jobId, provenance);
     } catch (error) {
       record.status = 'failed';
       record.error = error instanceof Error ? error.message : 'AI job failed.';
@@ -1522,7 +1646,11 @@ export class ImageStudioService {
     }
   }
 
-  private provenanceFor(job: DeferredAiJob, provenanceId: string | null): AIImageProvenance {
+  private provenanceFor(
+    job: DeferredAiJob,
+    provenanceId: string | null,
+    result?: { width: number; height: number; outputHash: string }
+  ): AIImageProvenance {
     const model = findImageModel(job.modelId);
     const costClassification = model ? (model.costBucket === 'free' ? 'free' : 'paid') : 'unknown';
     return {
@@ -1535,12 +1663,12 @@ export class ImageStudioService {
       prompt: job.prompt,
       negativePrompt: job.negativePrompt,
       seed: job.seed,
-      parameters: {},
+      parameters: result ? { width: result.width, height: result.height } : {},
       sourceLayerIds: job.sourceAssetId ? [job.sourceAssetId] : [],
       sourceImageHash: null,
       maskHash: null,
       generatedAt: new Date().toISOString(),
-      outputHash: null,
+      outputHash: result?.outputHash ?? null,
       costClassification,
       estimatedCost: model?.estimatedCostUsd ?? null,
       accepted: null,

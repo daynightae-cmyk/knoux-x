@@ -31,13 +31,19 @@ export const ImageStudioAIStudioPanel: React.FC = () => {
   const [credential, setCredential] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-   useEffect(() => {
-     void window.knouxImageStudioAPI.listProviders().then((providers) => {
-       setProviderStatus(providers as unknown as Record<string, ProviderInfo>);
-     }).catch(() => undefined);
+useEffect(() => {
+      void window.knouxImageStudioAPI.listProviders().then((providers) => {
+        setProviderStatus(providers as unknown as Record<string, ProviderInfo>);
+      }).catch(() => undefined);
 
     void window.knouxImageStudioAPI.listModels().then((models) => {
-      setModelCatalog(models as Array<{ id: string; name: string; task: string; pricing: string }>);
+      setModelCatalog((models as Array<{ id: string; name: string; provider: string; costBucket: string; classification: string; endpoint: string | null; capabilities: { tasks: string[] } }>).map((m) => ({
+        id: m.id,
+        name: m.name,
+        provider: m.provider,
+        task: m.capabilities?.tasks?.[0] ?? 'text-to-image',
+        pricing: m.classification ?? m.costBucket ?? 'unknown',
+      })));
     }).catch(() => undefined);
 
     void window.knouxImageStudioAPI.listJobs().then((jobs) => {
@@ -48,7 +54,13 @@ export const ImageStudioAIStudioPanel: React.FC = () => {
   const handleRefreshModels = useCallback(async (): Promise<void> => {
     try {
       const models = await window.knouxImageStudioAPI.refreshModels();
-      setModelCatalog(models as Array<{ id: string; name: string; task: string; pricing: string }>);
+      setModelCatalog((models as Array<{ id: string; name: string; provider: string; costBucket: string; classification: string; endpoint: string | null; capabilities: { tasks: string[] } }>).map((m) => ({
+        id: m.id,
+        name: m.name,
+        provider: m.provider,
+        task: m.capabilities?.tasks?.[0] ?? 'text-to-image',
+        pricing: m.classification ?? m.costBucket ?? 'unknown',
+      })));
     } catch {
       // silently ignore refresh failures
     }
@@ -133,13 +145,15 @@ export const ImageStudioAIStudioPanel: React.FC = () => {
     }
   }, []);
 
-  const providerOptions = Object.values(providerStatus).map((p) => ({
-    value: p.id,
-    label: `${p.name} (${p.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')})`,
-  }));
+  const providerOptions = Object.values(providerStatus)
+    .filter((p) => p.wired === true && p.id !== 'mock' && p.id !== 'local' && p.id !== 'openrouter')
+    .map((p) => ({
+      value: p.id,
+      label: `${p.name} (${p.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')})`,
+    }));
 
   const modelOptions = modelCatalog
-    .filter((m) => !selectedProvider || m.task === task)
+    .filter((m) => (!selectedProvider || m.provider === selectedProvider) && m.task === task && m.id !== 'knoux-mock-image')
     .map((m) => ({ value: m.id, label: `${m.name} (${m.pricing})` }));
 
   const taskOptions = [

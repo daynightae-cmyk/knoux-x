@@ -3,6 +3,7 @@ import {
   Aperture,
   ArrowUpRight,
   Brush,
+  Check,
   Circle,
   Crop,
   Download,
@@ -13,17 +14,21 @@ import {
   FolderOpen,
   Grid3X3,
   Highlighter,
+  KeyRound,
   Maximize2,
   Minus,
   MousePointer2,
   Redo2,
+  RefreshCw,
   RotateCcw,
   RotateCw,
   Save,
   ShieldOff,
+  Sparkles,
   Square,
   Type,
   Undo2,
+  X,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
@@ -33,7 +38,7 @@ import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useTranslation } from '../../i18n';
-import { useImageEditorStore } from '../../store/imageEditorStore';
+import { useImageEditorStore, type ImageEditorAiJob } from '../../store/imageEditorStore';
 
 interface CanvasSnapshot {
   dataUrl: string;
@@ -134,6 +139,56 @@ function nameForPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX Image';
 }
 
+interface AiProviderStatus {
+  id: string;
+  configured: boolean;
+  consented: boolean;
+  requiresKey: boolean;
+}
+
+interface AiModelOption {
+  id: string;
+  provider: string;
+  name: string;
+  costBucket: string;
+  estimatedCostUsd: number;
+}
+
+const AI_PROVIDER_IDS = ['huggingface', 'fal', 'knoux-cloud'] as const;
+const AI_PROVIDER_NAMES: Record<string, string> = {
+  huggingface: 'Hugging Face',
+  fal: 'fal.ai',
+  'knoux-cloud': 'KNOUX Cloud',
+};
+
+function toAiJobSnapshot(value: Record<string, unknown>): ImageEditorAiJob {
+  return {
+    jobId: String(value.jobId ?? ''),
+    task: String(value.task ?? ''),
+    provider: String(value.provider ?? ''),
+    modelId: String(value.modelId ?? ''),
+    prompt: String(value.prompt ?? ''),
+    negativePrompt: typeof value.negativePrompt === 'string' ? value.negativePrompt : null,
+    seed: typeof value.seed === 'number' ? value.seed : null,
+    width: typeof value.width === 'number' ? value.width : 0,
+    height: typeof value.height === 'number' ? value.height : 0,
+    status: String(value.status ?? 'queued'),
+    error: typeof value.error === 'string' ? value.error : null,
+    outputDataUrl: typeof value.outputDataUrl === 'string' ? value.outputDataUrl : null,
+    enqueuedAt: String(value.enqueuedAt ?? new Date().toISOString()),
+    startedAt: typeof value.startedAt === 'string' ? value.startedAt : null,
+    finishedAt: typeof value.finishedAt === 'string' ? value.finishedAt : null,
+    provenanceId: typeof value.provenanceId === 'string' ? value.provenanceId : null,
+  };
+}
+
+function parseAiSeed(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export const ImageEditorView: React.FC = () => {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -144,6 +199,13 @@ export const ImageEditorView: React.FC = () => {
   const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
   const clearSource = useImageEditorStore((state) => state.clearSource);
+  const aiActiveJob = useImageEditorStore((state) => state.aiActiveJob);
+  const aiResult = useImageEditorStore((state) => state.aiResult);
+  const aiError = useImageEditorStore((state) => state.aiError);
+  const setAiJob = useImageEditorStore((state) => state.setAiJob);
+  const setAiError = useImageEditorStore((state) => state.setAiError);
+  const clearAiError = useImageEditorStore((state) => state.clearAiError);
+  const clearAiResult = useImageEditorStore((state) => state.clearAiResult);
   const [hasDocument, setHasDocument] = useState(false);
   const [tool, setTool] = useState<ImageTool>('select');
   const [color, setColor] = useState('#00efff');
@@ -161,6 +223,19 @@ export const ImageEditorView: React.FC = () => {
   const [exportFormat, setExportFormat] = useState<CaptureFormat>('png');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiProvider, setAiProvider] = useState<(typeof AI_PROVIDER_IDS)[number]>('huggingface');
+  const [aiModelId, setAiModelId] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiNegativePrompt, setAiNegativePrompt] = useState('');
+  const [aiSeed, setAiSeed] = useState('');
+  const [aiWidth, setAiWidth] = useState(1024);
+  const [aiHeight, setAiHeight] = useState(1024);
+  const [aiProviderStatus, setAiProviderStatus] = useState<Record<string, AiProviderStatus>>({});
+  const [aiModels, setAiModels] = useState<AiModelOption[]>([]);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiConfigureOpen, setAiConfigureOpen] = useState(false);
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiSavingKey, setAiSavingKey] = useState(false);
   const { t } = useTranslation();
 
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview';
@@ -628,6 +703,177 @@ export const ImageEditorView: React.FC = () => {
     }
   }, [clearOverlay, clearSource]);
 
+  const refreshAiProviderStatus = useCallback(async (): Promise<void> => {
+    if (typeof window.knouxImageStudioAPI === 'undefined') return;
+    try {
+      const statuses = await window.knouxImageStudioAPI.providerStatus();
+      const mapped: Record<string, AiProviderStatus> = {};
+      for (const providerId of AI_PROVIDER_IDS) {
+        const entry = (statuses as Record<string, unknown>)[providerId];
+        if (!entry || typeof entry !== 'object') continue;
+        const status = entry as Record<string, unknown>;
+        mapped[providerId] = {
+          id: providerId,
+          configured: providerId === 'knoux-cloud' ? Boolean(status.gatewayConfigured) : Boolean(status.configured),
+          consented: Boolean(status.consented),
+          requiresKey: providerId !== 'knoux-cloud',
+        };
+      }
+      setAiProviderStatus(mapped);
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiFailed').replace('{error}', 'status check failed'));
+    }
+  }, [setAiError, t]);
+
+  const refreshAiModels = useCallback(async (provider: string): Promise<void> => {
+    if (typeof window.knouxImageStudioAPI === 'undefined') return;
+    try {
+      const models = await window.knouxImageStudioAPI.listModels('text-to-image');
+      const mapped: AiModelOption[] = (models as Array<Record<string, unknown>>)
+        .filter((model) => String(model.provider) === provider)
+        .map((model) => ({
+          id: String(model.id ?? ''),
+          provider: String(model.provider ?? ''),
+          name: String(model.name ?? ''),
+          costBucket: String(model.costBucket ?? ''),
+          estimatedCostUsd: typeof model.estimatedCostUsd === 'number' ? model.estimatedCostUsd : 0,
+        }));
+      setAiModels(mapped);
+      setAiModelId((current) => (current && mapped.some((model) => model.id === current) ? current : (mapped[0]?.id ?? '')));
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiFailed').replace('{error}', 'model list failed'));
+    }
+  }, [setAiError, t]);
+
+  const loadAiJob = useCallback(async (jobId: string): Promise<void> => {
+    if (typeof window.knouxImageStudioAPI === 'undefined') return;
+    try {
+      const snapshot = await window.knouxImageStudioAPI.getJob(jobId);
+      if (snapshot && typeof snapshot === 'object') setAiJob(toAiJobSnapshot(snapshot as Record<string, unknown>));
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiFailed').replace('{error}', 'job status failed'));
+    }
+  }, [setAiError, setAiJob, t]);
+
+  const handleAiGenerate = useCallback(async (): Promise<void> => {
+    if (!desktopRuntime || aiBusy) return;
+    clearAiError();
+    const trimmedPrompt = aiPrompt.trim();
+    if (!trimmedPrompt) {
+      setAiError(t('imageEditor.aiPromptRequired'));
+      return;
+    }
+    if (!aiModelId) {
+      setAiError(t('imageEditor.aiNoModels'));
+      return;
+    }
+    const providerStatus = aiProviderStatus[aiProvider];
+    if (!providerStatus?.configured || !providerStatus?.consented) {
+      setAiConfigureOpen(true);
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const jobId = await window.knouxImageStudioAPI.createJob({
+        task: 'text-to-image',
+        provider: aiProvider,
+        modelId: aiModelId,
+        prompt: trimmedPrompt,
+        negativePrompt: aiNegativePrompt.trim() || null,
+        seed: parseAiSeed(aiSeed),
+        width: aiWidth,
+        height: aiHeight,
+        maskAssetId: null,
+        sourceAssetId: null,
+      });
+      await loadAiJob(jobId);
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiFailed').replace('{error}', 'job could not be created'));
+      setAiBusy(false);
+    }
+  }, [aiBusy, aiHeight, aiModelId, aiNegativePrompt, aiPrompt, aiProvider, aiProviderStatus, aiSeed, aiWidth, clearAiError, desktopRuntime, loadAiJob, setAiError, t]);
+
+  const handleAiCancel = useCallback(async (): Promise<void> => {
+    const active = aiActiveJob;
+    if (!active || !desktopRuntime) return;
+    try {
+      await window.knouxImageStudioAPI.cancelJob(active.jobId);
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiFailed').replace('{error}', 'job could not be canceled'));
+    }
+  }, [aiActiveJob, desktopRuntime, setAiError, t]);
+
+  const handleAiApply = useCallback(async (): Promise<void> => {
+    const result = aiResult;
+    if (!result || !desktopRuntime) return;
+    try {
+      const modelName = aiModels.find((model) => model.id === result.modelId)?.name ?? result.modelId;
+      await loadDocument(result.dataUrl, `${documentName} · AI (${modelName})`);
+      clearAiResult();
+      setAiBusy(false);
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiOpenFailed'));
+    }
+  }, [aiModels, aiResult, clearAiResult, desktopRuntime, documentName, loadDocument, setAiError, t]);
+
+  const handleAiSaveKey = useCallback(async (): Promise<void> => {
+    if (aiSavingKey || aiProvider === 'knoux-cloud') return;
+    setAiSavingKey(true);
+    clearAiError();
+    try {
+      const trimmedKey = aiApiKey.trim();
+      if (!trimmedKey) throw new Error(t('imageEditor.aiApiKey'));
+      const validation = await window.knouxImageStudioAPI.validateCredential(aiProvider, trimmedKey);
+      if (!validation.ok) {
+        setAiError(t('imageEditor.aiKeyValidationFailed').replace('{reason}', validation.reason ?? 'invalid key'));
+        return;
+      }
+      await window.knouxImageStudioAPI.setCredential(aiProvider, trimmedKey);
+      setAiApiKey('');
+      setAiConfigureOpen(false);
+      await refreshAiProviderStatus();
+    } catch (reason) {
+      setAiError(reason instanceof Error ? reason.message : t('imageEditor.aiKeyValidationFailed').replace('{reason}', String(reason)));
+    } finally {
+      setAiSavingKey(false);
+    }
+  }, [aiApiKey, aiProvider, aiSavingKey, clearAiError, refreshAiProviderStatus, setAiError, t]);
+
+  useEffect(() => {
+    if (!desktopRuntime) return;
+    void refreshAiProviderStatus();
+    void refreshAiModels(aiProvider);
+    const removeProgress = window.knouxImageStudioAPI.onJobProgress((job) => {
+      const snapshot = toAiJobSnapshot(job as unknown as Record<string, unknown>);
+      setAiJob({ ...snapshot, status: 'running' });
+    });
+    const removeComplete = window.knouxImageStudioAPI.onJobComplete((jobId) => {
+      void loadAiJob(jobId);
+    });
+    const removeFailed = window.knouxImageStudioAPI.onJobFailed((jobId, error) => {
+      void window.knouxImageStudioAPI.getJob(jobId).then((snapshot) => {
+        if (snapshot && typeof snapshot === 'object') {
+          setAiJob({ ...toAiJobSnapshot(snapshot as Record<string, unknown>), status: 'failed', error });
+        } else {
+          setAiError(error);
+        }
+      }).catch(() => setAiError(error));
+    });
+    return () => {
+      removeProgress();
+      removeComplete();
+      removeFailed();
+    };
+  }, [desktopRuntime, loadAiJob, refreshAiModels, refreshAiProviderStatus, setAiError, setAiJob, aiProvider]);
+
+  const aiProviderConfig = aiProviderStatus[aiProvider];
+  const aiActive = aiActiveJob !== null && (aiActiveJob.status === 'running' || aiActiveJob.status === 'queued');
+  const aiCanGenerateAi = desktopRuntime && !aiBusy && !aiActive && Boolean(aiModelId) && Boolean(aiPrompt.trim()) && (
+    aiProvider === 'knoux-cloud'
+      ? Boolean(aiProviderConfig?.configured)
+      : Boolean(aiProviderConfig?.configured && aiProviderConfig?.consented)
+  );
+
   return (
     <section className="creative-view image-editor-view" aria-labelledby="image-editor-title">
       <header className="creative-header">
@@ -706,7 +952,121 @@ export const ImageEditorView: React.FC = () => {
             </div>
           </NeonPanel>
 
-          <NeonPanel variant="dark" padding="md" className="image-editor-inspector">
+          <div className="image-editor-side">
+            <NeonPanel variant="dark" padding="md" className="image-editor-ai-panel">
+              <div className="creative-section-heading compact-heading"><h2><Sparkles size={18} /> {t('imageEditor.aiPanel')}</h2></div>
+              <p className="image-editor-ai-description">{t('imageEditor.aiDescription')}</p>
+
+              {!desktopRuntime && (
+                <div className="image-editor-ai-notice">{t('imageEditor.aiDesktopOnly')}</div>
+              )}
+
+              <label className="image-editor-ai-field"><span>{t('imageEditor.aiProvider')}</span>
+                <NeonSelect
+                  value={aiProvider}
+                  disabled={!desktopRuntime || aiBusy || aiActive}
+                  onChange={(value) => setAiProvider(value as typeof AI_PROVIDER_IDS[number])}
+                  options={AI_PROVIDER_IDS.map((id) => ({
+                    value: id,
+                    label: AI_PROVIDER_NAMES[id] ?? id,
+                  }))}
+                />
+              </label>
+              <div className="image-editor-ai-status-line" dir="ltr">
+                {aiProviderConfig
+                  ? (
+                    <>
+                      <span className={aiProviderConfig.configured ? 'is-ok' : 'is-warn'}>
+                        {aiProviderConfig.configured ? t('imageEditor.aiConfigured') : aiProvider === 'knoux-cloud' ? t('imageEditor.aiRequiresSession') : t('imageEditor.aiNotConfigured')}
+                      </span>
+                      {aiProviderConfig.configured && !aiProviderConfig.consented && <span className="is-warn">{t('imageEditor.aiNotConfigured')}</span>}
+                    </>
+                  )
+                  : <span className="is-warn">{t('imageEditor.aiNotConfigured')}</span>}
+              </div>
+              {aiProviderConfig && !aiProviderConfig.consented && aiProviderConfig.configured && (
+                <NeonButton variant="ghost" size="sm" leftIcon={<KeyRound size={14} />} onClick={() => { setAiConfigureOpen(true); }} fullWidth>{t('imageEditor.aiConfigure')}</NeonButton>
+              )}
+
+              {aiConfigureOpen && aiProvider !== 'knoux-cloud' && (
+                <div className="image-editor-ai-config" role="dialog" aria-label={t('imageEditor.aiConfigureFor').replace('{provider}', AI_PROVIDER_NAMES[aiProvider] ?? aiProvider)}>
+                  <strong>{t('imageEditor.aiConfigureFor').replace('{provider}', AI_PROVIDER_NAMES[aiProvider] ?? aiProvider)}</strong>
+                  <label className="image-editor-ai-field"><span>{t('imageEditor.aiApiKey')}</span>
+                    <input type="password" value={aiApiKey} onChange={(event) => setAiApiKey(event.target.value)} autoComplete="off" spellCheck={false} dir="ltr" disabled={aiSavingKey} />
+                  </label>
+                  <span className="image-editor-ai-hint">{t('imageEditor.aiConfigureHint')}</span>
+                  <div className="image-editor-ai-config-actions">
+                    <NeonButton variant="primary" size="sm" leftIcon={<Check size={14} />} onClick={() => void handleAiSaveKey()} disabled={aiSavingKey || aiApiKey.trim().length === 0} fullWidth>{t('imageEditor.aiSaveKey')}</NeonButton>
+                    <NeonButton variant="ghost" size="sm" onClick={() => setAiConfigureOpen(false)} disabled={aiSavingKey} fullWidth>{t('imageEditor.aiCancel')}</NeonButton>
+                  </div>
+                </div>
+              )}
+
+              <label className="image-editor-ai-field"><span>{t('imageEditor.aiModel')}</span>
+                <NeonSelect
+                  value={aiModelId}
+                  disabled={!desktopRuntime || aiBusy || aiActive || aiModels.length === 0}
+                  onChange={(value) => setAiModelId(value)}
+                  options={aiModels.map((model) => ({ value: model.id, label: `${model.name} (${model.costBucket})` }))}
+                />
+              </label>
+              {aiModels.length === 0 && <span className="image-editor-ai-hint">{t('imageEditor.aiNoModels')}</span>}
+              <NeonButton variant="ghost" size="sm" leftIcon={<RefreshCw size={13} />} onClick={() => void refreshAiModels(aiProvider)} disabled={!desktopRuntime || aiBusy || aiActive} fullWidth>{t('imageEditor.refreshModels')}</NeonButton>
+
+              <label className="image-editor-ai-field"><span>{t('imageEditor.aiPrompt')}</span>
+                <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} rows={3} disabled={!desktopRuntime || aiBusy || aiActive} />
+              </label>
+              <label className="image-editor-ai-field"><span>{t('imageEditor.aiNegativePrompt')}</span>
+                <textarea value={aiNegativePrompt} onChange={(event) => setAiNegativePrompt(event.target.value)} rows={2} disabled={!desktopRuntime || aiBusy || aiActive} />
+              </label>
+              <div className="image-editor-ai-params">
+                <label className="image-editor-ai-field"><span>{t('imageEditor.aiSeed')}</span>
+                  <input type="text" value={aiSeed} onChange={(event) => setAiSeed(event.target.value)} placeholder={t('imageEditor.aiSeedHint')} dir="ltr" disabled={!desktopRuntime || aiBusy || aiActive} />
+                </label>
+                <label className="image-editor-ai-field"><span>{t('imageEditor.aiSize')}</span>
+                  <input type="number" min="256" max="2048" step="64" value={aiWidth} onChange={(event) => { setAiWidth(Math.max(256, Math.min(2048, Number(event.target.value) || 256))); }} disabled={!desktopRuntime || aiBusy || aiActive} dir="ltr" />
+                  <span className="image-editor-ai-size-times" aria-hidden="true">×</span>
+                  <input type="number" min="256" max="2048" step="64" value={aiHeight} onChange={(event) => { setAiHeight(Math.max(256, Math.min(2048, Number(event.target.value) || 256))); }} disabled={!desktopRuntime || aiBusy || aiActive} dir="ltr" />
+                </label>
+              </div>
+
+              {aiActive && (
+                <div className="image-editor-ai-progress" role="status">
+                  {aiActiveJob?.status === 'queued' ? t('imageEditor.aiQueued') : t('imageEditor.aiRunning').replace('{provider}', AI_PROVIDER_NAMES[aiProvider] ?? aiProvider)}
+                  <span className="image-editor-ai-spinner" aria-hidden="true" />
+                </div>
+              )}
+              {aiError && <div className="image-editor-ai-error" role="alert">{aiError}</div>}
+
+              <div className="image-editor-ai-actions">
+                {!aiActive ? (
+                  <NeonButton variant="primary" leftIcon={<Sparkles size={15} />} onClick={() => void handleAiGenerate()} disabled={!aiCanGenerateAi} fullWidth>
+                    {aiBusy ? t('imageEditor.aiGenerating') : t('imageEditor.aiGenerate')}
+                  </NeonButton>
+                ) : (
+                  <NeonButton variant="secondary" leftIcon={<X size={15} />} onClick={() => void handleAiCancel()} fullWidth>
+                    {t('imageEditor.aiCancel')}
+                  </NeonButton>
+                )}
+              </div>
+
+              <NeonButton variant="ghost" leftIcon={<KeyRound size={14} />} onClick={() => setAiConfigureOpen(true)} disabled={!desktopRuntime || aiActive || aiProvider === 'knoux-cloud'} fullWidth>{t('imageEditor.aiConfigure')}</NeonButton>
+
+              {aiResult && (
+                <div className="image-editor-ai-result">
+                  <strong>{t('imageEditor.aiResultReady')}</strong>
+                  <div className="image-editor-ai-result-preview">
+                    <img src={aiResult.dataUrl} alt={t('imageEditor.aiResultReady')} />
+                  </div>
+                  <div className="image-editor-ai-result-actions">
+                    <NeonButton variant="primary" size="sm" leftIcon={<Check size={14} />} onClick={() => void handleAiApply()} disabled={aiBusy} fullWidth>{t('imageEditor.aiApplyToCanvas')}</NeonButton>
+                    <NeonButton variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={clearAiResult} fullWidth>{t('imageEditor.aiDiscardResult')}</NeonButton>
+                  </div>
+                </div>
+              )}
+            </NeonPanel>
+
+            <NeonPanel variant="dark" padding="md" className="image-editor-inspector">
             <div className="creative-section-heading compact-heading"><h2><Maximize2 size={18} /> {t('imageEditor.document')}</h2></div>
             <label className="image-editor-name-field"><span>{t('imageEditor.name')}</span><input value={documentName} onChange={(event) => setDocumentName(event.target.value)} disabled={!hasDocument} /></label>
             <div className="image-editor-size-readout" dir="ltr">{documentWidth} × {documentHeight}px</div>
@@ -730,6 +1090,7 @@ export const ImageEditorView: React.FC = () => {
             </div>
             <NeonButton variant="ghost" onClick={closeDocument} disabled={!hasDocument || busy} fullWidth>{t('imageEditor.closeDocument')}</NeonButton>
           </NeonPanel>
+        </div>
         </div>
       </div>
     </section>

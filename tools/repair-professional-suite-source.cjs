@@ -52,14 +52,17 @@ validateRepair(
 
 validateRepair(
   'electron/ipc/slideshow-runtime.ts',
-  ["import { authorizedMediaPaths } from '../security/path-registry';\n\nimport { SlideshowProjectService }"],
-  ["import { SlideshowRenderService } from '../creative/slideshow-render-service';\nimport { authorizedMediaPaths } from '../security/path-registry';"],
+  ["import { authorizedMediaPaths } from '../security/path-registry';\n\nimport { SlideshowProjectService"],
+  [
+    "import { SlideshowProjectService } from '../creative/slideshow-project-service';\nimport { SlideshowRenderService } from '../creative/slideshow-render-service';\nimport { SlideshowAssetService",
+    "import { authorizedMediaPaths } from '../security/path-registry';",
+  ],
 );
 
 validateRepair(
   'src/features/slideshow/SlideshowView.tsx',
   ['  }, [duration, previewPlaying]);\n'],
-  ['  }, [duration, previewPlaying, previewTime]);'],
+  ['  }, [duration, previewPlaying, previewTime];'],
 );
 
 validateRepair(

@@ -3,6 +3,10 @@
  *
  * HF Inference Providers video adapter. Text-to-video and image-to-video
  * via the HF router endpoint. Follows the same pattern as HfAdapter.
+ *
+ * TRUTH RULE: All result metadata (width, height, duration, fps, codec,
+ * audio) comes from probing the actual downloaded bytes — never from
+ * request parameters.
  */
 
 import type { HttpClient } from './http-client';
@@ -13,6 +17,7 @@ import {
   videoBlockedMessage,
   type VideoGatewayJobRequest,
   type VideoGatewayJobResult,
+  type VideoProbeFn,
 } from './video-contracts';
 
 export interface HfVideoAdapterOptions {
@@ -47,6 +52,7 @@ export class HfVideoAdapter implements VideoProviderAdapter {
   async generate(
     request: VideoGatewayJobRequest,
     onPhase: (phase: import('./video-contracts').VideoJobPhase) => void,
+    probeVideo: VideoProbeFn,
   ): Promise<VideoGatewayJobResult> {
     const key = await this.apiKey();
     if (key === null) throw new VideoGatewayError('unconfigured', videoBlockedMessage('unconfigured'), 'huggingface');
@@ -78,7 +84,7 @@ export class HfVideoAdapter implements VideoProviderAdapter {
       headers: { authorization: `Bearer ${key}` },
       body,
       binary: true,
-      timeoutMs: 300_000, // 5 min for video
+      timeoutMs: 300_000,
     });
 
     onPhase('downloading');
@@ -98,17 +104,32 @@ export class HfVideoAdapter implements VideoProviderAdapter {
     }
 
     onPhase('finalizing');
+
+    // Probe actual video bytes for real metadata
+    let probed;
+    try {
+      probed = await probeVideo(response.bytes, mime);
+    } catch (err) {
+      throw new VideoGatewayError(
+        'invalid-result',
+        videoBlockedMessage('invalid-result', `Video probe failed: ${err instanceof Error ? err.message : String(err)}`),
+        'huggingface',
+      );
+    }
+
     const base64 = Buffer.from(response.bytes).toString('base64');
-    const dataUrl = `data:${mime};base64,${base64}`;
+    const dataUrl = `data:${probed.mime};base64,${base64}`;
 
     return {
       dataUrl,
-      mime,
-      width: request.width,
-      height: request.height,
-      durationSeconds: request.durationSeconds,
-      fps: request.fps,
-      hasAudio: false,
+      mime: probed.mime,
+      width: probed.width,
+      height: probed.height,
+      durationSeconds: probed.durationSeconds,
+      fps: probed.fps,
+      hasAudio: probed.hasAudio,
+      codec: probed.codec,
+      frameCount: probed.frameCount,
       providerJobId: null,
       costUsd: request.estimatedCostUsd,
       rawSeed: request.seed,
@@ -116,6 +137,6 @@ export class HfVideoAdapter implements VideoProviderAdapter {
   }
 
   async cancel(_request: VideoGatewayJobRequest, _providerJobId: string | null): Promise<boolean> {
-    return false; // HF sync endpoint — cannot cancel mid-flight
+    return false;
   }
 }

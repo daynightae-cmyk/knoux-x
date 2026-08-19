@@ -333,3 +333,127 @@ describe('Video Entitlement', () => {
     expect(applyVideoEntitlementToRoute('paid', entitlement).allowed).toBe(false);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Video Probe & Validation
+// ═══════════════════════════════════════════════════════════════════════════
+
+import {
+  REMOTE_VIDEO_MIME_TYPES,
+  REMOTE_VIDEO_RESULT_LIMITS,
+  VideoGatewayError,
+  type VideoGatewayJobResult,
+  type VideoProbeResult,
+} from '../../electron/ai-gateway/video-contracts';
+
+describe('Video Result Validation', () => {
+  const validProbedResult: VideoGatewayJobResult = {
+    dataUrl: 'data:video/mp4;base64,AAAA',
+    mime: 'video/mp4',
+    width: 1024,
+    height: 576,
+    durationSeconds: 5,
+    fps: 24,
+    hasAudio: false,
+    codec: 'h264',
+    frameCount: 120,
+    providerJobId: 'job-123',
+    costUsd: 0,
+    rawSeed: null,
+  };
+
+  it('accepts valid probed result', () => {
+    expect(REMOTE_VIDEO_MIME_TYPES.has(validProbedResult.mime)).toBe(true);
+    expect(validProbedResult.width).toBeLessThanOrEqual(REMOTE_VIDEO_RESULT_LIMITS.maxDimension);
+    expect(validProbedResult.height).toBeLessThanOrEqual(REMOTE_VIDEO_RESULT_LIMITS.maxDimension);
+    expect(validProbedResult.durationSeconds).toBeLessThanOrEqual(REMOTE_VIDEO_RESULT_LIMITS.maxDurationSeconds);
+    expect(validProbedResult.fps).toBeGreaterThanOrEqual(REMOTE_VIDEO_RESULT_LIMITS.minFPS);
+    expect(validProbedResult.fps).toBeLessThanOrEqual(REMOTE_VIDEO_RESULT_LIMITS.maxFPS);
+  });
+
+  it('rejects empty data URL', () => {
+    const result = { ...validProbedResult, dataUrl: '' };
+    expect(result.dataUrl.length).toBe(0);
+  });
+
+  it('rejects unsupported MIME', () => {
+    const result = { ...validProbedResult, mime: 'application/octet-stream' };
+    expect(REMOTE_VIDEO_MIME_TYPES.has(result.mime)).toBe(false);
+  });
+
+  it('rejects oversized dimensions', () => {
+    const result = { ...validProbedResult, width: 5000, height: 5000 };
+    expect(result.width > REMOTE_VIDEO_RESULT_LIMITS.maxDimension).toBe(true);
+  });
+
+  it('rejects too-long duration', () => {
+    const result = { ...validProbedResult, durationSeconds: 120 };
+    expect(result.durationSeconds > REMOTE_VIDEO_RESULT_LIMITS.maxDurationSeconds).toBe(true);
+  });
+
+  it('rejects invalid FPS', () => {
+    const result = { ...validProbedResult, fps: 0 };
+    expect(result.fps < REMOTE_VIDEO_RESULT_LIMITS.minFPS).toBe(true);
+  });
+
+  it('probe result has all required fields', () => {
+    const probe: VideoProbeResult = {
+      mime: 'video/mp4',
+      width: 1920,
+      height: 1080,
+      durationSeconds: 10.5,
+      fps: 30,
+      hasAudio: true,
+      codec: 'h264',
+      frameCount: 315,
+    };
+    expect(probe.width).toBeGreaterThan(0);
+    expect(probe.height).toBeGreaterThan(0);
+    expect(probe.durationSeconds).toBeGreaterThan(0);
+    expect(probe.fps).toBeGreaterThan(0);
+    expect(probe.codec).not.toBeNull();
+  });
+
+  it('probe result with audio stream', () => {
+    const probe: VideoProbeResult = {
+      mime: 'video/mp4',
+      width: 1280,
+      height: 720,
+      durationSeconds: 3,
+      fps: 24,
+      hasAudio: true,
+      codec: 'h264',
+      frameCount: 72,
+    };
+    expect(probe.hasAudio).toBe(true);
+  });
+
+  it('probe result without audio stream', () => {
+    const probe: VideoProbeResult = {
+      mime: 'video/webm',
+      width: 640,
+      height: 480,
+      durationSeconds: 2,
+      fps: 15,
+      hasAudio: false,
+      codec: 'vp9',
+      frameCount: 30,
+    };
+    expect(probe.hasAudio).toBe(false);
+    expect(probe.mime).toBe('video/webm');
+  });
+
+  it('probe result with null frame count', () => {
+    const probe: VideoProbeResult = {
+      mime: 'video/mp4',
+      width: 1024,
+      height: 576,
+      durationSeconds: 5,
+      fps: 24,
+      hasAudio: false,
+      codec: 'h264',
+      frameCount: null,
+    };
+    expect(probe.frameCount).toBeNull();
+  });
+});

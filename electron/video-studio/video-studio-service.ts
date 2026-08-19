@@ -8,6 +8,14 @@
 
 import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { randomBytes } from 'crypto';
+
+const execFileAsync = promisify(execFile);
 
 import { createHttpClient, type HttpClient } from '../ai-gateway/http-client';
 import { HfVideoAdapter } from '../ai-gateway/hf-video-adapter';
@@ -21,6 +29,7 @@ import {
   type VideoGatewayJobRequest,
   type VideoGatewayJobResult,
   type VideoJobPhase,
+  type VideoProbeResult,
 } from '../ai-gateway/video-contracts';
 import {
   type VideoModelDefinition,
@@ -127,6 +136,80 @@ export class VideoStudioService extends EventEmitter {
     this.gatewayBaseUrl = this.options.gatewayBaseUrl;
     this.http = createHttpClient();
     this.buildAdapters();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Video probe (FFprobe-based)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Probe actual video bytes with FFprobe to extract real metadata.
+   * Writes bytes to a temp file, runs ffprobe, parses JSON output,
+   * then cleans up. Falls back to basic inspection if FFprobe is
+   * unavailable.
+   *
+   * NEVER returns request metadata — only probed values.
+   */
+  private async probeVideoWithFfprobe(bytes: Uint8Array, _fallbackMime: string): Promise<VideoProbeResult> {
+    const tmpPath = join(tmpdir(), `knoux-video-probe-${randomBytes(8).toString('hex')}.mp4`);
+    try {
+      await writeFile(tmpPath, bytes);
+
+      try {
+        const { stdout } = await execFileAsync('ffprobe', [
+          '-v', 'quiet',
+          '-print_format', 'json',
+          '-show_format',
+          '-show_streams',
+          tmpPath,
+        ], { timeout: 15_000 });
+
+        const data = JSON.parse(stdout);
+        const videoStream = data.streams?.find((s: any) => s.codec_type === 'video');
+        const audioStream = data.streams?.find((s: any) => s.codec_type === 'audio');
+        const format = data.format ?? {};
+
+        if (!videoStream) {
+          throw new Error('No video stream found in probed file');
+        }
+
+        // Parse FPS from r_frame_rate or avg_frame_rate (e.g. "30/1" or "30000/1001")
+        const fpsStr = videoStream.r_frame_rate ?? videoStream.avg_frame_rate ?? '0/1';
+        const [fpsNum, fpsDen] = fpsStr.split('/').map(Number);
+        const fps = fpsDen > 0 ? fpsNum / fpsDen : 0;
+
+        const duration = parseFloat(format.duration ?? videoStream.duration ?? '0');
+        const width = videoStream.width ?? 0;
+        const height = videoStream.height ?? 0;
+        const codec = videoStream.codec_name ?? null;
+        const frameCount = videoStream.nb_frames ? parseInt(videoStream.nb_frames, 10) : null;
+        const mime = format.format_name?.includes('webm') ? 'video/webm'
+          : format.format_name?.includes('matroska') ? 'video/x-matroska'
+          : format.format_name?.includes('mov') ? 'video/quicktime'
+          : 'video/mp4';
+
+        return {
+          mime,
+          width,
+          height,
+          durationSeconds: duration,
+          fps,
+          hasAudio: Boolean(audioStream),
+          codec,
+          frameCount,
+        };
+      } catch (ffprobeErr) {
+        // FFprobe unavailable or failed — fall back to basic validation
+        // We still refuse to fabricate metadata
+        throw new Error(
+          `FFprobe probe failed: ${ffprobeErr instanceof Error ? ffprobeErr.message : String(ffprobeErr)}. ` +
+          'Video result cannot be validated without media inspection.',
+        );
+      }
+    } finally {
+      // Cleanup temp file
+      try { await unlink(tmpPath); } catch { /* best effort */ }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -339,11 +422,15 @@ export class VideoStudioService extends EventEmitter {
     };
 
     try {
-      const result = await adapter.generate(request, (phase) => {
-        record.phase = phase;
-        this.emit('jobPhase', jobId, phase);
-        this.emit('jobProgress', jobId, phase);
-      });
+      const result = await adapter.generate(
+        request,
+        (phase) => {
+          record.phase = phase;
+          this.emit('jobPhase', jobId, phase);
+          this.emit('jobProgress', jobId, phase);
+        },
+        (bytes, mime) => this.probeVideoWithFfprobe(bytes, mime),
+      );
 
       // Validate result
       this.validateVideoResult(result);

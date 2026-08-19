@@ -3,6 +3,9 @@
  *
  * fal.ai queue-based video adapter. Submit → poll status_url → download.
  * Follows the same pattern as FalAdapter for images.
+ *
+ * TRUTH RULE: All result metadata comes from probing actual downloaded
+ * bytes — never from request parameters. MIME is probed, not assumed.
  */
 
 import type { HttpClient } from './http-client';
@@ -12,6 +15,7 @@ import {
   videoBlockedMessage,
   type VideoGatewayJobRequest,
   type VideoGatewayJobResult,
+  type VideoProbeFn,
 } from './video-contracts';
 
 export interface FalVideoAdapterOptions {
@@ -52,6 +56,7 @@ export class FalVideoAdapter implements VideoProviderAdapter {
   async generate(
     request: VideoGatewayJobRequest,
     onPhase: (phase: import('./video-contracts').VideoJobPhase) => void,
+    probeVideo: VideoProbeFn,
   ): Promise<VideoGatewayJobResult> {
     const key = await this.apiKey();
     if (key === null) throw new VideoGatewayError('unconfigured', videoBlockedMessage('unconfigured'), 'fal');
@@ -94,7 +99,7 @@ export class FalVideoAdapter implements VideoProviderAdapter {
 
     // Poll
     const pollIntervalMs = 2_000;
-    const maxPolls = 150; // 5 min max
+    const maxPolls = 150;
     for (let i = 0; i < maxPolls; i++) {
       onPhase('polling');
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -124,18 +129,32 @@ export class FalVideoAdapter implements VideoProviderAdapter {
         }
 
         onPhase('finalizing');
-        const mime = 'video/mp4';
+
+        // Probe actual video bytes — do NOT assume video/mp4
+        let probed;
+        try {
+          probed = await probeVideo(downloadResponse.bytes, 'video/mp4');
+        } catch (err) {
+          throw new VideoGatewayError(
+            'invalid-result',
+            videoBlockedMessage('invalid-result', `Video probe failed: ${err instanceof Error ? err.message : String(err)}`),
+            'fal',
+          );
+        }
+
         const base64 = Buffer.from(downloadResponse.bytes).toString('base64');
-        const dataUrl = `data:${mime};base64,${base64}`;
+        const dataUrl = `data:${probed.mime};base64,${base64}`;
 
         return {
           dataUrl,
-          mime,
-          width: request.width,
-          height: request.height,
-          durationSeconds: request.durationSeconds,
-          fps: request.fps,
-          hasAudio: false,
+          mime: probed.mime,
+          width: probed.width,
+          height: probed.height,
+          durationSeconds: probed.durationSeconds,
+          fps: probed.fps,
+          hasAudio: probed.hasAudio,
+          codec: probed.codec,
+          frameCount: probed.frameCount,
           providerJobId,
           costUsd: request.estimatedCostUsd,
           rawSeed: request.seed,

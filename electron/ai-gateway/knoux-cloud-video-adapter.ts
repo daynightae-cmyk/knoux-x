@@ -3,6 +3,15 @@
  *
  * Gateway-side video adapter. No provider secrets in the desktop.
  * Authorization = gateway session token.
+ *
+ * TRUTH RULE: All result metadata comes from probing actual downloaded
+ * bytes — never from request parameters. Backend contracts are NOT
+ * invented — endpoints must be verified to exist.
+ *
+ * STATUS: CODE VERIFIED / LIVE UNKNOWN.
+ * The /v1/video-jobs and /v1/health endpoints are architectural
+ * placeholders. They must be verified against the actual KNOUX Cloud
+ * backend before this adapter can be marked LIVE VERIFIED.
  */
 
 import type { HttpClient } from './http-client';
@@ -12,6 +21,7 @@ import {
   videoBlockedMessage,
   type VideoGatewayJobRequest,
   type VideoGatewayJobResult,
+  type VideoProbeFn,
 } from './video-contracts';
 
 export interface KnouxCloudVideoAdapterOptions {
@@ -53,6 +63,7 @@ export class KnouxCloudVideoAdapter implements VideoProviderAdapter {
   async generate(
     request: VideoGatewayJobRequest,
     onPhase: (phase: import('./video-contracts').VideoJobPhase) => void,
+    probeVideo: VideoProbeFn,
   ): Promise<VideoGatewayJobResult> {
     const token = await this.sessionToken();
     if (token === null) throw new VideoGatewayError('unconfigured', videoBlockedMessage('unconfigured'), 'knoux-cloud');
@@ -88,7 +99,7 @@ export class KnouxCloudVideoAdapter implements VideoProviderAdapter {
 
     // Poll
     const pollIntervalMs = 3_000;
-    const maxPolls = 200; // 10 min max
+    const maxPolls = 200;
     for (let i = 0; i < maxPolls; i++) {
       onPhase('polling');
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -118,18 +129,32 @@ export class KnouxCloudVideoAdapter implements VideoProviderAdapter {
         }
 
         onPhase('finalizing');
-        const mime = 'video/mp4';
+
+        // Probe actual video bytes
+        let probed;
+        try {
+          probed = await probeVideo(downloadResponse.bytes, 'video/mp4');
+        } catch (err) {
+          throw new VideoGatewayError(
+            'invalid-result',
+            videoBlockedMessage('invalid-result', `Video probe failed: ${err instanceof Error ? err.message : String(err)}`),
+            'knoux-cloud',
+          );
+        }
+
         const base64 = Buffer.from(downloadResponse.bytes).toString('base64');
-        const dataUrl = `data:${mime};base64,${base64}`;
+        const dataUrl = `data:${probed.mime};base64,${base64}`;
 
         return {
           dataUrl,
-          mime,
-          width: request.width,
-          height: request.height,
-          durationSeconds: request.durationSeconds,
-          fps: request.fps,
-          hasAudio: false,
+          mime: probed.mime,
+          width: probed.width,
+          height: probed.height,
+          durationSeconds: probed.durationSeconds,
+          fps: probed.fps,
+          hasAudio: probed.hasAudio,
+          codec: probed.codec,
+          frameCount: probed.frameCount,
           providerJobId,
           costUsd: request.estimatedCostUsd,
           rawSeed: request.seed,

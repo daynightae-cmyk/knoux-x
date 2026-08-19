@@ -348,16 +348,18 @@ Ready to commit and push.
 
 | Category | Status |
 |----------|--------|
-| VIDEO STUDIO | **REAL** (foundation + AI architecture implemented) |
-| OFFLINE VIDEO EDITING | **REAL** (existing MultitrackEditorView + VideoEngine) |
-| ONLINE VIDEO AI | **PARTIAL** (code verified, live UNKNOWN — no credentials) |
-| VIDEO MODEL DISCOVERY | **PARTIAL** (catalog implemented, full live inventory not proven) |
-| VIDEO RENDER | **REAL** (existing FFmpeg pipeline) |
-| VIDEO EXPORT | **REAL** (existing FFmpeg pipeline) |
+| VIDEO STUDIO | **PARTIAL** (architecture implemented; live execution + FFprobe validation required for REAL) |
+| OFFLINE VIDEO EDITING | **PARTIAL** (existing MultitrackEditorView + VideoEngine; not yet proven with actual media file operations) |
+| ONLINE VIDEO AI | **PARTIAL** (code verified, live UNKNOWN — no credentials; adapters now probe actual bytes via FFprobe) |
+| VIDEO MODEL DISCOVERY | **PARTIAL** (catalog implemented, full live inventory not proven; seeded models marked as STATIC_DOCUMENTATION) |
+| VIDEO RENDER | **PARTIAL** (existing FFmpeg pipeline; not yet proven with actual export + FFprobe validation) |
+| VIDEO EXPORT | **PARTIAL** (existing FFmpeg pipeline; not yet proven end-to-end) |
+| VIDEO LIVE VERIFICATION | **BLOCKED** (no credentials on this machine) |
+| GUI E2E | **BLOCKED** (requires desktop app launch) |
 | FAKE VIDEO | **NO** |
 | DEAD VIDEO FEATURES | **NO** |
 | GIT CLEAN | **NO** (uncommitted changes pending) |
-| PRODUCTION READY | **NO** (requires live credential verification + GUI testing) |
+| PRODUCTION READY | **NO** (requires live credential verification + GUI testing + FFprobe validation proof) |
 
 ---
 

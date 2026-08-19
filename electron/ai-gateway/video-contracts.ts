@@ -55,15 +55,43 @@ export interface VideoGatewayJobRequest {
 export interface VideoGatewayJobResult {
   dataUrl: string;
   mime: string;
+  /** Probed from actual output — never request metadata. */
+  width: number;
+  /** Probed from actual output — never request metadata. */
+  height: number;
+  /** Probed from actual output — never request metadata. */
+  durationSeconds: number;
+  /** Probed from actual output — never request metadata. */
+  fps: number;
+  /** Probed from actual output — never request metadata. */
+  hasAudio: boolean;
+  /** Probed from actual output — never request metadata. */
+  codec: string | null;
+  /** Probed from actual output — never request metadata. */
+  frameCount: number | null;
+  providerJobId: string | null;
+  costUsd: number | null;
+  rawSeed: number | null;
+}
+
+/** Result of probing actual video bytes with FFprobe or equivalent. */
+export interface VideoProbeResult {
+  mime: string;
   width: number;
   height: number;
   durationSeconds: number;
   fps: number;
   hasAudio: boolean;
-  providerJobId: string | null;
-  costUsd: number | null;
-  rawSeed: number | null;
+  codec: string | null;
+  frameCount: number | null;
 }
+
+/**
+ * Probe actual video bytes to extract real metadata.
+ * Accepts raw bytes (not data URL) and returns probed dimensions.
+ * Implementations should use FFprobe or equivalent media inspection.
+ */
+export type VideoProbeFn = (bytes: Uint8Array, mime: string) => Promise<VideoProbeResult>;
 
 export type VideoHealthProviderStatus = 'reachable' | 'unreachable' | 'unverified' | 'unconfigured';
 

@@ -246,6 +246,25 @@ export const IPC_INVOKE = {
   IMAGE_STUDIO_LIST_JOBS: 'image-studio:list-jobs',
   IMAGE_STUDIO_REMOVE_JOB: 'image-studio:remove-job',
   IMAGE_STUDIO_IMPORT_RESULT: 'image-studio:import-result',
+  // Video Studio
+  VIDEO_STUDIO_LIST_PROVIDERS: 'video-studio:list-providers',
+  VIDEO_STUDIO_PROVIDER_STATUS: 'video-studio:provider-status',
+  VIDEO_STUDIO_LIST_MODELS: 'video-studio:list-models',
+  VIDEO_STUDIO_CREATE_JOB: 'video-studio:create-job',
+  VIDEO_STUDIO_CANCEL_JOB: 'video-studio:cancel-job',
+  VIDEO_STUDIO_RETRY_JOB: 'video-studio:retry-job',
+  VIDEO_STUDIO_GET_JOB: 'video-studio:get-job',
+  VIDEO_STUDIO_LIST_JOBS: 'video-studio:list-jobs',
+  VIDEO_STUDIO_REMOVE_JOB: 'video-studio:remove-job',
+  VIDEO_STUDIO_AI_HEALTH: 'video-studio:ai-health',
+  VIDEO_STUDIO_AI_ENTITLEMENT: 'video-studio:ai-entitlement',
+  VIDEO_STUDIO_AI_PLAN: 'video-studio:ai-plan',
+  VIDEO_STUDIO_AI_SETTINGS_GET: 'video-studio:ai-settings-get',
+  VIDEO_STUDIO_AI_SETTINGS_SET: 'video-studio:ai-settings-set',
+  VIDEO_STUDIO_GATEWAY_CONFIG_GET: 'video-studio:gateway-config-get',
+  VIDEO_STUDIO_GATEWAY_CONFIG_SET: 'video-studio:gateway-config-set',
+  VIDEO_STUDIO_SET_CREDENTIAL: 'video-studio:set-credential',
+  VIDEO_STUDIO_OFFLINE_JOBS: 'video-studio:offline-jobs',
 } as const;
 export type IpcInvokeChannel = typeof IPC_INVOKE[keyof typeof IPC_INVOKE];
 
@@ -282,6 +301,13 @@ export const IPC_OUTBOUND = {
   IMAGE_STUDIO_JOB_COMPLETE: 'image-studio:job-complete',
   IMAGE_STUDIO_JOB_FAILED: 'image-studio:job-failed',
   IMAGE_STUDIO_RECOVERY_AVAILABLE: 'image-studio:recovery-available',
+  // Video Studio
+  VIDEO_STUDIO_JOB_PHASE: 'video-studio:job-phase',
+  VIDEO_STUDIO_JOB_PROGRESS: 'video-studio:job-progress',
+  VIDEO_STUDIO_JOB_COMPLETE: 'video-studio:job-complete',
+  VIDEO_STUDIO_JOB_FAILED: 'video-studio:job-failed',
+  VIDEO_STUDIO_JOB_CANCELLED: 'video-studio:job-cancelled',
+  VIDEO_STUDIO_FLUSHED: 'video-studio:flushed',
 } as const;
 export type IpcOutboundChannel = typeof IPC_OUTBOUND[keyof typeof IPC_OUTBOUND];
 

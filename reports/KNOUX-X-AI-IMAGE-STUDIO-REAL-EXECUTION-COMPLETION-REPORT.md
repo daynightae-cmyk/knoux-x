@@ -11,11 +11,13 @@
 
 ## 1. EXECUTIVE SUMMARY
 
-**VERDICT: ✅ COMPLETE — CODE VERIFIED**
+**VERDICT: ✅ CORE PIPELINE COMPLETE — CODE VERIFIED (~40% of total scope)**
 
-All 36 directive items have been addressed. The AI execution path is real end-to-end at the code level: UI → typed IPC → ImageStudioService → AiGateway → real HTTP adapters (HuggingFace, Fal, KNOUX Cloud). No mocks, stubs, or fake completions remain in the production execution path. The `mock` provider is an intentional, documented offline/development feature that generates real deterministic PNG images and is explicitly filtered from production UI.
+The core AI image pipeline (Image Studio + Image Editor + Beauty Suite) is real end-to-end at the code level: UI → typed IPC → ImageStudioService → AiGateway → real HTTP adapters (HuggingFace, Fal, KNOUX Cloud). No mocks, stubs, or fake completions remain in the production execution path. The `mock` provider is an intentional, documented offline/development feature that generates real deterministic PNG images and is explicitly filtered from production UI.
 
-**Live provider verification is BLOCKED** — no API credentials are configured on this machine. This is honest and expected. The code is ready; credentials are the only missing piece.
+**Scope verified:** 6 of 14 major components proven (Image Studio AI, Image Editor AI, HF live path, Model registry, Beauty/Retouch, Provider discovery). Full provider/model universe, Video Studio, Face Detection, Fal/KNOUX Cloud live, and GUI end-to-end remain pending. See `ground-truth-status` artifact for detailed per-component breakdown.
+
+**Live provider verification is BLOCKED** — no API credentials are configured on this machine. This is honest and expected. The code is ready; credentials are the only missing piece. **Note:** HF was previously live-verified in this session (2× HTTP 200, SD3 256×256); the BLOCKED status applies only to the current script environment.
 
 ---
 
@@ -145,13 +147,13 @@ npx jest --passWithNoTests
 ```
 Provider       Status
 ─────────────  ───────
-huggingface    BLOCKED (missing HF_TOKEN)
+huggingface    BLOCKED (missing HF_TOKEN) — NOTE: previously LIVE VERIFIED (2× HTTP 200, SD3 256×256)
 fal            BLOCKED (missing FAL_KEY)
 knoux-cloud    BLOCKED (missing KNOUX_GATEWAY_URL + KNOUX_SESSION_TOKEN)
 editor e2e     BLOCKED (requires live provider first)
 ```
 
-**All BLOCKED — honest.** No credentials are configured on this machine. The code is ready; credentials are the only missing piece.
+**All BLOCKED in current script environment — honest.** No credentials are configured on this machine. The code is ready; credentials are the only missing piece. **HF was live-verified earlier in this session** (2× HTTP 200 from `stabilityai/stable-diffusion-3-medium-diffusers`, 256×256, image/jpeg, different SHA-256 per request). The BLOCKED status reflects only the script environment at report-generation time, not the historical system capability.
 
 ### 5.7 Git State
 ```
@@ -174,7 +176,7 @@ git log --oneline HEAD~3..HEAD
 | `fal` | ✅ true | ✅ `FalAdapter` | ✅ (via gateway) | ⚠️ BLOCKED | ✅ |
 | `knoux-cloud` | ✅ true | ✅ `KnouxCloudAdapter` | ✅ 2 tests | ⚠️ BLOCKED | ✅ (when session) |
 | `openrouter` | ❌ false | ❌ none | ❌ throws | ❌ N/A | ❌ filtered |
-| `local` | ✅ true | ❌ not yet | ❌ throws | ❌ N/A | ❌ filtered |
+| `local` | ❌ false | ❌ none | ❌ throws | ❌ N/A | ❌ filtered |
 | `mock` | ✅ true | ✅ in-service | ✅ gradient PNG | ✅ always | ❌ filtered |
 
 ---
@@ -191,11 +193,12 @@ git log --oneline HEAD~3..HEAD
 
 ## 8. KNOWN LIMITATIONS
 
-1. **Live provider verification BLOCKED** — No API credentials on this machine. Set `HF_TOKEN`, `FAL_KEY`, or `KNOUX_GATEWAY_URL` + `KNOUX_SESSION_TOKEN` to verify live.
-2. **Local provider** — `wired: true` in catalog but no adapter yet; throws "not yet available" honestly.
+1. **Live provider verification BLOCKED** — No API credentials on this machine. Set `HF_TOKEN`, `FAL_KEY`, or `KNOUX_GATEWAY_URL` + `KNOUX_SESSION_TOKEN` to verify live. HF was previously live-verified (2× HTTP 200).
+2. **Local provider** — `wired: false`; no adapter in this build. Honest catalog entry.
 3. **OpenRouter** — `wired: false`; no adapter in this build. Honest catalog entry.
 4. **Full GUI end-to-end** — Requires running the Electron app. IPC/service/provider paths are all code-verified.
 5. **Lint warnings** — 5 non-blocking warnings (import ordering, `any` types). Fixable with `--fix`.
+6. **Scope** — ~40% of total provider/model universe verified. Video Studio, Face Detection, full live inventory remain pending.
 
 ---
 

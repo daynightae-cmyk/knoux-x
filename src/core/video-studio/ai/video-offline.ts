@@ -6,7 +6,10 @@
  */
 
 import type { VideoProviderId } from './video-catalog';
-import type { VideoProviderAvailability } from './video-router';
+import {
+  videoAvailabilityFromState as routerAvailabilityFromState,
+  type VideoProviderAvailability,
+} from './video-router';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Deferred video job
@@ -43,8 +46,7 @@ export function videoAvailabilityFromState(
   consented: Set<VideoProviderId>,
   online: boolean,
 ): VideoProviderAvailability {
-  const { videoAvailabilityFromState: routerAvail } = require('./video-router');
-  return routerAvail(configured, consented, online);
+  return routerAvailabilityFromState(configured, consented, online);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

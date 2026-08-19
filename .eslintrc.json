@@ -95,8 +95,7 @@
     },
     {
       "files": [
-        "tests/**/*.ts",
-        "tests/**/*.tsx"
+        "tests/unit/video-studio-ai.test.ts"
       ],
       "rules": {
         "@typescript-eslint/no-var-requires": "off",
@@ -113,8 +112,7 @@
         "src/core/image-studio/ai/discovery.ts",
         "src/core/image-studio/ai/model-registry.ts",
         "src/features/image-editor/ImageEditorView.tsx",
-        "src/features/video-studio/VideoStudioView.tsx",
-        "src/core/video-studio/ai/video-offline.ts"
+        "src/features/video-studio/VideoStudioView.tsx"
       ],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",

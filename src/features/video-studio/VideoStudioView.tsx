@@ -1,48 +1,30 @@
-/**
- * KNOUX-X — VIDEO STUDIO VIEW
- *
- * Main Video Studio UI. Tabs: Media, Timeline, Preview, Inspector,
- * Audio, Captions, Effects, Color, Motion, AI, Export.
- */
-
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Activity,
+  Brain,
   Clapperboard,
+  Download,
+  FileVideo,
   Film,
   Image,
-  Play,
-  Pause,
-  Scissors,
-  Type,
-  Subtitles,
-  Sparkles,
-  Palette,
-  Move,
-  Download,
-  Save,
-  FolderOpen,
-  FilePlus2,
-  Undo2,
-  Redo2,
-  Trash2,
-  ZoomIn,
-  ZoomOut,
   Monitor,
+  Move,
+  Palette,
+  Play,
+  RefreshCw,
+  Sparkles,
+  Subtitles,
   Volume2,
-  VolumeX,
   Wand2,
-  Brain,
-  Activity,
 } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSelect } from '../../components/neon/NeonSelect';
 import { useTranslation } from '../../i18n';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════════════════════════════════════
+import { MultitrackEditorView } from '../editor/MultitrackEditorView';
+import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from '../../../electron/creative/export-service';
+import type { FFmpegCapabilities, ProbeResult } from '../../../electron/creative/ffmpeg-service';
 
 type VideoStudioTab =
   | 'media'
@@ -84,9 +66,18 @@ interface VideoModelUI {
   estimatedCostUsd: number;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// View
-// ═══════════════════════════════════════════════════════════════════════════
+function durationFromProbe(probe: ProbeResult | null): number | null {
+  const value = probe?.format?.duration ?? probe?.streams?.find((stream) => stream.duration)?.duration;
+  if (!value) return null;
+  const duration = Number(value);
+  return Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+function videoStudioAPI(): Window['knouxVideoStudioAPI'] | null {
+  return typeof window.knouxVideoStudioAPI === 'object' && window.knouxVideoStudioAPI !== null
+    ? window.knouxVideoStudioAPI
+    : null;
+}
 
 export const VideoStudioView: React.FC = () => {
   const { t } = useTranslation();
@@ -111,72 +102,151 @@ export const VideoStudioView: React.FC = () => {
   const [aiCommandText, setAiCommandText] = useState('');
   const [aiCommandResult, setAiCommandResult] = useState<any>(null);
   const [healthStatus, setHealthStatus] = useState<Record<string, any>>({});
-  const [offlineMode] = useState(false);
-  const previewRef = useRef<HTMLVideoElement>(null);
+  const aiRequestRef = useRef(0);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Load providers & models
-  // ═══════════════════════════════════════════════════════════════════════
+  const [sourcePath, setSourcePath] = useState<string | null>(null);
+  const [presets, setPresets] = useState<ExportPreset[]>([]);
+  const [presetId, setPresetId] = useState<ExportPresetId>('balanced');
+  const [capabilities, setCapabilities] = useState<FFmpegCapabilities | null>(null);
+  const [probe, setProbe] = useState<ProbeResult | null>(null);
+  const [startSeconds, setStartSeconds] = useState(0);
+  const [endSeconds, setEndSeconds] = useState<number | undefined>();
+  const [activeJob, setActiveJob] = useState<ExportJobSnapshot | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(true);
+
+  const engineTabs: VideoStudioTab[] = ['media', 'timeline', 'preview', 'inspector', 'audio', 'captions', 'effects', 'color', 'motion'];
+  const engineActive = engineTabs.includes(activeTab);
+  const exportDuration = useMemo(() => durationFromProbe(probe), [probe]);
 
   useEffect(() => {
-    const api = (window as any).knouxVideoStudioAPI;
+    const api = videoStudioAPI();
     if (!api) return;
 
-    api.listProviders().then(setProviders).catch(() => {});
-    api.listModels().then(setModels).catch(() => {});
-    api.aiHealth().then(setHealthStatus).catch(() => {});
-    api.aiEntitlement().then(() => {}).catch(() => {});
+    let active = true;
+    api.listProviders().then((next) => { if (active) setProviders(next); }).catch(() => undefined);
+    api.listModels().then((next) => { if (active) setModels(next); }).catch(() => undefined);
+    api.aiHealth().then((next) => { if (active) setHealthStatus(next); }).catch(() => undefined);
+    api.aiEntitlement().then(() => undefined).catch(() => undefined);
+    api.listJobs().then((next) => { if (active) setJobs(next); }).catch(() => undefined);
 
-    const unsubs: (() => void)[] = [];
-
-    unsubs.push(api.onJobPhase((data: any) => {
+    const offPhase = api.onJobPhase((data) => {
       setJobs((prev) => prev.map((j) => (j.id === data.jobId ? { ...j, phase: data.phase } : j)));
-    }));
-
-    unsubs.push(api.onJobProgress((data: any) => {
+    });
+    const offProgress = api.onJobProgress((data) => {
       setJobs((prev) => prev.map((j) => (j.id === data.jobId ? { ...j, phase: data.phase } : j)));
-    }));
-
-    unsubs.push(api.onJobComplete((data: any) => {
+    });
+    const offComplete = api.onJobComplete((data) => {
       setJobs((prev) => prev.map((j) => (j.id === data.jobId ? { ...j, status: 'completed', phase: 'completed', result: data.result } : j)));
       setAiGenerating(false);
-    }));
-
-    unsubs.push(api.onJobFailed((data: any) => {
+    });
+    const offFailed = api.onJobFailed((data) => {
       setJobs((prev) => prev.map((j) => (j.id === data.jobId ? { ...j, status: 'failed', phase: 'failed', error: data.error } : j)));
       setAiGenerating(false);
-    }));
-
-    unsubs.push(api.onJobCancelled((data: any) => {
+    });
+    const offCancelled = api.onJobCancelled((data) => {
       setJobs((prev) => prev.map((j) => (j.id === data.jobId ? { ...j, status: 'cancelled', phase: 'cancelled' } : j)));
       setAiGenerating(false);
-    }));
+    });
+    const offFlushed = api.onFlushed(() => {
+      api.listJobs().then((next) => { if (active) setJobs(next); }).catch(() => undefined);
+    });
 
-    return () => unsubs.forEach((u) => u());
+    const unsubs = [offPhase, offProgress, offComplete, offFailed, offCancelled, offFlushed];
+    return () => { active = false; unsubs.forEach((unsubscribe) => unsubscribe()); };
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // AI: Plan
-  // ═══════════════════════════════════════════════════════════════════════
+  const refreshExportCapabilities = useCallback(async (): Promise<void> => {
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      const [nextCapabilities, nextPresets] = await Promise.all([
+        window.knouxCreativeAPI.export.capabilities(),
+        window.knouxCreativeAPI.export.presets(),
+      ]);
+      setCapabilities(nextCapabilities);
+      setPresets(nextPresets);
+      if (!nextPresets.some((preset) => preset.id === presetId) && nextPresets[0]) {
+        setPresetId(nextPresets[0].id);
+      }
+    } catch (reason) {
+      setExportError(reason instanceof Error ? reason.message : t('export.capabilitiesFailed'));
+    } finally {
+      setExportLoading(false);
+    }
+  }, [presetId, t]);
 
-  const handleAiPlan = useCallback(async () => {
-    const api = (window as any).knouxVideoStudioAPI;
+  useEffect(() => {
+    void refreshExportCapabilities();
+  }, [refreshExportCapabilities]);
+
+  useEffect(() => {
+    if (typeof window.knouxCreativeAPI?.export?.onProgress !== 'function') return;
+    return window.knouxCreativeAPI.export.onProgress((job) => {
+      setActiveJob((current) => current?.id === job.id || !current ? job : current);
+    });
+  }, []);
+
+  const selectExportSource = useCallback(async (): Promise<void> => {
+    setExportError(null);
+    try {
+      const selected = await window.knouxCreativeAPI.export.selectSource();
+      if (!selected) return;
+      setSourcePath(selected);
+      setProbe(null);
+      setStartSeconds(0);
+      setEndSeconds(undefined);
+      const nextProbe = await window.knouxCreativeAPI.export.probe(selected);
+      setProbe(nextProbe);
+      const nextDuration = durationFromProbe(nextProbe);
+      if (nextDuration) setEndSeconds(nextDuration);
+    } catch (reason) {
+      setExportError(reason instanceof Error ? reason.message : t('export.probeFailed'));
+    }
+  }, [t]);
+
+  const startExport = useCallback(async (): Promise<void> => {
+    if (!sourcePath || activeJob?.status === 'running' || activeJob?.status === 'queued') return;
+    setExportError(null);
+    try {
+      const result = await window.knouxCreativeAPI.export.start({
+        inputPath: sourcePath,
+        presetId,
+        startSeconds: startSeconds > 0 ? startSeconds : undefined,
+        endSeconds,
+        overwrite: false,
+        preventSleep: true,
+      });
+      if (result) setActiveJob(result);
+    } catch (reason) {
+      setExportError(reason instanceof Error ? reason.message : t('export.startFailed'));
+    }
+  }, [activeJob?.status, endSeconds, presetId, sourcePath, startSeconds, t]);
+
+  const cancelExport = useCallback(async (): Promise<void> => {
+    if (!activeJob) return;
+    const canceled = await window.knouxCreativeAPI.export.cancel(activeJob.id);
+    if (canceled) setActiveJob({ ...activeJob, status: 'canceled', completedAt: new Date().toISOString() });
+  }, [activeJob]);
+
+  const handleAiPlan = useCallback(async (): Promise<void> => {
+    const api = videoStudioAPI();
     if (!api) return;
+    const requestId = ++aiRequestRef.current;
     try {
       const result = await api.aiPlan(aiTask, false);
-      setAiPlanResult(result);
-    } catch { /* ignore */ }
+      if (aiRequestRef.current === requestId) setAiPlanResult(result);
+    } catch (reason) {
+      if (aiRequestRef.current === requestId) setAiPlanResult(reason instanceof Error ? reason.message : null);
+    }
   }, [aiTask]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // AI: Generate
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const handleAiGenerate = useCallback(async () => {
-    const api = (window as any).knouxVideoStudioAPI;
+  const handleAiGenerate = useCallback(async (): Promise<void> => {
+    const api = videoStudioAPI();
     if (!api || !aiPrompt.trim()) return;
 
     setAiGenerating(true);
+    setAiPlanResult(null);
     try {
       const result = await api.createJob({
         task: aiTask,
@@ -200,51 +270,59 @@ export const VideoStudioView: React.FC = () => {
         task: aiTask,
         prompt: aiPrompt,
       }]);
-    } catch (err: any) {
+      setAiGenerating(false);
+    } catch {
       setAiGenerating(false);
     }
-  }, [aiPrompt, aiNegativePrompt, aiTask, aiModelId, aiDuration, aiFPS, aiWidth, aiHeight, aiSeed]);
+  }, [aiDuration, aiFPS, aiHeight, aiModelId, aiNegativePrompt, aiPrompt, aiSeed, aiTask, aiWidth]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // AI: Cancel
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const handleAiCancel = useCallback(async (jobId: string) => {
-    const api = (window as any).knouxVideoStudioAPI;
+  const handleAiCancel = useCallback(async (jobId: string): Promise<void> => {
+    const api = videoStudioAPI();
     if (!api) return;
     await api.cancelJob(jobId);
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // AI: Command
-  // ═══════════════════════════════════════════════════════════════════════
+  const handleAiRetry = useCallback(async (jobId: string): Promise<void> => {
+    const api = videoStudioAPI();
+    if (!api) return;
+    const record = await api.retryJob(jobId);
+    if (record) {
+      setJobs((prev) => prev.map((j) => (j.id === record.id ? { ...j, status: record.status, error: undefined } : j)));
+    } else {
+      await api.listJobs().then(setJobs).catch(() => undefined);
+    }
+  }, []);
 
-  const handleAiCommand = useCallback(async () => {
+  const handleAiCommand = useCallback(async (): Promise<void> => {
     if (!aiCommandText.trim()) return;
-    // AI command workflow: plan → preview → apply
-    setAiCommandResult({
-      plan: `Analyzing: "${aiCommandText}"`,
-      steps: ['Analyze request', 'Plan changes', 'Preview', 'Apply'],
-      status: 'planned',
-    });
-  }, [aiCommandText]);
+    setAiCommandResult(null);
+    try {
+      if (typeof window.knouxCreativeAPI?.ai?.chat !== 'function') {
+        setAiCommandResult({ status: 'error', message: t('videoStudio.aiStatusOffline') });
+        return;
+      }
+      const reply = await window.knouxCreativeAPI.ai.chat(aiCommandText, []);
+      setAiCommandResult({ status: 'planned', plan: reply });
+    } catch (reason) {
+      setAiCommandResult({
+        status: 'error',
+        message: reason instanceof Error ? reason.message : t('videoStudio.aiStatusFailed'),
+      });
+    }
+  }, [aiCommandText, t]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Credentials
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const handleSaveCredential = useCallback(async () => {
-    const api = (window as any).knouxVideoStudioAPI;
+  const handleSaveCredential = useCallback(async (): Promise<void> => {
+    const api = videoStudioAPI();
     if (!api || !credentialProvider || !credentialKey.trim()) return;
     await api.setCredential(credentialProvider, credentialKey);
     setShowCredentialDialog(false);
     setCredentialKey('');
-    api.listProviders().then(setProviders).catch(() => {});
+    api.listProviders().then(setProviders).catch(() => undefined);
+    api.aiHealth().then(setHealthStatus).catch(() => undefined);
   }, [credentialProvider, credentialKey]);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // Render
-  // ═══════════════════════════════════════════════════════════════════════
+  const exportRunning = activeJob?.status === 'running' || activeJob?.status === 'queued';
+  const apiAvailable = Boolean(videoStudioAPI());
 
   const tabs: Array<{ id: VideoStudioTab; label: string; icon: React.ReactNode }> = [
     { id: 'media', label: t('videoStudio.tabMedia'), icon: <Image size={16} /> },
@@ -279,38 +357,35 @@ export const VideoStudioView: React.FC = () => {
     return map[phase] ?? phase;
   };
 
-  return (
-    <div className="video-studio-view" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0f', color: '#e0e0e0' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', borderBottom: '1px solid #1a1a2e', gap: 8 }}>
-        <Clapperboard size={24} color="#00d4ff" />
-        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{t('videoStudio.title')}</h1>
-        <div style={{ flex: 1 }} />
-        <NeonButton onClick={() => {}} size="sm"><FilePlus2 size={14} /> {t('videoStudio.newProject')}</NeonButton>
-        <NeonButton onClick={() => {}} size="sm"><FolderOpen size={14} /> {t('videoStudio.open')}</NeonButton>
-        <NeonButton onClick={() => {}} size="sm"><Save size={14} /> {t('videoStudio.save')}</NeonButton>
-      </div>
+  const hintKey = engineActive
+    ? `videoStudio.tab${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)}Hint` as const
+    : undefined;
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #1a1a2e', overflowX: 'auto' }}>
+  return (
+    <div className="video-studio-view" data-runtime={document.documentElement.dataset.runtime ?? 'unknown'}>
+      <header className="video-studio-header">
+        <div className="video-studio-header-title">
+          <Clapperboard size={24} />
+          <div>
+            <h1>{t('videoStudio.title')}</h1>
+            <p>{t('videoStudio.description')}</p>
+          </div>
+        </div>
+        <div className="video-studio-header-status">
+          <span className={`status-dot ${apiAvailable ? 'online' : 'offline'}`} />
+          <span>{apiAvailable ? t('videoStudio.aiHealthReachable') : t('videoStudio.aiStatusUnavailable')}</span>
+        </div>
+      </header>
+
+      <div className="video-studio-tabs" role="tablist">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? 'active' : ''}
             onClick={() => setActiveTab(tab.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '10px 16px',
-              border: 'none',
-              background: activeTab === tab.id ? '#1a1a3e' : 'transparent',
-              color: activeTab === tab.id ? '#00d4ff' : '#888',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: activeTab === tab.id ? 600 : 400,
-              borderBottom: activeTab === tab.id ? '2px solid #00d4ff' : '2px solid transparent',
-              whiteSpace: 'nowrap',
-            }}
           >
             {tab.icon}
             {tab.label}
@@ -318,267 +393,114 @@ export const VideoStudioView: React.FC = () => {
         ))}
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-        {/* Media Tab */}
-        {activeTab === 'media' && (
-          <NeonPanel>
-            <div style={{ textAlign: 'center', padding: 40 }}>
-              <Image size={48} color="#444" />
-              <p style={{ color: '#666', marginTop: 16 }}>{t('videoStudio.noMedia')}</p>
-              <NeonButton onClick={() => {}} style={{ marginTop: 12 }}>
-                <FilePlus2 size={16} /> {t('videoStudio.importMedia')}
-              </NeonButton>
-            </div>
-          </NeonPanel>
-        )}
+      <div className="video-studio-workspace">
+        <div className="video-studio-engine" style={{ display: engineActive ? undefined : 'none' }}>
+          {engineActive && hintKey && (
+            <div className="video-studio-tab-hint">{t(hintKey)}</div>
+          )}
+          <MultitrackEditorView />
+        </div>
 
-        {/* Timeline Tab */}
-        {activeTab === 'timeline' && (
-          <NeonPanel>
-            <div style={{ minHeight: 200 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <NeonButton size="sm" onClick={() => {}}><Scissors size={14} /> {t('videoStudio.split')}</NeonButton>
-                <NeonButton size="sm" onClick={() => {}}>{t('videoStudio.trim')}</NeonButton>
-                <NeonButton size="sm" onClick={() => {}}><Trash2 size={14} /> {t('videoStudio.delete')}</NeonButton>
-                <NeonButton size="sm" onClick={() => {}}><Undo2 size={14} /></NeonButton>
-                <NeonButton size="sm" onClick={() => {}}><Redo2 size={14} /></NeonButton>
-                <div style={{ flex: 1 }} />
-                <NeonButton size="sm" onClick={() => {}}><ZoomIn size={14} /></NeonButton>
-                <NeonButton size="sm" onClick={() => {}}><ZoomOut size={14} /></NeonButton>
-              </div>
-              <div style={{ border: '1px solid #1a1a2e', borderRadius: 8, padding: 20, textAlign: 'center', color: '#555' }}>
-                <Film size={32} />
-                <p>{t('videoStudio.dropMedia')}</p>
-              </div>
-            </div>
-          </NeonPanel>
-        )}
-
-        {/* Preview Tab */}
-        {activeTab === 'preview' && (
-          <NeonPanel>
-            <div style={{ background: '#000', borderRadius: 8, minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <video ref={previewRef} style={{ maxWidth: '100%', maxHeight: 400 }} controls />
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'center' }}>
-              <NeonButton size="sm"><Play size={14} /> {t('videoStudio.play')}</NeonButton>
-              <NeonButton size="sm"><Pause size={14} /> {t('videoStudio.pause')}</NeonButton>
-            </div>
-          </NeonPanel>
-        )}
-
-        {/* Inspector Tab */}
-        {activeTab === 'inspector' && (
-          <NeonPanel>
-            <p style={{ color: '#666' }}>{t('videoStudio.transform')} — select a clip on the timeline</p>
-          </NeonPanel>
-        )}
-
-        {/* Audio Tab */}
-        {activeTab === 'audio' && (
-          <NeonPanel>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <NeonButton size="sm"><VolumeX size={14} /> {t('videoStudio.mute')}</NeonButton>
-              <NeonButton size="sm"><Volume2 size={14} /> {t('videoStudio.solo')}</NeonButton>
-            </div>
-          </NeonPanel>
-        )}
-
-        {/* Captions Tab */}
-        {activeTab === 'captions' && (
-          <NeonPanel>
-            <NeonButton size="sm"><Type size={14} /> {t('videoStudio.addCaption')}</NeonButton>
-          </NeonPanel>
-        )}
-
-        {/* Effects Tab */}
-        {activeTab === 'effects' && (
-          <NeonPanel>
-            <p style={{ color: '#666' }}>{t('videoStudio.transitions')}</p>
-          </NeonPanel>
-        )}
-
-        {/* Color Tab */}
-        {activeTab === 'color' && (
-          <NeonPanel>
-            <p style={{ color: '#666' }}>{t('videoStudio.colorCorrection')}</p>
-          </NeonPanel>
-        )}
-
-        {/* Motion Tab */}
-        {activeTab === 'motion' && (
-          <NeonPanel>
-            <NeonButton size="sm">{t('videoStudio.addKeyframe')}</NeonButton>
-          </NeonPanel>
-        )}
-
-        {/* AI Tab */}
         {activeTab === 'ai' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Offline banner */}
-            {offlineMode && (
-              <div style={{ background: '#332200', color: '#ffaa00', padding: '8px 16px', borderRadius: 6, fontSize: 13 }}>
-                <Activity size={14} style={{ marginRight: 8 }} />
-                {t('videoStudio.aiOfflineBanner')}
+          <div className="video-studio-panel">
+            {!apiAvailable && (
+              <div className="video-studio-warning" role="note">
+                <Activity size={14} /> {t('videoStudio.aiOfflineBanner')}
               </div>
             )}
 
-            {/* AI Command Bar */}
             <NeonPanel>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="video-studio-ai-command-row">
                 <input
                   type="text"
                   value={aiCommandText}
-                  onChange={(e) => setAiCommandText(e.target.value)}
+                  onChange={(event) => setAiCommandText(event.target.value)}
                   placeholder={t('videoStudio.aiCommandPlaceholder')}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    background: '#111',
-                    border: '1px solid #1a1a2e',
-                    borderRadius: 6,
-                    color: '#e0e0e0',
-                    fontSize: 14,
-                  }}
                 />
-                <NeonButton onClick={handleAiCommand} disabled={!aiCommandText.trim()}>
+                <NeonButton onClick={() => void handleAiCommand()} disabled={!aiCommandText.trim()}>
                   <Wand2 size={14} /> {t('videoStudio.aiCommandExecute')}
                 </NeonButton>
               </div>
               {aiCommandResult && (
-                <div style={{ marginTop: 12, padding: 12, background: '#111', borderRadius: 6 }}>
-                  <p style={{ fontWeight: 600 }}>{aiCommandResult.plan}</p>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <NeonButton size="sm">{t('videoStudio.aiCommandPreview')}</NeonButton>
-                    <NeonButton size="sm">{t('videoStudio.aiCommandApply')}</NeonButton>
-                    <NeonButton size="sm">{t('videoStudio.aiCommandReject')}</NeonButton>
-                  </div>
+                <div className={`video-studio-ai-result ${aiCommandResult.status}`}>
+                  {aiCommandResult.status === 'planned' ? aiCommandResult.plan : aiCommandResult.message}
                 </div>
               )}
             </NeonPanel>
 
-            {/* AI Generation Panel */}
             <NeonPanel>
-              <h3 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Brain size={18} color="#00d4ff" />
-                {t('videoStudio.aiGenerate')}
-              </h3>
+              <h3><Brain size={18} /> {t('videoStudio.aiGenerate')}</h3>
 
-              {/* Task + Model */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiTask')}</label>
+              <div className="video-studio-ai-grid">
+                <label>
+                  <span>{t('videoStudio.aiTask')}</span>
                   <NeonSelect
                     value={aiTask}
-                    onChange={(v) => setAiTask(v as string)}
+                    onChange={(value) => setAiTask(value as string)}
                     options={[
                       { value: 'text-to-video', label: 'Text → Video' },
                       { value: 'image-to-video', label: 'Image → Video' },
                       { value: 'video-to-video', label: 'Video → Video' },
                     ]}
                   />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiModel')}</label>
+                </label>
+                <label>
+                  <span>{t('videoStudio.aiModel')}</span>
                   <NeonSelect
                     value={aiModelId}
-                    onChange={(v) => setAiModelId(v as string)}
+                    onChange={(value) => setAiModelId(value as string)}
                     options={[
                       { value: '', label: 'Auto (best available)' },
-                      ...models.map((m) => ({ value: m.id, label: `${m.name} (${m.provider})` })),
+                      ...models.map((model) => ({ value: model.id, label: `${model.name} (${model.provider})` })),
                     ]}
                   />
-                </div>
+                </label>
               </div>
 
-              {/* Prompt */}
               <textarea
                 value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
+                onChange={(event) => setAiPrompt(event.target.value)}
                 placeholder={t('videoStudio.aiPrompt')}
                 rows={3}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  background: '#111',
-                  border: '1px solid #1a1a2e',
-                  borderRadius: 6,
-                  color: '#e0e0e0',
-                  fontSize: 14,
-                  resize: 'vertical',
-                  marginBottom: 8,
-                }}
               />
-
-              {/* Negative prompt */}
               <input
                 type="text"
                 value={aiNegativePrompt}
-                onChange={(e) => setAiNegativePrompt(e.target.value)}
+                onChange={(event) => setAiNegativePrompt(event.target.value)}
                 placeholder={t('videoStudio.aiNegativePrompt')}
-                style={{
-                  width: '100%',
-                  padding: '8px 14px',
-                  background: '#111',
-                  border: '1px solid #1a1a2e',
-                  borderRadius: 6,
-                  color: '#888',
-                  fontSize: 13,
-                  marginBottom: 12,
-                }}
               />
 
-              {/* Dimensions */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiDuration')}</label>
-                  <input type="number" value={aiDuration} onChange={(e) => setAiDuration(Number(e.target.value))} min={1} max={30}
-                    style={{ width: '100%', padding: '6px 10px', background: '#111', border: '1px solid #1a1a2e', borderRadius: 4, color: '#e0e0e0' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiFPS')}</label>
-                  <input type="number" value={aiFPS} onChange={(e) => setAiFPS(Number(e.target.value))} min={1} max={60}
-                    style={{ width: '100%', padding: '6px 10px', background: '#111', border: '1px solid #1a1a2e', borderRadius: 4, color: '#e0e0e0' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiWidth')}</label>
-                  <input type="number" value={aiWidth} onChange={(e) => setAiWidth(Number(e.target.value))} min={64} max={4096}
-                    style={{ width: '100%', padding: '6px 10px', background: '#111', border: '1px solid #1a1a2e', borderRadius: 4, color: '#e0e0e0' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#888' }}>{t('videoStudio.aiHeight')}</label>
-                  <input type="number" value={aiHeight} onChange={(e) => setAiHeight(Number(e.target.value))} min={64} max={4096}
-                    style={{ width: '100%', padding: '6px 10px', background: '#111', border: '1px solid #1a1a2e', borderRadius: 4, color: '#e0e0e0' }} />
-                </div>
+              <div className="video-studio-ai-grid video-studio-ai-numbers">
+                <label><span>{t('videoStudio.aiDuration')}</span><input type="number" min={1} max={30} value={aiDuration} onChange={(event) => setAiDuration(Number(event.target.value))} /></label>
+                <label><span>{t('videoStudio.aiFPS')}</span><input type="number" min={1} max={60} value={aiFPS} onChange={(event) => setAiFPS(Number(event.target.value))} /></label>
+                <label><span>{t('videoStudio.aiWidth')}</span><input type="number" min={64} max={4096} value={aiWidth} onChange={(event) => setAiWidth(Number(event.target.value))} /></label>
+                <label><span>{t('videoStudio.aiHeight')}</span><input type="number" min={64} max={4096} value={aiHeight} onChange={(event) => setAiHeight(Number(event.target.value))} /></label>
               </div>
 
-              {/* Plan + Generate */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <NeonButton onClick={handleAiPlan} size="sm">
+              <div className="video-studio-ai-actions">
+                <NeonButton variant="secondary" size="sm" onClick={() => void handleAiPlan()}>
                   <Activity size={14} /> {t('videoStudio.aiPlan')}
                 </NeonButton>
-                <NeonButton onClick={handleAiGenerate} disabled={aiGenerating || !aiPrompt.trim()}>
+                <NeonButton onClick={() => void handleAiGenerate()} disabled={aiGenerating || !aiPrompt.trim()}>
                   <Wand2 size={14} /> {aiGenerating ? '...' : t('videoStudio.aiGenerateButton')}
                 </NeonButton>
               </div>
 
-              {/* Plan result */}
               {aiPlanResult && (
-                <div style={{ marginTop: 12, padding: 12, background: '#111', borderRadius: 6, fontSize: 13 }}>
-                  {aiPlanResult.blocked ? (
-                    <div style={{ color: '#ff6b6b' }}>
-                      <strong>{t('videoStudio.aiPlanBlocked')}:</strong> {aiPlanResult.blockedReason}
-                    </div>
+                <div className="video-studio-ai-result">
+                  {typeof aiPlanResult === 'string' ? (
+                    <span>{aiPlanResult}</span>
+                  ) : aiPlanResult.blocked ? (
+                    <div className="blocked"><strong>{t('videoStudio.aiPlanBlocked')}:</strong> {aiPlanResult.blockedReason}</div>
                   ) : aiPlanResult.requiresPaymentConfirmation ? (
-                    <div style={{ color: '#ffaa00' }}>
+                    <div className="paid">
                       <strong>{t('videoStudio.aiPlanPaid')}</strong>
                       {aiPlanResult.cheapestPaidCandidate && (
                         <span> — {aiPlanResult.cheapestPaidCandidate.name} (~${aiPlanResult.cheapestPaidCandidate.estimatedCostUsd})</span>
                       )}
                     </div>
                   ) : aiPlanResult.model ? (
-                    <div style={{ color: '#4caf50' }}>
+                    <div className="free">
                       {t('videoStudio.aiPlanFree')}: {aiPlanResult.model.name} ({aiPlanResult.model.provider})
                     </div>
                   ) : null}
@@ -586,21 +508,20 @@ export const VideoStudioView: React.FC = () => {
               )}
             </NeonPanel>
 
-            {/* Provider health */}
             <NeonPanel>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: 13 }}>Providers</h4>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {providers.map((p) => {
-                  const health = healthStatus[p.id];
+              <h4>{t('videoStudio.aiProvider')}</h4>
+              <div className="video-studio-provider-row">
+                {providers.map((provider) => {
+                  const health = healthStatus[provider.id];
                   const statusColor = health?.status === 'reachable' ? '#4caf50' : health?.status === 'unreachable' ? '#ff6b6b' : '#888';
                   return (
-                    <div key={p.id} style={{ padding: '6px 12px', background: '#111', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor }} />
-                      {p.name}
-                      {!p.configured && p.wired && (
+                    <div key={provider.id} className="video-studio-provider-chip">
+                      <span className="status-dot" style={{ background: statusColor }} />
+                      <span>{provider.name}</span>
+                      {!provider.configured && provider.wired && (
                         <button
-                          onClick={() => { setCredentialProvider(p.id); setShowCredentialDialog(true); }}
-                          style={{ marginLeft: 4, padding: '2px 6px', fontSize: 10, background: '#1a1a3e', border: 'none', borderRadius: 3, color: '#00d4ff', cursor: 'pointer' }}
+                          type="button"
+                          onClick={() => { setCredentialProvider(provider.id); setShowCredentialDialog(true); }}
                         >
                           {t('videoStudio.aiConfigureCredentials')}
                         </button>
@@ -611,31 +532,26 @@ export const VideoStudioView: React.FC = () => {
               </div>
             </NeonPanel>
 
-            {/* Job queue */}
             <NeonPanel>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: 13 }}>Jobs</h4>
+              <h4>Jobs</h4>
               {jobs.length === 0 ? (
-                <p style={{ color: '#555', fontSize: 13 }}>{t('videoStudio.aiNoJobs')}</p>
+                <p className="video-studio-muted">{t('videoStudio.aiNoJobs')}</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="video-studio-job-list">
                   {jobs.map((job) => (
-                    <div key={job.id} style={{ padding: 10, background: '#111', borderRadius: 6, fontSize: 13 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600 }}>{job.task}</span>
-                        <span style={{ color: job.status === 'completed' ? '#4caf50' : job.status === 'failed' ? '#ff6b6b' : '#ffaa00' }}>
-                          {phaseLabel(job.phase)}
-                        </span>
+                    <div key={job.id} className="video-studio-job-card">
+                      <div className="video-studio-job-head">
+                        <strong>{job.task}</strong>
+                        <span className={job.status}>{phaseLabel(job.phase)}</span>
                       </div>
-                      <p style={{ color: '#888', margin: '4px 0 0 0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {job.prompt}
-                      </p>
-                      {job.error && <p style={{ color: '#ff6b6b', fontSize: 11, margin: '4px 0 0 0' }}>{job.error}</p>}
-                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <p className="video-studio-muted">{job.prompt}</p>
+                      {job.error && <p className="video-studio-error">{job.error}</p>}
+                      <div className="video-studio-job-actions">
                         {job.status === 'running' && (
-                          <NeonButton size="sm" onClick={() => handleAiCancel(job.id)}>{t('videoStudio.aiCancel')}</NeonButton>
+                          <NeonButton size="sm" onClick={() => void handleAiCancel(job.id)}>{t('videoStudio.aiCancel')}</NeonButton>
                         )}
                         {job.status === 'failed' && (
-                          <NeonButton size="sm" onClick={() => (window as any).knouxVideoStudioAPI?.retryJob(job.id)}>{t('videoStudio.aiRetry')}</NeonButton>
+                          <NeonButton size="sm" onClick={() => void handleAiRetry(job.id)}>{t('videoStudio.aiRetry')}</NeonButton>
                         )}
                       </div>
                     </div>
@@ -646,38 +562,106 @@ export const VideoStudioView: React.FC = () => {
           </div>
         )}
 
-        {/* Export Tab */}
         {activeTab === 'export' && (
-          <NeonPanel>
-            <h3>{t('videoStudio.exportVideo')}</h3>
-            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-              <NeonButton><Download size={14} /> {t('videoStudio.exportStart')}</NeonButton>
-            </div>
-          </NeonPanel>
+          <div className="video-studio-panel video-studio-export">
+            <NeonPanel>
+              <div className={`video-studio-capability ${capabilities?.available ? 'available' : 'unavailable'}`}>
+                <strong>{capabilities?.available ? t('export.runtimeReady') : t('export.runtimeUnavailable')}</strong>
+                <span>{capabilities?.version ?? t('export.noRuntimeClaim')}</span>
+                {capabilities?.available && (
+                  <small>
+                    {capabilities.encoders.length} {t('export.encoders')} · {capabilities.formats.length} {t('export.formats')} · {capabilities.hardwareAccelerators.length} {t('export.accelerators')}
+                  </small>
+                )}
+              </div>
+            </NeonPanel>
+
+            {exportError && <div className="video-studio-error" role="alert">{exportError}</div>}
+
+            <NeonPanel>
+              <div className="video-studio-export-grid">
+                <label className="full-row">
+                  <span>{t('export.sourceMedia')}</span>
+                  <div className="path-picker-row">
+                    <input value={sourcePath ?? ''} readOnly placeholder={t('export.selectSource')} dir="auto" />
+                    <NeonButton variant="secondary" leftIcon={<FileVideo size={16} />} onClick={() => void selectExportSource()} disabled={exportRunning}>{t('common.browse')}</NeonButton>
+                  </div>
+                </label>
+                <label>
+                  <span>{t('export.preset')}</span>
+                  <NeonSelect value={presetId} onChange={(value) => setPresetId(value as ExportPresetId)} disabled={exportRunning} options={presets.map((preset) => ({ value: preset.id, label: preset.name }))} />
+                </label>
+                <label>
+                  <span>{t('export.rangeStart')}</span>
+                  <input type="number" min={0} max={exportDuration ?? undefined} step="0.001" value={startSeconds} onChange={(event) => setStartSeconds(Number(event.target.value))} disabled={exportRunning} dir="ltr" />
+                </label>
+                <label>
+                  <span>{t('export.rangeEnd')}</span>
+                  <input type="number" min={0} max={exportDuration ?? undefined} step="0.001" value={endSeconds ?? ''} onChange={(event) => setEndSeconds(event.target.value === '' ? undefined : Number(event.target.value))} disabled={exportRunning} dir="ltr" />
+                </label>
+              </div>
+
+              <div className="video-studio-ai-actions">
+                <NeonButton variant="primary" onClick={() => void startExport()} disabled={!sourcePath || !capabilities?.available || exportRunning || exportLoading}>
+                  {t('export.start')}
+                </NeonButton>
+                {exportRunning && (
+                  <NeonButton onClick={() => void cancelExport()}>{t('export.cancel')}</NeonButton>
+                )}
+                <span style={{ flex: 1 }} />
+                <NeonButton variant="ghost" leftIcon={<RefreshCw size={14} />} onClick={() => void refreshExportCapabilities()} disabled={exportLoading}>
+                  {t('export.refreshCapabilities')}
+                </NeonButton>
+              </div>
+            </NeonPanel>
+
+            <NeonPanel>
+              <h4>{t('export.inspection')}</h4>
+              {probe ? (
+                <dl className="media-inspector">
+                  <div><dt>{t('export.duration')}</dt><dd dir="ltr">{exportDuration?.toFixed(3) ?? t('common.unknown')} s</dd></div>
+                  <div><dt>{t('export.format')}</dt><dd dir="ltr">{probe.format?.format_name ?? t('common.unknown')}</dd></div>
+                  {(probe.streams ?? []).map((stream, index) => (
+                    <div key={`${stream.codec_type}-${index}`}>
+                      <dt dir="ltr">{stream.codec_type ?? 'stream'} {index + 1}</dt>
+                      <dd dir="ltr">{stream.codec_name ?? t('common.unknown')}{stream.width ? ` · ${stream.width}×${stream.height}` : ''}{stream.sample_rate ? ` · ${stream.sample_rate} Hz` : ''}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : <div className="video-studio-muted">{t('export.inspectionEmpty')}</div>}
+            </NeonPanel>
+
+            {activeJob && (
+              <NeonPanel>
+                <div className="export-job-card">
+                  <div><strong>{activeJob.status.toUpperCase()}</strong><span dir="auto">{activeJob.outputPath ?? t('export.waitingDestination')}</span></div>
+                  <div className="export-progress-track"><span style={{ width: `${exportDuration && activeJob.progress?.timeSeconds ? Math.min(100, (activeJob.progress.timeSeconds / exportDuration) * 100) : 0}%` }} /></div>
+                  <div className="export-job-meta" dir="ltr">
+                    <span>{t('export.time')} {activeJob.progress?.timeSeconds?.toFixed(2) ?? '0.00'} s</span>
+                    <span>{t('export.fps')} {activeJob.progress?.fps?.toFixed(1) ?? '—'}</span>
+                    <span>{t('export.speed')} {activeJob.progress?.speed?.toFixed(2) ?? '—'}×</span>
+                  </div>
+                  {activeJob.error && <div className="video-studio-error">{activeJob.error}</div>}
+                </div>
+              </NeonPanel>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Credential Dialog */}
       {showCredentialDialog && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-        }}>
-          <div style={{ background: '#1a1a2e', padding: 24, borderRadius: 12, minWidth: 400 }}>
-            <h3 style={{ margin: '0 0 16px 0' }}>{t('videoStudio.aiConfigureCredentials')} — {credentialProvider}</h3>
+        <div className="video-studio-modal-backdrop">
+          <div className="video-studio-modal">
+            <h3>{t('videoStudio.aiConfigureCredentials')} — {credentialProvider}</h3>
             <input
               type="password"
               value={credentialKey}
-              onChange={(e) => setCredentialKey(e.target.value)}
+              onChange={(event) => setCredentialKey(event.target.value)}
               placeholder="API key"
-              style={{
-                width: '100%', padding: '10px 14px', background: '#111', border: '1px solid #1a1a2e',
-                borderRadius: 6, color: '#e0e0e0', fontSize: 14, marginBottom: 16,
-              }}
             />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <NeonButton onClick={() => setShowCredentialDialog(false)} size="sm">Cancel</NeonButton>
-              <NeonButton onClick={handleSaveCredential} size="sm">{t('videoStudio.aiSaveCredentials')}</NeonButton>
+            <div className="video-studio-ai-actions">
+              <NeonButton onClick={() => setShowCredentialDialog(false)} size="sm">{t('common.cancel')}</NeonButton>
+              <NeonButton onClick={() => void handleSaveCredential()} size="sm">{t('videoStudio.aiSaveCredentials')}</NeonButton>
             </div>
           </div>
         </div>

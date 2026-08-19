@@ -21,6 +21,16 @@ export const videoStudioEnglish = {
   tabAI: 'AI',
   tabExport: 'Export',
 
+  tabMediaHint: 'Import video, image, or audio into the editor workspace.',
+  tabTimelineHint: 'Split, trim, move, and arrange clips in the editor workspace below.',
+  tabPreviewHint: 'Playback and playhead control live in the editor workspace below.',
+  tabInspectorHint: 'Transform, opacity, keyframes, and transitions are edited in the inspector panel of the workspace.',
+  tabAudioHint: 'Volume, pan, mute, solo, and track mixing are part of the editor workspace.',
+  tabCaptionsHint: 'Subtitle and title tracks are added from the editor toolbar.',
+  tabEffectsHint: 'Per-clip transitions are configured from the inspector in the editor workspace.',
+  tabColorHint: 'Color grading surfaces are planned for the editor core.',
+  tabMotionHint: 'Keyframes drive motion and are added from the inspector in the editor workspace.',
+
   // ── Media ──
   importMedia: 'Import media',
   importVideo: 'Import video',
@@ -244,6 +254,16 @@ export const videoStudioArabic = {
   tabMotion: 'الحركة',
   tabAI: 'الذكاء',
   tabExport: 'تصدير',
+
+  tabMediaHint: 'استورد الفيديو أو الصورة أو الصوت إلى مساحة عمل المحرر.',
+  tabTimelineHint: 'قسم وقص وحرك ورتب المقاطع في مساحة عمل المحرر أدناه.',
+  tabPreviewHint: 'التشغيل والتحكم بمؤشر التشغيل في مساحة عمل المحرر أدناه.',
+  tabInspectorHint: 'التحويل والشفافية والإطارات المفتاحية والانتقالات تُعد في لوحة المفتش بمساحة العمل.',
+  tabAudioHint: 'مستوى الصوت والتحريك والكتم والمنفرد ومزج المسارات جزء من مساحة عمل المحرر.',
+  tabCaptionsHint: 'تُضاف مسارات الترجمة والعناوين من شريط أدوات المحرر.',
+  tabEffectsHint: 'تُهيأ انتقالات المقاطع من المفتش في مساحة عمل المحرر.',
+  tabColorHint: 'سطوح تصحيح الألوان مخططة لنواة المحرر.',
+  tabMotionHint: 'الإطارات المفتاحية تقود الحركة وتُضاف من المفتش في مساحة عمل المحرر.',
 
   importMedia: 'استيراد وسائط',
   importVideo: 'استيراد فيديو',

@@ -14,6 +14,8 @@ import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
 import { setupMultitrackRuntime } from './ipc/multitrack-runtime';
 import type { RecordingRegionRuntimeController } from './ipc/recording-region-runtime';
 import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
+import type { VideoStudioRuntimeController } from './ipc/video-studio-runtime';
+import { setupVideoStudioRuntime } from './ipc/video-studio-runtime';
 import type { SlideshowRuntimeController } from './ipc/slideshow-runtime';
 import { setupSlideshowRuntime } from './ipc/slideshow-runtime';
 import { IPC_INVOKE } from './ipc/contract';
@@ -29,6 +31,7 @@ let multitrackController: MultitrackRuntimeController | null = null;
 let slideshowController: SlideshowRuntimeController | null = null;
 let audioToolsController: AudioToolsRuntimeController | null = null;
 let imageStudioController: ImageStudioRuntimeController | null = null;
+let videoStudioController: VideoStudioRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -65,6 +68,7 @@ function registerCreativeRuntime(): void {
   audioToolsController = setupAudioToolsRuntime(authoritativeIpc.forOwner('audio-tools'));
   setupClipExtractionRuntime(authoritativeIpc.forOwner('clip-extraction'));
   imageStudioController = setupImageStudioRuntime(authoritativeIpc.forOwner('image-studio'));
+  videoStudioController = setupVideoStudioRuntime(authoritativeIpc.forOwner('video-studio'));
 
   const ipc = authoritativeIpc.forOwner('creative-bootstrap');
 
@@ -148,5 +152,6 @@ export async function cleanupCreativeRuntime(): Promise<void> {
   slideshowController?.close();
   audioToolsController?.close();
   imageStudioController?.close();
+  videoStudioController?.close();
   await controller?.shutdown();
 }

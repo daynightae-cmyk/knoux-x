@@ -49,6 +49,8 @@ export interface VideoModelCapabilities {
   outputFormats: string[];
 }
 
+export type VideoLiveVerificationStatus = 'live-verified' | 'discovered' | 'static-documentation' | 'catalog-only' | 'unknown';
+
 export interface VideoModelDefinition {
   id: string;
   provider: VideoProviderId;
@@ -58,6 +60,10 @@ export interface VideoModelDefinition {
   endpoint: string | null;
   capabilities: VideoModelCapabilities;
   aliasedTo?: string;
+  /** Live verification status. STATIC_DOCUMENTATION = catalog entry only, not proven executable. */
+  liveVerification: VideoLiveVerificationStatus;
+  /** When this model was last verified live (ISO timestamp). */
+  lastVerified: string | null;
 }
 
 export interface VideoProviderDefinition {
@@ -159,6 +165,8 @@ const baseVideoCapabilities = (overrides: Partial<VideoModelCapabilities>): Vide
 
 export const VIDEO_MODELS: VideoModelDefinition[] = [
   // ── Hugging Face video models ──
+  // NOTE: HF Serverless Inference API does NOT support video models.
+  // These are cataloged as STATIC_DOCUMENTATION — not executable via hf-inference.
   {
     id: 'tencent/HunyuanVideo',
     provider: 'huggingface',
@@ -166,6 +174,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'free-tier',
     estimatedCostUsd: 0,
     endpoint: 'https://router.huggingface.co/hf-inference/models/tencent/HunyuanVideo',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video'],
       maxDurationSeconds: 5,
@@ -182,6 +192,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'free-tier',
     estimatedCostUsd: 0,
     endpoint: 'https://router.huggingface.co/hf-inference/models/Wan-AI/Wan2.2-T2V-A14B',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video', 'image-to-video'],
       maxDurationSeconds: 5,
@@ -200,6 +212,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'paid',
     estimatedCostUsd: 0.10,
     endpoint: 'fal-ai/kling-v1/video/text-to-video',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video'],
       maxDurationSeconds: 5,
@@ -216,6 +230,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'paid',
     estimatedCostUsd: 0.10,
     endpoint: 'fal-ai/kling-v1/video/image-to-video',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['image-to-video'],
       maxDurationSeconds: 5,
@@ -232,6 +248,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'paid',
     estimatedCostUsd: 0.12,
     endpoint: 'fal-ai/runway-gen3/turbo/text-to-video',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video', 'image-to-video'],
       maxDurationSeconds: 10,
@@ -250,6 +268,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'free-tier',
     estimatedCostUsd: 0,
     endpoint: null,
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video'],
       maxDurationSeconds: 5,
@@ -266,6 +286,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'free-tier',
     estimatedCostUsd: 0,
     endpoint: null,
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['text-to-video', 'image-to-video'],
       maxDurationSeconds: 5,
@@ -284,6 +306,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'paid',
     estimatedCostUsd: 0.05,
     endpoint: 'stability-ai/stable-video-diffusion',
+    liveVerification: 'static-documentation',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: ['image-to-video'],
       maxDurationSeconds: 4,
@@ -301,6 +325,8 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     costBucket: 'free',
     estimatedCostUsd: 0,
     endpoint: null,
+    liveVerification: 'catalog-only',
+    lastVerified: null,
     capabilities: baseVideoCapabilities({
       tasks: [
         'text-to-video',

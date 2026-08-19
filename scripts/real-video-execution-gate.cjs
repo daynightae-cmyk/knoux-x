@@ -160,7 +160,6 @@ async function stage2ProviderProbe() {
   const startedAt = Date.now();
 
   try {
-    // Probe with a minimal payload to check if the endpoint accepts requests
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -169,19 +168,30 @@ async function stage2ProviderProbe() {
       },
       body: JSON.stringify({
         inputs: 'test',
-        parameters: { num_frames: 1, width: 64, height: 64 },
+        parameters: { num_frames: NUM_FRAMES, width: WIDTH, height: HEIGHT },
       }),
       signal: AbortSignal.timeout(30_000),
     });
 
     const latencyMs = Date.now() - startedAt;
+    const body = await response.text().catch(() => '');
+
+    // HF returns 400 with "Model not supported by provider hf-inference"
+    const isNotSupported = response.status === 400 && body.includes('not supported');
 
     record('2-provider-probe', {
       status: response.status,
       statusText: response.statusText,
       latencyMs,
       endpoint: url,
+      notSupportedByProvider: isNotSupported,
+      errorBody: body.substring(0, 200),
     });
+
+    if (isNotSupported) {
+      evidence.finalVerdict = 'BLOCKED — model not supported by HF serverless inference';
+      return 'NOT_SUPPORTED';
+    }
 
     return response.status === 200;
   } catch (err) {
@@ -395,8 +405,17 @@ async function main() {
   // Stage 2
   console.log('\n--- Stage 2: Provider probe ---');
   const endpointOk = await stage2ProviderProbe();
+  if (endpointOk === 'NOT_SUPPORTED') {
+    saveEvidence();
+    console.log('\n❌ GATE BLOCKED — Model not supported by HF serverless inference.');
+    console.log('   HF Inference API does not currently support video models.');
+    console.log('   These models require dedicated deployment or third-party providers.');
+    process.exit(1);
+  }
   if (!endpointOk) {
-    evidence.finalVerdict = 'BLOCKED — provider endpoint unreachable';
+    if (!evidence.finalVerdict.startsWith('BLOCKED')) {
+      evidence.finalVerdict = 'BLOCKED — provider endpoint unreachable';
+    }
     saveEvidence();
     console.log('\n❌ GATE BLOCKED — Provider endpoint not reachable.');
     process.exit(1);

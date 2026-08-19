@@ -7,7 +7,7 @@
 
 import { contextBridge } from 'electron';
 import { IPC_INVOKE, IPC_OUTBOUND } from './ipc/contract';
-import { invokeDesktop, onDesktopEvent } from './ipc/preload-client';
+import { invokeDesktop, onDesktopEvent, offDesktopEvent } from './ipc/preload-client';
 
 const videoStudioAPI = {
   // ── Providers / Models ──
@@ -69,31 +69,49 @@ const videoStudioAPI = {
     invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_OFFLINE_JOBS),
 
   // ── Events ──
-  onJobPhase: (callback: (data: { jobId: string; phase: string }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PHASE, ((_event: any, data: any) => callback(data)) as any);
+  onJobPhase: (callback: (data: { jobId: string; phase: string }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PHASE, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PHASE, listener);
   },
 
-  onJobProgress: (callback: (data: { jobId: string; phase: string }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PROGRESS, ((_event: any, data: any) => callback(data)) as any);
+  onJobProgress: (callback: (data: { jobId: string; phase: string }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PROGRESS, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_PROGRESS, listener);
   },
 
-  onJobComplete: (callback: (data: { jobId: string; result: any }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_COMPLETE, ((_event: any, data: any) => callback(data)) as any);
+  onJobComplete: (callback: (data: { jobId: string; result: any }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_COMPLETE, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_COMPLETE, listener);
   },
 
-  onJobFailed: (callback: (data: { jobId: string; error: string }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_FAILED, ((_event: any, data: any) => callback(data)) as any);
+  onJobFailed: (callback: (data: { jobId: string; error: string }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_FAILED, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_FAILED, listener);
   },
 
-  onJobCancelled: (callback: (data: { jobId: string }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_CANCELLED, ((_event: any, data: any) => callback(data)) as any);
+  onJobCancelled: (callback: (data: { jobId: string }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_CANCELLED, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_JOB_CANCELLED, listener);
   },
 
-  onFlushed: (callback: (data: { jobs: any[] }) => void): void => {
-    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_FLUSHED, ((_event: any, data: any) => callback(data)) as any);
+  onFlushed: (callback: (data: { jobs: any[] }) => void): (() => void) => {
+    const listener = ((_event: any, data: any) => callback(data)) as any;
+    onDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_FLUSHED, listener);
+    return () => offDesktopEvent(IPC_OUTBOUND.VIDEO_STUDIO_FLUSHED, listener);
   },
 };
 
 contextBridge.exposeInMainWorld('knouxVideoStudioAPI', videoStudioAPI);
 
 export type KnouxVideoStudioAPI = typeof videoStudioAPI;
+
+declare global {
+  interface Window {
+    knouxVideoStudioAPI: KnouxVideoStudioAPI;
+  }
+}

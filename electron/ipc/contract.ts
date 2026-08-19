@@ -586,6 +586,34 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'image-studio:job-complete', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'image-studio:job-failed', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'image-studio:recovery-available', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  // Video Studio — provider / model
+  { channel: 'video-studio:list-providers', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:provider-status', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:list-models', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  // Video Studio — jobs
+  { channel: 'video-studio:create-job', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:cancel-job', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:retry-job', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:get-job', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:list-jobs', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:remove-job', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  // Video Studio — AI
+  { channel: 'video-studio:ai-health', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:ai-entitlement', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:ai-plan', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:ai-settings-get', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:ai-settings-set', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:gateway-config-get', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:gateway-config-set', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:set-credential', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  { channel: 'video-studio:offline-jobs', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  // Video Studio — outbound events
+  { channel: 'video-studio:job-phase', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  { channel: 'video-studio:job-progress', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  { channel: 'video-studio:job-complete', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  { channel: 'video-studio:job-failed', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  { channel: 'video-studio:job-cancelled', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
+  { channel: 'video-studio:flushed', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
 ] as const;
 
 function sourceInventoryFor(channel: string): ChannelSourceInventoryEntry {

@@ -270,6 +270,25 @@ export interface InvokeArgumentMap {
   'image-studio:list-jobs': [];
   'image-studio:remove-job': [jobId: string];
   'image-studio:import-result': [jobId: string, accept: boolean];
+  // Video Studio
+  'video-studio:list-providers': [];
+  'video-studio:provider-status': [];
+  'video-studio:list-models': [];
+  'video-studio:create-job': [params: any];
+  'video-studio:cancel-job': [jobId: string];
+  'video-studio:retry-job': [jobId: string];
+  'video-studio:get-job': [jobId: string];
+  'video-studio:list-jobs': [];
+  'video-studio:remove-job': [jobId: string];
+  'video-studio:ai-health': [];
+  'video-studio:ai-entitlement': [];
+  'video-studio:ai-plan': [task: string, allowPaid?: boolean];
+  'video-studio:ai-settings-get': [];
+  'video-studio:ai-settings-set': [settings: any];
+  'video-studio:gateway-config-get': [];
+  'video-studio:gateway-config-set': [config: any];
+  'video-studio:set-credential': [provider: string, key: string];
+  'video-studio:offline-jobs': [];
 }
 
 export interface InvokeResultMap {
@@ -295,6 +314,8 @@ export interface InvokeResultMap {
   'window:always-on-top': VoidResult; 'window:close': VoidResult; 'window:fullscreen': VoidResult; 'window:is-fullscreen': boolean; 'window:is-maximized': boolean; 'window:maximize': VoidResult; 'window:minimize': VoidResult;
   // Image Studio
   'image-studio:create': object; 'image-studio:open': object | null; 'image-studio:save': string | null; 'image-studio:save-as': string | null; 'image-studio:close': VoidResult; 'image-studio:get-current': object | null; 'image-studio:recent': string[]; 'image-studio:migrate': object; 'image-studio:validate': object; 'image-studio:recover': object; 'image-studio:create-layer': object; 'image-studio:delete-layer': boolean; 'image-studio:duplicate-layer': object; 'image-studio:rename-layer': boolean; 'image-studio:reorder-layers': boolean; 'image-studio:group-layers': object; 'image-studio:ungroup-layers': boolean; 'image-studio:set-visibility': boolean; 'image-studio:set-locked': boolean; 'image-studio:set-opacity': boolean; 'image-studio:set-blend-mode': boolean; 'image-studio:set-transform': boolean; 'image-studio:add-mask': boolean; 'image-studio:update-mask': boolean; 'image-studio:remove-mask': boolean; 'image-studio:apply-adjustment': boolean; 'image-studio:undo': boolean; 'image-studio:redo': boolean; 'image-studio:can-undo': boolean; 'image-studio:can-redo': boolean; 'image-studio:create-checkpoint': boolean; 'image-studio:import-image': object; 'image-studio:import-as-layer': object; 'image-studio:export-document': object; 'image-studio:export-flattened': object; 'image-studio:export-layer': object; 'image-studio:inspect-format': object; 'image-studio:autosave-status': object; 'image-studio:trigger-autosave': string; 'image-studio:recovery-sessions': object[]; 'image-studio:restore-recovery': object; 'image-studio:discard-recovery': boolean; 'image-studio:list-providers': object[]; 'image-studio:provider-status': object; 'image-studio:list-models': object[]; 'image-studio:refresh-models': object[]; 'image-studio:validate-credential': object; 'image-studio:set-credential': object; 'image-studio:remove-credential': boolean; 'image-studio:create-job': string; 'image-studio:cancel-job': boolean; 'image-studio:retry-job': string; 'image-studio:get-job': object | null; 'image-studio:list-jobs': object[]; 'image-studio:remove-job': boolean; 'image-studio:import-result': object;
+// Video Studio
+  'video-studio:list-providers': object[]; 'video-studio:provider-status': object; 'video-studio:list-models': object[]; 'video-studio:create-job': object; 'video-studio:cancel-job': boolean; 'video-studio:retry-job': object | null; 'video-studio:get-job': object | null; 'video-studio:list-jobs': object[]; 'video-studio:remove-job': boolean; 'video-studio:ai-health': object; 'video-studio:ai-entitlement': object; 'video-studio:ai-plan': object; 'video-studio:ai-settings-get': object; 'video-studio:ai-settings-set': boolean; 'video-studio:gateway-config-get': object; 'video-studio:gateway-config-set': boolean; 'video-studio:set-credential': boolean; 'video-studio:offline-jobs': object[];
 }
 
 export interface InboundPayloadMap {
@@ -329,4 +350,11 @@ export interface OutboundPayloadMap {
   'image-studio:job-complete': [jobId: string, provenance: AIImageProvenance];
   'image-studio:job-failed': [jobId: string, error: string];
   'image-studio:recovery-available': [session: object];
+  // Video Studio
+  'video-studio:job-phase': [payload: { jobId: string; phase: string }];
+  'video-studio:job-progress': [payload: { jobId: string; phase: string }];
+  'video-studio:job-complete': [payload: { jobId: string; result: object }];
+  'video-studio:job-failed': [payload: { jobId: string; error: string }];
+  'video-studio:job-cancelled': [payload: { jobId: string }];
+  'video-studio:flushed': [payload: { jobs: object[] }];
 }

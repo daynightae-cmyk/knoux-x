@@ -30,6 +30,7 @@ import {
 
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import {
@@ -726,11 +727,11 @@ export const MultitrackEditorView: React.FC = () => {
               <label><span>{t('multitrack.volume')} · {Math.round(selectedItem.audio.volume * 100)}%</span><input type="range" min="0" max="4" step="0.01" value={selectedItem.audio.volume} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, volume: Number(event.target.value) } }))} /></label>
               <label><span>{t('multitrack.pan')} · {selectedItem.audio.pan.toFixed(2)}</span><input type="range" min="-1" max="1" step="0.01" value={selectedItem.audio.pan} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, pan: Number(event.target.value) } }))} /></label>
               <div className="multitrack-transition-grid">
-                <label><span>{t('multitrack.transitionIn')}</span><select value={selectedItem.transitionIn?.kind ?? 'none'} onChange={(event) => setTransition('in', event.target.value as TransitionKind | 'none')}>{transitionKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></label>
-                <label><span>{t('multitrack.transitionOut')}</span><select value={selectedItem.transitionOut?.kind ?? 'none'} onChange={(event) => setTransition('out', event.target.value as TransitionKind | 'none')}>{transitionKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></label>
+                <label><span>{t('multitrack.transitionIn')}</span><NeonSelect value={selectedItem.transitionIn?.kind ?? 'none'} onChange={(value) => setTransition('in', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
+                <label><span>{t('multitrack.transitionOut')}</span><NeonSelect value={selectedItem.transitionOut?.kind ?? 'none'} onChange={(value) => setTransition('out', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
               </div>
               <div className="multitrack-keyframe-row">
-                <select value={keyframeProperty} onChange={(event) => setKeyframeProperty(event.target.value as KeyframeProperty)}>{keyframeProperties.map((property) => <option key={property} value={property}>{property}</option>)}</select>
+                <NeonSelect value={keyframeProperty} onChange={(value) => setKeyframeProperty(value as KeyframeProperty)} options={keyframeProperties.map((property) => ({ value: property, label: property }))} />
                 <NeonButton variant="secondary" size="sm" leftIcon={<KeyRound size={14} />} onClick={addKeyframe}>{t('multitrack.addKeyframe')}</NeonButton>
               </div>
               <div className="multitrack-keyframe-list">{selectedItem.keyframes.map((keyframe) => <span key={keyframe.id}>{keyframe.property} · {formatTime(keyframe.time)} · {keyframe.value}</span>)}</div>
@@ -742,7 +743,7 @@ export const MultitrackEditorView: React.FC = () => {
       <NeonPanel variant="dark" padding="none" className="multitrack-timeline-panel">
         <div className="multitrack-timeline-header">
           <div className="multitrack-track-add">
-            <select value={newTrackKind} onChange={(event) => setNewTrackKind(event.target.value as TrackKind)}>{trackKinds.map((kind) => <option key={kind} value={kind}>{t(`multitrack.track_${kind}`)}</option>)}</select>
+            <NeonSelect value={newTrackKind} onChange={(value) => setNewTrackKind(value as TrackKind)} options={trackKinds.map((kind) => ({ value: kind, label: t(`multitrack.track_${kind}`) }))} />
             <NeonButton variant="ghost" size="sm" onClick={createNewTrack}>{t('multitrack.addTrack')}</NeonButton>
           </div>
           <label><span>{t('multitrack.zoom')}</span><input type="range" min="0.25" max="4" step="0.25" value={project.settings.timelineZoom} onChange={(event) => commit({ ...project, settings: { ...project.settings, timelineZoom: Number(event.target.value) } })} /></label>

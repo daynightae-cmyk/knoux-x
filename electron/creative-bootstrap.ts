@@ -8,6 +8,8 @@ import { setupAudioToolsRuntime } from './ipc/audio-tools-runtime';
 import { setupClipExtractionRuntime } from './ipc/clip-extraction-runtime';
 import type { CreativeSuiteController } from './ipc/creative-suite';
 import { setupCreativeSuiteHandlers } from './ipc/creative-suite';
+import type { ImageStudioRuntimeController } from './ipc/image-studio-runtime';
+import { setupImageStudioRuntime } from './ipc/image-studio-runtime';
 import type { MultitrackRuntimeController } from './ipc/multitrack-runtime';
 import { setupMultitrackRuntime } from './ipc/multitrack-runtime';
 import type { RecordingRegionRuntimeController } from './ipc/recording-region-runtime';
@@ -26,6 +28,7 @@ let recordingRegionController: RecordingRegionRuntimeController | null = null;
 let multitrackController: MultitrackRuntimeController | null = null;
 let slideshowController: SlideshowRuntimeController | null = null;
 let audioToolsController: AudioToolsRuntimeController | null = null;
+let imageStudioController: ImageStudioRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -61,6 +64,7 @@ function registerCreativeRuntime(): void {
   slideshowController = setupSlideshowRuntime(authoritativeIpc.forOwner('slideshow'));
   audioToolsController = setupAudioToolsRuntime(authoritativeIpc.forOwner('audio-tools'));
   setupClipExtractionRuntime(authoritativeIpc.forOwner('clip-extraction'));
+  imageStudioController = setupImageStudioRuntime(authoritativeIpc.forOwner('image-studio'));
 
   const ipc = authoritativeIpc.forOwner('creative-bootstrap');
 
@@ -143,5 +147,6 @@ export async function cleanupCreativeRuntime(): Promise<void> {
   multitrackController?.close();
   slideshowController?.close();
   audioToolsController?.close();
+  imageStudioController?.close();
   await controller?.shutdown();
 }

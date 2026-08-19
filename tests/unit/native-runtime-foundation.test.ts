@@ -160,7 +160,7 @@ describe('IPC and BrowserWindow source inventory', () => {
       expect(source).not.toMatch(/ipcMain\.(?:handle|on)\(['"]/);
       expect(source).not.toMatch(/(?:webContents|sender)\.send\(['"]/);
     }
-    const handleUses = files.flatMap((filePath) => fs.readFileSync(filePath, 'utf8').match(/\.handle\(IPC_INVOKE\.[A-Z0-9_]+/g) ?? []);
+    const handleUses = files.flatMap((filePath) => fs.readFileSync(filePath, 'utf8').match(/\.handle\(\s*IPC_INVOKE\.[A-Z0-9_]+/g) ?? []);
     expect(handleUses).toHaveLength(EXPOSED_INVOKE_CHANNELS.length);
     expect(new Set(handleUses).size).toBe(EXPOSED_INVOKE_CHANNELS.length);
   });

@@ -15,6 +15,10 @@ import {
   imageEditorEnglish,
 } from '../locales/imageEditor';
 import {
+  imageStudioArabic,
+  imageStudioEnglish,
+} from '../locales/imageStudio';
+import {
   multitrackEditorArabic,
   multitrackEditorEnglish,
 } from '../locales/multitrackEditor';
@@ -53,6 +57,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     nav: {
       ...en.nav,
       imageEditor: 'Image Editor',
+      imageStudio: 'Image Studio',
       slideshow: 'Slideshow',
       audioTools: 'Audio Tools',
     },
@@ -69,6 +74,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...recordingStudioEnglish,
     },
     imageEditor: imageEditorEnglish,
+    imageStudio: imageStudioEnglish,
     multitrack: multitrackEditorEnglish,
     slideshow: slideshowStudioEnglish,
     audioTools: audioToolsEnglish,
@@ -85,6 +91,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     nav: {
       ...ar.nav,
       imageEditor: 'محرر الصور',
+      imageStudio: 'استوديو الصور',
       slideshow: 'عروض الشرائح',
       audioTools: 'أدوات الصوت',
     },
@@ -101,6 +108,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...recordingStudioArabic,
     },
     imageEditor: imageEditorArabic,
+    imageStudio: imageStudioArabic,
     multitrack: multitrackEditorArabic,
     slideshow: slideshowStudioArabic,
     audioTools: audioToolsArabic,

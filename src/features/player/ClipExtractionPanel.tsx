@@ -19,6 +19,7 @@ import type {
 import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 import { NeonButton } from '../../components/neon/NeonButton';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 
 export interface ClipExtractionPanelProps {
   onClose(): void;
@@ -176,12 +177,12 @@ export const ClipExtractionPanel: React.FC<ClipExtractionPanelProps> = ({ onClos
               )}
               {mode === 'accurate' && (
                 <div className="clip-number-grid">
-                  <label><span>{t('clip.videoCodec')}</span><select value={videoCodec} onChange={(event) => setVideoCodec(event.target.value as ClipVideoCodec)} disabled={running}><option value="h264">H.264</option><option value="hevc">HEVC</option><option value="vp9">VP9</option></select></label>
+                  <label><span>{t('clip.videoCodec')}</span><NeonSelect value={videoCodec} onChange={(value) => setVideoCodec(value as ClipVideoCodec)} disabled={running} options={[{ value: 'h264', label: 'H.264' }, { value: 'hevc', label: 'HEVC' }, { value: 'vp9', label: 'VP9' }]} /></label>
                   <label><span>{t('clip.crf')} · {crf}</span><input type="range" min="0" max="40" value={crf} onChange={(event) => setCrf(Number(event.target.value))} disabled={running} /></label>
                 </div>
               )}
               {(mode === 'accurate' || mode === 'audio-only') && (
-                <label><span>{t('clip.audioCodec')}</span><select value={audioCodec} onChange={(event) => setAudioCodec(event.target.value as ClipAudioCodec)} disabled={running}><option value="aac">AAC</option><option value="opus">Opus</option><option value="pcm">PCM WAV</option></select></label>
+                <label><span>{t('clip.audioCodec')}</span><NeonSelect value={audioCodec} onChange={(value) => setAudioCodec(value as ClipAudioCodec)} disabled={running} options={[{ value: 'aac', label: 'AAC' }, { value: 'opus', label: 'Opus' }, { value: 'pcm', label: 'PCM WAV' }]} /></label>
               )}
               {mode === 'frames' && (
                 <label><span>{t('clip.frameRate')} · {frameRate}</span><input type="range" min="1" max="30" value={frameRate} onChange={(event) => setFrameRate(Number(event.target.value))} disabled={running} /></label>

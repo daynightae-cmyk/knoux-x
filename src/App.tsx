@@ -31,6 +31,7 @@ import './styles/recording-studio.css';
 import './styles/multitrack-editor.css';
 import './styles/image-editor.css';
 import './styles/image-editor-runtime.css';
+import './styles/image-studio.css';
 import './styles/slideshow-studio.css';
 import './styles/audio-tools.css';
 
@@ -49,6 +50,10 @@ const MultitrackEditorView = lazy(async () => {
 const ImageEditorView = lazy(async () => {
   const module = await import('./features/image-editor/ImageEditorView');
   return { default: module.ImageEditorView };
+});
+const ImageStudioView = lazy(async () => {
+  const module = await import('./features/image-studio/ImageStudioView');
+  return { default: module.ImageStudioView };
 });
 const SlideshowView = lazy(async () => {
   const module = await import('./features/slideshow/SlideshowView');
@@ -79,8 +84,9 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
     case 'editor': return <MultitrackEditorView />;
-    case 'image-editor': return <ImageEditorView />;
-    case 'slideshow': return <SlideshowView />;
+case 'image-editor': return <ImageEditorView />;
+case 'image-studio': return <ImageStudioView />;
+case 'slideshow': return <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;

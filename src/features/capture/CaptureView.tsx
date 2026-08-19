@@ -24,6 +24,7 @@ import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 import type { CaptureUploadConsent } from '../../../electron/creative/capture-consent-store';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import type { CaptureFormat } from '../../core/creative/capture';
@@ -320,9 +321,9 @@ export const CaptureView: React.FC = () => {
           </div>
 
           <div className="creative-form-grid capture-options-grid">
-            <label><span>{t('capture.format')}</span><select value={format} onChange={(event) => setFormat(event.target.value as CaptureFormat)} disabled={capturing}>{formats.map((entry) => <option key={entry} value={entry}>{entry.toUpperCase()}</option>)}</select></label>
-            <label><span><Timer size={14} /> {t('capture.delay')}</span><select value={delaySeconds} onChange={(event) => setDelaySeconds(Number(event.target.value) as (typeof delays)[number])} disabled={capturing}>{delays.map((entry) => <option key={entry} value={entry}>{entry === 0 ? t('capture.noDelay') : `${entry} ${t('common.seconds')}`}</option>)}</select></label>
-            <label><span>{t('capture.aspect')}</span><select value={aspectPreset} onChange={(event) => setAspectPreset(event.target.value as RegionAspectPreset)} disabled={capturing || mode !== 'region'}>{aspectPresets.map((entry) => <option key={entry} value={entry}>{entry === 'free' ? t('capture.freeAspect') : entry}</option>)}</select></label>
+            <label><span>{t('capture.format')}</span><NeonSelect value={format} onChange={(value) => setFormat(value as CaptureFormat)} disabled={capturing} options={formats.map((entry) => ({ value: entry, label: entry.toUpperCase() }))} /></label>
+            <label><span><Timer size={14} /> {t('capture.delay')}</span><NeonSelect value={String(delaySeconds)} onChange={(value) => setDelaySeconds(Number(value) as (typeof delays)[number])} disabled={capturing} options={delays.map((entry) => ({ value: String(entry), label: entry === 0 ? t('capture.noDelay') : `${entry} ${t('common.seconds')}` }))} /></label>
+            <label><span>{t('capture.aspect')}</span><NeonSelect value={aspectPreset} onChange={(value) => setAspectPreset(value as RegionAspectPreset)} disabled={capturing || mode !== 'region'} options={aspectPresets.map((entry) => ({ value: entry, label: entry === 'free' ? t('capture.freeAspect') : entry }))} /></label>
             <label><span>{t('capture.quality')} · {jpegQuality}%</span><input type="range" min="40" max="100" step="1" value={jpegQuality} onChange={(event) => setJpegQuality(Number(event.target.value))} disabled={capturing || format === 'png'} /></label>
           </div>
 

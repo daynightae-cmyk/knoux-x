@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const { rebuild } = require('@electron/rebuild');
 
 function optionalBinary(moduleName) {
   try {
@@ -101,13 +102,23 @@ function listRuntimeFiles(directory) {
   return results;
 }
 
-function packageNativeRuntime(buildPath, _electronVersion, platform, arch, callback) {
+async function packageNativeRuntime(buildPath, electronVersion, platform, arch, callback) {
   try {
     const copiedRoots = new Set();
     copyRuntimeDependencyTree('better-sqlite3', buildPath, copiedRoots);
     copyRuntimeDependencyTree('sharp', buildPath, copiedRoots);
     const installedImagePackages = copyInstalledScope('@img', buildPath)
       .filter((name) => name.startsWith('sharp-'));
+
+    // afterPrune runs after Forge's initial native rebuild. Copying dependencies above can
+    // reintroduce the clean npm/Node ABI binary, so rebuild the final packaged tree itself.
+    await rebuild({
+      buildPath,
+      electronVersion,
+      arch,
+      force: true,
+      onlyModules: ['better-sqlite3'],
+    });
 
     const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
     const sharpManifest = requirePackagedManifest(buildPath, 'sharp');

@@ -127,12 +127,20 @@
     "slideshow:cancel-render",
     "slideshow:clear-recent",
     "slideshow:create",
+    "slideshow:import-files",
+    "slideshow:import-folder",
     "slideshow:open",
+    "slideshow:open-output",
     "slideshow:open-recent",
+    "slideshow:preflight",
     "slideshow:recent",
+    "slideshow:recover-backup",
     "slideshow:recoveries",
+    "slideshow:relink-file",
+    "slideshow:relink-folder",
     "slideshow:render",
     "slideshow:render-jobs",
+    "slideshow:reveal-output",
     "slideshow:save",
     "subtitle:delay",
     "subtitle:download",
@@ -795,7 +803,22 @@
       "count": 1
     },
     {
+      "channel": "slideshow:import-files",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:import-folder",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
       "channel": "slideshow:open",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:open-output",
       "owner": "slideshow",
       "count": 1
     },
@@ -805,12 +828,32 @@
       "count": 1
     },
     {
+      "channel": "slideshow:preflight",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
       "channel": "slideshow:recent",
       "owner": "slideshow",
       "count": 1
     },
     {
+      "channel": "slideshow:recover-backup",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
       "channel": "slideshow:recoveries",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:relink-file",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:relink-folder",
       "owner": "slideshow",
       "count": 1
     },
@@ -821,6 +864,11 @@
     },
     {
       "channel": "slideshow:render-jobs",
+      "owner": "slideshow",
+      "count": 1
+    },
+    {
+      "channel": "slideshow:reveal-output",
       "owner": "slideshow",
       "count": 1
     },
@@ -1033,8 +1081,8 @@
   "preloadExists": true,
   "packaged": true,
   "version": "2.0.0",
-  "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-  "branch": "fix/native-runtime-and-creative-suite-completion",
-  "buildTimestamp": "2026-08-01T01:37:22.259Z",
+  "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+  "branch": "feat/offline-creative-studio-professional-completion",
+  "buildTimestamp": "2026-08-01T10:06:44.147Z",
   "electronVersion": "32.3.3"
 }

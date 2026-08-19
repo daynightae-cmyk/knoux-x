@@ -10,6 +10,7 @@ import {
   type StudioPresetKind,
 } from '../../core/settings/productCustomization';
 import { NeonButton } from '../neon/NeonButton';
+import { NeonSelect } from '../neon/NeonSelect';
 
 interface Props {
   kind: StudioPresetKind;
@@ -84,10 +85,7 @@ export const StudioPresetBar: React.FC<Props> = ({ kind, values, onApply }) => {
   return (
     <div className="studio-preset-bar">
       <strong>Preset</strong>
-      <select value={selectedId ?? ''} onChange={(event) => void selectPreset(event.target.value)}>
-        <option value="">Custom</option>
-        {available.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-      </select>
+      <NeonSelect value={selectedId ?? ''} onChange={(value) => void selectPreset(value)} options={[{ value: '', label: 'Custom' }, ...available.map((preset) => ({ value: preset.id, label: preset.name }))]} />
       <NeonButton variant="ghost" size="sm" leftIcon={<Plus size={13} />} onClick={() => void create()}>Save</NeonButton>
       <NeonButton variant="ghost" size="sm" leftIcon={<Copy size={13} />} disabled={!selectedId} onClick={() => void duplicate()}>Duplicate</NeonButton>
       <NeonButton variant="ghost" size="sm" leftIcon={<RotateCcw size={13} />} disabled={!selectedId} onClick={() => void rename()}>Rename</NeonButton>

@@ -534,3 +534,176 @@
   background-size: 200% 100%;
   animation: borderRotate 3s linear infinite;
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Neon Select
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.neon-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.neon-select-label {
+  font-size: var(--knoux-text-sm);
+  font-weight: 500;
+  color: var(--knoux-text-secondary);
+  transition: color 0.2s ease;
+}
+
+.neon-select-trigger-wrapper {
+  position: relative;
+}
+
+.neon-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: var(--knoux-input-height);
+  padding: 0 var(--knoux-space-3);
+  background: var(--knoux-surface);
+  border: 1px solid var(--knoux-border);
+  border-radius: var(--knoux-radius-sm);
+  color: var(--knoux-text);
+  font-size: var(--knoux-text-md);
+  font-family: var(--knoux-font-sans);
+  cursor: pointer;
+  outline: none;
+  transition: all var(--knoux-duration-fast) var(--knoux-ease-standard);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neon-select-trigger:hover:not(:disabled) {
+  border-color: var(--knoux-border-strong);
+  background: var(--knoux-surface-hover);
+}
+
+.neon-select-trigger:focus-visible {
+  border-color: var(--knoux-accent);
+  box-shadow: var(--knoux-glow-focus);
+}
+
+.neon-select-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.neon-select-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neon-select-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--knoux-muted);
+  transition: transform var(--knoux-duration-fast) var(--knoux-ease-standard);
+  flex-shrink: 0;
+}
+
+.neon-select--open .neon-select-arrow {
+  transform: rotate(180deg);
+}
+
+.neon-select-popup {
+  position: fixed;
+  z-index: var(--knoux-z-popover);
+  min-width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 4px 0;
+  background: var(--knoux-bg-1);
+  border: 1px solid var(--knoux-border);
+  border-radius: var(--knoux-radius-sm);
+  box-shadow: var(--knoux-shadow-md);
+  list-style: none;
+  margin: 0;
+  inset-inline-start: 0;
+}
+
+.neon-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px var(--knoux-space-3);
+  color: var(--knoux-text);
+  font-size: var(--knoux-text-md);
+  cursor: pointer;
+  transition: background var(--knoux-duration-fast) var(--knoux-ease-standard);
+  user-select: none;
+}
+
+.neon-select-option--highlighted {
+  background: var(--knoux-surface-hover);
+}
+
+.neon-select-option--selected {
+  background: rgba(157, 92, 255, 0.18);
+  color: var(--knoux-accent);
+}
+
+.neon-select-option--selected.neon-select-option--highlighted {
+  background: rgba(157, 92, 255, 0.28);
+}
+
+.neon-select-option--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.neon-select-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neon-select-option-check {
+  display: flex;
+  align-items: center;
+  color: var(--knoux-accent);
+  flex-shrink: 0;
+}
+
+[data-theme='system-light'] .neon-select-trigger,
+[data-theme='system-light'] .neon-select-popup {
+  background: var(--knoux-surface-raised);
+  border-color: var(--knoux-border);
+  color: var(--knoux-text);
+}
+
+[data-theme='system-light'] .neon-select-popup {
+  background: var(--knoux-surface-raised);
+}
+
+[data-theme='system-light'] .neon-select-option {
+  color: var(--knoux-text);
+}
+
+[data-theme='system-light'] .neon-select-option--highlighted {
+  background: var(--knoux-surface-hover);
+}
+
+[data-theme='system-light'] .neon-select-option--selected {
+  background: rgba(157, 92, 255, 0.12);
+  color: var(--knoux-accent-strong);
+}
+
+[data-theme='system-light'] .neon-select-option--selected.neon-select-option--highlighted {
+  background: rgba(157, 92, 255, 0.22);
+}
+
+[data-theme='system-light'] .neon-select-arrow {
+  color: var(--knoux-muted);
+}

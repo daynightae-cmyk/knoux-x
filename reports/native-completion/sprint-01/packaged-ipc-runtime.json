@@ -6,8 +6,8 @@
   "packaged": true,
   "executable": "D:\\Knoux-X-Bootstrap\\repository\\out\\KNOUX Player X-win32-x64\\knoux-player-x.exe",
   "preloadPath": "D:\\Knoux-X-Bootstrap\\repository\\out\\KNOUX Player X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
-  "syntheticRoot": "D:\\Knoux-X-Bootstrap\\autobuild-temp-sprint02\\knoux-packaged-ipc-smoke-uGHZaE",
-  "fixturePath": "D:\\Knoux-X-Bootstrap\\autobuild-temp-sprint02\\knoux-packaged-ipc-smoke-uGHZaE\\synthetic-fixture.mp4",
+  "syntheticRoot": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-ipc-smoke-dlO5U5",
+  "fixturePath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-ipc-smoke-dlO5U5\\synthetic-fixture.mp4",
   "fixtureContained": true,
   "deterministicDialogCancellation": true,
   "startupHealth": {
@@ -139,12 +139,20 @@
       "slideshow:cancel-render",
       "slideshow:clear-recent",
       "slideshow:create",
+      "slideshow:import-files",
+      "slideshow:import-folder",
       "slideshow:open",
+      "slideshow:open-output",
       "slideshow:open-recent",
+      "slideshow:preflight",
       "slideshow:recent",
+      "slideshow:recover-backup",
       "slideshow:recoveries",
+      "slideshow:relink-file",
+      "slideshow:relink-folder",
       "slideshow:render",
       "slideshow:render-jobs",
+      "slideshow:reveal-output",
       "slideshow:save",
       "subtitle:delay",
       "subtitle:download",
@@ -807,7 +815,22 @@
         "count": 1
       },
       {
+        "channel": "slideshow:import-files",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
+        "channel": "slideshow:import-folder",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
         "channel": "slideshow:open",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
+        "channel": "slideshow:open-output",
         "owner": "slideshow",
         "count": 1
       },
@@ -817,12 +840,32 @@
         "count": 1
       },
       {
+        "channel": "slideshow:preflight",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
         "channel": "slideshow:recent",
         "owner": "slideshow",
         "count": 1
       },
       {
+        "channel": "slideshow:recover-backup",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
         "channel": "slideshow:recoveries",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
+        "channel": "slideshow:relink-file",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
+        "channel": "slideshow:relink-folder",
         "owner": "slideshow",
         "count": 1
       },
@@ -833,6 +876,11 @@
       },
       {
         "channel": "slideshow:render-jobs",
+        "owner": "slideshow",
+        "count": 1
+      },
+      {
+        "channel": "slideshow:reveal-output",
         "owner": "slideshow",
         "count": 1
       },
@@ -1045,9 +1093,9 @@
     "preloadExists": true,
     "packaged": true,
     "version": "2.0.0",
-    "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-    "branch": "fix/native-runtime-and-creative-suite-completion",
-    "buildTimestamp": "2026-08-01T01:37:22.259Z",
+    "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+    "branch": "feat/offline-creative-studio-professional-completion",
+    "buildTimestamp": "2026-08-01T10:06:44.147Z",
     "electronVersion": "32.3.3"
   },
   "ipcManifest": [
@@ -3803,6 +3851,50 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:import-files",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:import-files\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:import-files\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:import-folder",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:import-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:import-folder\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:open",
       "direction": "invoke",
       "owner": "slideshow",
@@ -3814,6 +3906,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:open-output",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:open-output\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:open-output\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",
@@ -3847,6 +3961,28 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:preflight",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:preflight\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:preflight\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:recent",
       "direction": "invoke",
       "owner": "slideshow",
@@ -3869,6 +4005,28 @@
       "registeredOwner": "slideshow"
     },
     {
+      "channel": "slideshow:recover-backup",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:recover-backup\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:recover-backup\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
       "channel": "slideshow:recoveries",
       "direction": "invoke",
       "owner": "slideshow",
@@ -3880,6 +4038,50 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:recoveries\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:relink-file",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:relink-file\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:relink-file\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:relink-folder",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:relink-folder\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:relink-folder\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",
@@ -3924,6 +4126,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"slideshow:render-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/slideshow-runtime.ts",
+        "electron/preload-slideshow.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "slideshow"
+    },
+    {
+      "channel": "slideshow:reveal-output",
+      "direction": "invoke",
+      "owner": "slideshow",
+      "exposedBy": "preload-slideshow",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"slideshow:reveal-output\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"slideshow:reveal-output\"]"
       },
       "sourceRoots": [
         "electron/ipc/slideshow-runtime.ts",
@@ -5223,24 +5447,24 @@
     "steps": [
       {
         "name": "settings:get:initial",
-        "at": "2026-08-01T01:38:13.835Z",
+        "at": "2026-08-01T10:07:38.859Z",
         "ok": true,
         "value": "en"
       },
       {
         "name": "settings:set",
-        "at": "2026-08-01T01:38:13.836Z",
+        "at": "2026-08-01T10:07:38.862Z",
         "ok": true
       },
       {
         "name": "settings:get:changed",
-        "at": "2026-08-01T01:38:13.882Z",
+        "at": "2026-08-01T10:07:38.881Z",
         "ok": true,
         "value": "ar"
       },
       {
         "name": "settings:get-all",
-        "at": "2026-08-01T01:38:13.882Z",
+        "at": "2026-08-01T10:07:38.882Z",
         "ok": true,
         "value": {
           "language": "ar",
@@ -6020,59 +6244,59 @@
       },
       {
         "name": "settings:export",
-        "at": "2026-08-01T01:38:13.884Z",
+        "at": "2026-08-01T10:07:38.883Z",
         "ok": true,
-        "value": "{\n  \"schemaVersion\": 3,\n  \"product\": \"KNOUX Player X\",\n  \"exportedAt\": \"2026-08-01T01:38:13.884Z\",\n  \"settings\": {\n    \"language\": \"ar\",\n    \"theme\": \"deep-black\",\n    \"accentColor\": \"#8b5cf6\",\n    \"motionEnabled\": true,\n    \"autoPlay\": true,\n    \"resumePlayback\": true,\n    \"defaultVolume\": 0.8,\n    \"muted\": false,\n    \"playbackRate\": 1,\n    \"audioDevice\": \"default\",\n    \"equalizer\": [\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0\n    ],\n    \"enableDSP\": true,\n    \"hardwareAcceleration\": true,\n    \"deinterlace\": false,\n    \"aspectRatio\": \"auto\",\n    \"brightness\": 100,\n    \"contrast\": 100,\n    \"subtitleEnabled\": true,\n    \"subtitleLanguage\": \"auto\",\n    \"subtitleSize\": 24,\n    \"subtitleColor\": \"#ffffff\",\n    \"subtitleBackground\": \"#000000cc\",\n    \"subtitlePosition\": \"bottom\",\n    \"libraryPaths\": [],\n    \"autoScan\": false,\n    \"minimizeToTray\": false,\n    \"showNotifications\": true,\n    \"rememberWindowState\": true,\n    \"cacheSizeMB\": 512,\n    \"logLevel\": \"info\",\n    \"recordingToolbar\": {\n      \"order\": [\n        \"start\",\n        \"stop\",\n        \"pause\",\n        \"resume\",\n        \"cancel\",\n        \"screenshot\",\n        \"select-region\",\n        \"microphone\",\n        \"system-audio\",\n        \"camera-overlay\",\n        \"countdown\",\n        \"marker\",\n        \"open-output\"\n      ],\n      \"hidden\": [],\n      \"visible\": true,\n      \"mode\": \"full\",\n      \"size\": \"medium\",\n      \"location\": \"top\",\n      \"position\": {\n        \"x\": 24,\n        \"y\": 72\n      },\n      \"alwaysOnTop\": true,\n      \"hideFromCapture\": false\n    },\n    \"quickAccessToolbar\": {\n      \"visible\": true,\n      \"order\": [\n        \"open-file\",\n        \"open-library-folder\",\n        \"play-pause\",\n        \"screenshot\",\n        \"region-capture\",\n        \"record-start-stop\",\n        \"export\"\n      ],\n      \"hidden\": [],\n      \"mode\": \"full\",\n      \"size\": \"medium\",\n      \"location\": \"top\",\n      \"position\": {\n        \"x\": 300,\n        \"y\": 44\n      },\n      \"workspaceCommands\": {}\n    },\n    \"shortcuts\": [\n      {\n        \"command\": \"open-file\",\n        \"accelerator\": \"Ctrl+KeyO\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"open-library-folder\",\n        \"accelerator\": \"Ctrl+Shift+KeyO\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"play-pause\",\n        \"accelerator\": \"Space\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"stop\",\n        \"accelerator\": \"KeyS\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"seek-backward\",\n        \"accelerator\": \"ArrowLeft\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"seek-forward\",\n        \"accelerator\": \"ArrowRight\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"frame-step-backward\",\n        \"accelerator\": \"Shift+ArrowLeft\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"frame-step-forward\",\n        \"accelerator\": \"Shift+ArrowRight\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"screenshot\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"copy\",\n        \"accelerator\": \"Ctrl+Shift+KeyC\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"capture\"\n      },\n      {\n        \"command\": \"record-start-stop\",\n        \"accelerator\": \"Ctrl+Shift+KeyR\",\n        \"enabled\": true,\n        \"category\": \"recording\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"record-pause-resume\",\n        \"accelerator\": \"Ctrl+Shift+KeyP\",\n        \"enabled\": true,\n        \"category\": \"recording\",\n        \"context\": \"recording\"\n      },\n      {\n        \"command\": \"region-capture\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"capture\"\n      },\n      {\n        \"command\": \"split-clip\",\n        \"accelerator\": \"KeyS\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"trim-in\",\n        \"accelerator\": \"KeyI\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"trim-out\",\n        \"accelerator\": \"KeyO\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"undo\",\n        \"accelerator\": \"Ctrl+KeyZ\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"redo\",\n        \"accelerator\": \"Ctrl+KeyY\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"save\",\n        \"accelerator\": \"Ctrl+KeyS\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"save-as\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"export\",\n        \"accelerator\": \"Ctrl+KeyE\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"fullscreen\",\n        \"accelerator\": \"KeyF\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"theater-mode\",\n        \"accelerator\": \"KeyT\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"mute\",\n        \"accelerator\": \"KeyM\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"volume-up\",\n        \"accelerator\": \"ArrowUp\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"volume-down\",\n        \"accelerator\": \"ArrowDown\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"delete\",\n        \"accelerator\": \"Delete\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"cancel\",\n        \"accelerator\": \"Escape\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"confirm\",\n        \"accelerator\": \"Enter\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"global\"\n      }\n    ],\n    \"studioPresets\": [],\n    \"lastSelectedPresets\": {\n      \"capture\": null,\n      \"recording\": null,\n      \"export\": null,\n      \"slideshow\": null,\n      \"audio-tools\": null,\n      \"image-export\": null,\n      \"video-editing\": null\n    },\n    \"workspace\": {\n      \"moduleOrder\": [\n        \"player\",\n        \"library\",\n        \"queue\",\n        \"capture\",\n        \"recording\",\n        \"editor\",\n        \"image-editor\",\n        \"slideshow\",\n        \"audio-tools\",\n        \"export\",\n        \"settings\"\n      ],\n      \"hiddenModules\": [],\n      \"sidebarWidth\": 252,\n      \"timelineHeight\": 280,\n      \"panelSizes\": {\n        \"inspector\": 320,\n        \"mediaBin\": 280,\n        \"preview\": 520\n      },\n      \"collapsedSections\": [],\n      \"selectedWorkspace\": \"player\",\n      \"lastOpenedSection\": \"player\",\n      \"presets\": [\n        {\n          \"id\": \"player\",\n          \"name\": \"Player\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:play-pause\",\n            \"quick:fullscreen\",\n            \"quick:mute\"\n          ]\n        },\n        {\n          \"id\": \"library\",\n          \"name\": \"Library\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-library-folder\",\n            \"quick:open-file\",\n            \"quick:play-pause\"\n          ]\n        },\n        {\n          \"id\": \"recording\",\n          \"name\": \"Recording\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:record-start-stop\",\n            \"quick:record-pause-resume\",\n            \"quick:screenshot\"\n          ]\n        },\n        {\n          \"id\": \"screenshot\",\n          \"name\": \"Screenshot\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"recording\",\n            \"editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:screenshot\",\n            \"quick:region-capture\",\n            \"quick:copy\"\n          ]\n        },\n        {\n          \"id\": \"image\",\n          \"name\": \"Image\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"recording\",\n            \"editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:save-as\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"video\",\n          \"name\": \"Video\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 360,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:split-clip\",\n            \"quick:save\",\n            \"quick:undo\",\n            \"quick:redo\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"slideshow\",\n          \"name\": \"Slideshow\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"audio-tools\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"audio\",\n          \"name\": \"Audio\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"developer\",\n          \"name\": \"Developer\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:copy\",\n            \"quick:cancel\",\n            \"quick:confirm\"\n          ]\n        },\n        {\n          \"id\": \"minimal\",\n          \"name\": \"Minimal\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:play-pause\"\n          ]\n        },\n        {\n          \"id\": \"custom\",\n          \"name\": \"Custom\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:open-library-folder\",\n            \"quick:play-pause\",\n            \"quick:screenshot\",\n            \"quick:region-capture\",\n            \"quick:record-start-stop\",\n            \"quick:export\"\n          ]\n        }\n      ]\n    },\n    \"recordingConfiguration\": {\n      \"sourceId\": \"\",\n      \"captureMode\": \"source\",\n      \"resolution\": \"source\",\n      \"frameRate\": 30,\n      \"videoBitrate\": \"balanced\",\n      \"audioBitrate\": 192,\n      \"microphone\": false,\n      \"systemAudio\": true,\n      \"cameraOverlay\": false,\n      \"countdown\": 3,\n      \"outputFolder\": \"\",\n      \"filenameTemplate\": \"KNOUX-{source}-{date}-{time}\",\n      \"webmCodec\": \"vp9\"\n    }\n  }\n}\n"
+        "value": "{\n  \"schemaVersion\": 3,\n  \"product\": \"KNOUX Player X\",\n  \"exportedAt\": \"2026-08-01T10:07:38.884Z\",\n  \"settings\": {\n    \"language\": \"ar\",\n    \"theme\": \"deep-black\",\n    \"accentColor\": \"#8b5cf6\",\n    \"motionEnabled\": true,\n    \"autoPlay\": true,\n    \"resumePlayback\": true,\n    \"defaultVolume\": 0.8,\n    \"muted\": false,\n    \"playbackRate\": 1,\n    \"audioDevice\": \"default\",\n    \"equalizer\": [\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0\n    ],\n    \"enableDSP\": true,\n    \"hardwareAcceleration\": true,\n    \"deinterlace\": false,\n    \"aspectRatio\": \"auto\",\n    \"brightness\": 100,\n    \"contrast\": 100,\n    \"subtitleEnabled\": true,\n    \"subtitleLanguage\": \"auto\",\n    \"subtitleSize\": 24,\n    \"subtitleColor\": \"#ffffff\",\n    \"subtitleBackground\": \"#000000cc\",\n    \"subtitlePosition\": \"bottom\",\n    \"libraryPaths\": [],\n    \"autoScan\": false,\n    \"minimizeToTray\": false,\n    \"showNotifications\": true,\n    \"rememberWindowState\": true,\n    \"cacheSizeMB\": 512,\n    \"logLevel\": \"info\",\n    \"recordingToolbar\": {\n      \"order\": [\n        \"start\",\n        \"stop\",\n        \"pause\",\n        \"resume\",\n        \"cancel\",\n        \"screenshot\",\n        \"select-region\",\n        \"microphone\",\n        \"system-audio\",\n        \"camera-overlay\",\n        \"countdown\",\n        \"marker\",\n        \"open-output\"\n      ],\n      \"hidden\": [],\n      \"visible\": true,\n      \"mode\": \"full\",\n      \"size\": \"medium\",\n      \"location\": \"top\",\n      \"position\": {\n        \"x\": 24,\n        \"y\": 72\n      },\n      \"alwaysOnTop\": true,\n      \"hideFromCapture\": false\n    },\n    \"quickAccessToolbar\": {\n      \"visible\": true,\n      \"order\": [\n        \"open-file\",\n        \"open-library-folder\",\n        \"play-pause\",\n        \"screenshot\",\n        \"region-capture\",\n        \"record-start-stop\",\n        \"export\"\n      ],\n      \"hidden\": [],\n      \"mode\": \"full\",\n      \"size\": \"medium\",\n      \"location\": \"top\",\n      \"position\": {\n        \"x\": 300,\n        \"y\": 44\n      },\n      \"workspaceCommands\": {}\n    },\n    \"shortcuts\": [\n      {\n        \"command\": \"open-file\",\n        \"accelerator\": \"Ctrl+KeyO\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"open-library-folder\",\n        \"accelerator\": \"Ctrl+Shift+KeyO\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"play-pause\",\n        \"accelerator\": \"Space\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"stop\",\n        \"accelerator\": \"KeyS\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"seek-backward\",\n        \"accelerator\": \"ArrowLeft\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"seek-forward\",\n        \"accelerator\": \"ArrowRight\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"frame-step-backward\",\n        \"accelerator\": \"Shift+ArrowLeft\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"frame-step-forward\",\n        \"accelerator\": \"Shift+ArrowRight\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"screenshot\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"copy\",\n        \"accelerator\": \"Ctrl+Shift+KeyC\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"capture\"\n      },\n      {\n        \"command\": \"record-start-stop\",\n        \"accelerator\": \"Ctrl+Shift+KeyR\",\n        \"enabled\": true,\n        \"category\": \"recording\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"record-pause-resume\",\n        \"accelerator\": \"Ctrl+Shift+KeyP\",\n        \"enabled\": true,\n        \"category\": \"recording\",\n        \"context\": \"recording\"\n      },\n      {\n        \"command\": \"region-capture\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"capture\",\n        \"context\": \"capture\"\n      },\n      {\n        \"command\": \"split-clip\",\n        \"accelerator\": \"KeyS\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"trim-in\",\n        \"accelerator\": \"KeyI\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"trim-out\",\n        \"accelerator\": \"KeyO\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"undo\",\n        \"accelerator\": \"Ctrl+KeyZ\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"redo\",\n        \"accelerator\": \"Ctrl+KeyY\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"save\",\n        \"accelerator\": \"Ctrl+KeyS\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"save-as\",\n        \"accelerator\": \"Ctrl+Shift+KeyS\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"export\",\n        \"accelerator\": \"Ctrl+KeyE\",\n        \"enabled\": true,\n        \"category\": \"file\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"fullscreen\",\n        \"accelerator\": \"KeyF\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"theater-mode\",\n        \"accelerator\": \"KeyT\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"mute\",\n        \"accelerator\": \"KeyM\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"volume-up\",\n        \"accelerator\": \"ArrowUp\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"volume-down\",\n        \"accelerator\": \"ArrowDown\",\n        \"enabled\": true,\n        \"category\": \"playback\",\n        \"context\": \"player\"\n      },\n      {\n        \"command\": \"delete\",\n        \"accelerator\": \"Delete\",\n        \"enabled\": true,\n        \"category\": \"editing\",\n        \"context\": \"editor\"\n      },\n      {\n        \"command\": \"cancel\",\n        \"accelerator\": \"Escape\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"global\"\n      },\n      {\n        \"command\": \"confirm\",\n        \"accelerator\": \"Enter\",\n        \"enabled\": true,\n        \"category\": \"workspace\",\n        \"context\": \"global\"\n      }\n    ],\n    \"studioPresets\": [],\n    \"lastSelectedPresets\": {\n      \"capture\": null,\n      \"recording\": null,\n      \"export\": null,\n      \"slideshow\": null,\n      \"audio-tools\": null,\n      \"image-export\": null,\n      \"video-editing\": null\n    },\n    \"workspace\": {\n      \"moduleOrder\": [\n        \"player\",\n        \"library\",\n        \"queue\",\n        \"capture\",\n        \"recording\",\n        \"editor\",\n        \"image-editor\",\n        \"slideshow\",\n        \"audio-tools\",\n        \"export\",\n        \"settings\"\n      ],\n      \"hiddenModules\": [],\n      \"sidebarWidth\": 252,\n      \"timelineHeight\": 280,\n      \"panelSizes\": {\n        \"inspector\": 320,\n        \"mediaBin\": 280,\n        \"preview\": 520\n      },\n      \"collapsedSections\": [],\n      \"selectedWorkspace\": \"player\",\n      \"lastOpenedSection\": \"player\",\n      \"presets\": [\n        {\n          \"id\": \"player\",\n          \"name\": \"Player\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:play-pause\",\n            \"quick:fullscreen\",\n            \"quick:mute\"\n          ]\n        },\n        {\n          \"id\": \"library\",\n          \"name\": \"Library\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-library-folder\",\n            \"quick:open-file\",\n            \"quick:play-pause\"\n          ]\n        },\n        {\n          \"id\": \"recording\",\n          \"name\": \"Recording\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:record-start-stop\",\n            \"quick:record-pause-resume\",\n            \"quick:screenshot\"\n          ]\n        },\n        {\n          \"id\": \"screenshot\",\n          \"name\": \"Screenshot\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"recording\",\n            \"editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:screenshot\",\n            \"quick:region-capture\",\n            \"quick:copy\"\n          ]\n        },\n        {\n          \"id\": \"image\",\n          \"name\": \"Image\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"recording\",\n            \"editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:save-as\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"video\",\n          \"name\": \"Video\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 360,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:split-clip\",\n            \"quick:save\",\n            \"quick:undo\",\n            \"quick:redo\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"slideshow\",\n          \"name\": \"Slideshow\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"audio-tools\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"audio\",\n          \"name\": \"Audio\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"player\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:save\",\n            \"quick:export\"\n          ]\n        },\n        {\n          \"id\": \"developer\",\n          \"name\": \"Developer\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:copy\",\n            \"quick:cancel\",\n            \"quick:confirm\"\n          ]\n        },\n        {\n          \"id\": \"minimal\",\n          \"name\": \"Minimal\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\"\n          ],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:play-pause\"\n          ]\n        },\n        {\n          \"id\": \"custom\",\n          \"name\": \"Custom\",\n          \"moduleOrder\": [\n            \"player\",\n            \"library\",\n            \"queue\",\n            \"capture\",\n            \"recording\",\n            \"editor\",\n            \"image-editor\",\n            \"slideshow\",\n            \"audio-tools\",\n            \"export\",\n            \"settings\"\n          ],\n          \"hiddenModules\": [],\n          \"sidebarWidth\": 252,\n          \"timelineHeight\": 280,\n          \"panelSizes\": {\n            \"inspector\": 320,\n            \"mediaBin\": 280,\n            \"preview\": 520\n          },\n          \"collapsedSections\": [\n            \"quick:open-file\",\n            \"quick:open-library-folder\",\n            \"quick:play-pause\",\n            \"quick:screenshot\",\n            \"quick:region-capture\",\n            \"quick:record-start-stop\",\n            \"quick:export\"\n          ]\n        }\n      ]\n    },\n    \"recordingConfiguration\": {\n      \"sourceId\": \"\",\n      \"captureMode\": \"source\",\n      \"resolution\": \"source\",\n      \"frameRate\": 30,\n      \"videoBitrate\": \"balanced\",\n      \"audioBitrate\": 192,\n      \"microphone\": false,\n      \"systemAudio\": true,\n      \"cameraOverlay\": false,\n      \"countdown\": 3,\n      \"outputFolder\": \"\",\n      \"filenameTemplate\": \"KNOUX-{source}-{date}-{time}\",\n      \"webmCodec\": \"vp9\"\n    }\n  }\n}\n"
       },
       {
         "name": "settings:reset:key",
-        "at": "2026-08-01T01:38:13.886Z",
+        "at": "2026-08-01T10:07:38.885Z",
         "ok": true
       },
       {
         "name": "settings:import",
-        "at": "2026-08-01T01:38:13.944Z",
+        "at": "2026-08-01T10:07:38.944Z",
         "ok": true
       },
       {
         "name": "settings:get:imported",
-        "at": "2026-08-01T01:38:13.983Z",
+        "at": "2026-08-01T10:07:38.990Z",
         "ok": true,
         "value": "ar"
       },
       {
         "name": "settings:set:cleanup",
-        "at": "2026-08-01T01:38:13.984Z",
+        "at": "2026-08-01T10:07:38.990Z",
         "ok": true
       },
       {
         "name": "file:open:cancellation",
-        "at": "2026-08-01T01:38:14.041Z",
+        "at": "2026-08-01T10:07:39.003Z",
         "ok": true,
         "value": null
       },
       {
         "name": "file:save:cancellation",
-        "at": "2026-08-01T01:38:14.042Z",
+        "at": "2026-08-01T10:07:39.004Z",
         "ok": true,
         "value": null
       },
       {
         "name": "file:exists",
-        "at": "2026-08-01T01:38:14.043Z",
+        "at": "2026-08-01T10:07:39.004Z",
         "ok": true,
         "value": true
       },
       {
         "name": "system:info",
-        "at": "2026-08-01T01:38:14.043Z",
+        "at": "2026-08-01T10:07:39.005Z",
         "ok": true,
         "value": {
           "product": "KNOUX Player X",
           "version": "2.0.0",
-          "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-          "branch": "fix/native-runtime-and-creative-suite-completion",
-          "builtAt": "2026-08-01T01:37:22.259Z",
+          "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+          "branch": "feat/offline-creative-studio-professional-completion",
+          "builtAt": "2026-08-01T10:06:44.147Z",
           "packaged": true,
           "electronVersion": "32.3.3",
           "platform": "win32",
@@ -6083,21 +6307,21 @@
       },
       {
         "name": "system:build-info",
-        "at": "2026-08-01T01:38:14.044Z",
+        "at": "2026-08-01T10:07:39.005Z",
         "ok": true,
         "value": {
           "product": "KNOUX Player X",
           "version": "2.0.0",
-          "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-          "branch": "fix/native-runtime-and-creative-suite-completion",
-          "builtAt": "2026-08-01T01:37:22.259Z",
+          "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+          "branch": "feat/offline-creative-studio-professional-completion",
+          "builtAt": "2026-08-01T10:06:44.147Z",
           "packaged": true,
           "electronVersion": "32.3.3"
         }
       },
       {
         "name": "system:ipc-health",
-        "at": "2026-08-01T01:38:14.045Z",
+        "at": "2026-08-01T10:07:39.006Z",
         "ok": true,
         "value": {
           "schemaVersion": 1,
@@ -6228,12 +6452,20 @@
             "slideshow:cancel-render",
             "slideshow:clear-recent",
             "slideshow:create",
+            "slideshow:import-files",
+            "slideshow:import-folder",
             "slideshow:open",
+            "slideshow:open-output",
             "slideshow:open-recent",
+            "slideshow:preflight",
             "slideshow:recent",
+            "slideshow:recover-backup",
             "slideshow:recoveries",
+            "slideshow:relink-file",
+            "slideshow:relink-folder",
             "slideshow:render",
             "slideshow:render-jobs",
+            "slideshow:reveal-output",
             "slideshow:save",
             "subtitle:delay",
             "subtitle:download",
@@ -6896,7 +7128,22 @@
               "count": 1
             },
             {
+              "channel": "slideshow:import-files",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
+              "channel": "slideshow:import-folder",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
               "channel": "slideshow:open",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
+              "channel": "slideshow:open-output",
               "owner": "slideshow",
               "count": 1
             },
@@ -6906,12 +7153,32 @@
               "count": 1
             },
             {
+              "channel": "slideshow:preflight",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
               "channel": "slideshow:recent",
               "owner": "slideshow",
               "count": 1
             },
             {
+              "channel": "slideshow:recover-backup",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
               "channel": "slideshow:recoveries",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
+              "channel": "slideshow:relink-file",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
+              "channel": "slideshow:relink-folder",
               "owner": "slideshow",
               "count": 1
             },
@@ -6922,6 +7189,11 @@
             },
             {
               "channel": "slideshow:render-jobs",
+              "owner": "slideshow",
+              "count": 1
+            },
+            {
+              "channel": "slideshow:reveal-output",
               "owner": "slideshow",
               "count": 1
             },
@@ -7134,9 +7406,9 @@
           "preloadExists": true,
           "packaged": true,
           "version": "2.0.0",
-          "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-          "branch": "fix/native-runtime-and-creative-suite-completion",
-          "buildTimestamp": "2026-08-01T01:37:22.259Z",
+          "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+          "branch": "feat/offline-creative-studio-professional-completion",
+          "buildTimestamp": "2026-08-01T10:06:44.147Z",
           "electronVersion": "32.3.3"
         }
       }
@@ -7144,9 +7416,9 @@
     "systemInfo": {
       "product": "KNOUX Player X",
       "version": "2.0.0",
-      "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-      "branch": "fix/native-runtime-and-creative-suite-completion",
-      "builtAt": "2026-08-01T01:37:22.259Z",
+      "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+      "branch": "feat/offline-creative-studio-professional-completion",
+      "builtAt": "2026-08-01T10:06:44.147Z",
       "packaged": true,
       "electronVersion": "32.3.3",
       "platform": "win32",
@@ -7157,9 +7429,9 @@
     "buildInfo": {
       "product": "KNOUX Player X",
       "version": "2.0.0",
-      "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-      "branch": "fix/native-runtime-and-creative-suite-completion",
-      "builtAt": "2026-08-01T01:37:22.259Z",
+      "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+      "branch": "feat/offline-creative-studio-professional-completion",
+      "builtAt": "2026-08-01T10:06:44.147Z",
       "packaged": true,
       "electronVersion": "32.3.3"
     },
@@ -7292,12 +7564,20 @@
         "slideshow:cancel-render",
         "slideshow:clear-recent",
         "slideshow:create",
+        "slideshow:import-files",
+        "slideshow:import-folder",
         "slideshow:open",
+        "slideshow:open-output",
         "slideshow:open-recent",
+        "slideshow:preflight",
         "slideshow:recent",
+        "slideshow:recover-backup",
         "slideshow:recoveries",
+        "slideshow:relink-file",
+        "slideshow:relink-folder",
         "slideshow:render",
         "slideshow:render-jobs",
+        "slideshow:reveal-output",
         "slideshow:save",
         "subtitle:delay",
         "subtitle:download",
@@ -7960,7 +8240,22 @@
           "count": 1
         },
         {
+          "channel": "slideshow:import-files",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
+          "channel": "slideshow:import-folder",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
           "channel": "slideshow:open",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
+          "channel": "slideshow:open-output",
           "owner": "slideshow",
           "count": 1
         },
@@ -7970,12 +8265,32 @@
           "count": 1
         },
         {
+          "channel": "slideshow:preflight",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
           "channel": "slideshow:recent",
           "owner": "slideshow",
           "count": 1
         },
         {
+          "channel": "slideshow:recover-backup",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
           "channel": "slideshow:recoveries",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
+          "channel": "slideshow:relink-file",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
+          "channel": "slideshow:relink-folder",
           "owner": "slideshow",
           "count": 1
         },
@@ -7986,6 +8301,11 @@
         },
         {
           "channel": "slideshow:render-jobs",
+          "owner": "slideshow",
+          "count": 1
+        },
+        {
+          "channel": "slideshow:reveal-output",
           "owner": "slideshow",
           "count": 1
         },
@@ -8198,9 +8518,9 @@
       "preloadExists": true,
       "packaged": true,
       "version": "2.0.0",
-      "sha": "46e45cbd4ffa7f3fe460249d404a2b765596127a",
-      "branch": "fix/native-runtime-and-creative-suite-completion",
-      "buildTimestamp": "2026-08-01T01:37:22.259Z",
+      "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
+      "branch": "feat/offline-creative-studio-professional-completion",
+      "buildTimestamp": "2026-08-01T10:06:44.147Z",
       "electronVersion": "32.3.3"
     }
   },
@@ -8213,6 +8533,6 @@
     "hasCoreApi": true,
     "hasCreativeApi": true
   },
-  "startedAt": "2026-08-01T01:38:13.611Z",
-  "completedAt": "2026-08-01T01:38:14.051Z"
+  "startedAt": "2026-08-01T10:07:38.728Z",
+  "completedAt": "2026-08-01T10:07:39.011Z"
 }

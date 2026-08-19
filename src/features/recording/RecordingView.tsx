@@ -23,6 +23,7 @@ import type { RecordingSessionSnapshot } from '../../../electron/creative/record
 import type { DesktopCaptureSource } from '../../../electron/preload-creative';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import {
@@ -897,28 +898,24 @@ export const RecordingView: React.FC = () => {
           <div className="creative-form-grid recording-options-grid">
             <label>
               <span>{t('recording.source')}</span>
-              <select value={effectiveSourceId} onChange={(event) => {
-                setSelectedSourceId(event.target.value);
+              <NeonSelect value={effectiveSourceId} onChange={(value) => {
+                setSelectedSourceId(value);
                 setRegionSelection(null);
-              }} disabled={status !== 'idle' || captureMode === 'player'}>
-                {sources.filter((source) => captureMode !== 'region' || source.id.startsWith('screen:')).map((source) => (
-                  <option key={source.id} value={source.id}>{source.name}</option>
-                ))}
-              </select>
+              }} disabled={status !== 'idle' || captureMode === 'player'} options={sources.filter((source) => captureMode !== 'region' || source.id.startsWith('screen:')).map((source) => ({ value: source.id, label: source.name }))} />
             </label>
-            <label><span>{t('recording.resolution')}</span><select value={resolution} onChange={(event) => setResolution(event.target.value as RecordingResolutionPreset)} disabled={status !== 'idle'}>{resolutionPresets.map((entry) => <option key={entry} value={entry}>{entry === 'source' ? t('recording.sourceResolution') : entry.toUpperCase()}</option>)}</select></label>
-            <label><span>{t('recording.frameRate')}</span><select value={frameRate} onChange={(event) => setFrameRate(recordingFrameRate(Number(event.target.value)))} disabled={status !== 'idle'}>{frameRates.map((entry) => <option key={entry} value={entry}>{entry} FPS</option>)}</select></label>
-            <label><span>{t('recording.bitrate')}</span><select value={bitratePreset} onChange={(event) => setBitratePreset(event.target.value as RecordingBitratePreset)} disabled={status !== 'idle'}>{bitratePresets.map((entry) => <option key={entry} value={entry}>{t(`recording.bitrate_${entry}`)}</option>)}</select></label>
-            <label><span>Audio bitrate</span><select value={audioBitrate} onChange={(event) => setAudioBitrate(Number(event.target.value) as RecordingConfiguration['audioBitrate'])} disabled={status !== 'idle'}>{[96, 128, 160, 192, 256, 320].map((entry) => <option key={entry} value={entry}>{entry} kbps</option>)}</select></label>
-            <label><span>{t('recording.countdown')}</span><select value={countdownSeconds} onChange={(event) => setCountdownSeconds(recordingCountdown(Number(event.target.value)))} disabled={status !== 'idle'}>{countdowns.map((entry) => <option key={entry} value={entry}>{entry === 0 ? t('recording.noCountdown') : `${entry}s`}</option>)}</select></label>
-            <label><span>WebM codec</span><select value={webmCodec} onChange={(event) => setWebmCodec(event.target.value as RecordingConfiguration['webmCodec'])} disabled={status !== 'idle'}><option value="vp9">VP9 + Opus</option><option value="vp8">VP8 + Opus</option></select></label>
+            <label><span>{t('recording.resolution')}</span><NeonSelect value={resolution} onChange={(value) => setResolution(value as RecordingResolutionPreset)} disabled={status !== 'idle'} options={resolutionPresets.map((entry) => ({ value: entry, label: entry === 'source' ? t('recording.sourceResolution') : entry.toUpperCase() }))} /></label>
+            <label><span>{t('recording.frameRate')}</span><NeonSelect value={String(frameRate)} onChange={(value) => setFrameRate(recordingFrameRate(Number(value)))} disabled={status !== 'idle'} options={frameRates.map((entry) => ({ value: String(entry), label: `${entry} FPS` }))} /></label>
+            <label><span>{t('recording.bitrate')}</span><NeonSelect value={bitratePreset} onChange={(value) => setBitratePreset(value as RecordingBitratePreset)} disabled={status !== 'idle'} options={bitratePresets.map((entry) => ({ value: entry, label: t(`recording.bitrate_${entry}`) }))} /></label>
+            <label><span>Audio bitrate</span><NeonSelect value={String(audioBitrate)} onChange={(value) => setAudioBitrate(Number(value) as RecordingConfiguration['audioBitrate'])} disabled={status !== 'idle'} options={[96, 128, 160, 192, 256, 320].map((entry) => ({ value: String(entry), label: `${entry} kbps` }))} /></label>
+            <label><span>{t('recording.countdown')}</span><NeonSelect value={String(countdownSeconds)} onChange={(value) => setCountdownSeconds(recordingCountdown(Number(value)))} disabled={status !== 'idle'} options={countdowns.map((entry) => ({ value: String(entry), label: entry === 0 ? t('recording.noCountdown') : `${entry}s` }))} /></label>
+            <label><span>WebM codec</span><NeonSelect value={webmCodec} onChange={(value) => setWebmCodec(value as RecordingConfiguration['webmCodec'])} disabled={status !== 'idle'} options={[{ value: 'vp9', label: 'VP9 + Opus' }, { value: 'vp8', label: 'VP8 + Opus' }]} /></label>
             <label><span>Filename template</span><input value={filenameTemplate} onChange={(event) => setFilenameTemplate(event.target.value)} disabled={status !== 'idle'} /></label>
             <label><span>Output folder</span><span className="recording-output-picker"><input value={outputFolder} readOnly dir="auto" /><button type="button" disabled={status !== 'idle'} title={t('recording.chooseOutputFolder')} aria-label={t('recording.chooseOutputFolder')} data-disabled-reason={status !== 'idle' ? `Output folder is locked while ${status}.` : undefined} onClick={() => void chooseOutputFolder()}><FolderOpen size={15} /></button></span></label>
           </div>
 
           {captureMode === 'region' && (
             <div className="recording-region-controls">
-              <label><span>{t('recording.regionAspect')}</span><select value={regionAspect} onChange={(event) => setRegionAspect(event.target.value as RegionAspectPreset)} disabled={status !== 'idle'}>{aspectPresets.map((entry) => <option key={entry} value={entry}>{entry === 'free' ? t('capture.freeAspect') : entry}</option>)}</select></label>
+              <label><span>{t('recording.regionAspect')}</span><NeonSelect value={regionAspect} onChange={(value) => setRegionAspect(value as RegionAspectPreset)} disabled={status !== 'idle'} options={aspectPresets.map((entry) => ({ value: entry, label: entry === 'free' ? t('capture.freeAspect') : entry }))} /></label>
               <NeonButton variant="secondary" leftIcon={<Crop size={15} />} onClick={() => void chooseRecordingRegion()} disabled={!selectedSourceId.startsWith('screen:') || status !== 'idle'}>{t('recording.selectRegion')}</NeonButton>
               {regionSelection && <span dir="ltr">X {regionSelection.selection.x} · Y {regionSelection.selection.y} · {regionSelection.selection.width}×{regionSelection.selection.height}</span>}
             </div>

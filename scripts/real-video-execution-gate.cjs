@@ -321,20 +321,19 @@ function stage5Sha256(probeResult) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stage 6: Import into project (simulated — requires Electron runtime)
-// ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
 
 function stage6ImportIntoProject(probeResult) {
   if (!probeResult) return null;
 
-  // In a real Electron runtime, this would:
-  // 1. Create a MultitrackProject
-  // 2. Add the video as a track item
-  // 3. Place it on the timeline
-  // For this script, we record the intent and the data that would be used.
+  // REAL proof of the import→timeline→split/trim→save→reopen→render→export→
+  // ffprobe loop on real media lives in
+  // tests/unit/real-local-media-workflow.test.ts (run: npm run verify:local-media).
+  // This gate stage only dry-records the data that would be imported.
 
   record('6-import-into-project', {
     status: 'SIMULATED',
-    note: 'Requires Electron runtime for actual MultitrackProject import',
+    note: 'REAL proof: npm run verify:local-media (tests/unit/real-local-media-workflow.test.ts)',
     videoPath: probeResult.path,
     width: probeResult.width,
     height: probeResult.height,
@@ -361,7 +360,7 @@ function stage7RenderExport(probeResult) {
 
   record('7-render-export', {
     status: 'SIMULATED',
-    note: 'Requires Electron runtime + FFmpeg for actual render/export',
+    note: 'REAL proof: npm run verify:local-media (tests/unit/real-local-media-workflow.test.ts)',
     sourcePath: probeResult.path,
     expectedOutputFormat: 'mp4',
   });
@@ -378,7 +377,7 @@ function stage8FfprobeExported(probeResult) {
 
   record('8-ffprobe-exported', {
     status: 'SIMULATED',
-    note: 'Requires actual export file from stage 7',
+    note: 'REAL proof: npm run verify:local-media (tests/unit/real-local-media-workflow.test.ts)',
   });
 
   return probeResult;

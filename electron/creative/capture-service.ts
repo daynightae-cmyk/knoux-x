@@ -11,6 +11,7 @@ import {
   dataUrlByteLength,
   decodeCaptureDataUrl,
 } from '../../src/core/creative/capture';
+import { writeFileAtomic } from '../fs/atomic-write';
 
 const MAX_CAPTURE_BYTES = 64 * 1024 * 1024;
 const MAX_BURST_FRAMES = 120;
@@ -178,7 +179,10 @@ export class CaptureService {
     if (result.canceled || !result.filePath) return null;
 
     const destination = normalizeSelectedExtension(path.resolve(result.filePath), request.format);
-    await fs.writeFile(destination, decoded.bytes);
+    // Atomic export: temp file in the destination directory → fsync → rename.
+    // The destination is never partially written and stays intact on failure;
+    // the temp file is cleaned up by writeFileAtomic in every failure path.
+    await writeFileAtomic(destination, decoded.bytes);
     await this.remember(destination);
     return destination;
   }
@@ -217,7 +221,7 @@ export class CaptureService {
         capturedAt,
       );
       const destination = path.join(directory, fileName);
-      await fs.writeFile(destination, decoded.bytes);
+      await writeFileAtomic(destination, decoded.bytes);
       saved.push(destination);
       await this.remember(destination);
     }
@@ -246,7 +250,7 @@ export class CaptureService {
     if (result.canceled || !result.filePath) return null;
 
     const destination = normalizeSelectedExtension(path.resolve(result.filePath), 'png');
-    await fs.writeFile(destination, output);
+    await writeFileAtomic(destination, output);
     await this.remember(destination);
     return destination;
   }

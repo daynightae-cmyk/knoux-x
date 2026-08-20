@@ -46,6 +46,7 @@ import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../
 import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
 import { RetouchLayerStack } from './retouch/RetouchLayerStack';
 import { FaceAnalysisClient } from './retouch/faceAnalysisClient';
+import { RetouchJobScheduler, type InteractiveEngine } from './retouch/RetouchJobScheduler';
 import { RetouchRenderQueue } from './retouch/retouchRenderQueue';
 import type { FaceAnalysisResult } from './retouch/faceAnalysisContract';
 import {
@@ -320,6 +321,13 @@ export const ImageEditorView: React.FC = () => {
   const openCvClientRef = useRef<OpenCvClient | null>(null);
   const memoryGovernorRef = useRef<MemoryGovernor | null>(null);
   if (memoryGovernorRef.current === null) memoryGovernorRef.current = new MemoryGovernor(classifyDevice());
+  const retouchJobSchedulerRef = useRef<RetouchJobScheduler | null>(null);
+  if (retouchJobSchedulerRef.current === null) {
+    retouchJobSchedulerRef.current = new RetouchJobScheduler(memoryGovernorRef.current, (engine, jobId) => {
+      if (engine === 'render-queue') retouchRenderQueueRef.current?.cancelById(jobId);
+      else openCvClientRef.current?.cancelJob(jobId);
+    });
+  }
   const liquifyStrokesRef = useRef<LiquifyStroke[]>([]);
   const previewTimerRef = useRef<number | null>(null);
   const [liquifyStrokeVersion, setLiquifyStrokeVersion] = useState(0);
@@ -1021,6 +1029,7 @@ export const ImageEditorView: React.FC = () => {
     setSelection(null);
     setDocumentWidth(0);
     setDocumentHeight(0);
+    retouchJobSchedulerRef.current?.cancelActive();
     clearOverlay();
     clearSource();
     setRetouchProject(null);
@@ -1333,14 +1342,40 @@ export const ImageEditorView: React.FC = () => {
     setBeautyMask(inverted);
   }, [beautyMask, setBeautyMask]);
 
-  /** Shared preview executor: worker queue (desktop) → OpenCV accelerated → JS fallback. */
-  const runPreviewEffect = useCallback(async (imageData: ImageData): Promise<ImageData> => {
+  /**
+   * Engine selection for an interactive preview. The OpenCV worker is picked
+   * for guided skin only when its capability probe actually reports a usable
+   * ximgproc; everything else dispatches through the render queue.
+   */
+  const previewEngineFor = useCallback(async (): Promise<InteractiveEngine> => {
+    if (beautyTool !== 'skin-smoothing') return 'render-queue';
+    const client = openCvClientRef.current;
+    if (!client) return 'render-queue';
+    const caps = await client.readiness().catch(() => null);
+    return caps?.available && caps.ximgproc ? 'opencv' : 'render-queue';
+  }, [beautyTool]);
+
+  /** Run one dispatched preview on the chosen engine. Never called twice for the same lease. */
+  const runPreviewOnEngine = useCallback(async (engine: InteractiveEngine, imageData: ImageData, jobId: string): Promise<ImageData | null> => {
+    if (engine === 'opencv') {
+      const client = openCvClientRef.current;
+      if (!client) return null;
+      const result = await client.guidedSkin({
+        image: cloneImageData(imageData),
+        strength: beautyStrength,
+        texturePreserve: 0.76,
+        mask: resolveBeautyMask(imageData),
+        jobId,
+      });
+      return result.ok ? result.image : null;
+    }
     if (beautyTool === 'liquify' || beautyTool === 'body-sculpt') {
       const strokes = clampLiquifyStrokes(liquifyStrokesRef.current, imageData.width, imageData.height);
       if (strokes.length === 0) return cloneImageData(imageData);
       const settings = { cellSize: imageData.width > 1600 ? 24 : 16 };
       if (retouchRenderQueueRef.current) {
         return retouchRenderQueueRef.current.enqueue({
+          id: jobId,
           dedupeKey: 'beauty:liquify-mesh-preview',
           priority: 'interactive',
           image: cloneImageData(imageData),
@@ -1351,32 +1386,16 @@ export const ImageEditorView: React.FC = () => {
     }
     if (beautyTool === 'skin-smoothing') {
       const mask = resolveBeautyMask(imageData);
-      const openCv = openCvClientRef.current;
-      const accelerated = async (): Promise<ImageData | null> => {
-        if (!openCv) return null;
-        try {
-          const result = await openCv.guidedSkin({
-            image: cloneImageData(imageData),
-            strength: beautyStrength,
-            texturePreserve: 0.76,
-            mask,
-          });
-          return result.ok ? result.image : null;
-        } catch {
-          return null;
-        }
-      };
       if (retouchRenderQueueRef.current) {
-        const result = await accelerated();
-        if (result) return result;
         return retouchRenderQueueRef.current.enqueue({
+          id: jobId,
           dedupeKey: 'beauty:guided-skin-preview',
           priority: 'interactive',
           image: cloneImageData(imageData),
           operation: { kind: 'guided-skin', strength: beautyStrength, texturePreserve: 0.76, mask },
         });
       }
-      return (await accelerated()) ?? guidedSkinSmooth(imageData, beautyStrength, 0.76, mask);
+      return guidedSkinSmooth(imageData, beautyStrength, 0.76, mask);
     }
     return runBeautyOperation(imageData);
   }, [beautyStrength, beautyTool, resolveBeautyMask, runBeautyOperation]);
@@ -1391,8 +1410,18 @@ export const ImageEditorView: React.FC = () => {
       previewTimerRef.current = null;
     }
 
-    const governor = memoryGovernorRef.current;
-    if (governor && !manual && governor.shouldSkipInteractive(imageData.width, imageData.height)) {
+    const scheduler = retouchJobSchedulerRef.current;
+    if (!scheduler) return;
+
+    // Strict serialization: a replacement dispatch may not start while the
+    // previous interactive job is still computing (single active preview per
+    // document, regardless of engine).
+    await scheduler.waitUntilIdle();
+
+    const engine = await previewEngineFor();
+    const jobId = `preview-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const lease = scheduler.beginInteractive({ engine, jobId, width: imageData.width, height: imageData.height, manual });
+    if (!lease) {
       retouchTelemetry.record('beauty-preview-skipped', 0, MemoryGovernor.footprintFor(imageData.width, imageData.height));
       return;
     }
@@ -1403,8 +1432,9 @@ export const ImageEditorView: React.FC = () => {
 
     const startedAt = performance.now();
     try {
-      const result = await runPreviewEffect(imageData);
-      if (sequence !== previewSeqRef.current) return; // superseded by a newer preview
+      const result = await runPreviewOnEngine(engine, imageData, jobId);
+      if (lease.ended || sequence !== previewSeqRef.current) return; // superseded — discard
+      if (!result) throw new Error('The beauty preview produced no output.');
       const previewCanvas = document.createElement('canvas');
       previewCanvas.width = result.width;
       previewCanvas.height = result.height;
@@ -1415,9 +1445,10 @@ export const ImageEditorView: React.FC = () => {
       if (err instanceof Error && err.name === 'AbortError') return; // superseded — never an error
       setError(err instanceof Error ? err.message : 'Beauty preview failed.');
     } finally {
+      scheduler.endInteractive(lease);
       setBeautyBusy(false);
     }
-  }, [beautyBeforeSnapshot, beautyTool, getCanvasImageData, hasDocument, runPreviewEffect, setBeautyBeforeSnapshot, setBeautyBusy, setBeautyPreview, setError]);
+  }, [beautyBeforeSnapshot, beautyTool, getCanvasImageData, hasDocument, previewEngineFor, runPreviewOnEngine, setBeautyBeforeSnapshot, setBeautyBusy, setBeautyPreview, setError]);
 
   runBeautyPreviewRef.current = handleBeautyPreview;
 
@@ -1479,6 +1510,7 @@ export const ImageEditorView: React.FC = () => {
       });
       const nextProject = addRetouchOperation(addRetouchMask(project, mask), operation);
       setRetouchProject(nextProject);
+      retouchJobSchedulerRef.current?.cancelActive();
       await renderRetouchProject(nextProject);
       liquifyStrokesRef.current = [];
       setLiquifyStrokeVersion((version) => version + 1);
@@ -1526,6 +1558,7 @@ export const ImageEditorView: React.FC = () => {
       previewTimerRef.current = null;
     }
     previewSeqRef.current += 1;
+    retouchJobSchedulerRef.current?.cancelActive();
     liquifyStrokesRef.current = [];
     setLiquifyStrokeVersion((version) => version + 1);
     setBeautyPreview(null);

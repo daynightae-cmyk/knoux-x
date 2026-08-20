@@ -17,6 +17,8 @@ export interface GuidedSkinRequest {
   texturePreserve?: number;
   mask?: ImageData;
   eps?: number;
+  /** Optional explicit job id so the scheduler can cancel the exact job. */
+  jobId?: string;
 }
 
 export interface OpenCvResult {
@@ -100,11 +102,26 @@ export class OpenCvClient {
     if (!caps.available || !caps.ximgproc) {
       return { ok: false, caps, image: null, reason: caps.reason ?? 'OpenCV guided filter is unavailable.' };
     }
-    const jobId = `cv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const jobId = request.jobId ?? `cv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return new Promise<OpenCvResult>((resolve) => {
       this.pending.set(jobId, resolve);
       this.worker.postMessage({ type: 'guided-skin', jobId, ...request }, [request.image.data.buffer as ArrayBuffer]);
     });
+  }
+
+  /**
+   * Cooperative cancellation of a guided-skin job (used by the job scheduler
+   * when a preview is superseded). The pending result is rejected immediately
+   * and the long-lived worker is asked to abort between processing chunks —
+   * never terminated or recreated per slider move.
+   */
+  cancelJob(jobId: string): void {
+    const resolve = this.pending.get(jobId);
+    if (resolve) {
+      this.pending.delete(jobId);
+      resolve({ ok: false, caps: this.lastCaps, image: null, reason: 'Superseded by a newer interactive preview.' });
+    }
+    this.worker.postMessage({ type: 'cancel', jobId });
   }
 
   dispose(): void {

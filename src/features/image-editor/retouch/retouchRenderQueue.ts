@@ -51,10 +51,17 @@ export class RetouchRenderQueue {
     return worker;
   }
 
-  enqueue(input: Omit<RenderJob, 'id' | 'resolve' | 'reject'>): Promise<ImageData> {
+  enqueue(input: Omit<RenderJob, 'id' | 'resolve' | 'reject'> & { id?: string }): Promise<ImageData> {
     this.cancelByKey(input.dedupeKey, false);
     return new Promise<ImageData>((resolve, reject) => {
-      this.queues[input.priority].push({ ...input, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, resolve, reject });
+      this.queues[input.priority].push({
+        ...input,
+        // An explicit id (from the job scheduler lease) makes `cancelById`
+        // cooperative cancellation reach exactly the dispatched job.
+        id: input.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        resolve,
+        reject,
+      });
       this.pump();
     });
   }
@@ -68,13 +75,36 @@ export class RetouchRenderQueue {
       });
     }
     if (this.active?.dedupeKey === dedupeKey) {
-      const active = this.active;
-      // Cooperative cancellation: the worker checks the cancel flag between
-      // chunks. A watchdog replaces the worker only if it never acknoledges.
-      this.worker.postMessage({ type: 'cancel', jobId: active.id });
-      this.armWatchdog(active);
+      this.cancelActiveJob();
     }
     if (shouldPump) this.pump();
+  }
+
+  /**
+   * Cooperative cancellation of a specific job id — used by the job scheduler
+   * when a preview is superseded: the worker checks the cancel flag between
+   * chunks and the watchdog replaces it only if it never acknowledges.
+   */
+  cancelById(jobId: string): void {
+    for (const priority of PRIORITY) {
+      this.queues[priority] = this.queues[priority].filter((job) => {
+        if (job.id !== jobId) return true;
+        job.reject(new DOMException('Superseded by a newer edit.', 'AbortError'));
+        return false;
+      });
+    }
+    if (this.active?.id === jobId) this.cancelActiveJob();
+    this.pump();
+  }
+
+  private cancelActiveJob(): void {
+    if (!this.active) return;
+    const active = this.active;
+    // Cooperative cancellation: the worker checks the cancel flag between
+    // chunks. The promise is rejected when the 'aborted' ack arrives; a
+    // watchdog replaces the worker only if it never acknowledges.
+    this.worker.postMessage({ type: 'cancel', jobId: active.id });
+    this.armWatchdog(active);
   }
 
   private armWatchdog(job: RenderJob): void {

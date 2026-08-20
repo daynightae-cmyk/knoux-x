@@ -22,6 +22,7 @@ export interface OpenCvCaps {
 }
 
 type ConfigureMessage = { type: 'configure'; wasmRoot: string };
+type CancelMessage = { type: 'cancel'; jobId: string };
 type GuidedSkinMessage = {
   type: 'guided-skin';
   jobId: string;
@@ -32,11 +33,12 @@ type GuidedSkinMessage = {
   eps?: number;
 };
 
-type IncomingMessage = ConfigureMessage | GuidedSkinMessage;
+type IncomingMessage = ConfigureMessage | CancelMessage | GuidedSkinMessage;
 
 let cvPromise: Promise<CvRuntime> | null = null;
 let caps: OpenCvCaps = { available: false, ximgproc: false, version: '0.0.0', reason: 'OpenCV.js is not loaded.' };
 let wasmRoot: string | null = null;
+let cancelledJobId: string | null = null;
 
 /** Download the WASM binary once per worker. Never per slider move. */
 function loadOpenCv(root: string): Promise<CvRuntime> {
@@ -112,12 +114,15 @@ async function runGuidedSkin(cv: CvRuntime, message: GuidedSkinMessage): Promise
     const result = cloneImageData(message.image);
     const blend = Math.max(0, Math.min(1, message.strength)) * (1 - Math.max(0, Math.min(0.95, message.texturePreserve)));
 
-    for (let index = 0; index < input.length; index += 4) {
-      if (message.mask && message.mask.data[index + 3] === 0) continue;
-      const alpha = blend * (message.mask ? message.mask.data[index + 3] / 255 : 1);
-      result.data[index] = input[index] + (output[index] - input[index]) * alpha;
-      result.data[index + 1] = input[index + 1] + (output[index + 1] - input[index + 1]) * alpha;
-      result.data[index + 2] = input[index + 2] + (output[index + 2] - input[index + 2]) * alpha;
+    for (let y = 0; y < height; y++) {
+      if (cancelledJobId === message.jobId) throw new DOMException('Superseded by a newer interactive preview.', 'AbortError');
+      for (let index = y * width * 4; index < (y + 1) * width * 4; index += 4) {
+        if (message.mask && message.mask.data[index + 3] === 0) continue;
+        const alpha = blend * (message.mask ? message.mask.data[index + 3] / 255 : 1);
+        result.data[index] = input[index] + (output[index] - input[index]) * alpha;
+        result.data[index + 1] = input[index + 1] + (output[index + 1] - input[index + 1]) * alpha;
+        result.data[index + 2] = input[index + 2] + (output[index + 2] - input[index + 2]) * alpha;
+      }
     }
     void width;
     void height;
@@ -134,6 +139,10 @@ self.onmessage = (event: MessageEvent<IncomingMessage>): void => {
   const message = event.data;
   if (message.type === 'configure') {
     void configure(message);
+    return;
+  }
+  if (message.type === 'cancel') {
+    cancelledJobId = message.jobId;
     return;
   }
   if (message.type === 'guided-skin') {

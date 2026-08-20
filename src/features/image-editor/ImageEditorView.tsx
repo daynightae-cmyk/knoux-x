@@ -44,6 +44,19 @@ import type { CaptureFormat } from '../../core/creative/capture';
 import { useTranslation } from '../../i18n';
 import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../../store/imageEditorStore';
 import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
+import { RetouchLayerStack } from './retouch/RetouchLayerStack';
+import {
+  addRetouchMask,
+  addRetouchOperation,
+  createRetouchMask,
+  createRetouchOperation,
+  createRetouchProject,
+  removeRetouchOperation,
+  reorderRetouchOperations,
+  updateRetouchOperation,
+  type RetouchOperation,
+  type RetouchProjectV2,
+} from './retouch/retouchProject';
 import {
   applyMask,
   blemishRemoval,
@@ -160,6 +173,56 @@ function nameForPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX Image';
 }
 
+function imageDataToDataUrl(imageData: ImageData): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  canvas.getContext('2d')?.putImageData(imageData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+function blendImageData(base: ImageData, effect: ImageData, opacity: number): ImageData {
+  const result = cloneImageData(base);
+  const amount = Math.max(0, Math.min(1, opacity));
+  for (let index = 0; index < result.data.length; index += 4) {
+    result.data[index] = base.data[index] + (effect.data[index] - base.data[index]) * amount;
+    result.data[index + 1] = base.data[index + 1] + (effect.data[index + 1] - base.data[index + 1]) * amount;
+    result.data[index + 2] = base.data[index + 2] + (effect.data[index + 2] - base.data[index + 2]) * amount;
+  }
+  return result;
+}
+
+function applyStoredRetouchOperation(imageData: ImageData, operation: RetouchOperation, mask?: ImageData): ImageData {
+  const strength = typeof operation.params.strength === 'number' ? operation.params.strength : 0.5;
+  const brushSize = typeof operation.params.brushSize === 'number' ? operation.params.brushSize : 96;
+  const color = typeof operation.params.color === 'string' ? operation.params.color : '#d94868';
+  const liquifyMode = operation.params.liquifyMode === 'pinch' || operation.params.liquifyMode === 'expand'
+    ? operation.params.liquifyMode
+    : 'push';
+  let effect: ImageData;
+
+  switch (operation.tool) {
+    case 'skin-smoothing': effect = skinSmoothing(imageData, strength, mask); break;
+    case 'blemish-removal': effect = blemishRemoval(imageData, Math.max(2, Math.round(brushSize / 22)), 30 + strength * 20, mask); break;
+    case 'teeth-whitening': effect = teethWhitening(imageData, strength, mask); break;
+    case 'red-eye': effect = redEyeRemoval(imageData, mask); break;
+    case 'skin-tone': effect = skinToneAdjustment(imageData, strength * 2 - 1, strength * 0.16, mask); break;
+    case 'sharpen': effect = sharpen(imageData, strength, mask); break;
+    case 'color-adjust': effect = colorAdjust(imageData, strength * 0.5, strength * 0.3, strength * 0.2, mask); break;
+    case 'eye-enhance': effect = eyeEnhancement(imageData, strength, mask); break;
+    case 'lip-tint':
+    case 'blush':
+    case 'eyeshadow':
+    case 'eyeliner': effect = cosmeticTint(imageData, color, strength, mask); break;
+    case 'portrait-glow': effect = portraitGlow(imageData, strength, mask); break;
+    case 'liquify':
+    case 'body-sculpt': effect = liquifyWarp(imageData, imageData.width / 2, imageData.height / 2, Math.max(48, Math.min(imageData.width, imageData.height) * (brushSize / 480)), strength * 0.5, liquifyMode); break;
+    default: effect = cloneImageData(imageData);
+  }
+
+  return blendImageData(imageData, effect, operation.opacity);
+}
+
 interface AiProviderStatus {
   id: string;
   configured: boolean;
@@ -245,6 +308,7 @@ export const ImageEditorView: React.FC = () => {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const browserImageInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingRetouchProjectRef = useRef<RetouchProjectV2 | null>(null);
   const historyRef = useRef<CanvasSnapshot[]>([]);
   const pointerStartRef = useRef<Point | null>(null);
   const lastPointRef = useRef<Point | null>(null);
@@ -272,6 +336,8 @@ export const ImageEditorView: React.FC = () => {
   const setBeautyPreview = useImageEditorStore((state) => state.setBeautyPreview);
   const beautyBusy = useImageEditorStore((state) => state.beautyBusy);
   const setBeautyBusy = useImageEditorStore((state) => state.setBeautyBusy);
+  const retouchProject = useImageEditorStore((state) => state.retouchProject);
+  const setRetouchProject = useImageEditorStore((state) => state.setRetouchProject);
   const [beautyCategory, setBeautyCategory] = useState<BeautyCategory>('skin');
   const [beautyColor, setBeautyColor] = useState('#d94868');
   const [beautyLiquifyMode, setBeautyLiquifyMode] = useState<LiquifyMode>('push');
@@ -387,6 +453,14 @@ export const ImageEditorView: React.FC = () => {
       historyRef.current = [initial];
       setHistoryIndex(0);
       setDocumentName(name);
+      const restoredProject = pendingRetouchProjectRef.current;
+      pendingRetouchProjectRef.current = null;
+      setRetouchProject(restoredProject ?? createRetouchProject({
+        name,
+        width: canvas.width,
+        height: canvas.height,
+        dataUrl,
+      }));
       setHasDocument(true);
       setSelection(null);
       clearOverlay();
@@ -396,7 +470,7 @@ export const ImageEditorView: React.FC = () => {
     } finally {
       setBusy(false);
     }
-  }, [clearOverlay, snapshotCanvas, syncCanvasMetadata, t]);
+  }, [clearOverlay, snapshotCanvas, syncCanvasMetadata, setRetouchProject, t]);
 
   useEffect(() => {
     if (source) void loadDocument(source.dataUrl, source.name);
@@ -739,21 +813,24 @@ export const ImageEditorView: React.FC = () => {
         properties: ['createDirectory', 'showOverwriteConfirmation'],
       });
       if (!filePath) return;
-      await window.knouxAPI.file.writeFile(filePath, JSON.stringify({
-        version: 1,
-        type: 'knoux-image-project',
-        name: documentName,
-        width: canvas.width,
-        height: canvas.height,
-        canvasDataUrl: canvas.toDataURL('image/png'),
-        savedAt: new Date().toISOString(),
-      }, null, 2));
+      const projectPayload = retouchProject
+        ? { ...retouchProject, source: { ...retouchProject.source, name: documentName }, savedAt: new Date().toISOString() }
+        : {
+          version: 1,
+          type: 'knoux-image-project',
+          name: documentName,
+          width: canvas.width,
+          height: canvas.height,
+          canvasDataUrl: canvas.toDataURL('image/png'),
+          savedAt: new Date().toISOString(),
+        };
+      await window.knouxAPI.file.writeFile(filePath, JSON.stringify(projectPayload, null, 2));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('imageEditor.saveProjectFailed'));
     } finally {
       setBusy(false);
     }
-  }, [desktopRuntime, documentName, hasDocument, t]);
+  }, [desktopRuntime, documentName, hasDocument, retouchProject, t]);
 
   const openProject = useCallback(async (): Promise<void> => {
     if (!desktopRuntime || busy) return;
@@ -771,11 +848,26 @@ export const ImageEditorView: React.FC = () => {
         type?: string;
         name?: string;
         canvasDataUrl?: string;
+        source?: RetouchProjectV2['source'];
+        operations?: RetouchProjectV2['operations'];
+        masks?: RetouchProjectV2['masks'];
+        updatedAt?: string;
       };
-      if (project.type !== 'knoux-image-project' || typeof project.canvasDataUrl !== 'string') {
+      if (project.type === 'knoux-retouch-project' && project.source?.dataUrl && Array.isArray(project.operations) && Array.isArray(project.masks)) {
+        pendingRetouchProjectRef.current = {
+          version: 2,
+          type: 'knoux-retouch-project',
+          source: project.source,
+          operations: project.operations,
+          masks: project.masks,
+          updatedAt: project.updatedAt ?? new Date().toISOString(),
+        };
+        setSource({ dataUrl: project.source.dataUrl, name: project.source.name || nameForPath(filePath), sourcePath: filePath });
+      } else if (project.type === 'knoux-image-project' && typeof project.canvasDataUrl === 'string') {
+        setSource({ dataUrl: project.canvasDataUrl, name: project.name || nameForPath(filePath), sourcePath: filePath });
+      } else {
         throw new Error('The selected file is not a valid KNOUX image project.');
       }
-      setSource({ dataUrl: project.canvasDataUrl, name: project.name || nameForPath(filePath), sourcePath: filePath });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('imageEditor.openProjectFailed'));
     } finally {
@@ -812,13 +904,14 @@ export const ImageEditorView: React.FC = () => {
     setDocumentHeight(0);
     clearOverlay();
     clearSource();
+    setRetouchProject(null);
     const canvas = baseCanvasRef.current;
     if (canvas) {
       canvas.width = 1;
       canvas.height = 1;
       canvas.getContext('2d')?.clearRect(0, 0, 1, 1);
     }
-  }, [clearOverlay, clearSource]);
+  }, [clearOverlay, clearSource, setRetouchProject]);
 
   const refreshAiProviderStatus = useCallback(async (): Promise<void> => {
     if (typeof window.knouxImageStudioAPI === 'undefined') return;
@@ -1001,15 +1094,46 @@ export const ImageEditorView: React.FC = () => {
     return context.getImageData(0, 0, canvas.width, canvas.height);
   }, []);
 
-  const applyImageDataToCanvas = useCallback((imageData: ImageData): void => {
+  const maskFromDescriptor = useCallback(async (project: RetouchProjectV2, maskId: string | null): Promise<ImageData | undefined> => {
+    const descriptor = project.masks.find((mask) => mask.id === maskId);
+    if (!descriptor?.alphaDataUrl) return undefined;
+    const image = await imageFromDataUrl(descriptor.alphaDataUrl);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d', { alpha: true });
+    if (!context) return undefined;
+    context.drawImage(image, 0, 0);
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const renderRetouchProject = useCallback(async (project: RetouchProjectV2): Promise<void> => {
+    const sourceImage = await imageFromDataUrl(project.source.dataUrl);
     const canvas = baseCanvasRef.current;
     if (!canvas) return;
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
+    canvas.width = project.source.width || sourceImage.naturalWidth;
+    canvas.height = project.source.height || sourceImage.naturalHeight;
     const context = canvas.getContext('2d', { alpha: true });
     if (!context) return;
-    context.putImageData(imageData, 0, 0);
-  }, []);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+    let result = context.getImageData(0, 0, canvas.width, canvas.height);
+    for (const operation of project.operations) {
+      if (!operation.enabled) continue;
+      const mask = await maskFromDescriptor(project, operation.maskId);
+      result = applyStoredRetouchOperation(result, operation, mask);
+    }
+    context.putImageData(result, 0, 0);
+    setHasDocument(true);
+    syncCanvasMetadata();
+  }, [maskFromDescriptor, syncCanvasMetadata]);
+
+  useEffect(() => {
+    if (!hasDocument || !retouchProject || retouchProject.operations.length === 0) return;
+    void renderRetouchProject(retouchProject).catch((reason) => {
+      setError(reason instanceof Error ? reason.message : t('imageEditor.loadFailed'));
+    });
+  }, [hasDocument, renderRetouchProject, retouchProject, setError, t]);
 
   const resolveBeautyMask = useCallback((imageData: ImageData): ImageData | undefined => {
     if (beautyMask) return applyMask(imageData, beautyMask, beautyMaskFeather);
@@ -1119,17 +1243,50 @@ export const ImageEditorView: React.FC = () => {
     handleBeautyPreview();
   }, [beautyAutoPreview, beautyTool, hasDocument, handleBeautyPreview]);
 
-  const handleBeautyApply = useCallback((): void => {
-    if (!hasDocument || !beautyPreviewDataUrl) return;
+  const handleBeautyApply = useCallback(async (): Promise<void> => {
+    if (!hasDocument || !beautyPreviewDataUrl || !beautyTool || !source) return;
     const imageData = getCanvasImageData();
     if (!imageData) return;
 
     setBeautyBusy(true);
     try {
-      const result = runBeautyOperation(imageData);
-
-      applyImageDataToCanvas(result);
-      commit();
+      const project = retouchProject ?? createRetouchProject({
+        name: source.name,
+        width: imageData.width,
+        height: imageData.height,
+        dataUrl: source.dataUrl,
+      });
+      const effectMask = resolveBeautyMask(imageData);
+      if (!effectMask) throw new Error('Unable to prepare the retouch mask.');
+      const mask = createRetouchMask({
+        type: beautyMask ? 'brush' : beautyMaskSource === 'selection' ? 'selection' : 'focus',
+        source: beautyMask ? 'manual' : beautyMaskSource === 'selection' ? 'selection' : 'derived',
+        width: effectMask.width,
+        height: effectMask.height,
+        alphaDataUrl: imageDataToDataUrl(effectMask),
+        featherPx: beautyMaskFeather,
+        inverted: false,
+        protectedRegions: [],
+      });
+      const definition = BEAUTY_TOOL_DEFINITIONS.find((entry) => entry.id === beautyTool);
+      const operation = createRetouchOperation({
+        tool: beautyTool,
+        name: definition ? t(definition.labelKey) : beautyTool,
+        enabled: true,
+        opacity: 1,
+        blendMode: ['lip-tint', 'blush', 'eyeshadow'].includes(beautyTool) ? 'color' : 'normal',
+        maskId: mask.id,
+        params: {
+          strength: beautyStrength,
+          brushSize: beautyBrushSize,
+          color: beautyColor,
+          liquifyMode: beautyLiquifyMode,
+        },
+        engine: 'canvas-local',
+      });
+      const nextProject = addRetouchOperation(addRetouchMask(project, mask), operation);
+      setRetouchProject(nextProject);
+      await renderRetouchProject(nextProject);
       setBeautyPreview(null);
       setBeautyBeforeSnapshot(null);
       setBeautyMask(null);
@@ -1138,7 +1295,35 @@ export const ImageEditorView: React.FC = () => {
     } finally {
       setBeautyBusy(false);
     }
-  }, [hasDocument, beautyPreviewDataUrl, getCanvasImageData, runBeautyOperation, applyImageDataToCanvas, commit, setBeautyBusy, setBeautyPreview, setBeautyBeforeSnapshot, setBeautyMask, setError]);
+  }, [hasDocument, beautyPreviewDataUrl, beautyTool, source, getCanvasImageData, retouchProject, resolveBeautyMask, beautyMask, beautyMaskSource, beautyMaskFeather, beautyStrength, beautyBrushSize, beautyColor, beautyLiquifyMode, setBeautyBusy, setRetouchProject, renderRetouchProject, setBeautyPreview, setBeautyBeforeSnapshot, setBeautyMask, setError, t]);
+
+  const handleRetouchToggle = useCallback((operationId: string): void => {
+    if (!retouchProject) return;
+    const operation = retouchProject.operations.find((entry) => entry.id === operationId);
+    if (!operation) return;
+    const nextProject = updateRetouchOperation(retouchProject, operationId, { enabled: !operation.enabled });
+    setRetouchProject(nextProject);
+    void renderRetouchProject(nextProject);
+  }, [retouchProject, renderRetouchProject, setRetouchProject]);
+
+  const handleRetouchDelete = useCallback((operationId: string): void => {
+    if (!retouchProject) return;
+    const nextProject = removeRetouchOperation(retouchProject, operationId);
+    setRetouchProject(nextProject);
+    void renderRetouchProject(nextProject);
+  }, [retouchProject, renderRetouchProject, setRetouchProject]);
+
+  const handleRetouchMove = useCallback((operationId: string, direction: -1 | 1): void => {
+    if (!retouchProject) return;
+    const ids = retouchProject.operations.map((operation) => operation.id);
+    const current = ids.indexOf(operationId);
+    const target = current + direction;
+    if (current < 0 || target < 0 || target >= ids.length) return;
+    [ids[current], ids[target]] = [ids[target], ids[current]];
+    const nextProject = reorderRetouchOperations(retouchProject, ids);
+    setRetouchProject(nextProject);
+    void renderRetouchProject(nextProject);
+  }, [retouchProject, renderRetouchProject, setRetouchProject]);
 
   const handleBeautyCancel = useCallback((): void => {
     setBeautyPreview(null);
@@ -1147,59 +1332,46 @@ export const ImageEditorView: React.FC = () => {
     setBeautyMask(null);
   }, [setBeautyPreview, setBeautyBeforeSnapshot, setBeautyTool, setBeautyMask]);
 
-  const handlePresetApply = useCallback((presetId: string): void => {
+  const handlePresetApply = useCallback(async (presetId: string): Promise<void> => {
     const preset = getPreset(presetId);
-    if (!preset || !hasDocument) return;
+    if (!preset || !hasDocument || !source) return;
     const imageData = getCanvasImageData();
     if (!imageData) return;
 
     setBeautyBusy(true);
-    setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
-
     try {
-      let result = cloneImageData(imageData);
-      for (const op of preset.operations) {
-        switch (op.type) {
-          case 'skin-smoothing':
-            result = skinSmoothing(result, op.params.strength ?? 0.3);
-            break;
-          case 'blemish-removal':
-            result = blemishRemoval(result, op.params.radius ?? 5, op.params.threshold ?? 30);
-            break;
-          case 'teeth-whitening':
-            result = teethWhitening(result, op.params.strength ?? 0.5);
-            break;
-          case 'red-eye':
-            result = redEyeRemoval(result);
-            break;
-          case 'skin-tone':
-            result = skinToneAdjustment(result, op.params.warmth ?? 0, op.params.brightness ?? 0);
-            break;
-          case 'sharpen':
-            result = sharpen(result, op.params.amount ?? 0.2);
-            break;
-          case 'color-adjust':
-            result = colorAdjust(result, op.params.saturation ?? 0, op.params.contrast ?? 0, op.params.brightness ?? 0);
-            break;
-          case 'eye-enhance':
-            result = eyeEnhancement(result, op.params.strength ?? 0.3);
-            break;
-          default:
-            break;
-        }
+      let nextProject = retouchProject ?? createRetouchProject({
+        name: source.name,
+        width: imageData.width,
+        height: imageData.height,
+        dataUrl: source.dataUrl,
+      });
+      for (const presetOperation of preset.operations) {
+        const operation = createRetouchOperation({
+          tool: presetOperation.type,
+          name: t(`imageEditor.beauty${presetOperation.type.split('-').map((word) => word[0].toUpperCase() + word.slice(1)).join('')}` as any),
+          enabled: true,
+          opacity: 1,
+          blendMode: 'normal',
+          maskId: null,
+          params: {
+            ...presetOperation.params,
+            strength: presetOperation.params.strength ?? presetOperation.params.amount ?? 0.25,
+          },
+          engine: 'canvas-local',
+        });
+        nextProject = addRetouchOperation(nextProject, operation);
       }
-
-      const previewCanvas = document.createElement('canvas');
-      previewCanvas.width = result.width;
-      previewCanvas.height = result.height;
-      previewCanvas.getContext('2d')?.putImageData(result, 0, 0);
-      setBeautyPreview(previewCanvas.toDataURL('image/png'));
+      setRetouchProject(nextProject);
+      await renderRetouchProject(nextProject);
+      setBeautyPreview(null);
+      setBeautyBeforeSnapshot(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Preset preview failed.');
+      setError(err instanceof Error ? err.message : 'Preset application failed.');
     } finally {
       setBeautyBusy(false);
     }
-  }, [hasDocument, getCanvasImageData, setBeautyBusy, setBeautyBeforeSnapshot, setBeautyPreview, setError]);
+  }, [hasDocument, source, getCanvasImageData, retouchProject, setBeautyBusy, setRetouchProject, renderRetouchProject, setBeautyPreview, setBeautyBeforeSnapshot, setError, t]);
 
   const [beautyShowBefore, setBeautyShowBefore] = useState(false);
 
@@ -1500,6 +1672,13 @@ export const ImageEditorView: React.FC = () => {
                   <NeonButton variant="ghost" size="sm" leftIcon={<Eye size={14} />} onClick={handleBeautyPreview} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyPreview')}</NeonButton>
                 </div>
               )}
+
+              <RetouchLayerStack
+                operations={retouchProject?.operations ?? []}
+                onToggle={handleRetouchToggle}
+                onDelete={handleRetouchDelete}
+                onMove={handleRetouchMove}
+              />
 
               <div className="creative-section-heading compact-heading"><h3><Star size={14} /> {t('imageEditor.beautyPresets')}</h3></div>
               <div className="image-editor-beauty-presets">

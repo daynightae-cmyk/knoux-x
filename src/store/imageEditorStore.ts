@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import type { RetouchProjectV2 } from '../features/image-editor/retouch/retouchProject';
+
 export type BeautyTool =
   | 'skin-smoothing'
   | 'blemish-removal'
@@ -77,6 +79,10 @@ interface ImageEditorState {
   setBeautyPreview(dataUrl: string | null): void;
   beautyBusy: boolean;
   setBeautyBusy(busy: boolean): void;
+
+  // Persistent non-destructive retouch recipe. Canvas state remains a render target only.
+  retouchProject: RetouchProjectV2 | null;
+  setRetouchProject(project: RetouchProjectV2 | null): void;
 }
 
 export const useImageEditorStore = create<ImageEditorState>((set) => ({
@@ -125,4 +131,6 @@ export const useImageEditorStore = create<ImageEditorState>((set) => ({
   setBeautyPreview: (dataUrl) => set({ beautyPreviewDataUrl: dataUrl }),
   beautyBusy: false,
   setBeautyBusy: (busy) => set({ beautyBusy: busy }),
+  retouchProject: null,
+  setRetouchProject: (project) => set({ retouchProject: project }),
 }));

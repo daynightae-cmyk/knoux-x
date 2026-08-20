@@ -41,11 +41,21 @@ export interface BranchMetricsDelta {
 
 export type BranchMetricKey = keyof BranchMetrics;
 
-function itemAudible(item: { kind: string; audio: { volume: number; muted: boolean } }, track: { muted: boolean; solo: boolean }): boolean {
+function isAudioCapable(item: { kind: string }, track: { kind: string }): boolean {
+  return track.kind === 'audio' || item.kind === 'video';
+}
+
+function itemAudible(
+  item: { kind: string; audio: { volume: number; muted: boolean } },
+  track: { kind: string; hidden: boolean; muted: boolean; solo: boolean; volume: number },
+  anySoloTrack: boolean,
+): boolean {
+  if (!isAudioCapable(item, track)) return false;
+  if (track.hidden || track.muted) return false;
   if (item.audio.muted) return false;
-  if (item.audio.volume <= 0) return false;
-  if (track.muted) return false;
-  return !track.solo;
+  if (track.volume <= 0 || item.audio.volume <= 0) return false;
+  if (anySoloTrack && !track.solo) return false;
+  return true;
 }
 
 function coveredDuration(items: ReadonlyArray<{ timelineStart: number; duration: number }>, totalMs: number): number {
@@ -73,13 +83,17 @@ function clampDensity(value: number): number {
 }
 
 export function computeBranchMetrics(project: MultitrackProject): BranchMetrics {
-  const durationMs = projectDuration(project);
+  const durationSeconds = projectDuration(project);
+  const durationMs = durationSeconds * 1000;
   const minutes = Math.max(1, durationMs / 60_000);
 
   const shots = project.tracks.flatMap((track) =>
     track.items.filter((item) => item.kind === 'video' || item.kind === 'image' || item.kind === 'color'),
   );
-  const audibleItems = project.tracks.flatMap((track) => track.items.filter((item) => itemAudible(item, track)));
+  const anySoloTrack = project.tracks.some((track) => track.solo);
+  const audibleItems = project.tracks.flatMap((track) =>
+    track.items.filter((item) => itemAudible(item, track, anySoloTrack)),
+  );
   const captionItems = project.tracks.flatMap((track) =>
     track.items.filter((item) => item.kind === 'subtitle' || (item.kind === 'text' && item.text !== null)),
   );
@@ -101,7 +115,7 @@ export function computeBranchMetrics(project: MultitrackProject): BranchMetrics 
   );
 
   const renderTarget: RenderCostTarget = {
-    durationSeconds: durationMs / 1000,
+    durationSeconds,
     width: project.settings.width,
     height: project.settings.height,
     fps: project.settings.fps,
@@ -111,8 +125,8 @@ export function computeBranchMetrics(project: MultitrackProject): BranchMetrics 
     durationMs,
     shotCount: shots.length,
     cutDensityPerMinute: Number((shots.length / minutes).toFixed(3)),
-    audioDensity: clampDensity(coveredDuration(audibleItems, durationMs) / durationMs),
-    captionDensity: clampDensity(coveredDuration(captionItems, durationMs) / durationMs),
+    audioDensity: clampDensity(coveredDuration(audibleItems, durationSeconds) / durationSeconds),
+    captionDensity: clampDensity(coveredDuration(captionItems, durationSeconds) / durationSeconds),
     transitionCount: transitions.length,
     motionIntensityPerMinute: Number((motionKeyframes.length / minutes).toFixed(3)),
     effectsCount: effectedItems.length,

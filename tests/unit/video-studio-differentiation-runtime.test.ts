@@ -251,16 +251,21 @@ describe('KNOUX video studio D11/D12 differentiation layer', () => {
   test('branch metrics derive without fabricated render cost when uncalibrated', () => {
     setUncalibrated();
     const metrics = computeBranchMetrics(project);
-    expect(metrics.durationMs).toBe(projectDuration(project));
+    expect(metrics.durationMs).toBe(projectDuration(project) * 1000);
     expect(metrics.shotCount).toBe(2);
     expect(metrics.transitionCount).toBe(0);
     expect(metrics.renderCostMs).toBeNull();
 
     const delta = compareBranchMetrics(metrics, metrics);
     expect(delta.renderCostMsDelta).toBeNull();
+    restoreCalibration();
   });
 
   function setUncalibrated(): void {
     setRenderCalibrationSamples([]);
+  }
+
+  function restoreCalibration(): void {
+    setRenderCalibrationSamples([{ elapsedMs: 2209, frames: 165, width: 640, height: 360, label: 'real-local-media-workflow render 640x360@30' }]);
   }
 });

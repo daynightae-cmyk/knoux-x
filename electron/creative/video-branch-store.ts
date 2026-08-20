@@ -142,6 +142,8 @@ export class VideoBranchStore {
     }
     if (typeof createdAt !== 'string' || Number.isNaN(Date.parse(createdAt))) throw new TypeError('Stored createdAt is invalid.');
     const project = parseMultitrackProject(projectValue);
+    if (project.id !== projectId) throw new TypeError('Stored projectId does not match embedded project id.');
+    if (project.name !== projectName) throw new TypeError('Stored projectName does not match embedded project name.');
     const metrics = computeBranchMetrics(project);
     return {
       branchId,

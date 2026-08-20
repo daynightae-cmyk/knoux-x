@@ -109,6 +109,145 @@ function assertFinite(value: unknown, label: string): number {
   return number;
 }
 
+function assertNonNegative(value: unknown, label: string): number {
+  const number = assertFinite(value, label);
+  if (number < 0) throw new RangeError(`${label} cannot be negative.`);
+  return number;
+}
+
+function assertPositive(value: unknown, label: string): number {
+  const number = assertFinite(value, label);
+  if (number <= 0) throw new RangeError(`${label} must be positive.`);
+  return number;
+}
+
+function assertEnum<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+    throw new TypeError(`${label} must be one of ${allowed.join(', ')}.`);
+  }
+  return value as T;
+}
+
+function assertColor(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length > 64 || !/^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|transparent)$/i.test(value)) {
+    throw new TypeError(`${label} is invalid.`);
+  }
+  return value;
+}
+
+const VALID_BLEND_MODES = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten'] as const;
+const VALID_KEYFRAME_PROPERTIES = ['positionX','positionY','scale','rotation','opacity','volume','cropLeft','cropTop','cropRight','cropBottom'] as const;
+const VALID_EASING_MODES = ['linear','ease-in','ease-out','ease-in-out'] as const;
+const VALID_TRANSITION_KINDS = ['cross-dissolve','fade-black','fade-white','dip-color','wipe','slide','push','zoom','blur'] as const;
+const VALID_ITEM_KINDS = ['video','audio','image','text','subtitle','overlay','color'] as const;
+
+function validateTransformPatch(patch: Record<string, unknown>): void {
+  if ('positionX' in patch) assertFinite(patch.positionX, 'transform.positionX');
+  if ('positionY' in patch) assertFinite(patch.positionY, 'transform.positionY');
+  if ('scale' in patch) {
+    const scale = assertFinite(patch.scale, 'transform.scale');
+    if (scale <= 0 || scale > 100) throw new RangeError('transform.scale must be >0 and <=100.');
+  }
+  if ('rotation' in patch) assertFinite(patch.rotation, 'transform.rotation');
+  if ('opacity' in patch) {
+    const opacity = assertFinite(patch.opacity, 'transform.opacity');
+    if (opacity < 0 || opacity > 1) throw new RangeError('transform.opacity must be between 0 and 1.');
+  }
+  if ('cropLeft' in patch) assertFinite(patch.cropLeft, 'transform.cropLeft');
+  if ('cropTop' in patch) assertFinite(patch.cropTop, 'transform.cropTop');
+  if ('cropRight' in patch) assertFinite(patch.cropRight, 'transform.cropRight');
+  if ('cropBottom' in patch) assertFinite(patch.cropBottom, 'transform.cropBottom');
+  if ('flipHorizontal' in patch && typeof patch.flipHorizontal !== 'boolean') throw new TypeError('transform.flipHorizontal must be boolean.');
+  if ('flipVertical' in patch && typeof patch.flipVertical !== 'boolean') throw new TypeError('transform.flipVertical must be boolean.');
+  if ('blendMode' in patch) assertEnum(patch.blendMode, VALID_BLEND_MODES, 'transform.blendMode');
+}
+
+function validateAudioPatch(patch: Record<string, unknown>): void {
+  if ('volume' in patch) {
+    const volume = assertFinite(patch.volume, 'audio.volume');
+    if (volume < 0 || volume > 4) throw new RangeError('audio.volume must be between 0 and 4.');
+  }
+  if ('pan' in patch) {
+    const pan = assertFinite(patch.pan, 'audio.pan');
+    if (pan < -1 || pan > 1) throw new RangeError('audio.pan must be between -1 and 1.');
+  }
+  if ('fadeIn' in patch) assertNonNegative(patch.fadeIn, 'audio.fadeIn');
+  if ('fadeOut' in patch) assertNonNegative(patch.fadeOut, 'audio.fadeOut');
+  if ('muted' in patch && typeof patch.muted !== 'boolean') throw new TypeError('audio.muted must be boolean.');
+}
+
+function validateTextProperties(value: unknown): void {
+  if (!value || typeof value !== 'object') throw new TypeError('text properties must be an object.');
+  const text = value as Record<string, unknown>;
+  if (typeof text.text !== 'string') throw new TypeError('text.text must be a string.');
+  if (typeof text.fontFamily !== 'string' || text.fontFamily.length === 0) throw new TypeError('text.fontFamily is invalid.');
+  assertPositive(text.fontSize, 'text.fontSize');
+  assertFinite(text.fontWeight, 'text.fontWeight');
+  assertColor(text.color, 'text.color');
+  assertColor(text.strokeColor, 'text.strokeColor');
+  assertFinite(text.strokeWidth, 'text.strokeWidth');
+  assertColor(text.backgroundColor, 'text.backgroundColor');
+  assertEnum(text.align, ['start','center','end'], 'text.align');
+  assertEnum(text.direction, ['auto','ltr','rtl'], 'text.direction');
+}
+
+function validateKeyframe(value: unknown): void {
+  if (!value || typeof value !== 'object') throw new TypeError('keyframe must be an object.');
+  const keyframe = value as Record<string, unknown>;
+  assertId(keyframe.id, 'keyframe id');
+  assertEnum(keyframe.property, VALID_KEYFRAME_PROPERTIES, 'keyframe property');
+  assertNonNegative(keyframe.time, 'keyframe time');
+  assertFinite(keyframe.value, 'keyframe value');
+  assertEnum(keyframe.easing, VALID_EASING_MODES, 'keyframe easing');
+}
+
+function validateTransition(value: unknown): void {
+  if (!value || typeof value !== 'object') throw new TypeError('transition must be an object.');
+  const transition = value as Record<string, unknown>;
+  assertId(transition.id, 'transition id');
+  assertEnum(transition.kind, VALID_TRANSITION_KINDS, 'transition kind');
+  assertNonNegative(transition.duration, 'transition duration');
+  if ('direction' in transition && transition.direction !== undefined) {
+    assertEnum(transition.direction, ['left','right','up','down'], 'transition direction');
+  }
+  if ('color' in transition && transition.color !== undefined) assertColor(transition.color, 'transition color');
+}
+
+function validateTimelineItem(value: unknown): void {
+  if (!value || typeof value !== 'object') throw new TypeError('Timeline item must be an object.');
+  const item = value as Record<string, unknown>;
+  assertId(item.id, 'Timeline item id');
+  assertId(item.trackId, 'Timeline item trackId');
+  assertEnum(item.kind, VALID_ITEM_KINDS, 'Timeline item kind');
+  if (typeof item.name !== 'string' || item.name.trim().length === 0 || item.name.length > 240) throw new TypeError('Timeline item name is invalid.');
+  assertNonNegative(item.timelineStart, 'Timeline item timelineStart');
+  assertPositive(item.duration, 'Timeline item duration');
+  assertNonNegative(item.sourceIn, 'Timeline item sourceIn');
+  assertFinite(item.sourceOut, 'Timeline item sourceOut');
+  const sourceIn = item.sourceIn as number;
+  const sourceOut = item.sourceOut as number;
+  if (sourceOut <= sourceIn) throw new RangeError('Timeline item sourceOut must be after sourceIn.');
+  assertPositive(item.playbackRate, 'Timeline item playbackRate');
+  if (!item.transform || typeof item.transform !== 'object') throw new TypeError('Timeline item transform is required.');
+  validateTransformPatch(item.transform as Record<string, unknown>);
+  // Require canonical transform fields to be present and valid for inserted items
+  const transform = item.transform as Record<string, unknown>;
+  if (!('positionX' in transform) || !('positionY' in transform) || !('scale' in transform) || !('rotation' in transform) || !('opacity' in transform)) {
+    throw new TypeError('Timeline item transform is incomplete.');
+  }
+  if (!item.audio || typeof item.audio !== 'object') throw new TypeError('Timeline item audio is required.');
+  validateAudioPatch(item.audio as Record<string, unknown>);
+  const audio = item.audio as Record<string, unknown>;
+  if (!('volume' in audio) || !('pan' in audio) || !('muted' in audio)) throw new TypeError('Timeline item audio is incomplete.');
+  if (item.text !== null) {
+    if (item.text !== undefined) validateTextProperties(item.text);
+  }
+  if (!Array.isArray(item.keyframes)) throw new TypeError('Timeline item keyframes must be an array.');
+  for (const keyframe of item.keyframes as unknown[]) validateKeyframe(keyframe);
+  if (item.transitionIn !== null && item.transitionIn !== undefined) validateTransition(item.transitionIn);
+  if (item.transitionOut !== null && item.transitionOut !== undefined) validateTransition(item.transitionOut);
+}
+
 /** Deterministic canonical serialization (sorted keys) for fingerprints. */
 export function canonicalSerialize(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -179,14 +318,12 @@ function validateOperation(operation: EditOperation): void {
   assertId(operation.id, 'Operation id');
   switch (operation.op) {
     case 'insert-item':
-      if (!operation.item || typeof operation.item !== 'object') throw new TypeError('insert-item requires an item.');
-      if (typeof operation.item.id !== 'string' || operation.item.id.length === 0) throw new TypeError('insert-item item.id is invalid.');
-      if (typeof operation.item.trackId !== 'string' || operation.item.trackId.length === 0) throw new TypeError('insert-item item.trackId is invalid.');
+      validateTimelineItem(operation.item);
       break;
     case 'move-item':
       assertId(operation.itemId, 'move-item itemId');
       assertId(operation.targetTrackId, 'move-item targetTrackId');
-      assertFinite(operation.timelineStart, 'move-item timelineStart');
+      assertNonNegative(operation.timelineStart, 'move-item timelineStart');
       break;
     case 'delete-items':
       if (!Array.isArray(operation.itemIds) || operation.itemIds.length === 0) throw new TypeError('delete-items requires item ids.');
@@ -199,24 +336,31 @@ function validateOperation(operation: EditOperation): void {
       break;
     case 'trim-item':
       assertId(operation.itemId, 'trim-item itemId');
-      assertFinite(operation.timelineStart, 'trim-item timelineStart');
-      assertFinite(operation.duration, 'trim-item duration');
-      assertFinite(operation.sourceIn, 'trim-item sourceIn');
+      assertNonNegative(operation.timelineStart, 'trim-item timelineStart');
+      assertPositive(operation.duration, 'trim-item duration');
+      assertNonNegative(operation.sourceIn, 'trim-item sourceIn');
       assertFinite(operation.sourceOut, 'trim-item sourceOut');
-      if (operation.sourceOut <= operation.sourceIn) throw new RangeError('trim-item sourceOut must be after sourceIn.');
+      if ((operation.sourceOut as number) <= (operation.sourceIn as number)) throw new RangeError('trim-item sourceOut must be after sourceIn.');
       break;
     case 'patch-transform':
+      assertId(operation.itemId, 'patch-transform itemId');
+      if (!operation.patch || typeof operation.patch !== 'object') throw new TypeError('patch-transform requires a patch object.');
+      validateTransformPatch(operation.patch as Record<string, unknown>);
+      if (Object.keys(operation.patch as Record<string, unknown>).length === 0) throw new TypeError('patch-transform patch cannot be empty.');
+      break;
     case 'patch-audio':
-      assertId(operation.itemId, 'patch itemId');
-      if (!operation.patch || typeof operation.patch !== 'object') throw new TypeError('patch is required.');
+      assertId(operation.itemId, 'patch-audio itemId');
+      if (!operation.patch || typeof operation.patch !== 'object') throw new TypeError('patch-audio requires a patch object.');
+      validateAudioPatch(operation.patch as Record<string, unknown>);
+      if (Object.keys(operation.patch as Record<string, unknown>).length === 0) throw new TypeError('patch-audio patch cannot be empty.');
       break;
     case 'update-text':
       assertId(operation.itemId, 'update-text itemId');
-      if (!operation.text || typeof operation.text !== 'object') throw new TypeError('update-text requires text properties.');
+      validateTextProperties(operation.text);
       break;
     case 'upsert-keyframe':
       assertId(operation.itemId, 'upsert-keyframe itemId');
-      if (!operation.keyframe || !operation.keyframe.id || !operation.keyframe.property) throw new TypeError('upsert-keyframe requires a complete keyframe.');
+      validateKeyframe(operation.keyframe);
       break;
     case 'remove-keyframe':
       assertId(operation.itemId, 'remove-keyframe itemId');
@@ -225,9 +369,7 @@ function validateOperation(operation: EditOperation): void {
     case 'set-transition':
       assertId(operation.itemId, 'set-transition itemId');
       if (operation.side !== 'in' && operation.side !== 'out') throw new TypeError('set-transition side must be in|out.');
-      if (operation.transition !== null) {
-        if (!operation.transition.id || !operation.transition.kind) throw new TypeError('set-transition requires a complete transition.');
-      }
+      if (operation.transition !== null) validateTransition(operation.transition);
       break;
     default:
       throw new TypeError('Unsupported edit operation.');

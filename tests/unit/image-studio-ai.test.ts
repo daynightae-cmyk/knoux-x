@@ -67,6 +67,22 @@ describe('image studio AI catalog', () => {
     expect(modelsForProvider('huggingface').length).toBeGreaterThan(0);
   });
 
+  it('identifies the canonical verified HF text-to-image model and its aliases truthfully', () => {
+    const canonical = findImageModel('stabilityai/stable-diffusion-3-medium-diffusers')!;
+    expect(canonical.provider).toBe('huggingface');
+    expect(canonical.costBucket).toBe('free');
+    expect(canonical.capabilities.tasks).toEqual(['text-to-image']);
+    expect(canonical.endpoint).toBe('https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium-diffusers');
+    for (const aliasId of ['black-forest-labs/flux-1-schnell', 'stabilityai/stable-diffusion-xl']) {
+      const alias = findImageModel(aliasId)!;
+      expect(alias.aliasedTo).toBe(canonical.id);
+      expect(alias.endpoint).toBe(canonical.endpoint);
+      expect(alias.name).toMatch(/alias → SD3 Medium/);
+    }
+    const hfT2I = IMAGE_MODELS.filter((model) => model.provider === 'huggingface' && model.capabilities.tasks.includes('text-to-image'));
+    expect(hfT2I.every((model) => model.endpoint === canonical.endpoint)).toBe(true);
+  });
+
   it('categorizes models by task', () => {
     const textToImage = modelsForTask('text-to-image');
     expect(textToImage.length).toBeGreaterThanOrEqual(6);

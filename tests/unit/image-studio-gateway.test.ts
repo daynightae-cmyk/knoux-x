@@ -156,6 +156,20 @@ describe('Hugging Face adapter', () => {
     expect(posted?.url).toBe('https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium-diffusers');
   });
 
+  it('posts the verified HF request contract — inputs + width/height/seed, never num_images', async () => {
+    const http = new StubHttp();
+    const adapter = new HfAdapter({ apiKey: async () => 'hf_test', http });
+    http.respond(() => image(200, Buffer.from('png-bytes')));
+    await adapter.generate({ ...REQUEST, negativePrompt: 'blurry' }, () => {});
+    const posted = http.calls.find((call) => call.method === 'POST');
+    const body = (posted?.options as { body?: Record<string, unknown> } | undefined)?.body;
+    expect(body).toEqual({
+      inputs: 'a lighthouse at midnight\nNegative prompt:\nblurry',
+      parameters: { width: 512, height: 512, seed: 7 },
+    });
+    expect(body).not.toHaveProperty('parameters.num_images');
+  });
+
   it('maps non-200 answers to upstream errors', async () => {
     const http = new StubHttp();
     const adapter = new HfAdapter({ apiKey: async () => 'hf_test', http });

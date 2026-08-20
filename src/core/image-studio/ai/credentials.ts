@@ -21,6 +21,8 @@ export type ConsentScope = 'prompt' | 'image' | 'seed-and-options';
 export const PROVIDER_REQUIRED_SCOPES: Record<ImageProviderId, ConsentScope[]> = {
   openrouter: ['prompt', 'seed-and-options'],
   huggingface: ['prompt', 'seed-and-options'],
+  fal: ['prompt', 'seed-and-options'],
+  'knoux-cloud': ['prompt', 'seed-and-options'],
   local: ['seed-and-options'],
   mock: [],
 };

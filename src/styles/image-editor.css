@@ -321,3 +321,513 @@
     transition: none;
   }
 }
+
+.image-editor-ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.image-editor-ai-description {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.image-editor-ai-notice {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--knoux-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--knoux-accent) 35%, transparent);
+  color: var(--knoux-accent);
+  font-size: 0.75rem;
+}
+
+.image-editor-ai-field {
+  display: grid;
+  gap: 5px;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+}
+
+.image-editor-ai-field input,
+.image-editor-ai-field textarea,
+.image-editor-ai-field select {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.24);
+  font: inherit;
+}
+
+.image-editor-ai-field textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.image-editor-ai-status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  padding: 4px 0;
+}
+
+.image-editor-ai-status-line .is-ok {
+  color: var(--knoux-accent);
+}
+
+.image-editor-ai-status-line .is-warn {
+  color: var(--warning);
+}
+
+.image-editor-ai-hint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.image-editor-ai-config {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.image-editor-ai-config strong {
+  font-size: 0.8rem;
+}
+
+.image-editor-ai-config-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.image-editor-ai-params {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.image-editor-ai-size-times {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 1rem;
+}
+
+.image-editor-ai-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--knoux-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--knoux-accent) 35%, transparent);
+  color: var(--knoux-accent);
+  font-size: 0.8rem;
+}
+
+.image-editor-ai-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: image-editor-ai-spin 1s linear infinite;
+}
+
+@keyframes image-editor-ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.image-editor-ai-error {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--error) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+  color: var(--error);
+  font-size: 0.75rem;
+}
+
+.image-editor-ai-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.image-editor-ai-result {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.image-editor-ai-result strong {
+  font-size: 0.8rem;
+}
+
+.image-editor-ai-result-preview {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #08070d;
+}
+
+.image-editor-ai-result-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.image-editor-ai-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ── Beauty / Retouch Panel ── */
+
+.image-editor-beauty-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.image-editor-beauty-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 4px;
+}
+
+.image-editor-beauty-tools button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.image-editor-beauty-tools button:hover,
+.image-editor-beauty-tools button:focus-visible,
+.image-editor-beauty-tools button.active {
+  border-color: var(--knoux-accent);
+  color: var(--text-primary);
+  background: rgba(0, 239, 255, 0.08);
+}
+
+.image-editor-beauty-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.image-editor-beauty-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-editor-beauty-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.image-editor-beauty-controls label span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.image-editor-beauty-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--knoux-accent);
+}
+
+.image-editor-beauty-controls select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.image-editor-beauty-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* ── Mask tools ── */
+
+.image-editor-mask-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.image-editor-mask-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.image-editor-mask-tools button:hover,
+.image-editor-mask-tools button.active {
+  border-color: var(--knoux-accent);
+  color: var(--text-primary);
+}
+
+/* ── Before / After ── */
+
+.image-editor-before-after {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.image-editor-before-after button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.image-editor-before-after button:hover,
+.image-editor-before-after button.active {
+  border-color: var(--knoux-accent);
+  color: var(--text-primary);
+}
+
+/* ── Presets ── */
+
+.image-editor-beauty-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 4px;
+}
+
+.image-editor-beauty-presets button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.image-editor-beauty-presets button:hover {
+  border-color: var(--knoux-accent);
+  color: var(--text-primary);
+  background: rgba(0, 239, 255, 0.06);
+}
+
+/* ── AI Beauty ── */
+
+.image-editor-beauty-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(0, 239, 255, 0.03);
+}
+
+.image-editor-beauty-ai textarea {
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.72rem;
+  resize: vertical;
+}
+
+.image-editor-beauty-notice {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 180, 0, 0.08);
+  color: #ffb400;
+  font-size: 0.68rem;
+}
+
+/* ── Model Hub ── */
+
+.image-editor-model-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-editor-model-hub-search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.image-editor-model-hub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.image-editor-model-hub-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.63rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.image-editor-model-hub-filters button:hover,
+.image-editor-model-hub-filters button.active {
+  border-color: var(--knoux-accent);
+  color: var(--text-primary);
+  background: rgba(0, 239, 255, 0.08);
+}
+
+.image-editor-model-hub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.image-editor-model-hub-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.68rem;
+}
+
+.image-editor-model-hub-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.image-editor-model-hub-item-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.image-editor-model-hub-item-provider {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.image-editor-model-hub-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.6rem;
+}
+
+.image-editor-model-hub-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.image-editor-model-hub-badge.free {
+  background: rgba(0, 200, 100, 0.15);
+  color: #00c864;
+}
+
+.image-editor-model-hub-badge.paid {
+  background: rgba(255, 180, 0, 0.12);
+  color: #ffb400;
+}
+
+.image-editor-model-hub-badge.live {
+  background: rgba(0, 239, 255, 0.12);
+  color: var(--knoux-accent);
+}
+
+.image-editor-model-hub-badge.unavailable {
+  background: rgba(255, 80, 80, 0.1);
+  color: #ff5050;
+}
+
+.image-editor-model-hub-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.image-editor-model-hub-stats strong {
+  color: var(--text-primary);
+}

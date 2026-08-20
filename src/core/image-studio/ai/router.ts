@@ -20,6 +20,8 @@ import {
 export interface ProviderAvailability {
   openrouter: boolean;
   huggingface: boolean;
+  fal?: boolean;
+  'knoux-cloud'?: boolean;
   local: boolean;
   mock: boolean;
 }
@@ -43,6 +45,8 @@ export interface RouteDecision {
   reasons: string[];
   blocked: boolean;
   blockedReason?: string;
+  /** True when the routed model is paid and the job must be confirmed first. */
+  requiresPaymentConfirmation: boolean;
 }
 
 function providerAvailable(provider: ImageProviderId, availability: ProviderAvailability): boolean {
@@ -51,6 +55,10 @@ function providerAvailable(provider: ImageProviderId, availability: ProviderAvai
       return availability.openrouter;
     case 'huggingface':
       return availability.huggingface;
+    case 'fal':
+      return availability.fal === true;
+    case 'knoux-cloud':
+      return availability['knoux-cloud'] === true;
     case 'local':
       return availability.local;
     case 'mock':
@@ -70,7 +78,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
       const capability = validateModelCapability(preferred, options.task);
       if (capability.ok) {
         reasons.push(`Using preferred model "${preferred.name}".`);
-        return { model: preferred, candidates: [preferred], reasons, blocked: false };
+        return { model: preferred, candidates: [preferred], reasons, blocked: false, requiresPaymentConfirmation: preferred.costBucket === 'paid' };
       }
       reasons.push(capability.reason ?? 'Preferred model is unavailable.');
     } else {
@@ -85,7 +93,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
       const candidate = pickByPolicy(pool, options.task, policy);
       if (candidate) {
         reasons.push(`Using preferred provider "${options.preferredProvider}".`);
-        return { model: candidate, candidates: pool, reasons, blocked: false };
+        return { model: candidate, candidates: pool, reasons, blocked: false, requiresPaymentConfirmation: candidate.costBucket === 'paid' };
       }
     }
     reasons.push(`No available model from preferred provider "${options.preferredProvider}".`);
@@ -106,7 +114,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
       );
       if (mockPaid.length > 0) {
         reasons.push('Using mock paid fallback for offline testing.');
-        return { model: mockPaid[0], candidates: mockPaid, reasons, blocked: false };
+        return { model: mockPaid[0], candidates: mockPaid, reasons, blocked: false, requiresPaymentConfirmation: false };
       }
       return {
         model: null,
@@ -114,15 +122,16 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
         reasons,
         blocked: true,
         blockedReason: 'No paid model is available for this task.',
+        requiresPaymentConfirmation: false,
       };
     }
     reasons.push(`Selected paid model "${realPaid[0].name}".`);
-    return { model: realPaid[0], candidates: realPaid, reasons, blocked: false };
+    return { model: realPaid[0], candidates: realPaid, reasons, blocked: false, requiresPaymentConfirmation: true };
   }
 
   if (policy === 'free-first' && realFree.length > 0) {
     reasons.push('Free-first policy: using a no-cost model.');
-    return { model: realFree[0], candidates: realFree, reasons, blocked: false };
+    return { model: realFree[0], candidates: realFree, reasons, blocked: false, requiresPaymentConfirmation: false };
   }
 
   if (policy === 'balanced') {
@@ -136,6 +145,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
       candidates: [...realFree, ...realPaid],
       reasons,
       blocked: false,
+      requiresPaymentConfirmation: true,
     };
   }
 
@@ -145,7 +155,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
     );
     if (mockPool.length > 0) {
       reasons.push('No real provider is available; using mock for offline testing.');
-      return { model: mockPool[0], candidates: mockPool, reasons, blocked: false };
+      return { model: mockPool[0], candidates: mockPool, reasons, blocked: false, requiresPaymentConfirmation: false };
     }
   }
 
@@ -155,6 +165,7 @@ export function routeImageTask(options: RouteOptions): RouteDecision {
     reasons,
     blocked: true,
     blockedReason: `No provider is available for task "${options.task}". Check your network or API keys.`,
+    requiresPaymentConfirmation: false,
   };
 }
 

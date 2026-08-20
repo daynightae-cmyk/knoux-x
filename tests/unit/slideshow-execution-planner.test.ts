@@ -44,6 +44,18 @@ describe('slideshow execution bounding (Windows command-line safety)', () => {
   });
 
   afterEach(async () => {
+    // Windows can transiently lock freshly staged hard links (antivirus/Indexer);
+    // retry before surfacing the cleanup error instead of flaking the suite.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await fs.rm(work, { recursive: true, force: true });
+        return;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EBUSY' && code !== 'EPERM' && code !== 'ENOTEMPTY') throw error;
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
     await fs.rm(work, { recursive: true, force: true });
   });
 
@@ -115,6 +127,8 @@ describe('slideshow execution bounding (Windows command-line safety)', () => {
   });
 
   test('250 slides are staged so the final command stays bounded', async () => {
+    // 500+ filesystem operations (write fixtures, hard-link/copy staging, filter script);
+    // antivirus and parallel-suite I/O contention can exceed the default 5s on Windows.
     const plan = await slideshowFor(250);
     const exec = await buildSlideshowExecution(plan, {
       executablePath: capability().executablePath,
@@ -125,7 +139,7 @@ describe('slideshow execution bounding (Windows command-line safety)', () => {
     expect(exec.strategy).toBe('short-alias');
     expect(exec.stagedInputs).toHaveLength(250);
     expect(exec.commandLineLength).toBeLessThanOrEqual(WINDOWS_SAFE_COMMAND_LENGTH);
-  });
+  }, 30_000);
 
   test('long Arabic/Unicode user paths are replaced by short aliases', async () => {
     const ArabicPath = `${work}/مجلد طويل جداً غير عربي ١٢٣/صورة ٠١.jpg`;

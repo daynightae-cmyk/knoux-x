@@ -1,0 +1,56 @@
+{
+  "startedAt": "2026-08-19T15:37:27.118Z",
+  "finishedAt": "2026-08-19T15:37:27.120Z",
+  "providers": [
+    {
+      "timestamp": "2026-08-19T15:37:27.118Z",
+      "provider": "huggingface",
+      "model": "stabilityai/stable-diffusion-3-medium-diffusers",
+      "endpointPath": "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3-medium-diffusers",
+      "status": "BLOCKED",
+      "httpStatus": null,
+      "mime": null,
+      "width": null,
+      "height": null,
+      "sha256": null,
+      "jobId": null,
+      "finalState": null,
+      "error": "missing HF credential (set HF_TOKEN or HUGGINGFACE_TOKEN)"
+    },
+    {
+      "timestamp": "2026-08-19T15:37:27.119Z",
+      "provider": "fal",
+      "model": "fal-ai/qwen-image",
+      "endpointPath": "https://queue.fal.run/fal-ai/qwen-image",
+      "status": "BLOCKED",
+      "httpStatus": null,
+      "mime": null,
+      "width": null,
+      "height": null,
+      "sha256": null,
+      "jobId": null,
+      "finalState": null,
+      "error": "missing Fal credential (set FAL_KEY)"
+    },
+    {
+      "timestamp": "2026-08-19T15:37:27.119Z",
+      "provider": "knoux-cloud",
+      "model": "knoux-cloud/qwen-image",
+      "endpointPath": "<gateway>/v1/image-jobs",
+      "status": "BLOCKED",
+      "httpStatus": null,
+      "mime": null,
+      "width": null,
+      "height": null,
+      "sha256": null,
+      "jobId": null,
+      "finalState": null,
+      "error": "missing gateway/session (set KNOUX_GATEWAY_URL and KNOUX_SESSION_TOKEN)"
+    }
+  ],
+  "editorEndToEnd": {
+    "attempted": false,
+    "status": "BLOCKED",
+    "detail": "No live provider result available to feed through the editor path. HF must be LIVE VERIFIED first."
+  }
+}

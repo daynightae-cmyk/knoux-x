@@ -32,7 +32,9 @@
     "phase1:installed-verify": "node tools/run-slideshow-phase1-installed-verification.cjs",
     "brand:manifest": "node tools/validate-brand-assets.cjs --write",
     "brand:verify": "node tools/validate-brand-assets.cjs",
-    "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"
+    "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package",
+    "verify:video-gate": "node scripts/real-video-execution-gate.cjs",
+    "verify:local-media": "jest tests/unit/real-local-media-workflow.test.ts"
   },
   "jest": {
     "testEnvironment": "node",

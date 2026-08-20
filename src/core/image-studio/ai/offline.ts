@@ -71,10 +71,15 @@ export function availabilityFromState(state: ConnectivityState): ProviderAvailab
   return {
     openrouter: state === 'online',
     huggingface: state === 'online',
+    fal: state === 'online',
+    'knoux-cloud': state === 'online',
     local: true,
     mock: true,
   };
 }
+
+/** Providers that need the network and participate in queue flush on reconnect. */
+const NETWORK_PROVIDERS: ReadonlyArray<ImageProviderId> = ['openrouter', 'huggingface', 'fal', 'knoux-cloud'];
 
 export class OfflineFirstQueue {
   private readonly store: AiJobStore;
@@ -185,7 +190,7 @@ export class OfflineFirstQueue {
   /** Run all deferred jobs that can now be flushed. */
   async flush(): Promise<string[]> {
     const ready = [...this.queued.values()]
-      .filter((job) => job.provider === 'openrouter' || job.provider === 'huggingface')
+      .filter((job) => NETWORK_PROVIDERS.includes(job.provider))
       .map((job) => job.jobId);
     if (ready.length === 0) return [];
     this.onFlushed?.(ready);

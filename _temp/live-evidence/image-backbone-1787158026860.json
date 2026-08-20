@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-08-19T16:47:06.859Z",
+  "provider": "huggingface",
+  "model": "stabilityai/stable-diffusion-3-medium-diffusers",
+  "prompt": "A serene sunset over a calm ocean, golden light, photorealistic",
+  "httpStatus": 200,
+  "mime": "image/jpeg",
+  "bytes": 46202,
+  "sha256": "1ad3686f065fb60fc9bad4174cb98cbb7a4b125055728c7908f9436b5974e694",
+  "latencyMs": 4679,
+  "savedPath": "D:\\Knoux-X-Bootstrap\\_temp\\feat-image-editor-real-ai\\_temp\\live-evidence\\image-backbone-1787158026857.png",
+  "isPNG": false,
+  "isJPEG": true,
+  "verdict": "LIVE VERIFIED"
+}

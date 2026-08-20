@@ -1,0 +1,122 @@
+{
+  "timestamp": "2026-08-19T17:58:59.899Z",
+  "source": "ffmpeg lavfi testsrc2 + sine — synthetic-proof source, real bytes",
+  "expectedTimelineSeconds": 5.5,
+  "stages": {
+    "1-import": {
+      "status": "OK",
+      "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-local-media-nOKsYE\\source.mp4",
+      "realDurationSeconds": 6,
+      "realWidth": 640,
+      "realHeight": 360,
+      "realFrameRate": 30,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "hasVideo": true,
+      "hasAudio": true,
+      "fileSizeBytes": 650720,
+      "sha256": "db6970ef68db7b018fdcc508fe6f644f51cbc07bc3ef182403cc4c7874977bf7",
+      "recordedAt": "2026-08-19T17:59:00.534Z"
+    },
+    "2-timeline": {
+      "status": "OK",
+      "projectId": "real-local-media-proof",
+      "trackCount": 3,
+      "itemCount": 1,
+      "projectSettings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "audioSampleRate": 48000,
+        "backgroundColor": "#000000",
+        "timelineZoom": 1,
+        "snapEnabled": true,
+        "snapThreshold": 0.08,
+        "autosaveSeconds": 30
+      },
+      "recordedAt": "2026-08-19T17:59:00.562Z"
+    },
+    "3-split-trim": {
+      "status": "OK",
+      "items": [
+        {
+          "id": "clip-a",
+          "timelineStart": 0,
+          "duration": 2,
+          "sourceIn": 0,
+          "sourceOut": 2
+        },
+        {
+          "id": "clip-b",
+          "timelineStart": 2,
+          "duration": 3.5,
+          "sourceIn": 2.5,
+          "sourceOut": 6
+        }
+      ],
+      "expectedTimelineSeconds": 5.5,
+      "timelineSeconds": 5.5,
+      "summedItemDurationSeconds": 5.5,
+      "recordedAt": "2026-08-19T17:59:00.565Z"
+    },
+    "4-save": {
+      "status": "OK",
+      "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-local-media-nOKsYE\\proof-project.knouxedit",
+      "fileSizeBytes": 3638,
+      "schema": "knoux-multitrack",
+      "version": 1,
+      "name": "Real Local Media Proof",
+      "recordedAt": "2026-08-19T17:59:00.593Z"
+    },
+    "5-reopen": {
+      "status": "OK",
+      "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-local-media-nOKsYE\\proof-project.knouxedit",
+      "migrated": false,
+      "projectId": "real-local-media-proof",
+      "trackCount": 3,
+      "itemCount": 2,
+      "reopenedTimelineSeconds": 5.5,
+      "recordedAt": "2026-08-19T17:59:00.597Z"
+    },
+    "6-render": {
+      "status": "OK",
+      "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-local-media-nOKsYE\\render\\timeline-render.mp4",
+      "expectedTimelineSeconds": 5.5,
+      "realDurationSeconds": 5.541333,
+      "width": 640,
+      "height": 360,
+      "frameRate": 30,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "videoFrames": 166,
+      "fileSizeBytes": 514238,
+      "sha256": "e9416ad125cd84bf15df01042bdcf926b420c080e30250d76ca4c8a3447835b4",
+      "recordedAt": "2026-08-19T17:59:01.853Z"
+    },
+    "7-export": {
+      "status": "OK",
+      "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-local-media-nOKsYE\\export-balance.mp4",
+      "sourceHash": "e9416ad125cd84bf15df01042bdcf926b420c080e30250d76ca4c8a3447835b4",
+      "realDurationSeconds": 5.541,
+      "width": 640,
+      "height": 360,
+      "frameRate": 30,
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "videoFrames": 166,
+      "fileSizeBytes": 524300,
+      "sha256": "9679fd7975d927f8b49edd06ca0156a293677aa2f7b7017ae997949c7402de79",
+      "recordedAt": "2026-08-19T17:59:03.444Z"
+    },
+    "8-ffprobe": {
+      "status": "OK",
+      "expectedTimelineSeconds": 5.5,
+      "expectedFrames": 165,
+      "realFrames": 166,
+      "realDurationSeconds": 5.541,
+      "frameDriftFrames": 1,
+      "recordedAt": "2026-08-19T17:59:03.638Z"
+    }
+  },
+  "finalVerdict": "PASS — REAL local media loop proven (import→timeline→split/trim→save→reopen→render→export→ffprobe)"
+}

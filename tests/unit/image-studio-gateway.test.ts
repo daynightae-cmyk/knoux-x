@@ -388,7 +388,8 @@ describe('AI gateway orchestrator', () => {
     const health = await gateway.health();
     expect(health.providers.huggingface?.status).toBe('reachable');
     expect(health.providers['knoux-cloud']?.status).toBe('reachable');
-    expect(health.providers.openrouter).toEqual({ status: 'unconfigured', latencyMs: null });
+    // openrouter is not wired (wired: false in catalog), so it should not appear in health providers
+    expect(health.providers.openrouter).toBeUndefined();
     expect(health.entitlement.status).toBe('unconfigured');
   });
 });

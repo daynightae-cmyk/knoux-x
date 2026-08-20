@@ -23,6 +23,10 @@ import {
   multitrackEditorEnglish,
 } from '../locales/multitrackEditor';
 import {
+  videoStudioArabic,
+  videoStudioEnglish,
+} from '../locales/videoStudio';
+import {
   diagnosticsArabic,
   diagnosticsEnglish,
   playerViewportArabic,
@@ -76,6 +80,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     imageEditor: imageEditorEnglish,
     imageStudio: imageStudioEnglish,
     multitrack: multitrackEditorEnglish,
+    videoStudio: videoStudioEnglish,
     slideshow: slideshowStudioEnglish,
     audioTools: audioToolsEnglish,
     playerViewport: playerViewportEnglish,
@@ -110,6 +115,7 @@ const dictionaries: Record<LocaleType, unknown> = {
     imageEditor: imageEditorArabic,
     imageStudio: imageStudioArabic,
     multitrack: multitrackEditorArabic,
+    videoStudio: videoStudioArabic,
     slideshow: slideshowStudioArabic,
     audioTools: audioToolsArabic,
     playerViewport: playerViewportArabic,

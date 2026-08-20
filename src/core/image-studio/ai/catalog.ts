@@ -63,7 +63,7 @@ export const PROVIDERS: Record<ImageProviderId, ProviderDefinition> = {
     requiresKey: true,
     freeTier: true,
     keyDescription: 'OpenRouter API key from https://openrouter.ai/keys',
-    wired: true,
+    wired: false,
   },
   huggingface: {
     id: 'huggingface',
@@ -103,11 +103,11 @@ export const PROVIDERS: Record<ImageProviderId, ProviderDefinition> = {
   },
   mock: {
     id: 'mock',
-    name: 'Mock (testing)',
+    name: 'Mock (development/test only)',
     baseUrl: '',
     requiresKey: false,
     freeTier: true,
-    keyDescription: 'Deterministic in-app mock used for offline testing.',
+    keyDescription: 'Deterministic in-app mock provider used by development and offline tests only. Never exposed as a real AI provider in production UI.',
     wired: true,
   },
 };

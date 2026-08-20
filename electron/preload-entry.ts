@@ -6,3 +6,4 @@ import './preload-multitrack';
 import './preload-slideshow';
 import './preload-audio-tools';
 import './preload-image-studio';
+import './preload-video-studio';

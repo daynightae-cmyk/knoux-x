@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-08-19T18:00:13.120Z",
+  "provider": "huggingface",
+  "model": "tencent/HunyuanVideo",
+  "task": "text-to-video",
+  "prompt": "A serene sunset over a calm ocean, gentle waves, golden light, 5 seconds",
+  "requestedWidth": 512,
+  "requestedHeight": 512,
+  "requestedDuration": 3,
+  "requestedFps": 16,
+  "requestedFrames": 48,
+  "credentialPresent": true,
+  "stages": {
+    "1-credential-check": {
+      "status": "BLOCKED",
+      "reason": "HF_TOKEN does not look like a valid Hugging Face token",
+      "recordedAt": "2026-08-19T18:00:13.123Z"
+    }
+  },
+  "finalVerdict": "BLOCKED — invalid credential format"
+}

@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-08-19T16:44:23.269Z",
+  "provider": "huggingface",
+  "model": "tencent/HunyuanVideo",
+  "task": "text-to-video",
+  "prompt": "A serene sunset over a calm ocean, gentle waves, golden light, 5 seconds",
+  "requestedWidth": 512,
+  "requestedHeight": 512,
+  "requestedDuration": 3,
+  "requestedFps": 16,
+  "requestedFrames": 48,
+  "credentialPresent": true,
+  "stages": {
+    "1-credential-check": {
+      "status": "OK",
+      "tokenPrefix": "hf_Ecb...",
+      "tokenLength": 38,
+      "recordedAt": "2026-08-19T16:44:23.272Z"
+    },
+    "2-provider-probe": {
+      "status": 400,
+      "statusText": "Bad Request",
+      "latencyMs": 627,
+      "endpoint": "https://router.huggingface.co/hf-inference/models/tencent/HunyuanVideo",
+      "recordedAt": "2026-08-19T16:44:23.900Z"
+    }
+  },
+  "finalVerdict": "BLOCKED — provider endpoint unreachable"
+}

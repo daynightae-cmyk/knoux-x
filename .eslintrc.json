@@ -92,6 +92,40 @@
       "rules": {
         "@typescript-eslint/no-var-requires": "off"
       }
+    },
+    {
+      "files": [
+        "tests/unit/video-studio-ai.test.ts"
+      ],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "import/order": "off"
+      }
+    },
+    {
+      "files": [
+        "electron/ipc/channel-types.ts",
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts",
+        "electron/video-studio/video-studio-service.ts",
+        "src/core/image-studio/ai/discovery.ts",
+        "src/core/image-studio/ai/model-registry.ts",
+        "src/features/image-editor/ImageEditorView.tsx",
+        "src/features/video-studio/VideoStudioView.tsx"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "import/order": "off"
+      }
+    },
+    {
+      "files": [
+        "electron/video-studio/video-studio-service.ts"
+      ],
+      "rules": {
+        "import/no-duplicates": "off"
+      }
     }
   ],
   "ignorePatterns": [

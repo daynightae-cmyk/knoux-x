@@ -9,6 +9,12 @@ export type BeautyTool =
   | 'sharpen'
   | 'color-adjust'
   | 'eye-enhance'
+  | 'lip-tint'
+  | 'blush'
+  | 'eyeshadow'
+  | 'eyeliner'
+  | 'portrait-glow'
+  | 'body-sculpt'
   | 'liquify';
 
 export interface ImageEditorSource {

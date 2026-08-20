@@ -484,3 +484,66 @@ export function createGradientMask(
   }
   return mask;
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Creative cosmetics and portrait finishing
+// ═══════════════════════════════════════════════════════════════════════════
+
+function hexColor(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '').trim();
+  const full = normalized.length === 3
+    ? normalized.split('').map((value) => value + value).join('')
+    : normalized.padEnd(6, '0').slice(0, 6);
+  return [
+    Number.parseInt(full.slice(0, 2), 16) || 0,
+    Number.parseInt(full.slice(2, 4), 16) || 0,
+    Number.parseInt(full.slice(4, 6), 16) || 0,
+  ];
+}
+
+/** Apply a tint through an optional mask for lips, blush, shadow, or liner. */
+export function cosmeticTint(
+  imageData: ImageData,
+  color: string,
+  strength: number,
+  mask?: ImageData,
+): ImageData {
+  const result = cloneImageData(imageData);
+  const [targetR, targetG, targetB] = hexColor(color);
+  const amount = Math.max(0, Math.min(1, strength)) * 0.72;
+
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    if (mask && mask.data[i + 3] === 0) continue;
+    const alpha = amount * (mask ? mask.data[i + 3] / 255 : 1);
+    result.data[i] = clamp(lerp(imageData.data[i], targetR, alpha));
+    result.data[i + 1] = clamp(lerp(imageData.data[i + 1], targetG, alpha));
+    result.data[i + 2] = clamp(lerp(imageData.data[i + 2], targetB, alpha));
+  }
+  return result;
+}
+
+/** Give a portrait a restrained highlight, clarity, and saturation lift. */
+export function portraitGlow(
+  imageData: ImageData,
+  strength: number,
+  mask?: ImageData,
+): ImageData {
+  const result = cloneImageData(imageData);
+  const amount = Math.max(0, Math.min(1, strength));
+
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    if (mask && mask.data[i + 3] === 0) continue;
+    const alpha = mask ? mask.data[i + 3] / 255 : 1;
+    const r = imageData.data[i];
+    const g = imageData.data[i + 1];
+    const b = imageData.data[i + 2];
+    const luma = r * 0.299 + g * 0.587 + b * 0.114;
+    const lift = 1 + amount * 0.18 * alpha;
+    const saturation = 1 + amount * 0.12 * alpha;
+    result.data[i] = clamp(lerp(luma, r, saturation) * lift);
+    result.data[i + 1] = clamp(lerp(luma, g, saturation) * lift);
+    result.data[i + 2] = clamp(lerp(luma, b, saturation) * lift);
+  }
+  return result;
+}

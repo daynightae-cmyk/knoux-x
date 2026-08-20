@@ -81,10 +81,11 @@ export function skinSmoothing(
 // Guided Skin Smooth and manual Patch Heal
 // ═══════════════════════════════════════════════════════════════════════════
 
-function boxMean(values: Float32Array, width: number, height: number, radius: number): Float32Array {
+function boxMean(values: Float32Array, width: number, height: number, radius: number, shouldAbort?: () => boolean): Float32Array {
   const horizontal = new Float32Array(values.length);
   const output = new Float32Array(values.length);
   for (let y = 0; y < height; y++) {
+    if (shouldAbort?.()) return output;
     let sum = 0;
     for (let x = -radius; x <= radius; x++) sum += values[y * width + Math.max(0, Math.min(width - 1, x))];
     for (let x = 0; x < width; x++) {
@@ -93,6 +94,7 @@ function boxMean(values: Float32Array, width: number, height: number, radius: nu
     }
   }
   for (let x = 0; x < width; x++) {
+    if (shouldAbort?.()) return output;
     let sum = 0;
     for (let y = -radius; y <= radius; y++) sum += horizontal[Math.max(0, Math.min(height - 1, y)) * width + x];
     for (let y = 0; y < height; y++) {
@@ -109,6 +111,7 @@ export function guidedSkinSmooth(
   strength: number,
   texturePreserve = 0.76,
   mask?: ImageData,
+  shouldAbort?: () => boolean,
 ): ImageData {
   const { width, height, data } = imageData;
   const pixels = width * height;
@@ -121,14 +124,18 @@ export function guidedSkinSmooth(
     guide[pixel] = value;
     guideSquared[pixel] = value * value;
   }
-  const meanGuide = boxMean(guide, width, height, radius);
-  const meanGuideSquared = boxMean(guideSquared, width, height, radius);
+  if (shouldAbort?.()) return cloneImageData(imageData);
+  const meanGuide = boxMean(guide, width, height, radius, shouldAbort);
+  if (shouldAbort?.()) return cloneImageData(imageData);
+  const meanGuideSquared = boxMean(guideSquared, width, height, radius, shouldAbort);
+  if (shouldAbort?.()) return cloneImageData(imageData);
   const variance = new Float32Array(pixels);
   for (let pixel = 0; pixel < pixels; pixel++) variance[pixel] = meanGuideSquared[pixel] - meanGuide[pixel] * meanGuide[pixel];
 
   const result = cloneImageData(imageData);
   const blend = Math.max(0, Math.min(1, strength)) * (1 - Math.max(0, Math.min(0.95, texturePreserve)));
   for (let channel = 0; channel < 3; channel++) {
+    if (shouldAbort?.()) return result;
     const source = new Float32Array(pixels);
     const guideProduct = new Float32Array(pixels);
     for (let pixel = 0; pixel < pixels; pixel++) {
@@ -136,17 +143,22 @@ export function guidedSkinSmooth(
       source[pixel] = value;
       guideProduct[pixel] = guide[pixel] * value;
     }
-    const meanSource = boxMean(source, width, height, radius);
-    const meanProduct = boxMean(guideProduct, width, height, radius);
+    const meanSource = boxMean(source, width, height, radius, shouldAbort);
+    if (shouldAbort?.()) return result;
+    const meanProduct = boxMean(guideProduct, width, height, radius, shouldAbort);
+    if (shouldAbort?.()) return result;
     const coefficientA = new Float32Array(pixels);
     const coefficientB = new Float32Array(pixels);
     for (let pixel = 0; pixel < pixels; pixel++) {
       coefficientA[pixel] = (meanProduct[pixel] - meanGuide[pixel] * meanSource[pixel]) / (variance[pixel] + 0.004);
       coefficientB[pixel] = meanSource[pixel] - coefficientA[pixel] * meanGuide[pixel];
     }
-    const meanA = boxMean(coefficientA, width, height, radius);
-    const meanB = boxMean(coefficientB, width, height, radius);
+    const meanA = boxMean(coefficientA, width, height, radius, shouldAbort);
+    if (shouldAbort?.()) return result;
+    const meanB = boxMean(coefficientB, width, height, radius, shouldAbort);
+    if (shouldAbort?.()) return result;
     for (let pixel = 0; pixel < pixels; pixel++) {
+      if ((pixel & 0x3FFF) === 0 && shouldAbort?.()) return result;
       const index = pixel * 4;
       if (mask && mask.data[index + 3] === 0) continue;
       const alpha = blend * (mask ? mask.data[index + 3] / 255 : 1);
@@ -167,11 +179,12 @@ export interface PatchHealRequest {
 }
 
 /** Copies a user-selected nearby patch through a feathered circular mask. */
-export function patchHeal(imageData: ImageData, request: PatchHealRequest, mask?: ImageData): ImageData {
+export function patchHeal(imageData: ImageData, request: PatchHealRequest, mask?: ImageData, shouldAbort?: () => boolean): ImageData {
   const result = cloneImageData(imageData);
   const radius = Math.max(1, Math.round(request.radius));
   const feather = Math.max(0.05, Math.min(1, request.feather ?? 0.75));
   for (let y = -radius; y <= radius; y++) {
+    if (shouldAbort?.()) return result;
     for (let x = -radius; x <= radius; x++) {
       const distance = Math.hypot(x, y) / radius;
       if (distance > 1) continue;

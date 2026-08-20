@@ -17,15 +17,29 @@ interface RenderJob {
 
 type WorkerMessage =
   | { type: 'result'; jobId: string; image: ImageData }
+  | { type: 'aborted'; jobId: string }
   | { type: 'failed'; jobId: string; reason: string };
 
 const PRIORITY: RetouchRenderPriority[] = ['interactive', 'apply', 'export'];
 
-/** A single long-lived worker per document queue. New slider values supersede stale previews. */
+/**
+ * If the worker does not acknowledge a cancellation within this window the
+ * worker is considered hung and is replaced. Cooperative cancellation keeps
+ * one long-lived worker across slider storms; this is the last-resort valve.
+ */
+const CANCEL_WATCHDOG_MS = 800;
+
+/**
+ * A single long-lived worker per document queue. New slider values supersede
+ * stale previews through a cooperative cancel message — the worker aborts
+ * between chunks — instead of spawning a worker per edit (spec: never create
+ * a new worker per slider move). The watchdog terminates only a hung worker.
+ */
 export class RetouchRenderQueue {
   private worker: Worker;
   private readonly queues: Record<RetouchRenderPriority, RenderJob[]> = { interactive: [], apply: [], export: [] };
   private active: RenderJob | null = null;
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.worker = this.createWorker();
@@ -55,17 +69,37 @@ export class RetouchRenderQueue {
     }
     if (this.active?.dedupeKey === dedupeKey) {
       const active = this.active;
-      this.active = null;
-      // Pixel operations are synchronous inside a worker. Terminating the worker is
-      // the only reliable way to interrupt a job already running in that event loop.
-      this.worker.terminate();
-      this.worker = this.createWorker();
-      active.reject(new DOMException('Superseded by a newer edit.', 'AbortError'));
+      // Cooperative cancellation: the worker checks the cancel flag between
+      // chunks. A watchdog replaces the worker only if it never acknoledges.
+      this.worker.postMessage({ type: 'cancel', jobId: active.id });
+      this.armWatchdog(active);
     }
     if (shouldPump) this.pump();
   }
 
+  private armWatchdog(job: RenderJob): void {
+    this.clearWatchdog();
+    this.watchdog = setTimeout(() => {
+      this.watchdog = null;
+      if (!this.active || this.active.id !== job.id) return;
+      const hung = this.active;
+      this.active = null;
+      this.worker.terminate();
+      this.worker = this.createWorker();
+      hung.reject(new Error('Retouch render worker did not acknowledge cancellation and was replaced.'));
+      this.pump();
+    }, CANCEL_WATCHDOG_MS);
+  }
+
+  private clearWatchdog(): void {
+    if (this.watchdog !== null) {
+      clearTimeout(this.watchdog);
+      this.watchdog = null;
+    }
+  }
+
   dispose(): void {
+    this.clearWatchdog();
     this.worker.terminate();
     if (this.active) this.active.reject(new Error('Retouch render worker was stopped.'));
     for (const priority of PRIORITY) for (const job of this.queues[priority]) job.reject(new Error('Retouch render worker was stopped.'));
@@ -88,8 +122,10 @@ export class RetouchRenderQueue {
   private handleMessage(message: WorkerMessage): void {
     if (!this.active || this.active.id !== message.jobId) return;
     const job = this.active;
+    if (message.type !== 'aborted') this.clearWatchdog();
     this.active = null;
     if (message.type === 'result') job.resolve(message.image);
+    else if (message.type === 'aborted') job.reject(new DOMException('Superseded by a newer edit.', 'AbortError'));
     else job.reject(new Error(message.reason));
     this.pump();
   }

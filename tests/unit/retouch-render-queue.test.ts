@@ -43,20 +43,54 @@ describe('RetouchRenderQueue', () => {
     queue.dispose();
   });
 
-  it('terminates a busy worker when a newer job supersedes the same edit', async () => {
+  it('cooperatively cancels the active job without replacing the worker, then resumes it', async () => {
     const queue = new RetouchRenderQueue();
     const firstWorker = MockViteWorker.instances[0];
     const staleJob = queue.enqueue({ dedupeKey: 'preview', priority: 'interactive', image: image(1), operation: guidedSkinOperation() });
     const replacementJob = queue.enqueue({ dedupeKey: 'preview', priority: 'interactive', image: image(2), operation: guidedSkinOperation() });
 
-    expect(firstWorker.terminate).toHaveBeenCalledTimes(1);
+    // The worker is NOT killed — it receives a cooperative cancel and the
+    // same worker instance carries on for the replacement job.
+    expect(firstWorker.terminate).not.toHaveBeenCalled();
+    const cancelCall = firstWorker.postMessage.mock.calls.find((call) => (call[0] as { type: string }).type === 'cancel');
+    expect(cancelCall).toBeDefined();
+    expect(cancelCall![0]).toMatchObject({ type: 'cancel', jobId: expect.any(String) });
+
+    // The aborted stale job is rejected with AbortError.
+    firstWorker.emit({ type: 'aborted', jobId: cancelCall![0].jobId });
     await expect(staleJob).rejects.toMatchObject({ name: 'AbortError' });
 
-    const replacementWorker = MockViteWorker.instances[1];
-    const replacementMessage = replacementWorker.postMessage.mock.calls[0][0] as { jobId: string };
-    replacementWorker.emit({ type: 'result', jobId: replacementMessage.jobId, image: image(22) });
+    // The same long-lived worker then renders the replacement preview.
+    const replacementMessage = firstWorker.postMessage.mock.calls[firstWorker.postMessage.mock.calls.length - 1][0] as { jobId: string };
+    expect(MockViteWorker.instances).toHaveLength(1);
+    firstWorker.emit({ type: 'result', jobId: replacementMessage.jobId, image: image(22) });
 
     await expect(replacementJob).resolves.toMatchObject({ data: new Uint8ClampedArray([22, 22, 22, 255]) });
     queue.dispose();
+  });
+
+  it('replaces a worker that never acknowledges cancellation (watchdog)', () => {
+    jest.useFakeTimers();
+    try {
+      const queue = new RetouchRenderQueue();
+      const firstWorker = MockViteWorker.instances[0];
+      const staleJob = queue.enqueue({ dedupeKey: 'preview', priority: 'interactive', image: image(1), operation: guidedSkinOperation() });
+      const replacementJob = queue.enqueue({ dedupeKey: 'preview', priority: 'interactive', image: image(2), operation: guidedSkinOperation() });
+
+      expect(firstWorker.terminate).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(900);
+      expect(firstWorker.terminate).toHaveBeenCalledTimes(1);
+      expect(MockViteWorker.instances).toHaveLength(2);
+
+      void staleJob.catch(() => undefined);
+      void replacementJob.catch(() => undefined);
+
+      const replacementWorker = MockViteWorker.instances[1];
+      const replacementMessage = replacementWorker.postMessage.mock.calls[0][0] as { jobId: string };
+      replacementWorker.emit({ type: 'result', jobId: replacementMessage.jobId, image: image(24) });
+      expect(replacementJob).resolves.toMatchObject({ data: new Uint8ClampedArray([24, 24, 24, 255]) });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -126,19 +126,32 @@ export class VideoBranchStore {
 
   private validateStored(value: unknown): StoredBranchRecord {
     if (!value || typeof value !== 'object') throw new TypeError('Branch snapshot is not an object.');
-    const record = value as StoredBranchRecord;
-    if (typeof record.branchId !== 'string' || !VALID_ID.test(record.branchId)) throw new TypeError('Stored branch id is invalid.');
-    if (typeof record.projectId !== 'string' || typeof record.projectName !== 'string') throw new TypeError('Stored project identity is invalid.');
-    if (typeof record.label !== 'string' || record.label.length === 0 || record.label.length > 120) throw new TypeError('Stored branch label is invalid.');
-    if (record.parentBranchId !== null && (typeof record.parentBranchId !== 'string' || !VALID_ID.test(record.parentBranchId))) {
+    const candidate = value as Record<string, unknown>;
+    const branchId = candidate.branchId;
+    const projectId = candidate.projectId;
+    const projectName = candidate.projectName;
+    const label = candidate.label;
+    const parentBranchId = candidate.parentBranchId;
+    const createdAt = candidate.createdAt;
+    const projectValue = candidate.project;
+    if (typeof branchId !== 'string' || !VALID_ID.test(branchId)) throw new TypeError('Stored branch id is invalid.');
+    if (typeof projectId !== 'string' || typeof projectName !== 'string') throw new TypeError('Stored project identity is invalid.');
+    if (typeof label !== 'string' || label.length === 0 || label.length > 120) throw new TypeError('Stored branch label is invalid.');
+    if (parentBranchId !== null && (typeof parentBranchId !== 'string' || !VALID_ID.test(parentBranchId))) {
       throw new TypeError('Stored parent branch id is invalid.');
     }
-    if (typeof record.createdAt !== 'string' || Number.isNaN(Date.parse(record.createdAt))) throw new TypeError('Stored createdAt is invalid.');
-    const project = parseMultitrackProject(record.project);
+    if (typeof createdAt !== 'string' || Number.isNaN(Date.parse(createdAt))) throw new TypeError('Stored createdAt is invalid.');
+    const project = parseMultitrackProject(projectValue);
+    const metrics = computeBranchMetrics(project);
     return {
-      ...record,
+      branchId,
+      projectId,
+      projectName,
+      label,
+      parentBranchId,
+      createdAt,
+      metrics,
       project,
-      metrics: computeBranchMetrics(project),
     };
   }
 

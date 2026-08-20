@@ -293,6 +293,18 @@ export interface InvokeArgumentMap {
   'video-studio:gateway-config-set': [config: any];
   'video-studio:set-credential': [provider: string, key: string];
   'video-studio:offline-jobs': [];
+  // Video Studio — D10/D11/D12 differentiation layer
+  'video-studio:edit-analyze': [project: MultitrackProject, plan: unknown, options?: { renderCost?: { durationSeconds?: number; width?: number; height?: number; fps?: number } }];
+  'video-studio:edit-replay': [project: MultitrackProject, plan: unknown];
+  'video-studio:plan-record': [project: MultitrackProject, plan: unknown];
+  'video-studio:plan-list': [];
+  'video-studio:plan-get': [recordId: string];
+  'video-studio:plan-remove': [recordId: string];
+  'video-studio:branch-create': [project: MultitrackProject, label: string, parentBranchId?: string];
+  'video-studio:branch-list': [projectId?: string];
+  'video-studio:branch-get': [branchId: string];
+  'video-studio:branch-remove': [branchId: string];
+  'video-studio:branch-compare': [leftBranchId: string, rightBranchId: string];
 }
 
 export interface InvokeResultMap {
@@ -325,6 +337,18 @@ export interface InvokeResultMap {
 
 // Video Studio
   'video-studio:list-providers': object[]; 'video-studio:provider-status': object; 'video-studio:list-models': object[]; 'video-studio:create-job': object; 'video-studio:cancel-job': boolean; 'video-studio:retry-job': object | null; 'video-studio:get-job': object | null; 'video-studio:list-jobs': object[]; 'video-studio:remove-job': boolean; 'video-studio:ai-health': object; 'video-studio:ai-entitlement': object; 'video-studio:ai-plan': object; 'video-studio:ai-settings-get': object; 'video-studio:ai-settings-set': boolean; 'video-studio:gateway-config-get': object; 'video-studio:gateway-config-set': boolean; 'video-studio:set-credential': boolean; 'video-studio:offline-jobs': object[];
+  // Video Studio — D10/D11/D12 differentiation layer
+  'video-studio:edit-analyze': object;
+  'video-studio:edit-replay': object;
+  'video-studio:plan-record': object;
+  'video-studio:plan-list': object[];
+  'video-studio:plan-get': object | null;
+  'video-studio:plan-remove': boolean;
+  'video-studio:branch-create': object;
+  'video-studio:branch-list': object[];
+  'video-studio:branch-get': object | null;
+  'video-studio:branch-remove': boolean;
+  'video-studio:branch-compare': object;
 }
 
 export interface InboundPayloadMap {

@@ -16,6 +16,8 @@ import type { RecordingRegionRuntimeController } from './ipc/recording-region-ru
 import { setupRecordingRegionRuntime } from './ipc/recording-region-runtime';
 import type { VideoStudioRuntimeController } from './ipc/video-studio-runtime';
 import { setupVideoStudioRuntime } from './ipc/video-studio-runtime';
+import type { VideoStudioEditRuntimeController } from './ipc/video-studio-edit-runtime';
+import { setupVideoStudioEditRuntime } from './ipc/video-studio-edit-runtime';
 import type { SlideshowRuntimeController } from './ipc/slideshow-runtime';
 import { setupSlideshowRuntime } from './ipc/slideshow-runtime';
 import { IPC_INVOKE } from './ipc/contract';
@@ -32,6 +34,7 @@ let slideshowController: SlideshowRuntimeController | null = null;
 let audioToolsController: AudioToolsRuntimeController | null = null;
 let imageStudioController: ImageStudioRuntimeController | null = null;
 let videoStudioController: VideoStudioRuntimeController | null = null;
+let videoStudioEditController: VideoStudioEditRuntimeController | null = null;
 let registered = false;
 
 function isTrustedWindow(webContentsId: number): boolean {
@@ -69,6 +72,7 @@ function registerCreativeRuntime(): void {
   setupClipExtractionRuntime(authoritativeIpc.forOwner('clip-extraction'));
   imageStudioController = setupImageStudioRuntime(authoritativeIpc.forOwner('image-studio'));
   videoStudioController = setupVideoStudioRuntime(authoritativeIpc.forOwner('video-studio'));
+  videoStudioEditController = setupVideoStudioEditRuntime(authoritativeIpc.forOwner('video-studio-edit'));
 
   const ipc = authoritativeIpc.forOwner('creative-bootstrap');
 
@@ -153,5 +157,6 @@ export async function cleanupCreativeRuntime(): Promise<void> {
   audioToolsController?.close();
   imageStudioController?.close();
   videoStudioController?.close();
+  videoStudioEditController?.close();
   await controller?.shutdown();
 }

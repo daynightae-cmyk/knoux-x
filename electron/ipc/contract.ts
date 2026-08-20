@@ -269,6 +269,18 @@ export const IPC_INVOKE = {
   VIDEO_STUDIO_GATEWAY_CONFIG_SET: 'video-studio:gateway-config-set',
   VIDEO_STUDIO_SET_CREDENTIAL: 'video-studio:set-credential',
   VIDEO_STUDIO_OFFLINE_JOBS: 'video-studio:offline-jobs',
+  // Video Studio — D10/D11/D12 differentiation layer
+  VIDEO_STUDIO_EDIT_ANALYZE: 'video-studio:edit-analyze',
+  VIDEO_STUDIO_EDIT_REPLAY: 'video-studio:edit-replay',
+  VIDEO_STUDIO_PLAN_RECORD: 'video-studio:plan-record',
+  VIDEO_STUDIO_PLAN_LIST: 'video-studio:plan-list',
+  VIDEO_STUDIO_PLAN_GET: 'video-studio:plan-get',
+  VIDEO_STUDIO_PLAN_REMOVE: 'video-studio:plan-remove',
+  VIDEO_STUDIO_BRANCH_CREATE: 'video-studio:branch-create',
+  VIDEO_STUDIO_BRANCH_LIST: 'video-studio:branch-list',
+  VIDEO_STUDIO_BRANCH_GET: 'video-studio:branch-get',
+  VIDEO_STUDIO_BRANCH_REMOVE: 'video-studio:branch-remove',
+  VIDEO_STUDIO_BRANCH_COMPARE: 'video-studio:branch-compare',
 } as const;
 export type IpcInvokeChannel = typeof IPC_INVOKE[keyof typeof IPC_INVOKE];
 
@@ -615,6 +627,18 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'video-studio:gateway-config-set', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
   { channel: 'video-studio:set-credential', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
   { channel: 'video-studio:offline-jobs', direction: 'invoke', owner: 'video-studio', exposedBy: 'preload', arguments: 'video-studio request tuple', result: 'video-studio result', basic: false },
+  // Video Studio — D10/D11/D12 differentiation layer
+  { channel: 'video-studio:edit-analyze', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:edit-replay', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:plan-record', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:plan-list', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:plan-get', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:plan-remove', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:branch-create', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:branch-list', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:branch-get', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:branch-remove', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
+  { channel: 'video-studio:branch-compare', direction: 'invoke', owner: 'video-studio-edit', exposedBy: 'preload-video-studio', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
   // Video Studio — outbound events
   { channel: 'video-studio:job-phase', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'video-studio:job-progress', direction: 'outbound-event', owner: 'video-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },

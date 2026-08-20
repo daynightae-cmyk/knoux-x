@@ -17,7 +17,7 @@ import {
   projectRevision,
 } from '../../src/core/video-studio/ai/edit-plan';
 import { replayEditPlan } from '../../src/core/video-studio/ai/edit-replay';
-import { computeBranchMetrics } from '../../src/core/video-studio/ai/branch-metrics';
+import { computeBranchMetrics, __resetAudibleGainAtCallCount, __getAudibleGainAtCallCount } from '../../src/core/video-studio/ai/branch-metrics';
 import { VideoBranchStore } from '../../electron/creative/video-branch-store';
 import { EditPlanStore } from '../../electron/creative/edit-plan-store';
 
@@ -297,5 +297,90 @@ describe('zero-duration metrics — NaN guard', () => {
     const metrics = parsed.metrics as Record<string, unknown>;
     expect(Number.isFinite(metrics.audioDensity as number)).toBe(true);
     expect(metrics.audioDensity).toBe(0);
+  });
+});
+
+describe('audio density performance — constant gain O(1)', () => {
+  function projectWithLongItem(duration: number, volume = 1): ReturnType<typeof createMultitrackProject> {
+    let project = baseProject();
+    project.tracks = [createTrack('audio-1', 'audio', 'Audio', 0)];
+    const item = createTimelineItem({ id: 'item1', trackId: 'audio-1', kind: 'audio', name: 'A', timelineStart: 0, duration, sourceIn: 0, sourceOut: duration });
+    item.audio.volume = volume;
+    item.keyframes = [];
+    project = insertItem(project, item);
+    return project;
+  }
+
+  test('10-second constant-volume item -> O(1) calls, correct density', () => {
+    __resetAudibleGainAtCallCount();
+    const project = projectWithLongItem(10, 1);
+    const metrics = computeBranchMetrics(project);
+    expect(metrics.audioDensity).toBeCloseTo(1, 3);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThanOrEqual(5);
+  });
+
+  test('1-minute constant-volume item -> O(1) calls, correct density', () => {
+    __resetAudibleGainAtCallCount();
+    const project = projectWithLongItem(60, 1);
+    const metrics = computeBranchMetrics(project);
+    expect(metrics.audioDensity).toBeCloseTo(1, 3);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThanOrEqual(5);
+  });
+
+  test('10-minute constant-volume item -> O(1) calls, correct density', () => {
+    __resetAudibleGainAtCallCount();
+    const project = projectWithLongItem(600, 1);
+    const metrics = computeBranchMetrics(project);
+    expect(metrics.audioDensity).toBeCloseTo(1, 3);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThanOrEqual(5);
+  });
+
+  test('1-hour constant-volume item -> O(1) calls, correct density', () => {
+    __resetAudibleGainAtCallCount();
+    const project = projectWithLongItem(3600, 1);
+    const metrics = computeBranchMetrics(project);
+    expect(metrics.audioDensity).toBeCloseTo(1, 3);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThanOrEqual(5);
+  });
+
+  test('1-hour silent item (volume 0) -> O(1) calls, zero density', () => {
+    __resetAudibleGainAtCallCount();
+    const project = projectWithLongItem(3600, 0);
+    const metrics = computeBranchMetrics(project);
+    expect(metrics.audioDensity).toBe(0);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('audio density performance — keyframed scales with boundaries', () => {
+  function projectWithKeyframedItem(duration: number, keyframes: Array<{ id: string; property: 'volume'; time: number; value: number; easing: 'linear' }>): ReturnType<typeof createMultitrackProject> {
+    let project = baseProject();
+    project.tracks = [createTrack('audio-1', 'audio', 'Audio', 0)];
+    const item = createTimelineItem({ id: 'item1', trackId: 'audio-1', kind: 'audio', name: 'A', timelineStart: 0, duration, sourceIn: 0, sourceOut: duration });
+    item.audio.volume = 1;
+    item.keyframes = keyframes as never;
+    project = insertItem(project, item);
+    return project;
+  }
+
+  test('1-hour item with few keyframes -> calls scale with keyframes not duration', () => {
+    __resetAudibleGainAtCallCount();
+    const keyframes = [
+      { id: 'kf1', property: 'volume' as const, time: 600, value: 0.5, easing: 'linear' as const },
+      { id: 'kf2', property: 'volume' as const, time: 1800, value: 0, easing: 'linear' as const },
+      { id: 'kf3', property: 'volume' as const, time: 3000, value: 1, easing: 'linear' as const },
+    ];
+    const project = projectWithKeyframedItem(3600, keyframes);
+    const metrics = computeBranchMetrics(project);
+    expect(Number.isFinite(metrics.audioDensity)).toBe(true);
+    expect(metrics.audioDensity).toBeGreaterThan(0);
+    expect(metrics.audioDensity).toBeLessThanOrEqual(1);
+    const calls = __getAudibleGainAtCallCount();
+    expect(calls).toBeLessThan(100);
   });
 });

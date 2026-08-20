@@ -15,6 +15,15 @@ import { estimateRenderCostMs, type RenderCostTarget } from './render-cost';
 
 const MOTION_KEYFRAME_PROPERTIES = new Set(['positionX', 'positionY', 'scale', 'rotation']);
 
+// Test-only instrumentation for performance verification
+let audibleGainAtCallCount = 0;
+export function __resetAudibleGainAtCallCount(): void {
+  audibleGainAtCallCount = 0;
+}
+export function __getAudibleGainAtCallCount(): number {
+  return audibleGainAtCallCount;
+}
+
 export interface BranchMetrics {
   durationMs: number;
   shotCount: number;
@@ -51,6 +60,7 @@ function audibleGainAt(
   anySoloTrack: boolean,
   localTime: number,
 ): number {
+  audibleGainAtCallCount += 1;
   if (!isAudioCapable(item, track)) return 0;
   if (track.hidden || track.muted) return 0;
   if (item.audio.muted) return 0;
@@ -66,6 +76,35 @@ function audibleGainAt(
   return Math.max(0, Math.min(4, gain));
 }
 
+function hasTimeVaryingGain(item: TimelineItem): boolean {
+  if (item.keyframes.some((k) => k.property === 'volume')) return true;
+  if (item.audio.fadeIn > 0) return true;
+  if (item.audio.fadeOut > 0) return true;
+  return false;
+}
+
+function findAudibleCrossing(
+  item: TimelineItem,
+  track: TimelineTrack,
+  anySoloTrack: boolean,
+  tStart: number,
+  tEnd: number,
+  gainStart: number,
+  _gainEnd: number,
+): number {
+  let lo = tStart;
+  let hi = tEnd;
+  const startAudible = gainStart > 0.001;
+  for (let iter = 0; iter < 20; iter += 1) {
+    const mid = (lo + hi) / 2;
+    const gain = audibleGainAt(item, track, anySoloTrack, mid);
+    const midAudible = gain > 0.001;
+    if (midAudible === startAudible) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
 function audibleSegmentsForItem(
   item: TimelineItem,
   track: TimelineTrack,
@@ -76,67 +115,57 @@ function audibleSegmentsForItem(
   if (track.volume <= 0) return [];
   if (anySoloTrack && !track.solo) return [];
   if (item.duration <= 0) return [];
-  const segments: Array<{ timelineStart: number; duration: number }> = [];
-  const step = 0.02;
-  const keyframeTimes = item.keyframes.filter((k) => k.property === 'volume').map((k) => k.time).sort((a, b) => a - b);
-  const sampleSet = new Set<number>();
-  for (let t = 0; t < item.duration; t += step) sampleSet.add(Number(t.toFixed(3)));
-  for (const kt of keyframeTimes) {
-    if (kt >= 0 && kt <= item.duration) {
-      sampleSet.add(Number(kt.toFixed(3)));
-      if (kt > 0) sampleSet.add(Number(Math.max(0, kt - 0.01).toFixed(3)));
-      if (kt < item.duration) sampleSet.add(Number(Math.min(item.duration, kt + 0.01).toFixed(3)));
+
+  if (!hasTimeVaryingGain(item)) {
+    const gain = audibleGainAt(item, track, anySoloTrack, 0);
+    if (gain > 0.001) {
+      return [{ timelineStart: item.timelineStart, duration: item.duration }];
+    }
+    return [];
+  }
+
+  const boundaries = new Set<number>();
+  boundaries.add(0);
+  boundaries.add(item.duration);
+
+  for (const kf of item.keyframes) {
+    if (kf.property === 'volume' && kf.time >= 0 && kf.time <= item.duration) {
+      boundaries.add(kf.time);
     }
   }
-  if (item.audio.fadeIn > 0) {
-    sampleSet.add(Number(item.audio.fadeIn.toFixed(3)));
-    sampleSet.add(Number(Math.max(0, item.audio.fadeIn - 0.01).toFixed(3)));
-  }
+
+  if (item.audio.fadeIn > 0) boundaries.add(item.audio.fadeIn);
   if (item.audio.fadeOut > 0) {
     const fadeOutStart = item.duration - item.audio.fadeOut;
-    if (fadeOutStart >= 0) {
-      sampleSet.add(Number(fadeOutStart.toFixed(3)));
-      sampleSet.add(Number(Math.min(item.duration, fadeOutStart + 0.01).toFixed(3)));
-    }
+    if (fadeOutStart >= 0) boundaries.add(fadeOutStart);
   }
-  sampleSet.add(Number(item.duration.toFixed(3)));
-  const sortedSamples = [...sampleSet].sort((a, b) => a - b);
-  let segmentStart: number | null = null;
-  for (let i = 0; i < sortedSamples.length; i += 1) {
-    const localTime = sortedSamples[i];
-    if (localTime < 0 || localTime > item.duration) continue;
-    const gain = audibleGainAt(item, track, anySoloTrack, localTime);
-    const isAudible = gain > 0.001;
-    if (isAudible && segmentStart === null) segmentStart = localTime;
-    else if (!isAudible && segmentStart !== null) {
-      const segStart = segmentStart;
-      const segEnd = sortedSamples[i - 1] ?? localTime;
-      if (segEnd > segStart) segments.push({ timelineStart: item.timelineStart + segStart, duration: segEnd - segStart });
-      segmentStart = null;
-    }
-    if (i === sortedSamples.length - 1 && segmentStart !== null) {
-      const segStart = segmentStart;
-      const segEnd = localTime;
-      if (segEnd > segStart) segments.push({ timelineStart: item.timelineStart + segStart, duration: segEnd - segStart });
-    }
-  }
-  if (segments.length === 0) {
-    const stepSamples: Array<{ localTime: number; audible: boolean }> = [];
-    for (let t = 0; t < item.duration; t += step) {
-      const gain = audibleGainAt(item, track, anySoloTrack, t);
-      stepSamples.push({ localTime: t, audible: gain > 0.001 });
-    }
-    let curStart: number | null = null;
-    for (let i = 0; i < stepSamples.length; i += 1) {
-      const s = stepSamples[i];
-      if (s.audible && curStart === null) curStart = s.localTime;
-      else if (!s.audible && curStart !== null) {
-        segments.push({ timelineStart: item.timelineStart + curStart, duration: s.localTime - curStart });
-        curStart = null;
+
+  const sortedBoundaries = [...boundaries].sort((a, b) => a - b);
+  const segments: Array<{ timelineStart: number; duration: number }> = [];
+
+  for (let i = 0; i < sortedBoundaries.length - 1; i += 1) {
+    const t1 = sortedBoundaries[i];
+    const t2 = sortedBoundaries[i + 1];
+    if (t2 <= t1) continue;
+
+    const gain1 = audibleGainAt(item, track, anySoloTrack, t1);
+    const gain2 = audibleGainAt(item, track, anySoloTrack, t2);
+
+    const audible1 = gain1 > 0.001;
+    const audible2 = gain2 > 0.001;
+
+    if (audible1 && audible2) {
+      segments.push({ timelineStart: item.timelineStart + t1, duration: t2 - t1 });
+    } else if (audible1 !== audible2) {
+      const crossing = findAudibleCrossing(item, track, anySoloTrack, t1, t2, gain1, gain2);
+      if (audible1) {
+        segments.push({ timelineStart: item.timelineStart + t1, duration: crossing - t1 });
+      } else {
+        segments.push({ timelineStart: item.timelineStart + crossing, duration: t2 - crossing });
       }
     }
-    if (curStart !== null) segments.push({ timelineStart: item.timelineStart + curStart, duration: item.duration - curStart });
   }
+
   return segments;
 }
 

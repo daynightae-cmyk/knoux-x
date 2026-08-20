@@ -9,6 +9,8 @@ import {
   FileImage,
   FilePlus2,
   FolderOpen,
+  GitBranch,
+  GitCompare,
   KeyRound,
   Lock,
   LockOpen,
@@ -56,6 +58,11 @@ import type {
   TrackKind,
   TransitionKind,
 } from '../../core/creative/multitrackProject';
+import {
+  compareBranchMetrics,
+  computeBranchMetrics,
+} from '../../core/video-studio/ai/branch-metrics';
+import type { BranchMetrics, BranchMetricsDelta } from '../../core/video-studio/ai/branch-metrics';
 import { useTranslation } from '../../i18n';
 
 interface ProjectHistory {
@@ -68,6 +75,15 @@ interface RecoveryEntry {
   filePath: string;
   modifiedAt: string;
 }
+
+interface BranchSnapshotUI {
+  branchId: string;
+  label: string;
+  createdAt: string;
+  metrics: BranchMetrics;
+}
+
+type BranchComparisonUI = BranchMetricsDelta;
 
 const trackKinds: TrackKind[] = ['video', 'audio', 'image', 'text', 'subtitle', 'overlay'];
 const transitionKinds: Array<TransitionKind | 'none'> = [
@@ -107,6 +123,12 @@ function formatTime(seconds: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${remainder.toFixed(3).padStart(6, '0')}`;
 }
 
+function signedDelta(value: number): string {
+  const rounded = Math.round(value * 1000) / 1000;
+  if (rounded === 0) return '±0';
+  return `${rounded > 0 ? '+' : ''}${rounded}`;
+}
+
 function readMediaMetadata(mediaUrl: string, kind: 'video' | 'audio'): Promise<number> {
   return new Promise((resolve, reject) => {
     const media = document.createElement(kind);
@@ -144,6 +166,12 @@ function compatibleTrack(project: MultitrackProject, kind: TrackKind): TimelineT
     ?? null;
 }
 
+function branchAPI(): Window['knouxVideoStudioAPI'] | null {
+  return typeof window.knouxVideoStudioAPI === 'object' && window.knouxVideoStudioAPI !== null
+    ? window.knouxVideoStudioAPI
+    : null;
+}
+
 export const MultitrackEditorView: React.FC = () => {
   const [project, setProject] = useState<MultitrackProject | null>(null);
   const [projectPath, setProjectPath] = useState<string | undefined>();
@@ -160,6 +188,11 @@ export const MultitrackEditorView: React.FC = () => {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [newTrackKind, setNewTrackKind] = useState<TrackKind>('video');
   const [keyframeProperty, setKeyframeProperty] = useState<KeyframeProperty>('opacity');
+  const [branches, setBranches] = useState<BranchSnapshotUI[]>([]);
+  const [branchLabel, setBranchLabel] = useState('');
+  const [branchComparison, setBranchComparison] = useState<BranchComparisonUI | null>(null);
+  const [branchBusy, setBranchBusy] = useState(false);
+  const [branchError, setBranchError] = useState<string | null>(null);
   const historyRef = useRef<ProjectHistory>({ past: [], future: [] });
   const previewRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { locale, t } = useTranslation();
@@ -172,6 +205,7 @@ export const MultitrackEditorView: React.FC = () => {
     : [], [project]);
   const selectedItem = useMemo(() => project?.tracks.flatMap((track) => track.items).find((item) => item.id === selectedItemId) ?? null, [project, selectedItemId]);
   const anySoloTrack = useMemo(() => project?.tracks.some((track) => track.solo) ?? false, [project]);
+  const currentMetrics = useMemo(() => project ? computeBranchMetrics(project) : null, [project]);
   const activeMix = useMemo(() => project ? mixAudioAtTime(project, playhead) : [], [playhead, project]);
   const pixelsPerSecond = useMemo(() => Math.max(24, Math.min(220, 54 * (project?.settings.timelineZoom ?? 1))), [project?.settings.timelineZoom]);
   const timelineWidth = Math.max(900, duration * pixelsPerSecond + 120);
@@ -303,6 +337,52 @@ export const MultitrackEditorView: React.FC = () => {
       setBusy(false);
     }
   }, [busy, desktopRuntime, project, projectPath, refreshWorkspace, t]);
+
+  const refreshBranches = useCallback(async (projectId: string): Promise<void> => {
+    const api = branchAPI();
+    if (!api) return;
+    try {
+      const stored = await api.listBranches(projectId);
+      setBranches(stored.map((entry: Record<string, unknown>) => ({
+        branchId: entry.branchId as string,
+        label: entry.label as string,
+        createdAt: entry.createdAt as string,
+        metrics: entry.metrics as BranchMetrics,
+      })));
+    } catch (reason) {
+      setBranchError(reason instanceof Error ? reason.message : t('multitrack.branchLoadFailed'));
+    }
+  }, [t]);
+
+  const projectId = project?.id;
+
+  useEffect(() => {
+    if (!projectId) return;
+    void refreshBranches(projectId);
+  }, [projectId, refreshBranches]);
+
+  const snapshotBranch = useCallback(async (): Promise<void> => {
+    const api = branchAPI();
+    if (!api || !project || branchBusy) return;
+    const label = branchLabel.trim() || project.name;
+    setBranchBusy(true);
+    setBranchError(null);
+    setBranchComparison(null);
+    try {
+      await api.createBranch(project, label.slice(0, 120));
+      setBranchLabel('');
+      await refreshBranches(project.id);
+    } catch (reason) {
+      setBranchError(reason instanceof Error ? reason.message : t('multitrack.branchSnapshotFailed'));
+    } finally {
+      setBranchBusy(false);
+    }
+  }, [branchBusy, branchLabel, project, refreshBranches, t]);
+
+  const compareBranchWithCurrent = useCallback((branch: BranchSnapshotUI): void => {
+    if (!project) return;
+    setBranchComparison(compareBranchMetrics(branch.metrics, computeBranchMetrics(project)));
+  }, [project]);
 
   const undo = useCallback((): void => {
     if (!project) return;
@@ -739,6 +819,61 @@ export const MultitrackEditorView: React.FC = () => {
           )}
         </NeonPanel>
       </div>
+
+      <NeonPanel variant="dark" padding="md" className="multitrack-branches">
+        <h2><GitBranch size={16} /> {t('multitrack.branchStudio')}</h2>
+        <p className="creative-muted">{t('multitrack.branchStudioDescription')}</p>
+        {branchError && <div className="creative-error" role="alert">{branchError}</div>}
+        <div className="multitrack-branch-create">
+          <input
+            type="text"
+            value={branchLabel}
+            placeholder={t('multitrack.branchLabelPlaceholder')}
+            maxLength={120}
+            onChange={(event) => setBranchLabel(event.target.value)}
+          />
+          <NeonButton
+            variant="primary"
+            size="sm"
+            leftIcon={<GitBranch size={14} />}
+            onClick={() => void snapshotBranch()}
+            disabled={!project || branchBusy}
+          >
+            {t('multitrack.snapshotBranch')}
+          </NeonButton>
+        </div>
+        <div className="multitrack-branch-list">
+          {branches.length === 0 ? (
+            <div className="creative-empty">{t('multitrack.noBranches')}</div>
+          ) : branches.map((branch) => (
+            <div key={branch.branchId} className="multitrack-branch-row">
+              <button type="button" onClick={() => compareBranchWithCurrent(branch)}>
+                <GitCompare size={14} />
+                <strong>{branch.label}</strong>
+                <span title={branch.createdAt}>{new Date(branch.createdAt).toLocaleString(locale === 'ar' ? 'ar-AE' : 'en-US')}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+        {branchComparison && project && currentMetrics && (
+          <div className="multitrack-branch-comparison">
+            <h3>{t('multitrack.branchComparison')} · {t('multitrack.currentProject')}</h3>
+            <table>
+              <tbody>
+                <tr><td>{t('multitrack.branchMetricDuration')}</td><td>{formatTime(projectDuration(project))}</td><td>{signedDelta(branchComparison.durationMsDelta / 1000)}s</td></tr>
+                <tr><td>{t('multitrack.branchMetricShots')}</td><td>{currentMetrics.shotCount}</td><td>{signedDelta(branchComparison.shotCountDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricCutDensity')}</td><td>{currentMetrics.cutDensityPerMinute.toFixed(3)}</td><td>{signedDelta(branchComparison.cutDensityPerMinuteDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricAudioDensity')}</td><td>{currentMetrics.audioDensity.toFixed(3)}</td><td>{signedDelta(branchComparison.audioDensityDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricCaptionDensity')}</td><td>{currentMetrics.captionDensity.toFixed(3)}</td><td>{signedDelta(branchComparison.captionDensityDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricTransitions')}</td><td>{currentMetrics.transitionCount}</td><td>{signedDelta(branchComparison.transitionCountDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricMotion')}</td><td>{currentMetrics.motionIntensityPerMinute.toFixed(3)}</td><td>{signedDelta(branchComparison.motionIntensityPerMinuteDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricEffects')}</td><td>{currentMetrics.effectsCount}</td><td>{signedDelta(branchComparison.effectsCountDelta)}</td></tr>
+                <tr><td>{t('multitrack.branchMetricRenderCost')}</td><td>{currentMetrics.renderCostMs === null ? t('multitrack.branchRenderCostUnknown') : `${currentMetrics.renderCostMs} ms`}</td><td>{branchComparison.renderCostMsDelta === null ? t('multitrack.branchDeltaNone') : signedDelta(branchComparison.renderCostMsDelta)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </NeonPanel>
 
       <NeonPanel variant="dark" padding="none" className="multitrack-timeline-panel">
         <div className="multitrack-timeline-header">

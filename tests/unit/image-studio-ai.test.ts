@@ -32,10 +32,20 @@ const OFFLINE: ProviderAvailability = {
 };
 
 describe('image studio AI catalog', () => {
-  it('defines all four providers with the right base URLs and key policy', () => {
-    expect(Object.keys(PROVIDERS)).toEqual(['openrouter', 'huggingface', 'local', 'mock']);
+  it('defines all six providers with the right base URLs and key policy', () => {
+    expect(Object.keys(PROVIDERS)).toEqual([
+      'openrouter',
+      'huggingface',
+      'fal',
+      'knoux-cloud',
+      'local',
+      'mock',
+    ]);
     expect(PROVIDERS.openrouter.baseUrl).toContain('openrouter.ai');
     expect(PROVIDERS.huggingface.requiresKey).toBe(true);
+    expect(PROVIDERS.fal.baseUrl).toContain('fal.run');
+    expect(PROVIDERS.fal.requiresKey).toBe(true);
+    expect(PROVIDERS['knoux-cloud'].requiresKey).toBe(false);
     expect(PROVIDERS.local.requiresKey).toBe(false);
     expect(PROVIDERS.mock.requiresKey).toBe(false);
   });

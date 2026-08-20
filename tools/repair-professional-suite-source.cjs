@@ -5,7 +5,8 @@ const root = path.resolve(__dirname, '..');
 
 function validateRepair(relativePath, forbidden, required = []) {
   const filePath = path.join(root, relativePath);
-  const source = fs.readFileSync(filePath, 'utf8');
+  let source = fs.readFileSync(filePath, 'utf8');
+  source = source.replace(/\r\n/g, '\n');
   for (const token of forbidden) {
     if (source.includes(token)) {
       throw new Error(`Pending historical source repair remains in ${relativePath}. Commit the intended source before running quality gates.`);
@@ -53,7 +54,10 @@ validateRepair(
 validateRepair(
   'electron/ipc/slideshow-runtime.ts',
   ["import { authorizedMediaPaths } from '../security/path-registry';\n\nimport { SlideshowProjectService }"],
-  ["import { SlideshowRenderService } from '../creative/slideshow-render-service';\nimport { authorizedMediaPaths } from '../security/path-registry';"],
+  [
+    "import { SlideshowRenderService } from '../creative/slideshow-render-service';",
+    "import { authorizedMediaPaths } from '../security/path-registry';",
+  ],
 );
 
 validateRepair(

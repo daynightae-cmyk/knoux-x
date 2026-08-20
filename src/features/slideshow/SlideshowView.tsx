@@ -340,7 +340,7 @@ export const SlideshowView: React.FC = () => {
       if (previewTimerRef.current !== null) window.clearInterval(previewTimerRef.current);
       previewTimerRef.current = null;
     };
-  }, [duration, previewPlaying, previewTime]);
+  }, [duration, previewPlaying]);
 
   useEffect(() => {
     if (!project) return;

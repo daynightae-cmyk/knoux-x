@@ -1,6 +1,8 @@
 import {
   cosmeticTint,
   createGradientMask,
+  guidedSkinSmooth,
+  patchHeal,
   portraitGlow,
 } from '../../src/features/image-editor/beauty/beautyOperations';
 
@@ -56,5 +58,25 @@ describe('image editor beauty operations', () => {
 
     expect(enhanced.data[0]).toBeGreaterThan(source.data[0]);
     expect(enhanced.data[3]).toBe(180);
+  });
+
+  it('keeps masked-out detail unchanged during guided skin smoothing', () => {
+    const source = rgba(3, 1, [60, 70, 80, 255, 180, 150, 120, 255, 60, 70, 80, 255]);
+    const mask = rgba(3, 1, [0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0]);
+
+    const smoothed = guidedSkinSmooth(source, 0.8, 0.7, mask);
+
+    expect(smoothed.data.slice(0, 4)).toEqual(source.data.slice(0, 4));
+    expect(smoothed.data.slice(8, 12)).toEqual(source.data.slice(8, 12));
+    expect(smoothed.data[7]).toBe(255);
+  });
+
+  it('heals only the selected circular patch from an explicit source patch', () => {
+    const source = rgba(5, 1, [20, 20, 20, 255, 220, 40, 40, 255, 40, 120, 80, 255, 60, 70, 80, 255, 80, 90, 100, 255]);
+
+    const healed = patchHeal(source, { targetX: 1, targetY: 0, sourceX: 2, sourceY: 0, radius: 1, feather: 1 });
+
+    expect(healed.data[4]).not.toBe(source.data[4]);
+    expect(healed.data.slice(12, 20)).toEqual(source.data.slice(12, 20));
   });
 });

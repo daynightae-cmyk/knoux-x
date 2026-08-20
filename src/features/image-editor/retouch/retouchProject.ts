@@ -1,8 +1,11 @@
 import type { BeautyTool } from '../../../store/imageEditorStore';
 
+import type { LiquifyStroke } from './liquify/liquifyMesh';
+
 export type RetouchBlendMode = 'normal' | 'soft-light' | 'color' | 'luminosity';
 export type RetouchMaskType = 'brush' | 'selection' | 'focus' | 'face-region' | 'subject' | 'composite';
 export type RetouchMaskSource = 'manual' | 'selection' | 'derived' | 'local-analysis';
+export type RetouchOperationParam = number | string | boolean | LiquifyStroke[];
 
 export interface RetouchMaskDescriptor {
   id: string;
@@ -26,8 +29,8 @@ export interface RetouchOperation {
   opacity: number;
   blendMode: RetouchBlendMode;
   maskId: string | null;
-  params: Record<string, number | string | boolean>;
-  engine: 'canvas-local';
+  params: Record<string, RetouchOperationParam>;
+  engine: 'canvas-local' | 'mesh-local';
   createdAt: string;
   updatedAt: string;
 }

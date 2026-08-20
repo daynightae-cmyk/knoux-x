@@ -1149,3 +1149,44 @@
   display: flex;
   gap: 3px;
 }
+
+
+/* ── Face intelligence ── */
+.image-editor-face-intelligence {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(115, 104, 255, 0.28);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(106, 74, 255, 0.13), rgba(0, 239, 255, 0.04));
+}
+
+.image-editor-face-intelligence .image-editor-retouch-label {
+  display: grid;
+  gap: 4px;
+}
+
+.image-editor-face-list {
+  display: grid;
+  gap: 5px;
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+}
+
+.image-editor-face-list button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.18);
+  text-align: start;
+  cursor: pointer;
+}
+
+.image-editor-face-list button.active,
+.image-editor-face-list button:hover {
+  border-color: rgba(0, 239, 255, 0.56);
+  color: var(--text-primary);
+  background: rgba(0, 239, 255, 0.12);
+}

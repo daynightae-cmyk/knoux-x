@@ -45,6 +45,10 @@ import { useTranslation } from '../../i18n';
 import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../../store/imageEditorStore';
 import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
 import { RetouchLayerStack } from './retouch/RetouchLayerStack';
+import { FaceAnalysisClient } from './retouch/faceAnalysisClient';
+import { RetouchJobScheduler, type InteractiveEngine } from './retouch/RetouchJobScheduler';
+import { RetouchRenderQueue } from './retouch/retouchRenderQueue';
+import type { FaceAnalysisResult } from './retouch/faceAnalysisContract';
 import {
   addRetouchMask,
   addRetouchOperation,
@@ -65,19 +69,36 @@ import {
   cosmeticTint,
   createGradientMask,
   eyeEnhancement,
+  guidedSkinSmooth,
   liquifyWarp,
   portraitGlow,
   redEyeRemoval,
   sharpen,
-  skinSmoothing,
   skinToneAdjustment,
   teethWhitening,
 } from './beauty/beautyOperations';
+import { MemoryGovernor, classifyDevice } from './engine/MemoryGovernor';
+import { retouchTelemetry } from './engine/telemetry';
+import { clampLiquifyStrokes, liquifyMeshWarp, strokeAt, strokeFromDrag, type LiquifyStroke } from './retouch/liquify/liquifyMesh';
+import { OpenCvClient } from './retouch/openCvClient';
 
 interface CanvasSnapshot {
   dataUrl: string;
   width: number;
   height: number;
+}
+
+interface RetouchAssetImport {
+  assetRef: string;
+  proxyRef: string;
+  sourceHash: string;
+  sourceName: string;
+  sourcePath: string;
+  width: number;
+  height: number;
+  proxyWidth: number;
+  proxyHeight: number;
+  mime: string;
 }
 
 interface Point {
@@ -148,27 +169,6 @@ function imageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
-function bytesToDataUrl(bytes: Uint8Array, mimeType: string): Promise<string> {
-  const blob = new Blob([bytes], { type: mimeType });
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === 'string'
-      ? resolve(reader.result)
-      : reject(new Error('Image bytes could not be converted.'));
-    reader.onerror = () => reject(reader.error ?? new Error('Image bytes could not be read.'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-function mimeForPath(filePath: string): string {
-  const extension = filePath.split('.').pop()?.toLowerCase();
-  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
-  if (extension === 'webp') return 'image/webp';
-  if (extension === 'bmp') return 'image/bmp';
-  if (extension === 'gif') return 'image/gif';
-  return 'image/png';
-}
-
 function nameForPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX Image';
 }
@@ -199,10 +199,11 @@ function applyStoredRetouchOperation(imageData: ImageData, operation: RetouchOpe
   const liquifyMode = operation.params.liquifyMode === 'pinch' || operation.params.liquifyMode === 'expand'
     ? operation.params.liquifyMode
     : 'push';
+  const liquifyStrokes = Array.isArray(operation.params.strokes) ? operation.params.strokes : null;
   let effect: ImageData;
 
   switch (operation.tool) {
-    case 'skin-smoothing': effect = skinSmoothing(imageData, strength, mask); break;
+    case 'skin-smoothing': effect = guidedSkinSmooth(imageData, strength, 0.76, mask); break;
     case 'blemish-removal': effect = blemishRemoval(imageData, Math.max(2, Math.round(brushSize / 22)), 30 + strength * 20, mask); break;
     case 'teeth-whitening': effect = teethWhitening(imageData, strength, mask); break;
     case 'red-eye': effect = redEyeRemoval(imageData, mask); break;
@@ -216,7 +217,9 @@ function applyStoredRetouchOperation(imageData: ImageData, operation: RetouchOpe
     case 'eyeliner': effect = cosmeticTint(imageData, color, strength, mask); break;
     case 'portrait-glow': effect = portraitGlow(imageData, strength, mask); break;
     case 'liquify':
-    case 'body-sculpt': effect = liquifyWarp(imageData, imageData.width / 2, imageData.height / 2, Math.max(48, Math.min(imageData.width, imageData.height) * (brushSize / 480)), strength * 0.5, liquifyMode); break;
+    case 'body-sculpt': effect = liquifyStrokes && liquifyStrokes.length > 0
+      ? liquifyMeshWarp(imageData, liquifyStrokes, mask)
+      : liquifyWarp(imageData, imageData.width / 2, imageData.height / 2, Math.max(48, Math.min(imageData.width, imageData.height) * (brushSize / 480)), strength * 0.5, liquifyMode); break;
     default: effect = cloneImageData(imageData);
   }
 
@@ -313,6 +316,21 @@ export const ImageEditorView: React.FC = () => {
   const pointerStartRef = useRef<Point | null>(null);
   const lastPointRef = useRef<Point | null>(null);
   const drawingRef = useRef(false);
+  const faceAnalysisClientRef = useRef<FaceAnalysisClient | null>(null);
+  const retouchRenderQueueRef = useRef<RetouchRenderQueue | null>(null);
+  const openCvClientRef = useRef<OpenCvClient | null>(null);
+  const memoryGovernorRef = useRef<MemoryGovernor | null>(null);
+  if (memoryGovernorRef.current === null) memoryGovernorRef.current = new MemoryGovernor(classifyDevice());
+  const retouchJobSchedulerRef = useRef<RetouchJobScheduler | null>(null);
+  if (retouchJobSchedulerRef.current === null) {
+    retouchJobSchedulerRef.current = new RetouchJobScheduler(memoryGovernorRef.current, (engine, jobId) => {
+      if (engine === 'render-queue') retouchRenderQueueRef.current?.cancelById(jobId);
+      else openCvClientRef.current?.cancelJob(jobId);
+    });
+  }
+  const liquifyStrokesRef = useRef<LiquifyStroke[]>([]);
+  const previewTimerRef = useRef<number | null>(null);
+  const [liquifyStrokeVersion, setLiquifyStrokeVersion] = useState(0);
   const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
   const clearSource = useImageEditorStore((state) => state.clearSource);
@@ -345,6 +363,10 @@ export const ImageEditorView: React.FC = () => {
   const [beautyMaskFeather, setBeautyMaskFeather] = useState(18);
   const [beautyBrushSize, setBeautyBrushSize] = useState(96);
   const [beautyAutoPreview, setBeautyAutoPreview] = useState(true);
+  const [faceAnalysis, setFaceAnalysis] = useState<FaceAnalysisResult | null>(null);
+  const [faceAnalysisBusy, setFaceAnalysisBusy] = useState(false);
+  const [selectedFaceId, setSelectedFaceId] = useState<string | null>(null);
+  const [autoBeautyBalance, setAutoBeautyBalance] = useState(0.25);
   const [showOriginal, setShowOriginal] = useState(false);
   const [hasDocument, setHasDocument] = useState(false);
   const [tool, setTool] = useState<ImageTool>('select');
@@ -381,6 +403,57 @@ export const ImageEditorView: React.FC = () => {
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview';
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex >= 0 && historyIndex < historyRef.current.length - 1;
+
+  useEffect(() => {
+    const queue = new RetouchRenderQueue();
+    retouchRenderQueueRef.current = queue;
+    return () => {
+      queue.dispose();
+      if (retouchRenderQueueRef.current === queue) retouchRenderQueueRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const client = new OpenCvClient(`${window.location.origin}${import.meta.env.BASE_URL}assets/opencv/`);
+    openCvClientRef.current = client;
+    void client.readiness().catch(() => undefined);
+    return () => {
+      client.dispose();
+      if (openCvClientRef.current === client) openCvClientRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!desktopRuntime || typeof window.knouxImageStudioAPI === 'undefined') return;
+    const client = new FaceAnalysisClient(() => window.knouxImageStudioAPI.getVerifiedFaceModel());
+    faceAnalysisClientRef.current = client;
+    return () => {
+      client.dispose();
+      if (faceAnalysisClientRef.current === client) faceAnalysisClientRef.current = null;
+    };
+  }, [desktopRuntime]);
+
+  const handleFaceAnalysis = useCallback(async (): Promise<void> => {
+    if (!source || !hasDocument) return;
+    const client = faceAnalysisClientRef.current;
+    if (!client) {
+      setFaceAnalysis({ status: 'model-unavailable', modelId: 'mediapipe-face-landmarker', reason: t('imageEditor.faceAnalysisUnavailable') });
+      return;
+    }
+    setFaceAnalysisBusy(true);
+    try {
+      const result = await client.analyze({
+        imageDataUrl: source.dataUrl,
+        imageWidth: documentWidth,
+        imageHeight: documentHeight,
+        maxFaces: 8,
+      });
+      setFaceAnalysis(result);
+      setSelectedFaceId(result.status === 'ready' ? result.faces[0]?.id ?? null : null);
+    } finally {
+      setFaceAnalysisBusy(false);
+    }
+  }, [documentHeight, documentWidth, hasDocument, source, t]);
 
   const syncCanvasMetadata = useCallback((): void => {
     const base = baseCanvasRef.current;
@@ -475,6 +548,13 @@ export const ImageEditorView: React.FC = () => {
   useEffect(() => {
     if (source) void loadDocument(source.dataUrl, source.name);
   }, [loadDocument, source]);
+
+  useEffect(() => () => {
+    if (source?.dataUrl.startsWith('blob:')) URL.revokeObjectURL(source.dataUrl);
+    if (source?.assetRef && desktopRuntime && typeof window.knouxImageStudioAPI !== 'undefined') {
+      void window.knouxImageStudioAPI.releaseRetouchAsset(source.assetRef);
+    }
+  }, [desktopRuntime, source?.assetRef, source?.dataUrl]);
 
   const pointerPosition = useCallback((event: React.PointerEvent<HTMLCanvasElement>): Point => {
     const overlay = overlayCanvasRef.current;
@@ -574,6 +654,29 @@ export const ImageEditorView: React.FC = () => {
     commit();
   }, [commit, lineWidth]);
 
+  // ── Debounced live preview (spec: slider change → 100ms debounce → one active preview) ──
+  const runBeautyPreviewRef = useRef<() => Promise<void>>(async () => undefined);
+  const previewSeqRef = useRef(0);
+
+  const scheduleBeautyPreview = useCallback((): void => {
+    if (previewTimerRef.current !== null) window.clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = window.setTimeout(() => {
+      previewTimerRef.current = null;
+      void runBeautyPreviewRef.current();
+    }, 100);
+  }, []);
+
+  const isLiquifyBrush = beautyTool === 'liquify' || beautyTool === 'body-sculpt';
+
+  const appendLiquifyStroke = useCallback((from: Point, to: Point, mode: LiquifyMode): void => {
+    const stroke = mode === 'push'
+      ? strokeFromDrag(`ls-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, from, to, beautyBrushSize, beautyStrength)
+      : strokeAt(`ls-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, mode, to, beautyBrushSize, beautyStrength);
+    liquifyStrokesRef.current.push(stroke);
+    setLiquifyStrokeVersion((version) => version + 1);
+    scheduleBeautyPreview();
+  }, [beautyBrushSize, beautyStrength, scheduleBeautyPreview]);
+
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLCanvasElement>): void => {
     const canvas = baseCanvasRef.current;
     const context = canvas?.getContext('2d', { alpha: true });
@@ -583,6 +686,9 @@ export const ImageEditorView: React.FC = () => {
     lastPointRef.current = point;
     drawingRef.current = true;
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (isLiquifyBrush) {
+      return;
+    }
     if (tool === 'brush' || tool === 'eraser') {
       context.save();
       configureStroke(context, tool);
@@ -593,7 +699,7 @@ export const ImageEditorView: React.FC = () => {
       context.stroke();
       context.restore();
     }
-  }, [busy, configureStroke, hasDocument, pointerPosition, tool]);
+  }, [busy, configureStroke, hasDocument, isLiquifyBrush, pointerPosition, tool]);
 
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLCanvasElement>): void => {
     const start = pointerStartRef.current;
@@ -617,9 +723,15 @@ export const ImageEditorView: React.FC = () => {
       lastPointRef.current = point;
       return;
     }
+    if (isLiquifyBrush) {
+      const previous = lastPointRef.current ?? point;
+      appendLiquifyStroke(previous, point, 'push');
+      lastPointRef.current = point;
+      return;
+    }
     clearOverlay();
     drawShape(overlayContext, tool, start, point);
-  }, [clearOverlay, configureStroke, drawShape, pointerPosition, tool]);
+  }, [appendLiquifyStroke, clearOverlay, configureStroke, drawShape, isLiquifyBrush, pointerPosition, tool]);
 
   const handlePointerUp = useCallback((event: React.PointerEvent<HTMLCanvasElement>): void => {
     const start = pointerStartRef.current;
@@ -634,6 +746,10 @@ export const ImageEditorView: React.FC = () => {
     if (!canvas || !context) return;
     const area = clampSelection(normalizeSelection(start, end), canvas.width, canvas.height);
     clearOverlay();
+    if (isLiquifyBrush) {
+      if (beautyLiquifyMode === 'pinch' || beautyLiquifyMode === 'expand') appendLiquifyStroke(start, end, beautyLiquifyMode);
+      return;
+    }
     if (tool === 'brush' || tool === 'eraser') {
       commit();
     } else if (tool === 'select') {
@@ -657,7 +773,7 @@ export const ImageEditorView: React.FC = () => {
       drawShape(context, tool, start, end);
       commit();
     }
-  }, [applyAreaEffect, clearOverlay, color, commit, drawShape, fontSize, opacity, pointerPosition, t, tool]);
+  }, [appendLiquifyStroke, applyAreaEffect, beautyLiquifyMode, clearOverlay, color, commit, drawShape, fontSize, isLiquifyBrush, opacity, pointerPosition, t, tool]);
 
   const undo = useCallback(async (): Promise<void> => {
     if (!canUndo) return;
@@ -792,9 +908,20 @@ export const ImageEditorView: React.FC = () => {
         properties: ['openFile'],
       });
       if (!filePath) return;
-      const raw = await window.knouxAPI.file.readFile(filePath);
-      const dataUrl = await bytesToDataUrl(new Uint8Array(raw), mimeForPath(filePath));
-      setSource({ dataUrl, name: nameForPath(filePath), sourcePath: filePath });
+      const asset = await window.knouxImageStudioAPI.importRetouchAsset(filePath) as RetouchAssetImport;
+      const proxyBytes = await window.knouxImageStudioAPI.readRetouchProxy(asset.proxyRef);
+      if (!proxyBytes) throw new Error('The local preview proxy is unavailable.');
+      const dataUrl = URL.createObjectURL(new Blob([proxyBytes], { type: asset.mime }));
+      setSource({
+        dataUrl,
+        name: asset.sourceName,
+        sourcePath: asset.sourcePath,
+        assetRef: asset.assetRef,
+        proxyRef: asset.proxyRef,
+        sourceHash: asset.sourceHash,
+        originalWidth: asset.width,
+        originalHeight: asset.height,
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('imageEditor.openFailed'));
     }
@@ -902,6 +1029,7 @@ export const ImageEditorView: React.FC = () => {
     setSelection(null);
     setDocumentWidth(0);
     setDocumentHeight(0);
+    retouchJobSchedulerRef.current?.cancelActive();
     clearOverlay();
     clearSource();
     setRetouchProject(null);
@@ -1159,7 +1287,7 @@ export const ImageEditorView: React.FC = () => {
   const runBeautyOperation = useCallback((imageData: ImageData): ImageData => {
     const mask = resolveBeautyMask(imageData);
     switch (beautyTool) {
-      case 'skin-smoothing': return skinSmoothing(imageData, beautyStrength, mask);
+      case 'skin-smoothing': return guidedSkinSmooth(imageData, beautyStrength, 0.76, mask);
       case 'blemish-removal': return blemishRemoval(imageData, Math.max(2, Math.round(beautyBrushSize / 22)), 30 + beautyStrength * 20, mask);
       case 'teeth-whitening': return teethWhitening(imageData, beautyStrength, mask);
       case 'red-eye': return redEyeRemoval(imageData, mask);
@@ -1214,34 +1342,127 @@ export const ImageEditorView: React.FC = () => {
     setBeautyMask(inverted);
   }, [beautyMask, setBeautyMask]);
 
-  const handleBeautyPreview = useCallback((): void => {
-    if (!hasDocument) return;
+  /**
+   * Engine selection for an interactive preview. The OpenCV worker is picked
+   * for guided skin only when its capability probe actually reports a usable
+   * ximgproc; everything else dispatches through the render queue.
+   */
+  const previewEngineFor = useCallback(async (): Promise<InteractiveEngine> => {
+    if (beautyTool !== 'skin-smoothing') return 'render-queue';
+    const client = openCvClientRef.current;
+    if (!client) return 'render-queue';
+    const caps = await client.readiness().catch(() => null);
+    return caps?.available && caps.ximgproc ? 'opencv' : 'render-queue';
+  }, [beautyTool]);
+
+  /** Run one dispatched preview on the chosen engine. Never called twice for the same lease. */
+  const runPreviewOnEngine = useCallback(async (engine: InteractiveEngine, imageData: ImageData, jobId: string): Promise<ImageData | null> => {
+    if (engine === 'opencv') {
+      const client = openCvClientRef.current;
+      if (!client) return null;
+      const result = await client.guidedSkin({
+        image: cloneImageData(imageData),
+        strength: beautyStrength,
+        texturePreserve: 0.76,
+        mask: resolveBeautyMask(imageData),
+        jobId,
+      });
+      return result.ok ? result.image : null;
+    }
+    if (beautyTool === 'liquify' || beautyTool === 'body-sculpt') {
+      const strokes = clampLiquifyStrokes(liquifyStrokesRef.current, imageData.width, imageData.height);
+      if (strokes.length === 0) return cloneImageData(imageData);
+      const settings = { cellSize: imageData.width > 1600 ? 24 : 16 };
+      if (retouchRenderQueueRef.current) {
+        return retouchRenderQueueRef.current.enqueue({
+          id: jobId,
+          dedupeKey: 'beauty:liquify-mesh-preview',
+          priority: 'interactive',
+          image: cloneImageData(imageData),
+          operation: { kind: 'liquify-mesh', strokes, settings },
+        });
+      }
+      return liquifyMeshWarp(imageData, strokes, undefined, settings);
+    }
+    if (beautyTool === 'skin-smoothing') {
+      const mask = resolveBeautyMask(imageData);
+      if (retouchRenderQueueRef.current) {
+        return retouchRenderQueueRef.current.enqueue({
+          id: jobId,
+          dedupeKey: 'beauty:guided-skin-preview',
+          priority: 'interactive',
+          image: cloneImageData(imageData),
+          operation: { kind: 'guided-skin', strength: beautyStrength, texturePreserve: 0.76, mask },
+        });
+      }
+      return guidedSkinSmooth(imageData, beautyStrength, 0.76, mask);
+    }
+    return runBeautyOperation(imageData);
+  }, [beautyStrength, beautyTool, resolveBeautyMask, runBeautyOperation]);
+
+  const handleBeautyPreview = useCallback(async (manual = false): Promise<void> => {
+    if (!hasDocument || !beautyTool) return;
     const imageData = getCanvasImageData();
     if (!imageData) return;
 
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+
+    const scheduler = retouchJobSchedulerRef.current;
+    if (!scheduler) return;
+
+    // Strict serialization: a replacement dispatch may not start while the
+    // previous interactive job is still computing (single active preview per
+    // document, regardless of engine).
+    await scheduler.waitUntilIdle();
+
+    const engine = await previewEngineFor();
+    const jobId = `preview-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const lease = scheduler.beginInteractive({ engine, jobId, width: imageData.width, height: imageData.height, manual });
+    if (!lease) {
+      retouchTelemetry.record('beauty-preview-skipped', 0, MemoryGovernor.footprintFor(imageData.width, imageData.height));
+      return;
+    }
+
+    const sequence = ++previewSeqRef.current;
     setBeautyBusy(true);
-    setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
+    if (!beautyBeforeSnapshot) setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
 
+    const startedAt = performance.now();
     try {
-      const result = runBeautyOperation(imageData);
-
-      // Create preview canvas
+      const result = await runPreviewOnEngine(engine, imageData, jobId);
+      if (lease.ended || sequence !== previewSeqRef.current) return; // superseded — discard
+      if (!result) throw new Error('The beauty preview produced no output.');
       const previewCanvas = document.createElement('canvas');
       previewCanvas.width = result.width;
       previewCanvas.height = result.height;
       previewCanvas.getContext('2d')?.putImageData(result, 0, 0);
       setBeautyPreview(previewCanvas.toDataURL('image/png'));
+      retouchTelemetry.record('beauty-preview', performance.now() - startedAt, MemoryGovernor.footprintFor(result.width, result.height));
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return; // superseded — never an error
       setError(err instanceof Error ? err.message : 'Beauty preview failed.');
     } finally {
+      scheduler.endInteractive(lease);
       setBeautyBusy(false);
     }
-  }, [hasDocument, getCanvasImageData, runBeautyOperation, setBeautyBusy, setBeautyBeforeSnapshot, setBeautyPreview, setError]);
+  }, [beautyBeforeSnapshot, beautyTool, getCanvasImageData, hasDocument, previewEngineFor, runPreviewOnEngine, setBeautyBeforeSnapshot, setBeautyBusy, setBeautyPreview, setError]);
+
+  runBeautyPreviewRef.current = handleBeautyPreview;
 
   useEffect(() => {
     if (!beautyAutoPreview || !beautyTool || !hasDocument) return;
-    handleBeautyPreview();
-  }, [beautyAutoPreview, beautyTool, hasDocument, handleBeautyPreview]);
+    scheduleBeautyPreview();
+  }, [beautyAutoPreview, beautyBrushSize, beautyColor, beautyLiquifyMode, beautyMaskFeather, beautyMaskSource, beautyStrength, beautyTool, hasDocument, liquifyStrokeVersion, scheduleBeautyPreview]);
+
+  useEffect(() => {
+    if (!isLiquifyBrush && liquifyStrokesRef.current.length > 0) {
+      liquifyStrokesRef.current = [];
+      setLiquifyStrokeVersion((version) => version + 1);
+    }
+  }, [beautyTool, isLiquifyBrush]);
 
   const handleBeautyApply = useCallback(async (): Promise<void> => {
     if (!hasDocument || !beautyPreviewDataUrl || !beautyTool || !source) return;
@@ -1269,6 +1490,8 @@ export const ImageEditorView: React.FC = () => {
         protectedRegions: [],
       });
       const definition = BEAUTY_TOOL_DEFINITIONS.find((entry) => entry.id === beautyTool);
+      const isMeshTool = isLiquifyBrush;
+      const strokes = isMeshTool ? clampLiquifyStrokes(liquifyStrokesRef.current, imageData.width, imageData.height) : [];
       const operation = createRetouchOperation({
         tool: beautyTool,
         name: definition ? t(definition.labelKey) : beautyTool,
@@ -1281,12 +1504,16 @@ export const ImageEditorView: React.FC = () => {
           brushSize: beautyBrushSize,
           color: beautyColor,
           liquifyMode: beautyLiquifyMode,
+          ...(strokes.length > 0 ? { strokes } : {}),
         },
-        engine: 'canvas-local',
+        engine: isMeshTool && strokes.length > 0 ? 'mesh-local' : 'canvas-local',
       });
       const nextProject = addRetouchOperation(addRetouchMask(project, mask), operation);
       setRetouchProject(nextProject);
+      retouchJobSchedulerRef.current?.cancelActive();
       await renderRetouchProject(nextProject);
+      liquifyStrokesRef.current = [];
+      setLiquifyStrokeVersion((version) => version + 1);
       setBeautyPreview(null);
       setBeautyBeforeSnapshot(null);
       setBeautyMask(null);
@@ -1295,7 +1522,7 @@ export const ImageEditorView: React.FC = () => {
     } finally {
       setBeautyBusy(false);
     }
-  }, [hasDocument, beautyPreviewDataUrl, beautyTool, source, getCanvasImageData, retouchProject, resolveBeautyMask, beautyMask, beautyMaskSource, beautyMaskFeather, beautyStrength, beautyBrushSize, beautyColor, beautyLiquifyMode, setBeautyBusy, setRetouchProject, renderRetouchProject, setBeautyPreview, setBeautyBeforeSnapshot, setBeautyMask, setError, t]);
+  }, [hasDocument, beautyPreviewDataUrl, beautyTool, source, getCanvasImageData, retouchProject, resolveBeautyMask, beautyMask, beautyMaskSource, beautyMaskFeather, beautyStrength, beautyBrushSize, beautyColor, beautyLiquifyMode, isLiquifyBrush, setBeautyBusy, setRetouchProject, renderRetouchProject, setBeautyPreview, setBeautyBeforeSnapshot, setBeautyMask, setError, t]);
 
   const handleRetouchToggle = useCallback((operationId: string): void => {
     if (!retouchProject) return;
@@ -1326,6 +1553,14 @@ export const ImageEditorView: React.FC = () => {
   }, [retouchProject, renderRetouchProject, setRetouchProject]);
 
   const handleBeautyCancel = useCallback((): void => {
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    previewSeqRef.current += 1;
+    retouchJobSchedulerRef.current?.cancelActive();
+    liquifyStrokesRef.current = [];
+    setLiquifyStrokeVersion((version) => version + 1);
     setBeautyPreview(null);
     setBeautyBeforeSnapshot(null);
     setBeautyTool(null);
@@ -1582,6 +1817,31 @@ export const ImageEditorView: React.FC = () => {
                               {!hasDocument && <div className="image-editor-beauty-notice">{t('imageEditor.beautyNoDocument')}</div>}
                 <NeonButton variant="secondary" size="sm" leftIcon={<Sparkles size={14} />} onClick={() => handlePresetApply('natural-retouch')} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyAutoNatural')}</NeonButton>
 
+                <div className="image-editor-face-intelligence">
+                  <div className="image-editor-retouch-mask-heading">
+                    <strong>{t('imageEditor.faceAnalysis')}</strong>
+                    {faceAnalysis?.status === 'ready' && <span className="image-editor-retouch-mask-ready">{faceAnalysis.faces.length}</span>}
+                  </div>
+                  <NeonButton variant="ghost" size="sm" leftIcon={<Aperture size={14} />} onClick={() => void handleFaceAnalysis()} disabled={!hasDocument || faceAnalysisBusy || !desktopRuntime} fullWidth>
+                    {faceAnalysisBusy ? t('imageEditor.faceAnalyzing') : t('imageEditor.faceAnalyze')}
+                  </NeonButton>
+                  <label className="image-editor-retouch-label">
+                    <span>{t('imageEditor.faceNaturalGlam')} · {Math.round(autoBeautyBalance * 100)}%</span>
+                    <input type="range" min="0" max="1" step="0.05" value={autoBeautyBalance} onChange={(event) => setAutoBeautyBalance(Number(event.target.value))} disabled={faceAnalysis?.status !== 'ready'} />
+                  </label>
+                  {faceAnalysis?.status === 'ready' && (
+                    <div className="image-editor-face-list">
+                      <span>{t('imageEditor.faceDetected')} · {faceAnalysis.faces.length}</span>
+                      {faceAnalysis.faces.map((face, index) => (
+                        <button key={face.id} type="button" className={selectedFaceId === face.id ? 'active' : ''} onClick={() => setSelectedFaceId(face.id)}>
+                          {t('imageEditor.faceSelected')} {index + 1} · {Math.round(face.confidence * 100)}%
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {faceAnalysis && faceAnalysis.status !== 'ready' && <p className="image-editor-retouch-layer-empty">{faceAnalysis.reason}</p>}
+                </div>
+
                 <div className="image-editor-retouch-categories" role="tablist" aria-label={t('imageEditor.beautyStudio')}>
 
                 {(['skin', 'face', 'eyes', 'makeup', 'body'] as BeautyCategory[]).map((category) => (
@@ -1637,6 +1897,7 @@ export const ImageEditorView: React.FC = () => {
                       <label><span>{t('imageEditor.beautyBrushSize')} · {beautyBrushSize}px</span>
                         <input type="range" min="36" max="260" step="4" value={beautyBrushSize} onChange={(event) => setBeautyBrushSize(Number(event.target.value))} />
                       </label>
+                      <span className="image-editor-ai-hint">{t('imageEditor.beautyLiquifyHint')} · {liquifyStrokeVersion > 0 ? liquifyStrokesRef.current.length : 0}</span>
                     </div>
                   )}
 
@@ -1669,7 +1930,7 @@ export const ImageEditorView: React.FC = () => {
                     <NeonButton variant="primary" size="sm" leftIcon={<Check size={14} />} onClick={handleBeautyApply} disabled={!hasDocument || beautyBusy || !beautyPreviewDataUrl} fullWidth>{t('imageEditor.beautyApply')}</NeonButton>
                     <NeonButton variant="ghost" size="sm" leftIcon={<X size={14} />} onClick={handleBeautyCancel} disabled={beautyBusy} fullWidth>{t('imageEditor.beautyCancel')}</NeonButton>
                   </div>
-                  <NeonButton variant="ghost" size="sm" leftIcon={<Eye size={14} />} onClick={handleBeautyPreview} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyPreview')}</NeonButton>
+                  <NeonButton variant="ghost" size="sm" leftIcon={<Eye size={14} />} onClick={() => void handleBeautyPreview(true)} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyPreview')}</NeonButton>
                 </div>
               )}
 

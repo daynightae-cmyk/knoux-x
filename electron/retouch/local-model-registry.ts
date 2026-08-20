@@ -22,14 +22,14 @@ export const LOCAL_RETOUCH_MODELS: readonly LocalRetouchModelManifest[] = Object
   {
     id: 'mediapipe-face-landmarker',
     displayName: 'MediaPipe Face Landmarker',
-    version: 'pending-review',
+    version: 'latest-float16',
     capability: 'face-landmarks',
     runtime: 'mediapipe',
-    license: 'Model asset requires registry review before distribution.',
-    commercialUse: 'review-required',
-    sizeBytes: 0,
-    downloadUrl: null,
-    sha256: null,
+    license: 'Apache-2.0 (MediaPipe model distribution).',
+    commercialUse: 'allowed',
+    sizeBytes: 3758596,
+    downloadUrl: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+    sha256: '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff',
   },
 ]);
 

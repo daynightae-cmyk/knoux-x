@@ -244,6 +244,7 @@ function parseAiSeed(raw: string): number | null {
 export const ImageEditorView: React.FC = () => {
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const browserImageInputRef = useRef<HTMLInputElement | null>(null);
   const historyRef = useRef<CanvasSnapshot[]>([]);
   const pointerStartRef = useRef<Point | null>(null);
   const lastPointRef = useRef<Point | null>(null);
@@ -278,6 +279,7 @@ export const ImageEditorView: React.FC = () => {
   const [beautyMaskFeather, setBeautyMaskFeather] = useState(18);
   const [beautyBrushSize, setBeautyBrushSize] = useState(96);
   const [beautyAutoPreview, setBeautyAutoPreview] = useState(true);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [hasDocument, setHasDocument] = useState(false);
   const [tool, setTool] = useState<ImageTool>('select');
   const [color, setColor] = useState('#00efff');
@@ -663,8 +665,51 @@ export const ImageEditorView: React.FC = () => {
     if (lockAspect && documentHeight > 0) setResizeWidth(Math.max(1, Math.round(next * documentWidth / documentHeight)));
   }, [documentHeight, documentWidth, lockAspect]);
 
+  const importBrowserImage = useCallback(async (file: File): Promise<void> => {
+    if (busy) return;
+    if (!file.type.startsWith('image/')) {
+      setError(t('imageEditor.imageFileRequired'));
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error ?? new Error('Unable to read the selected image.'));
+        reader.onload = () => typeof reader.result === 'string'
+          ? resolve(reader.result)
+          : reject(new Error('Unable to decode the selected image.'));
+        reader.readAsDataURL(file);
+      });
+      setSource({ dataUrl, name: file.name });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('imageEditor.openFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, setSource, t]);
+
+  const handleBrowserImageInput = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void importBrowserImage(file);
+  }, [importBrowserImage]);
+
+  const handleImageDrop = useCallback((event: React.DragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) void importBrowserImage(file);
+  }, [importBrowserImage]);
+
   const openImage = useCallback(async (): Promise<void> => {
-    if (!desktopRuntime || busy) return;
+    if (busy) return;
+    if (!desktopRuntime) {
+      browserImageInputRef.current?.click();
+      return;
+    }
+
     setError(null);
     try {
       const filePath = await window.knouxAPI.file.openFile({
@@ -1167,7 +1212,7 @@ export const ImageEditorView: React.FC = () => {
           <p>{t('imageEditor.description')}</p>
         </div>
         <div className="creative-actions">
-          <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openImage()} disabled={!desktopRuntime || busy}>{t('imageEditor.openImage')}</NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openImage()} disabled={busy}>{t('imageEditor.openImage')}</NeonButton>
           <NeonButton variant="ghost" leftIcon={<FolderOpen size={16} />} onClick={() => void openProject()} disabled={!desktopRuntime || busy}>{t('imageEditor.openProject')}</NeonButton>
           <NeonButton variant="secondary" leftIcon={<Save size={16} />} onClick={() => void saveProject()} disabled={!desktopRuntime || !hasDocument || busy}>{t('imageEditor.saveProject')}</NeonButton>
         </div>
@@ -1206,14 +1251,17 @@ export const ImageEditorView: React.FC = () => {
             <button type="button" onClick={() => transform('horizontal')} disabled={!hasDocument} title={t('imageEditor.flipHorizontal')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><FlipHorizontal2 size={17} /></button>
             <button type="button" onClick={() => transform('vertical')} disabled={!hasDocument} title={t('imageEditor.flipVertical')} data-disabled-reason={!hasDocument ? 'Open or create a document before transforming it.' : undefined}><FlipVertical2 size={17} /></button>
             <button type="button" onClick={cropToSelection} disabled={!selection} title={t('imageEditor.applyCrop')} data-disabled-reason={!selection ? 'Draw a selection with the Select tool before cropping.' : undefined}><Crop size={17} /></button>
+            <button type="button" onClick={() => setShowOriginal((value) => !value)} disabled={!hasDocument} title={showOriginal ? t('imageEditor.viewEdited') : t('imageEditor.viewOriginal')} data-disabled-reason={!hasDocument ? 'Open an image before changing the preview mode.' : undefined}><Eye size={17} /></button>
           </div>
         </NeonPanel>
 
         <div className="image-editor-main">
           <NeonPanel variant="dark" padding="none" className="image-editor-stage-panel">
-            <div className="image-editor-stage" data-tool={tool}>
+            <div className="image-editor-stage" data-tool={tool} onDragOver={(event) => event.preventDefault()} onDrop={handleImageDrop}>
+              <input ref={browserImageInputRef} className="image-editor-browser-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif" onChange={handleBrowserImageInput} />
               <div className={`image-editor-canvas-stack ${hasDocument ? 'has-document' : 'is-empty'}`}>
                 <canvas ref={baseCanvasRef} className="image-editor-canvas" width={1} height={1} />
+                {hasDocument && showOriginal && source && <img className="image-editor-original-preview" src={source.dataUrl} alt={t('imageEditor.viewOriginal')} />}
                 <canvas
                   ref={overlayCanvasRef}
                   className="image-editor-overlay"
@@ -1230,7 +1278,8 @@ export const ImageEditorView: React.FC = () => {
                   <FileImage size={52} />
                   <strong>{t('imageEditor.emptyTitle')}</strong>
                   <span>{t('imageEditor.emptyDescription')}</span>
-                  <NeonButton variant="primary" leftIcon={<FolderOpen size={16} />} onClick={() => void openImage()} disabled={!desktopRuntime}>{t('imageEditor.openImage')}</NeonButton>
+                  <NeonButton variant="primary" leftIcon={<FolderOpen size={16} />} onClick={() => void openImage()} disabled={busy}>{t('imageEditor.openImage')}</NeonButton>
+                  <span className="image-editor-drop-hint">{t('imageEditor.dropImageHere')}</span>
                 </div>
               )}
             </div>
@@ -1358,9 +1407,11 @@ export const ImageEditorView: React.FC = () => {
               </div>
               <p className="image-editor-ai-description">{t('imageEditor.beautyDescription')}</p>
 
-              {!hasDocument && <div className="image-editor-beauty-notice">{t('imageEditor.beautyNoDocument')}</div>}
+                              {!hasDocument && <div className="image-editor-beauty-notice">{t('imageEditor.beautyNoDocument')}</div>}
+                <NeonButton variant="secondary" size="sm" leftIcon={<Sparkles size={14} />} onClick={() => handlePresetApply('natural-retouch')} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyAutoNatural')}</NeonButton>
 
-              <div className="image-editor-retouch-categories" role="tablist" aria-label={t('imageEditor.beautyStudio')}>
+                <div className="image-editor-retouch-categories" role="tablist" aria-label={t('imageEditor.beautyStudio')}>
+
                 {(['skin', 'face', 'eyes', 'makeup', 'body'] as BeautyCategory[]).map((category) => (
                   <button key={category} type="button" role="tab" aria-selected={beautyCategory === category} className={beautyCategory === category ? 'active' : ''} onClick={() => setBeautyCategory(category)}>
                     {t(`imageEditor.beautyCategory${category[0].toUpperCase()}${category.slice(1)}` as any)}

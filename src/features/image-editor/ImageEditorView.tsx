@@ -45,6 +45,8 @@ import { useTranslation } from '../../i18n';
 import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../../store/imageEditorStore';
 import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
 import { RetouchLayerStack } from './retouch/RetouchLayerStack';
+import { FaceAnalysisClient } from './retouch/faceAnalysisClient';
+import type { FaceAnalysisResult } from './retouch/faceAnalysisContract';
 import {
   addRetouchMask,
   addRetouchOperation,
@@ -313,6 +315,7 @@ export const ImageEditorView: React.FC = () => {
   const pointerStartRef = useRef<Point | null>(null);
   const lastPointRef = useRef<Point | null>(null);
   const drawingRef = useRef(false);
+  const faceAnalysisClientRef = useRef<FaceAnalysisClient | null>(null);
   const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
   const clearSource = useImageEditorStore((state) => state.clearSource);
@@ -345,6 +348,10 @@ export const ImageEditorView: React.FC = () => {
   const [beautyMaskFeather, setBeautyMaskFeather] = useState(18);
   const [beautyBrushSize, setBeautyBrushSize] = useState(96);
   const [beautyAutoPreview, setBeautyAutoPreview] = useState(true);
+  const [faceAnalysis, setFaceAnalysis] = useState<FaceAnalysisResult | null>(null);
+  const [faceAnalysisBusy, setFaceAnalysisBusy] = useState(false);
+  const [selectedFaceId, setSelectedFaceId] = useState<string | null>(null);
+  const [autoBeautyBalance, setAutoBeautyBalance] = useState(0.25);
   const [showOriginal, setShowOriginal] = useState(false);
   const [hasDocument, setHasDocument] = useState(false);
   const [tool, setTool] = useState<ImageTool>('select');
@@ -381,6 +388,38 @@ export const ImageEditorView: React.FC = () => {
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview';
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex >= 0 && historyIndex < historyRef.current.length - 1;
+
+  useEffect(() => {
+    if (!desktopRuntime || typeof window.knouxImageStudioAPI === 'undefined') return;
+    const client = new FaceAnalysisClient(() => window.knouxImageStudioAPI.getVerifiedFaceModel());
+    faceAnalysisClientRef.current = client;
+    return () => {
+      client.dispose();
+      if (faceAnalysisClientRef.current === client) faceAnalysisClientRef.current = null;
+    };
+  }, [desktopRuntime]);
+
+  const handleFaceAnalysis = useCallback(async (): Promise<void> => {
+    if (!source || !hasDocument) return;
+    const client = faceAnalysisClientRef.current;
+    if (!client) {
+      setFaceAnalysis({ status: 'model-unavailable', modelId: 'mediapipe-face-landmarker', reason: t('imageEditor.faceAnalysisUnavailable') });
+      return;
+    }
+    setFaceAnalysisBusy(true);
+    try {
+      const result = await client.analyze({
+        imageDataUrl: source.dataUrl,
+        imageWidth: documentWidth,
+        imageHeight: documentHeight,
+        maxFaces: 8,
+      });
+      setFaceAnalysis(result);
+      setSelectedFaceId(result.status === 'ready' ? result.faces[0]?.id ?? null : null);
+    } finally {
+      setFaceAnalysisBusy(false);
+    }
+  }, [documentHeight, documentWidth, hasDocument, source, t]);
 
   const syncCanvasMetadata = useCallback((): void => {
     const base = baseCanvasRef.current;
@@ -1581,6 +1620,31 @@ export const ImageEditorView: React.FC = () => {
 
                               {!hasDocument && <div className="image-editor-beauty-notice">{t('imageEditor.beautyNoDocument')}</div>}
                 <NeonButton variant="secondary" size="sm" leftIcon={<Sparkles size={14} />} onClick={() => handlePresetApply('natural-retouch')} disabled={!hasDocument || beautyBusy} fullWidth>{t('imageEditor.beautyAutoNatural')}</NeonButton>
+
+                <div className="image-editor-face-intelligence">
+                  <div className="image-editor-retouch-mask-heading">
+                    <strong>{t('imageEditor.faceAnalysis')}</strong>
+                    {faceAnalysis?.status === 'ready' && <span className="image-editor-retouch-mask-ready">{faceAnalysis.faces.length}</span>}
+                  </div>
+                  <NeonButton variant="ghost" size="sm" leftIcon={<Aperture size={14} />} onClick={() => void handleFaceAnalysis()} disabled={!hasDocument || faceAnalysisBusy || !desktopRuntime} fullWidth>
+                    {faceAnalysisBusy ? t('imageEditor.faceAnalyzing') : t('imageEditor.faceAnalyze')}
+                  </NeonButton>
+                  <label className="image-editor-retouch-label">
+                    <span>{t('imageEditor.faceNaturalGlam')} · {Math.round(autoBeautyBalance * 100)}%</span>
+                    <input type="range" min="0" max="1" step="0.05" value={autoBeautyBalance} onChange={(event) => setAutoBeautyBalance(Number(event.target.value))} disabled={faceAnalysis?.status !== 'ready'} />
+                  </label>
+                  {faceAnalysis?.status === 'ready' && (
+                    <div className="image-editor-face-list">
+                      <span>{t('imageEditor.faceDetected')} · {faceAnalysis.faces.length}</span>
+                      {faceAnalysis.faces.map((face, index) => (
+                        <button key={face.id} type="button" className={selectedFaceId === face.id ? 'active' : ''} onClick={() => setSelectedFaceId(face.id)}>
+                          {t('imageEditor.faceSelected')} {index + 1} · {Math.round(face.confidence * 100)}%
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {faceAnalysis && faceAnalysis.status !== 'ready' && <p className="image-editor-retouch-layer-empty">{faceAnalysis.reason}</p>}
+                </div>
 
                 <div className="image-editor-retouch-categories" role="tablist" aria-label={t('imageEditor.beautyStudio')}>
 

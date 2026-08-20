@@ -52,7 +52,7 @@ describe('complete IPC schema and basic boundary', () => {
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   test('all directions have concrete keyed shapes and source roots', () => {
-    expect(IPC_CHANNEL_DEFINITIONS).toHaveLength(280);
+    expect(IPC_CHANNEL_DEFINITIONS).toHaveLength(281);
     expect(IPC_CHANNEL_DEFINITIONS.filter((entry) => entry.direction === 'invoke')).toHaveLength(EXPOSED_INVOKE_CHANNELS.length);
     for (const definition of IPC_CHANNEL_DEFINITIONS) {
       expect(definition.arguments).toMatchObject({ schema: 'typescript' });

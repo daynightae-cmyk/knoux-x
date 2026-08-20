@@ -137,6 +137,8 @@ const imageStudioAPI = {
   removeJob: (jobId: string): Promise<boolean> => invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_REMOVE_JOB, jobId),
   importResult: (jobId: string, accept: boolean): Promise<ImageStudioDocument> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, jobId, accept),
+  getVerifiedFaceModel: (): Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }> =>
+    invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL),
   onAutosave: (callback: (filePath: string) => void): (() => void) => {
     const listener = (_event: unknown, filePath: string) => callback(filePath);
     onDesktopEvent(IPC_OUTBOUND.IMAGE_STUDIO_AUTOSAVE, listener);

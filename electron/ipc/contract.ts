@@ -246,6 +246,7 @@ export const IPC_INVOKE = {
   IMAGE_STUDIO_LIST_JOBS: 'image-studio:list-jobs',
   IMAGE_STUDIO_REMOVE_JOB: 'image-studio:remove-job',
   IMAGE_STUDIO_IMPORT_RESULT: 'image-studio:import-result',
+  IMAGE_STUDIO_GET_FACE_MODEL: 'image-studio:get-face-model',
   // Video Studio
   VIDEO_STUDIO_LIST_PROVIDERS: 'video-studio:list-providers',
   VIDEO_STUDIO_PROVIDER_STATUS: 'video-studio:provider-status',
@@ -580,6 +581,7 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'image-studio:list-jobs', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
   { channel: 'image-studio:remove-job', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
   { channel: 'image-studio:import-result', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
+  { channel: 'image-studio:get-face-model', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
   // Image Studio — outbound events
   { channel: 'image-studio:autosave', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'image-studio:job-progress', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },

@@ -5,12 +5,12 @@ import {
 } from '../../electron/retouch/local-model-registry';
 
 describe('local retouch model registry', () => {
-  it('does not permit a model download before license and integrity review', () => {
+  it('permits the reviewed Face Landmarker model only after license and integrity review', () => {
     const model = findLocalRetouchModel('mediapipe-face-landmarker');
 
     expect(model).not.toBeNull();
     expect(model?.capability).toBe('face-landmarks');
-    expect(canInstallLocalRetouchModel(model!)).toBe(false);
+    expect(canInstallLocalRetouchModel(model!)).toBe(true);
   });
 
   it('requires an HTTPS source, SHA-256, approved commercial use, and a declared size', () => {

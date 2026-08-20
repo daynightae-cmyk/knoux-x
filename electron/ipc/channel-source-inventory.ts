@@ -257,6 +257,7 @@ export const IPC_SOURCE_INVENTORY = {
   'image-studio:list-jobs': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:remove-job': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:import-result': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
+  'image-studio:get-face-model': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:autosave': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:job-progress': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:job-complete': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },

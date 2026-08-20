@@ -14,3 +14,7 @@
 *.jpg binary
 *.jpeg binary
 *.ico binary
+
+# Prebuilt MediaPipe runtime files are copied verbatim to enable fully local WASM inference.
+public/mediapipe/*.js -whitespace
+public/mediapipe/*.wasm binary

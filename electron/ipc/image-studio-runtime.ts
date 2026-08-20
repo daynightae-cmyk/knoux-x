@@ -20,6 +20,7 @@ import {
   createImageStudioRuntimeStores,
   type ImageStudioRuntimeStores,
 } from '../image-studio/image-studio-runtime-support';
+import { readVerifiedFaceModel } from '../retouch/face-model-service';
 
 import {
   IPC_INVOKE,
@@ -508,14 +509,18 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
       service.removeJob(assertJobId(jobId))
     )
   );
-  ipc.handle(
+    ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT,
     trusted(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, async (_event, jobId: string, accept: boolean) =>
       service.importResult(assertJobId(jobId), Boolean(accept))
     )
   );
-
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL, async () => readVerifiedFaceModel())
+  );
   return {
+
     service,
     close(): void {
       service.close();

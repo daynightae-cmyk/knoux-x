@@ -1013,3 +1013,139 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Browser-compatible image intake and original-result comparison */
+.image-editor-browser-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.image-editor-stage:has(.image-editor-empty) {
+  outline: 1px dashed rgba(0, 239, 255, 0.2);
+  outline-offset: -10px;
+}
+
+.image-editor-drop-hint {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.image-editor-original-preview {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  background: repeating-conic-gradient(#151d29 0 25%, #101722 0 50%) 50% / 16px 16px;
+}
+
+
+/* ── Non-destructive retouch layers ── */
+.image-editor-retouch-layer-stack {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.image-editor-retouch-layer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.image-editor-retouch-layer-heading span {
+  min-width: 18px;
+  border-radius: 999px;
+  color: var(--knoux-accent);
+  background: rgba(0, 239, 255, 0.1);
+  font-size: 0.62rem;
+  text-align: center;
+}
+
+.image-editor-retouch-layer-stack ol {
+  display: grid;
+  gap: 5px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.image-editor-retouch-layer-stack li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.image-editor-retouch-layer-stack li.is-hidden {
+  opacity: 0.5;
+}
+
+.image-editor-retouch-layer-stack button {
+  min-width: 23px;
+  min-height: 23px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.image-editor-retouch-layer-stack button:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(0, 239, 255, 0.16);
+}
+
+.image-editor-retouch-layer-stack button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.image-editor-retouch-layer-meta {
+  min-width: 0;
+}
+
+.image-editor-retouch-layer-meta strong,
+.image-editor-retouch-layer-meta span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-editor-retouch-layer-meta strong {
+  color: var(--text-primary);
+  font-size: 0.66rem;
+}
+
+.image-editor-retouch-layer-meta span,
+.image-editor-retouch-layer-empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.61rem;
+}
+
+.image-editor-retouch-layer-actions {
+  display: flex;
+  gap: 3px;
+}

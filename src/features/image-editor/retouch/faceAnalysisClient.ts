@@ -11,10 +11,14 @@ type WorkerMessage =
   | { type: 'configuration-error'; reason: string }
   | { type: 'result'; requestId: string; result: FaceAnalysisResult };
 
+const ANALYSIS_CACHE_LIMIT = 6;
+
 export class FaceAnalysisClient {
   private readonly worker = new FaceAnalysisWorker();
   private configured: Promise<void> | null = null;
   private readonly pending = new Map<string, (result: FaceAnalysisResult) => void>();
+  private readonly resultCache = new Map<string, FaceAnalysisResult>();
+  private readonly inFlight = new Map<string, Promise<FaceAnalysisResult>>();
 
   constructor(private readonly readModel: ModelReader) {
     this.worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
@@ -28,7 +32,39 @@ export class FaceAnalysisClient {
     };
   }
 
-  async analyze(request: FaceAnalysisRequest): Promise<FaceAnalysisResult> {
+  analyze(request: FaceAnalysisRequest): Promise<FaceAnalysisResult> {
+    const key = this.cacheKey(request);
+    const cached = this.resultCache.get(key);
+    if (cached) {
+      // Refresh its LRU position without duplicating image data in memory.
+      this.resultCache.delete(key);
+      this.resultCache.set(key, cached);
+      return Promise.resolve(cached);
+    }
+    const running = this.inFlight.get(key);
+    if (running) return running;
+
+    const analysis = this.runAnalysis(request).then((result) => {
+      if (result.status === 'ready') this.storeResult(key, result);
+      return result;
+    }).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, analysis);
+    return analysis;
+  }
+
+  clearCachedAnalysis(): void {
+    this.resultCache.clear();
+  }
+
+  dispose(): void {
+    this.worker.terminate();
+    for (const resolve of this.pending.values()) resolve(faceAnalysisUnavailable('Face analysis worker was stopped.'));
+    this.pending.clear();
+    this.inFlight.clear();
+    this.resultCache.clear();
+  }
+
+  private async runAnalysis(request: FaceAnalysisRequest): Promise<FaceAnalysisResult> {
     try {
       await this.ensureConfigured();
     } catch (error) {
@@ -41,10 +77,18 @@ export class FaceAnalysisClient {
     });
   }
 
-  dispose(): void {
-    this.worker.terminate();
-    for (const resolve of this.pending.values()) resolve(faceAnalysisUnavailable('Face analysis worker was stopped.'));
-    this.pending.clear();
+  private storeResult(key: string, result: FaceAnalysisResult): void {
+    this.resultCache.set(key, result);
+    while (this.resultCache.size > ANALYSIS_CACHE_LIMIT) {
+      const oldest = this.resultCache.keys().next().value;
+      if (oldest) this.resultCache.delete(oldest);
+      else break;
+    }
+  }
+
+  private cacheKey(request: FaceAnalysisRequest): string {
+    // The document image URL changes with source, crop, rotation, and applied canvas transforms.
+    return `${request.imageWidth}x${request.imageHeight}:${request.maxFaces}:${request.imageDataUrl}`;
   }
 
   private async ensureConfigured(): Promise<void> {

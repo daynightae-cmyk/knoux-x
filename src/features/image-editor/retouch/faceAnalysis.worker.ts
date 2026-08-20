@@ -17,6 +17,25 @@ interface AnalyzeMessage {
 
 let landmarker: FaceLandmarker | null = null;
 let configurationError: string | null = 'The verified local face model is not loaded.';
+const ANALYSIS_PROXY_MAX_EDGE = 1024;
+
+async function createAnalysisBitmap(imageDataUrl: string): Promise<ImageBitmap> {
+  const response = await fetch(imageDataUrl);
+  const source = await createImageBitmap(await response.blob());
+  const longestEdge = Math.max(source.width, source.height);
+  if (longestEdge <= ANALYSIS_PROXY_MAX_EDGE) return source;
+
+  const scale = ANALYSIS_PROXY_MAX_EDGE / longestEdge;
+  const canvas = new OffscreenCanvas(Math.max(1, Math.round(source.width * scale)), Math.max(1, Math.round(source.height * scale)));
+  const context = canvas.getContext('2d');
+  if (!context) {
+    source.close();
+    throw new Error('Unable to create a local portrait analysis canvas.');
+  }
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  source.close();
+  return canvas.transferToImageBitmap();
+}
 
 function point(value: { x: number; y: number; z?: number }): FacePoint {
   return { x: value.x, y: value.y, z: value.z ?? 0 };
@@ -71,11 +90,10 @@ async function analyze(message: AnalyzeMessage): Promise<void> {
 
   const startedAt = performance.now();
   try {
-    const response = await fetch(message.request.imageDataUrl);
-    const bitmap = await createImageBitmap(await response.blob());
+    const bitmap = await createAnalysisBitmap(message.request.imageDataUrl);
     const output = landmarker.detect(bitmap);
     bitmap.close();
-    const faces: DetectedFace[] = output.faceLandmarks.map((rawLandmarks, index) => {
+    const faces: DetectedFace[] = output.faceLandmarks.slice(0, Math.max(1, message.request.maxFaces)).map((rawLandmarks, index) => {
       const landmarks = rawLandmarks.map(point);
       const xs = landmarks.map((entry) => entry.x);
       const ys = landmarks.map((entry) => entry.y);

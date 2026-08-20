@@ -8,8 +8,8 @@
  * fabricated (Rule XI / Amendment 19).
  */
 
-import type { MultitrackProject } from '../../creative/multitrackProject';
-import { projectDuration } from '../../creative/multitrackProject';
+import type { MultitrackProject, TimelineItem, TimelineTrack } from '../../creative/multitrackProject';
+import { interpolateKeyframes, projectDuration } from '../../creative/multitrackProject';
 
 import { estimateRenderCostMs, type RenderCostTarget } from './render-cost';
 
@@ -45,17 +45,99 @@ function isAudioCapable(item: { kind: string }, track: { kind: string }): boolea
   return track.kind === 'audio' || item.kind === 'video';
 }
 
-function itemAudible(
-  item: { kind: string; audio: { volume: number; muted: boolean } },
-  track: { kind: string; hidden: boolean; muted: boolean; solo: boolean; volume: number },
+function audibleGainAt(
+  item: TimelineItem,
+  track: TimelineTrack,
   anySoloTrack: boolean,
-): boolean {
-  if (!isAudioCapable(item, track)) return false;
-  if (track.hidden || track.muted) return false;
-  if (item.audio.muted) return false;
-  if (track.volume <= 0 || item.audio.volume <= 0) return false;
-  if (anySoloTrack && !track.solo) return false;
-  return true;
+  localTime: number,
+): number {
+  if (!isAudioCapable(item, track)) return 0;
+  if (track.hidden || track.muted) return 0;
+  if (item.audio.muted) return 0;
+  if (anySoloTrack && !track.solo) return 0;
+  if (track.volume <= 0) return 0;
+  let fade = 1;
+  if (item.audio.fadeIn > 0 && localTime < item.audio.fadeIn) fade = Math.min(fade, localTime / item.audio.fadeIn);
+  const remaining = item.duration - localTime;
+  if (item.audio.fadeOut > 0 && remaining < item.audio.fadeOut) fade = Math.min(fade, remaining / item.audio.fadeOut);
+  if (fade <= 0) return 0;
+  const keyframedVolume = interpolateKeyframes(item.keyframes, 'volume', localTime, item.audio.volume);
+  const gain = track.volume * keyframedVolume * fade;
+  return Math.max(0, Math.min(4, gain));
+}
+
+function audibleSegmentsForItem(
+  item: TimelineItem,
+  track: TimelineTrack,
+  anySoloTrack: boolean,
+): Array<{ timelineStart: number; duration: number }> {
+  if (!isAudioCapable(item, track)) return [];
+  if (track.hidden || track.muted || item.audio.muted) return [];
+  if (track.volume <= 0) return [];
+  if (anySoloTrack && !track.solo) return [];
+  if (item.duration <= 0) return [];
+  const segments: Array<{ timelineStart: number; duration: number }> = [];
+  const step = 0.02;
+  const keyframeTimes = item.keyframes.filter((k) => k.property === 'volume').map((k) => k.time).sort((a, b) => a - b);
+  const sampleSet = new Set<number>();
+  for (let t = 0; t < item.duration; t += step) sampleSet.add(Number(t.toFixed(3)));
+  for (const kt of keyframeTimes) {
+    if (kt >= 0 && kt <= item.duration) {
+      sampleSet.add(Number(kt.toFixed(3)));
+      if (kt > 0) sampleSet.add(Number(Math.max(0, kt - 0.01).toFixed(3)));
+      if (kt < item.duration) sampleSet.add(Number(Math.min(item.duration, kt + 0.01).toFixed(3)));
+    }
+  }
+  if (item.audio.fadeIn > 0) {
+    sampleSet.add(Number(item.audio.fadeIn.toFixed(3)));
+    sampleSet.add(Number(Math.max(0, item.audio.fadeIn - 0.01).toFixed(3)));
+  }
+  if (item.audio.fadeOut > 0) {
+    const fadeOutStart = item.duration - item.audio.fadeOut;
+    if (fadeOutStart >= 0) {
+      sampleSet.add(Number(fadeOutStart.toFixed(3)));
+      sampleSet.add(Number(Math.min(item.duration, fadeOutStart + 0.01).toFixed(3)));
+    }
+  }
+  sampleSet.add(Number(item.duration.toFixed(3)));
+  const sortedSamples = [...sampleSet].sort((a, b) => a - b);
+  let segmentStart: number | null = null;
+  for (let i = 0; i < sortedSamples.length; i += 1) {
+    const localTime = sortedSamples[i];
+    if (localTime < 0 || localTime > item.duration) continue;
+    const gain = audibleGainAt(item, track, anySoloTrack, localTime);
+    const isAudible = gain > 0.001;
+    if (isAudible && segmentStart === null) segmentStart = localTime;
+    else if (!isAudible && segmentStart !== null) {
+      const segStart = segmentStart;
+      const segEnd = sortedSamples[i - 1] ?? localTime;
+      if (segEnd > segStart) segments.push({ timelineStart: item.timelineStart + segStart, duration: segEnd - segStart });
+      segmentStart = null;
+    }
+    if (i === sortedSamples.length - 1 && segmentStart !== null) {
+      const segStart = segmentStart;
+      const segEnd = localTime;
+      if (segEnd > segStart) segments.push({ timelineStart: item.timelineStart + segStart, duration: segEnd - segStart });
+    }
+  }
+  if (segments.length === 0) {
+    const stepSamples: Array<{ localTime: number; audible: boolean }> = [];
+    for (let t = 0; t < item.duration; t += step) {
+      const gain = audibleGainAt(item, track, anySoloTrack, t);
+      stepSamples.push({ localTime: t, audible: gain > 0.001 });
+    }
+    let curStart: number | null = null;
+    for (let i = 0; i < stepSamples.length; i += 1) {
+      const s = stepSamples[i];
+      if (s.audible && curStart === null) curStart = s.localTime;
+      else if (!s.audible && curStart !== null) {
+        segments.push({ timelineStart: item.timelineStart + curStart, duration: s.localTime - curStart });
+        curStart = null;
+      }
+    }
+    if (curStart !== null) segments.push({ timelineStart: item.timelineStart + curStart, duration: item.duration - curStart });
+  }
+  return segments;
 }
 
 function coveredDuration(items: ReadonlyArray<{ timelineStart: number; duration: number }>, totalMs: number): number {
@@ -91,8 +173,8 @@ export function computeBranchMetrics(project: MultitrackProject): BranchMetrics 
     track.items.filter((item) => item.kind === 'video' || item.kind === 'image' || item.kind === 'color'),
   );
   const anySoloTrack = project.tracks.some((track) => track.solo);
-  const audibleItems = project.tracks.flatMap((track) =>
-    track.items.filter((item) => itemAudible(item, track, anySoloTrack)),
+  const audibleSegments = project.tracks.flatMap((track) =>
+    track.items.flatMap((item) => audibleSegmentsForItem(item, track, anySoloTrack)),
   );
   const captionItems = project.tracks.flatMap((track) =>
     track.items.filter((item) => item.kind === 'subtitle' || (item.kind === 'text' && item.text !== null)),
@@ -125,8 +207,8 @@ export function computeBranchMetrics(project: MultitrackProject): BranchMetrics 
     durationMs,
     shotCount: shots.length,
     cutDensityPerMinute: Number((shots.length / minutes).toFixed(3)),
-    audioDensity: clampDensity(coveredDuration(audibleItems, durationSeconds) / durationSeconds),
-    captionDensity: clampDensity(coveredDuration(captionItems, durationSeconds) / durationSeconds),
+    audioDensity: durationSeconds <= 0 ? 0 : clampDensity(coveredDuration(audibleSegments, durationSeconds) / durationSeconds),
+    captionDensity: durationSeconds <= 0 ? 0 : clampDensity(coveredDuration(captionItems, durationSeconds) / durationSeconds),
     transitionCount: transitions.length,
     motionIntensityPerMinute: Number((motionKeyframes.length / minutes).toFixed(3)),
     effectsCount: effectedItems.length,

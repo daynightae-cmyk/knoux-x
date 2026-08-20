@@ -15,6 +15,7 @@ import { app } from 'electron';
 
 import type { MultitrackProject } from '../../src/core/creative/multitrackProject';
 import { parseEditPlan, type EditPlanRecord } from '../../src/core/video-studio/ai/edit-plan';
+import { replayEditPlan } from '../../src/core/video-studio/ai/edit-replay';
 
 const PLAN_EXTENSION = '.knouxplan';
 const MAX_PLAN_BYTES = 4 * 1024 * 1024;
@@ -47,6 +48,11 @@ export class EditPlanStore {
    */
   async record(project: MultitrackProject, planValue: unknown): Promise<StoredEditPlanRecord> {
     const plan = parseEditPlan(planValue);
+    try {
+      replayEditPlan(project, plan);
+    } catch (error) {
+      throw new TypeError(`Edit plan contextual validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     const record: StoredEditPlanRecord = {
       ...plan,
       recordId: randomUUID(),

@@ -127,7 +127,7 @@ describe('image-studio runtime', () => {
   }
 
   test('registers every Image Studio invoke and outbound channel', () => {
-    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(57);
+    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(60);
     expect(IMAGE_STUDIO_OUTBOUND_CHANNELS).toHaveLength(5);
     for (const channel of IMAGE_STUDIO_INVOKE_CHANNELS) {
       expect(handlers.has(channel)).toBe(true);

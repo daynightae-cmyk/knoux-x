@@ -46,6 +46,7 @@ import { useImageEditorStore, type BeautyTool, type ImageEditorAiJob } from '../
 import { BEAUTY_PRESETS, getPreset } from './beauty/beautyPresets';
 import { RetouchLayerStack } from './retouch/RetouchLayerStack';
 import { FaceAnalysisClient } from './retouch/faceAnalysisClient';
+import { RetouchRenderQueue } from './retouch/retouchRenderQueue';
 import type { FaceAnalysisResult } from './retouch/faceAnalysisContract';
 import {
   addRetouchMask,
@@ -67,11 +68,11 @@ import {
   cosmeticTint,
   createGradientMask,
   eyeEnhancement,
+  guidedSkinSmooth,
   liquifyWarp,
   portraitGlow,
   redEyeRemoval,
   sharpen,
-  skinSmoothing,
   skinToneAdjustment,
   teethWhitening,
 } from './beauty/beautyOperations';
@@ -80,6 +81,19 @@ interface CanvasSnapshot {
   dataUrl: string;
   width: number;
   height: number;
+}
+
+interface RetouchAssetImport {
+  assetRef: string;
+  proxyRef: string;
+  sourceHash: string;
+  sourceName: string;
+  sourcePath: string;
+  width: number;
+  height: number;
+  proxyWidth: number;
+  proxyHeight: number;
+  mime: string;
 }
 
 interface Point {
@@ -150,27 +164,6 @@ function imageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
-function bytesToDataUrl(bytes: Uint8Array, mimeType: string): Promise<string> {
-  const blob = new Blob([bytes], { type: mimeType });
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === 'string'
-      ? resolve(reader.result)
-      : reject(new Error('Image bytes could not be converted.'));
-    reader.onerror = () => reject(reader.error ?? new Error('Image bytes could not be read.'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-function mimeForPath(filePath: string): string {
-  const extension = filePath.split('.').pop()?.toLowerCase();
-  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
-  if (extension === 'webp') return 'image/webp';
-  if (extension === 'bmp') return 'image/bmp';
-  if (extension === 'gif') return 'image/gif';
-  return 'image/png';
-}
-
 function nameForPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX Image';
 }
@@ -204,7 +197,7 @@ function applyStoredRetouchOperation(imageData: ImageData, operation: RetouchOpe
   let effect: ImageData;
 
   switch (operation.tool) {
-    case 'skin-smoothing': effect = skinSmoothing(imageData, strength, mask); break;
+    case 'skin-smoothing': effect = guidedSkinSmooth(imageData, strength, 0.76, mask); break;
     case 'blemish-removal': effect = blemishRemoval(imageData, Math.max(2, Math.round(brushSize / 22)), 30 + strength * 20, mask); break;
     case 'teeth-whitening': effect = teethWhitening(imageData, strength, mask); break;
     case 'red-eye': effect = redEyeRemoval(imageData, mask); break;
@@ -316,6 +309,7 @@ export const ImageEditorView: React.FC = () => {
   const lastPointRef = useRef<Point | null>(null);
   const drawingRef = useRef(false);
   const faceAnalysisClientRef = useRef<FaceAnalysisClient | null>(null);
+  const retouchRenderQueueRef = useRef<RetouchRenderQueue | null>(null);
   const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
   const clearSource = useImageEditorStore((state) => state.clearSource);
@@ -388,6 +382,15 @@ export const ImageEditorView: React.FC = () => {
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview';
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex >= 0 && historyIndex < historyRef.current.length - 1;
+
+  useEffect(() => {
+    const queue = new RetouchRenderQueue();
+    retouchRenderQueueRef.current = queue;
+    return () => {
+      queue.dispose();
+      if (retouchRenderQueueRef.current === queue) retouchRenderQueueRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!desktopRuntime || typeof window.knouxImageStudioAPI === 'undefined') return;
@@ -514,6 +517,13 @@ export const ImageEditorView: React.FC = () => {
   useEffect(() => {
     if (source) void loadDocument(source.dataUrl, source.name);
   }, [loadDocument, source]);
+
+  useEffect(() => () => {
+    if (source?.dataUrl.startsWith('blob:')) URL.revokeObjectURL(source.dataUrl);
+    if (source?.assetRef && desktopRuntime && typeof window.knouxImageStudioAPI !== 'undefined') {
+      void window.knouxImageStudioAPI.releaseRetouchAsset(source.assetRef);
+    }
+  }, [desktopRuntime, source?.assetRef, source?.dataUrl]);
 
   const pointerPosition = useCallback((event: React.PointerEvent<HTMLCanvasElement>): Point => {
     const overlay = overlayCanvasRef.current;
@@ -831,9 +841,20 @@ export const ImageEditorView: React.FC = () => {
         properties: ['openFile'],
       });
       if (!filePath) return;
-      const raw = await window.knouxAPI.file.readFile(filePath);
-      const dataUrl = await bytesToDataUrl(new Uint8Array(raw), mimeForPath(filePath));
-      setSource({ dataUrl, name: nameForPath(filePath), sourcePath: filePath });
+      const asset = await window.knouxImageStudioAPI.importRetouchAsset(filePath) as RetouchAssetImport;
+      const proxyBytes = await window.knouxImageStudioAPI.readRetouchProxy(asset.proxyRef);
+      if (!proxyBytes) throw new Error('The local preview proxy is unavailable.');
+      const dataUrl = URL.createObjectURL(new Blob([proxyBytes], { type: asset.mime }));
+      setSource({
+        dataUrl,
+        name: asset.sourceName,
+        sourcePath: asset.sourcePath,
+        assetRef: asset.assetRef,
+        proxyRef: asset.proxyRef,
+        sourceHash: asset.sourceHash,
+        originalWidth: asset.width,
+        originalHeight: asset.height,
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('imageEditor.openFailed'));
     }
@@ -1198,7 +1219,7 @@ export const ImageEditorView: React.FC = () => {
   const runBeautyOperation = useCallback((imageData: ImageData): ImageData => {
     const mask = resolveBeautyMask(imageData);
     switch (beautyTool) {
-      case 'skin-smoothing': return skinSmoothing(imageData, beautyStrength, mask);
+      case 'skin-smoothing': return guidedSkinSmooth(imageData, beautyStrength, 0.76, mask);
       case 'blemish-removal': return blemishRemoval(imageData, Math.max(2, Math.round(beautyBrushSize / 22)), 30 + beautyStrength * 20, mask);
       case 'teeth-whitening': return teethWhitening(imageData, beautyStrength, mask);
       case 'red-eye': return redEyeRemoval(imageData, mask);
@@ -1253,7 +1274,7 @@ export const ImageEditorView: React.FC = () => {
     setBeautyMask(inverted);
   }, [beautyMask, setBeautyMask]);
 
-  const handleBeautyPreview = useCallback((): void => {
+  const handleBeautyPreview = useCallback(async (): Promise<void> => {
     if (!hasDocument) return;
     const imageData = getCanvasImageData();
     if (!imageData) return;
@@ -1262,7 +1283,14 @@ export const ImageEditorView: React.FC = () => {
     setBeautyBeforeSnapshot(baseCanvasRef.current?.toDataURL('image/png') ?? null);
 
     try {
-      const result = runBeautyOperation(imageData);
+      const result = beautyTool === 'skin-smoothing' && retouchRenderQueueRef.current
+        ? await retouchRenderQueueRef.current.enqueue({
+          dedupeKey: 'beauty:guided-skin-preview',
+          priority: 'interactive',
+          image: cloneImageData(imageData),
+          operation: { kind: 'guided-skin', strength: beautyStrength, texturePreserve: 0.76, mask: resolveBeautyMask(imageData) },
+        })
+        : runBeautyOperation(imageData);
 
       // Create preview canvas
       const previewCanvas = document.createElement('canvas');
@@ -1275,11 +1303,11 @@ export const ImageEditorView: React.FC = () => {
     } finally {
       setBeautyBusy(false);
     }
-  }, [hasDocument, getCanvasImageData, runBeautyOperation, setBeautyBusy, setBeautyBeforeSnapshot, setBeautyPreview, setError]);
+  }, [beautyStrength, beautyTool, getCanvasImageData, hasDocument, resolveBeautyMask, runBeautyOperation, setBeautyBeforeSnapshot, setBeautyBusy, setBeautyPreview, setError]);
 
   useEffect(() => {
     if (!beautyAutoPreview || !beautyTool || !hasDocument) return;
-    handleBeautyPreview();
+    void handleBeautyPreview();
   }, [beautyAutoPreview, beautyTool, hasDocument, handleBeautyPreview]);
 
   const handleBeautyApply = useCallback(async (): Promise<void> => {

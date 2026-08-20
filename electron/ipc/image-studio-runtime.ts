@@ -21,6 +21,7 @@ import {
   type ImageStudioRuntimeStores,
 } from '../image-studio/image-studio-runtime-support';
 import { readVerifiedFaceModel } from '../retouch/face-model-service';
+import { RetouchAssetStore, type RetouchQualityProfile } from '../retouch/retouch-asset-store';
 
 import {
   IPC_INVOKE,
@@ -112,6 +113,7 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
   const userDataRoot = app.getPath('userData');
   const imageStudioRoot = path.join(userDataRoot, 'image-studio');
   const stores: ImageStudioRuntimeStores = createImageStudioRuntimeStores();
+  const retouchAssets = new RetouchAssetStore();
 
   const broadcast = <C extends IpcOutboundChannel>(channel: C, ...args: OutboundPayload<C>): void => {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -518,6 +520,22 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL,
     trusted(IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL, async () => readVerifiedFaceModel())
+  );
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_IMPORT_RETOUCH_ASSET,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RETOUCH_ASSET, async (_event, filePath: string, profile?: RetouchQualityProfile) => {
+      const asset = await retouchAssets.importFile(validatePath(filePath)!, profile);
+      retouchAssets.evictInactive();
+      return asset;
+    })
+  );
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_READ_RETOUCH_PROXY,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_READ_RETOUCH_PROXY, async (_event, proxyRef: string) => retouchAssets.readProxy(proxyRef))
+  );
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_RELEASE_RETOUCH_ASSET,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_RELEASE_RETOUCH_ASSET, async (_event, assetRef: string) => retouchAssets.release(assetRef))
   );
   return {
 

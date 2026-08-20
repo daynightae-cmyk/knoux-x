@@ -46,6 +46,9 @@
         }
       ]
     },
+    "moduleNameMapper": {
+      "^.+\\\\?worker$": "<rootDir>/tests/mocks/vite-worker.ts"
+    },
     "modulePathIgnorePatterns": [
       "<rootDir>/backups/",
       "<rootDir>/out/",

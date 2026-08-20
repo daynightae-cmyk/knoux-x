@@ -78,6 +78,119 @@ export function skinSmoothing(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Guided Skin Smooth and manual Patch Heal
+// ═══════════════════════════════════════════════════════════════════════════
+
+function boxMean(values: Float32Array, width: number, height: number, radius: number): Float32Array {
+  const horizontal = new Float32Array(values.length);
+  const output = new Float32Array(values.length);
+  for (let y = 0; y < height; y++) {
+    let sum = 0;
+    for (let x = -radius; x <= radius; x++) sum += values[y * width + Math.max(0, Math.min(width - 1, x))];
+    for (let x = 0; x < width; x++) {
+      horizontal[y * width + x] = sum / (radius * 2 + 1);
+      sum += values[y * width + Math.min(width - 1, x + radius + 1)] - values[y * width + Math.max(0, x - radius)];
+    }
+  }
+  for (let x = 0; x < width; x++) {
+    let sum = 0;
+    for (let y = -radius; y <= radius; y++) sum += horizontal[Math.max(0, Math.min(height - 1, y)) * width + x];
+    for (let y = 0; y < height; y++) {
+      output[y * width + x] = sum / (radius * 2 + 1);
+      sum += horizontal[Math.min(height - 1, y + radius + 1) * width + x] - horizontal[Math.max(0, y - radius) * width + x];
+    }
+  }
+  return output;
+}
+
+/** Fast guided smoothing for a bounded preview or ROI, retaining source texture. */
+export function guidedSkinSmooth(
+  imageData: ImageData,
+  strength: number,
+  texturePreserve = 0.76,
+  mask?: ImageData,
+): ImageData {
+  const { width, height, data } = imageData;
+  const pixels = width * height;
+  const radius = Math.max(1, Math.min(12, Math.round(2 + strength * 8)));
+  const guide = new Float32Array(pixels);
+  const guideSquared = new Float32Array(pixels);
+  for (let pixel = 0; pixel < pixels; pixel++) {
+    const index = pixel * 4;
+    const value = (data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114) / 255;
+    guide[pixel] = value;
+    guideSquared[pixel] = value * value;
+  }
+  const meanGuide = boxMean(guide, width, height, radius);
+  const meanGuideSquared = boxMean(guideSquared, width, height, radius);
+  const variance = new Float32Array(pixels);
+  for (let pixel = 0; pixel < pixels; pixel++) variance[pixel] = meanGuideSquared[pixel] - meanGuide[pixel] * meanGuide[pixel];
+
+  const result = cloneImageData(imageData);
+  const blend = Math.max(0, Math.min(1, strength)) * (1 - Math.max(0, Math.min(0.95, texturePreserve)));
+  for (let channel = 0; channel < 3; channel++) {
+    const source = new Float32Array(pixels);
+    const guideProduct = new Float32Array(pixels);
+    for (let pixel = 0; pixel < pixels; pixel++) {
+      const value = data[pixel * 4 + channel] / 255;
+      source[pixel] = value;
+      guideProduct[pixel] = guide[pixel] * value;
+    }
+    const meanSource = boxMean(source, width, height, radius);
+    const meanProduct = boxMean(guideProduct, width, height, radius);
+    const coefficientA = new Float32Array(pixels);
+    const coefficientB = new Float32Array(pixels);
+    for (let pixel = 0; pixel < pixels; pixel++) {
+      coefficientA[pixel] = (meanProduct[pixel] - meanGuide[pixel] * meanSource[pixel]) / (variance[pixel] + 0.004);
+      coefficientB[pixel] = meanSource[pixel] - coefficientA[pixel] * meanGuide[pixel];
+    }
+    const meanA = boxMean(coefficientA, width, height, radius);
+    const meanB = boxMean(coefficientB, width, height, radius);
+    for (let pixel = 0; pixel < pixels; pixel++) {
+      const index = pixel * 4;
+      if (mask && mask.data[index + 3] === 0) continue;
+      const alpha = blend * (mask ? mask.data[index + 3] / 255 : 1);
+      const filtered = (meanA[pixel] * guide[pixel] + meanB[pixel]) * 255;
+      result.data[index + channel] = clamp(lerp(data[index + channel], filtered, alpha));
+    }
+  }
+  return result;
+}
+
+export interface PatchHealRequest {
+  targetX: number;
+  targetY: number;
+  sourceX: number;
+  sourceY: number;
+  radius: number;
+  feather?: number;
+}
+
+/** Copies a user-selected nearby patch through a feathered circular mask. */
+export function patchHeal(imageData: ImageData, request: PatchHealRequest, mask?: ImageData): ImageData {
+  const result = cloneImageData(imageData);
+  const radius = Math.max(1, Math.round(request.radius));
+  const feather = Math.max(0.05, Math.min(1, request.feather ?? 0.75));
+  for (let y = -radius; y <= radius; y++) {
+    for (let x = -radius; x <= radius; x++) {
+      const distance = Math.hypot(x, y) / radius;
+      if (distance > 1) continue;
+      const targetX = Math.round(request.targetX + x);
+      const targetY = Math.round(request.targetY + y);
+      const sourceX = Math.round(request.sourceX + x);
+      const sourceY = Math.round(request.sourceY + y);
+      if (targetX < 0 || targetY < 0 || targetX >= imageData.width || targetY >= imageData.height || sourceX < 0 || sourceY < 0 || sourceX >= imageData.width || sourceY >= imageData.height) continue;
+      const targetIndex = (targetY * imageData.width + targetX) * 4;
+      if (mask && mask.data[targetIndex + 3] === 0) continue;
+      const sourceIndex = (sourceY * imageData.width + sourceX) * 4;
+      const alpha = Math.pow(1 - distance, feather) * (mask ? mask.data[targetIndex + 3] / 255 : 1);
+      for (let channel = 0; channel < 3; channel++) result.data[targetIndex + channel] = clamp(lerp(imageData.data[targetIndex + channel], imageData.data[sourceIndex + channel], alpha));
+    }
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Blemish Removal
 // ═══════════════════════════════════════════════════════════════════════════
 

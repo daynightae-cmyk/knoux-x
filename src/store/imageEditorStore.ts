@@ -20,9 +20,15 @@ export type BeautyTool =
   | 'liquify';
 
 export interface ImageEditorSource {
+  /** Display-ready URL. In desktop mode this is the bounded proxy, not the original. */
   dataUrl: string;
   name: string;
   sourcePath?: string;
+  assetRef?: string;
+  proxyRef?: string;
+  sourceHash?: string;
+  originalWidth?: number;
+  originalHeight?: number;
 }
 
 export interface ImageEditorAiJob {

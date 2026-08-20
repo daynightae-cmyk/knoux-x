@@ -12,7 +12,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "build": "electron-forge package",
-    "build:native": "node-gyp rebuild",
+    "build:native": "node tools/rebuild-native.cjs",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --ext .ts,.tsx . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,css}\"",

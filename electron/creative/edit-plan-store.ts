@@ -47,7 +47,7 @@ export class EditPlanStore {
    * (spec §3.1). Returns the stored record.
    */
   async record(project: MultitrackProject, planValue: unknown): Promise<StoredEditPlanRecord> {
-    const plan = parseEditPlan(planValue, project);
+    const plan = parseEditPlan(planValue);
     try {
       replayEditPlan(project, plan);
     } catch (error) {

@@ -243,7 +243,13 @@ function validateTimelineItem(value: unknown): void {
     if (item.text !== undefined) validateTextProperties(item.text);
   }
   if (!Array.isArray(item.keyframes)) throw new TypeError('Timeline item keyframes must be an array.');
-  for (const keyframe of item.keyframes as unknown[]) validateKeyframe(keyframe);
+  const duration = item.duration as number;
+  for (const keyframe of item.keyframes as unknown[]) {
+    validateKeyframe(keyframe);
+    if ((keyframe as { time: number }).time > duration) {
+      throw new RangeError('Timeline item keyframe time cannot exceed item duration.');
+    }
+  }
   if (item.transitionIn !== null && item.transitionIn !== undefined) validateTransition(item.transitionIn);
   if (item.transitionOut !== null && item.transitionOut !== undefined) validateTransition(item.transitionOut);
 }
@@ -380,7 +386,7 @@ function validateOperation(operation: EditOperation): void {
  * Validates a full plan and returns a sanitized clone. Throws TypeError on
  * any malformed field; runs the same structural checks the replay uses.
  */
-export function parseEditPlan(value: unknown, sourceProject?: MultitrackProject): EditPlan {
+export function parseEditPlan(value: unknown): EditPlan {
   if (!value || typeof value !== 'object') throw new TypeError('Edit plan must be an object.');
   const candidate = value as Partial<EditPlan>;
   if (candidate.schema !== EDIT_PLAN_SCHEMA || candidate.version !== EDIT_PLAN_VERSION) {
@@ -428,17 +434,6 @@ export function parseEditPlan(value: unknown, sourceProject?: MultitrackProject)
     evidence: { ...candidate.evidence },
     revision: candidate.revision,
   };
-  if (sourceProject) {
-    const items = new Map(sourceProject.tracks.flatMap((track) => track.items.map((item) => [item.id, item] as const)));
-    for (const operation of plan.operations) {
-      if (operation.op !== 'upsert-keyframe') continue;
-      const item = items.get(operation.itemId);
-      if (!item) throw new RangeError(`Keyframe target item ${operation.itemId} does not exist.`);
-      if (operation.keyframe.time > item.duration) {
-        throw new RangeError(`Keyframe time cannot exceed item duration for ${operation.itemId}.`);
-      }
-    }
-  }
   return plan;
 }
 

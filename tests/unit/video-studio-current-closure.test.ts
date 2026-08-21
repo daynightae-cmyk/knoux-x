@@ -95,14 +95,49 @@ describe('keyframe timing — contextual validation', () => {
     await expect(store.record(project, plan)).resolves.toBeDefined();
   });
 
-  test('keyframe beyond item duration -> rejected before approved plan can become persisted', async () => {
+  test('keyframe beyond item duration -> rejected during replay before an approved plan is persisted', async () => {
     const project = projectWithItem(2, 1);
     const plan: Record<string, unknown> = basePlan(project);
     plan.operations = [{ op: 'upsert-keyframe', id: 'op1', itemId: 'item1', keyframe: { id: 'kf1', property: 'volume', time: 5, value: 0.5, easing: 'linear' } }];
-    expect(() => parseEditPlan(plan, project)).toThrow(/Keyframe time cannot exceed/i);
+    // The parser has no reliable post-operation duration for an existing item.
+    expect(() => parseEditPlan(plan)).not.toThrow();
     const store = new EditPlanStore();
     await expect(store.record(project, plan)).rejects.toThrow(/Keyframe time cannot exceed/i);
     expect(() => replayEditPlan(project, plan)).toThrow(/Keyframe time cannot exceed/i);
+  });
+
+  test('embedded keyframe beyond an inserted item duration is rejected during plan parsing', () => {
+    const project = projectWithItem(2, 1);
+    const plan: Record<string, unknown> = basePlan(project);
+    const item = createTimelineItem({ id: 'inserted', trackId: 'audio-1', kind: 'audio', name: 'Inserted', timelineStart: 2, duration: 2, sourceIn: 0, sourceOut: 2 });
+    item.keyframes = [{ id: 'too-late', property: 'volume', time: 3, value: 0.5, easing: 'linear' }];
+    plan.operations = [{ op: 'insert-item', id: 'insert', item }];
+    expect(() => parseEditPlan(plan)).toThrow(/keyframe time cannot exceed item duration/i);
+  });
+
+  test('ordered insert followed by an in-range keyframe is accepted and persisted', async () => {
+    const project = projectWithItem(2, 1);
+    const plan: Record<string, unknown> = basePlan(project);
+    const item = createTimelineItem({ id: 'inserted', trackId: 'audio-1', kind: 'audio', name: 'Inserted', timelineStart: 2, duration: 2, sourceIn: 0, sourceOut: 2 });
+    plan.operations = [
+      { op: 'insert-item', id: 'insert', item },
+      { op: 'upsert-keyframe', id: 'keyframe', itemId: 'inserted', keyframe: { id: 'in-range', property: 'volume', time: 1, value: 0.5, easing: 'linear' } },
+    ];
+    expect(() => parseEditPlan(plan)).not.toThrow();
+    const store = new EditPlanStore();
+    await expect(store.record(project, plan)).resolves.toBeDefined();
+    const replayed = replayEditPlan(project, plan);
+    const inserted = replayed.project.tracks[0].items.find((candidate) => candidate.id === 'inserted');
+    expect(inserted?.keyframes).toHaveLength(1);
+  });
+
+  test('missing keyframe target is rejected during replay before persistence', async () => {
+    const project = projectWithItem(2, 1);
+    const plan: Record<string, unknown> = basePlan(project);
+    plan.operations = [{ op: 'upsert-keyframe', id: 'op1', itemId: 'missing', keyframe: { id: 'kf1', property: 'volume', time: 1, value: 0.5, easing: 'linear' } }];
+    const store = new EditPlanStore();
+    await expect(store.record(project, plan)).rejects.toThrow(/Item not found/i);
+    expect(() => replayEditPlan(project, plan)).toThrow(/Item not found/i);
   });
 
   test('negative keyframe time -> rejected if canonical model disallows it', () => {

@@ -9,6 +9,7 @@ import {
   quickFingerprint,
 } from '../../src/core/video-studio/ai/edit-plan';
 import { EditPlanReplayError, applyEditPlan, replayEditPlan } from '../../src/core/video-studio/ai/edit-replay';
+import { sha256 } from '../../src/core/video-studio/ai/sha256';
 import { analyzeEditImpact } from '../../src/core/video-studio/ai/edit-impact';
 import type { EditImpact } from '../../src/core/video-studio/ai/edit-impact-types';
 import {
@@ -83,7 +84,7 @@ describe('KNOUX video studio D10/D11 edit plan', () => {
     const second = sampleProject();
     expect(projectFingerprint(first)).toBe(projectFingerprint(second));
     expect(projectRevision(first)).toBe(projectRevision(second));
-    expect(projectFingerprint(first)).toMatch(/^[0-9a-f]{8}$/);
+    expect(projectFingerprint(first)).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test('parseEditPlan accepts a valid plan and rejects malformed plans', () => {
@@ -331,6 +332,19 @@ describe('KNOUX edit plan record round-trip (parse → validate → replay)', ()
     const direct = applyEditPlan(project, plan);
     const indirect = applyEditPlan(project, reparsed);
     expect(direct).toEqual(indirect);
+  });
+});
+
+describe('SHA-256 revision fingerprint', () => {
+  test('matches canonical SHA-256 vectors', () => {
+    expect(sha256('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(sha256('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
+
+  test('rejects the legacy 32-bit fingerprint shape during plan parsing', () => {
+    const project = sampleProject();
+    const plan = basePlan(project);
+    expect(() => parseEditPlan({ ...plan, sourceProjectFingerprint: quickFingerprint('legacy') })).toThrow('sourceProjectFingerprint is invalid');
   });
 });
 

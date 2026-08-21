@@ -21,6 +21,8 @@ import type {
   TimelineTransition,
 } from '../../creative/multitrackProject';
 
+import { sha256 } from './sha256';
+
 export const EDIT_PLAN_SCHEMA = 'knoux-edit-plan' as const;
 export const EDIT_PLAN_VERSION = 1 as const;
 
@@ -274,9 +276,9 @@ export function quickFingerprint(text: string): string {
 }
 
 /**
- * Project fingerprint: canonical JSON of the whole project hashed with the
- * bounded quick fingerprint. For authoritative identity (contentHash) use
- * full SHA-256 at the storage layer (spec §3.1).
+ * Project fingerprint: canonical JSON of the whole project hashed with
+ * SHA-256. This is the synchronous cross-process revision guard used before
+ * replay; the storage layer records the same class of strong identity.
  */
 export function projectFingerprint(project: MultitrackProject): string {
   const revision = {
@@ -316,7 +318,7 @@ export function projectFingerprint(project: MultitrackProject): string {
       })),
     })),
   };
-  return quickFingerprint(canonicalSerialize(revision));
+  return sha256(canonicalSerialize(revision));
 }
 
 /** Immutable project revision string: `projectId@updatedAt@fingerprint`. */
@@ -402,7 +404,7 @@ export function parseEditPlan(value: unknown): EditPlan {
   }
   if (candidate.source !== 'ai-proposal' && candidate.source !== 'local-rule') throw new TypeError('Edit plan source is invalid.');
   const sourceProjectRevision = assertId(candidate.sourceProjectRevision, 'sourceProjectRevision');
-  if (typeof candidate.sourceProjectFingerprint !== 'string' || !/^[0-9a-f]{8}$/.test(candidate.sourceProjectFingerprint)) {
+  if (typeof candidate.sourceProjectFingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(candidate.sourceProjectFingerprint)) {
     throw new TypeError('sourceProjectFingerprint is invalid.');
   }
   if (!Array.isArray(candidate.operations)) throw new TypeError('operations must be an array.');

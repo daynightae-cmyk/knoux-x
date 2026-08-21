@@ -119,11 +119,12 @@ export class RetouchJobScheduler {
   }
 
   private supersedeActive(): void {
-    if (!this.current || this.current.ended) return;
-    this.cancel(this.current.engine, this.current.jobId);
-    this.current.ended = true;
-    this.current = null;
-    this.releaseWaiters();
+    const active = this.current;
+    if (!active || active.ended) return;
+    this.cancel(active.engine, active.jobId);
+    // The scheduler owns the governor lease, so supersession must use the
+    // handle's real release path rather than merely retiring its bookkeeping.
+    active.release();
   }
 
   private releaseWaiters(): void {

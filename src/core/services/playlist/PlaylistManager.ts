@@ -10,7 +10,11 @@
  * @version 1.0.0
  */
 
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import EventEmitter from 'events';
+
+import { app } from 'electron';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
@@ -42,9 +46,11 @@ export class PlaylistManager extends EventEmitter {
   private playlist: CurrentPlaylist;
   private isInitialized = false;
   private shuffleOrder: number[] = [];
+  private storagePath: string | null;
 
-  constructor() {
+  constructor(storagePath?: string) {
     super();
+    this.storagePath = storagePath ?? null;
     this.playlist = {
       id: 'current',
       name: 'Current Playlist',
@@ -292,29 +298,38 @@ export class PlaylistManager extends EventEmitter {
   // تحميل وحفظ
   // ═════════════════════════════════════════════════════════════════════════
 
+  private resolveStoragePath(): string {
+    this.storagePath ??= join(app.getPath('userData'), 'playlists', 'current-playlist.json');
+    return this.storagePath;
+  }
+
   private async loadPlaylist(): Promise<void> {
     try {
-      const data = await window.knouxAPI.settings.get<string>('currentPlaylist', '{}');
-      const saved = JSON.parse(data);
-      
+      const data = await readFile(this.resolveStoragePath(), 'utf8');
+      const saved = JSON.parse(data) as Partial<CurrentPlaylist>;
       if (saved.items) {
         this.playlist.items = saved.items;
-        this.playlist.currentIndex = saved.currentIndex || -1;
-        this.playlist.loop = saved.loop || false;
-        this.playlist.shuffle = saved.shuffle || false;
+        this.playlist.currentIndex = saved.currentIndex ?? -1;
+        this.playlist.loop = saved.loop ?? false;
+        this.playlist.shuffle = saved.shuffle ?? false;
+        this.generateShuffleOrder();
       }
     } catch (error) {
-      console.warn('Failed to load playlist:', error);
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn('Failed to load playlist:', error);
     }
   }
 
   private async savePlaylist(): Promise<void> {
-    await window.knouxAPI.settings.set('currentPlaylist', JSON.stringify({
+    const storagePath = this.resolveStoragePath();
+    const temporaryPath = `${storagePath}.tmp`;
+    await mkdir(dirname(storagePath), { recursive: true });
+    await writeFile(temporaryPath, `${JSON.stringify({
       items: this.playlist.items,
       currentIndex: this.playlist.currentIndex,
       loop: this.playlist.loop,
       shuffle: this.playlist.shuffle,
-    }));
+    }, null, 2)}\n`, 'utf8');
+    await rename(temporaryPath, storagePath);
   }
 
   // ═════════════════════════════════════════════════════════════════════════

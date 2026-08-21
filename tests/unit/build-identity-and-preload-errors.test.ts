@@ -109,7 +109,7 @@ describe('startup failure cleanup evidence', () => {
     expect(exit).toBeGreaterThan(cleanup);
     expect(source).toContain('KNOUX_RUNTIME_CLEANUP');
     expect(source).toContain('KNOUX_SETTINGS_RECOVERY');
-    expect(source.indexOf("settings.on('recovery'")).toBeLessThan(source.indexOf('await systemOrchestrator.services.settings.initialize()'));
+    expect(source.indexOf("systemOrchestrator.services.settings.on('recovery')")).toBeLessThan(source.indexOf('await systemOrchestrator.initialize()'));
   });
 
   test('settings persistence self-test always removes its temporary root and records cleanup evidence', () => {

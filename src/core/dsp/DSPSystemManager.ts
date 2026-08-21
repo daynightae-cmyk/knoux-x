@@ -92,14 +92,21 @@ export class DSPSystemManager extends EventEmitter {
     try {
       console.log('Initializing DSP System...');
 
-      // Initialize AudioContext
-      this.audioContext = new AudioContext({
-        sampleRate: this.config.sampleRate,
-        latencyHint: 'interactive',
-      });
+      // Electron's main process does not expose Web Audio on every platform.
+      // Keep software DSP available and allow the desktop window to start when
+      // no renderer-backed AudioContext exists yet.
+      const AudioContextConstructor = globalThis.AudioContext;
+      if (typeof AudioContextConstructor === 'undefined') {
+        console.warn('Web Audio is unavailable in this process; continuing with software DSP only.');
+      } else {
+        this.audioContext = new AudioContextConstructor({
+          sampleRate: this.config.sampleRate,
+          latencyHint: 'interactive',
+        });
 
-      // Load audio worklet
-      await this.loadAudioWorklet();
+        // Load audio worklet only when the Web Audio runtime is available.
+        await this.loadAudioWorklet();
+      }
 
       // Initialize native module if available
       await this.initializeNativeModule();

@@ -57,7 +57,12 @@ export class GeminiService extends EventEmitter {
   private chatSession: ReturnType<ReturnType<GoogleGenerativeAI['getGenerativeModel']>['startChat']> | null = null;
   private context: ChatContext = { messages: [] };
   private isInitialized = false;
-  private apiKey: string | null = null;
+  private apiKey: string | null;
+
+  constructor(apiKey = process.env.KNOUX_GEMINI_API_KEY ?? '') {
+    super();
+    this.apiKey = apiKey || null;
+  }
 
   // ═════════════════════════════════════════════════════════════════════════
   // التهيئة والإغلاق
@@ -69,12 +74,11 @@ export class GeminiService extends EventEmitter {
     try {
       console.log('Initializing Gemini Service...');
 
-      // Get API key from settings
-      this.apiKey = await window.knouxAPI.settings.get<string>('geminiApiKey', '');
-
-      if (this.apiKey) {
-        this.setupGemini();
-      }
+      // AI is optional at desktop boot. Main reads only an explicit process
+      // configuration; renderer settings must not be dereferenced before a
+      // renderer exists.
+      if (this.apiKey) this.setupGemini();
+      else console.info('Gemini Service is unavailable until KNOUX_GEMINI_API_KEY is configured.');
 
       this.isInitialized = true;
       console.log('Gemini Service initialized');

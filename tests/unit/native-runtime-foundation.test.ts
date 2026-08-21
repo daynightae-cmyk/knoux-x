@@ -180,10 +180,55 @@ describe('IPC and BrowserWindow source inventory', () => {
     expect(constructions.map((entry) => path.relative(repositoryRoot, entry.filePath).replace(/\\/g, '/'))).toEqual([
       'electron/creative/recording-region-service.ts',
       'electron/creative/region-capture-service.ts',
-      'electron/main.ts',
-      'electron/main.ts',
       'electron/startup/packaged-ipc-smoke.ts',
+      'electron/window.ts',
     ]);
     for (const construction of constructions) expect(construction.block).toContain('...SECURE_RENDERER_PREFERENCES');
+  });
+});
+
+
+describe('packaged Electron window shell', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('loads the Forge Vite main_window renderer from the packaged build directory', () => {
+    const windowSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'window.ts'), 'utf8');
+    expect(windowSource).toContain("await mainWindow.loadFile(join(__dirname, '..', 'renderer', 'main_window', 'index.html'))");
+  });
+});
+
+
+describe('packaged preload runtime identity', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('assembles the desktop runtime descriptor before exposing renderer bridge namespaces', () => {
+    const preloadEntry = fs.readFileSync(path.join(repositoryRoot, 'electron', 'preload-entry.ts'), 'utf8');
+    expect(preloadEntry).toContain("import './preload-runtime';");
+    expect(preloadEntry.indexOf("import './preload-runtime';")).toBeLessThan(preloadEntry.indexOf("import './preload';"));
+  });
+});
+
+
+describe('initial media argument delivery', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('queues the primary process arguments after startup for renderer-ready delivery', () => {
+    const mainSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'main.ts'), 'utf8');
+    expect(mainSource).toContain('await startupPromise;\n\n  // The first instance has no `second-instance` event');
+    expect(mainSource).toContain('queueMediaPaths(process.argv);');
+  });
+});
+
+
+describe('startup quit lifecycle ordering', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('registers cleanup-protected quit handlers before awaiting primary startup', () => {
+    const mainSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'main.ts'), 'utf8');
+    const lifecycleRegistration = mainSource.indexOf('registerApplicationLifecycleHandlers();');
+    const startupAssignment = mainSource.indexOf('startupPromise ??= initializePrimaryApplication();');
+    expect(lifecycleRegistration).toBeGreaterThan(-1);
+    expect(startupAssignment).toBeGreaterThan(lifecycleRegistration);
+    expect(mainSource).toContain("reportCleanupFailure: (error) => console.error('KNOUX_RUNTIME_CLEANUP_FAILED', error)");
   });
 });

@@ -68,6 +68,42 @@ const videoStudioAPI = {
   offlineJobs: (): Promise<any[]> =>
     invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_OFFLINE_JOBS),
 
+  // ── D10: edit impact analysis ──
+  analyzeEditImpact: (project: any, plan: any, options?: { renderCost?: { durationSeconds?: number; width?: number; height?: number; fps?: number } }): Promise<any> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_EDIT_ANALYZE, project, plan, options),
+
+  // ── D11: deterministic replay + plan records ──
+  replayEditPlan: (project: any, plan: any): Promise<{ project: any }> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_EDIT_REPLAY, project, plan),
+
+  recordPlan: (project: any, plan: any): Promise<any> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_PLAN_RECORD, project, plan),
+
+  listPlans: (): Promise<any[]> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_PLAN_LIST),
+
+  getPlan: (recordId: string): Promise<any | null> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_PLAN_GET, recordId),
+
+  removePlan: (recordId: string): Promise<boolean> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_PLAN_REMOVE, recordId),
+
+  // ── D12: branch snapshots + comparison ──
+  createBranch: (project: any, label: string, parentBranchId?: string): Promise<any> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_BRANCH_CREATE, project, label, parentBranchId),
+
+  listBranches: (projectId?: string): Promise<any[]> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_BRANCH_LIST, projectId),
+
+  getBranch: (branchId: string): Promise<any | null> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_BRANCH_GET, branchId),
+
+  removeBranch: (branchId: string): Promise<boolean> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_BRANCH_REMOVE, branchId),
+
+  compareBranches: (leftBranchId: string, rightBranchId: string): Promise<any> =>
+    invokeDesktop(IPC_INVOKE.VIDEO_STUDIO_BRANCH_COMPARE, leftBranchId, rightBranchId),
+
   // ── Events ──
   onJobPhase: (callback: (data: { jobId: string; phase: string }) => void): (() => void) => {
     const listener = ((_event: any, data: any) => callback(data)) as any;

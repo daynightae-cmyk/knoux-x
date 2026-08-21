@@ -73,10 +73,8 @@ export class VideoEngine extends EventEmitter {
     try {
       console.log('Initializing Video Engine...');
       
-      // Create canvas for screenshot functionality
-      this.canvas = document.createElement('canvas');
-      this.ctx = this.canvas.getContext('2d');
-      
+      // Video state is safe in Electron main. Canvas creation is renderer-only
+      // and is deferred until a screenshot is requested from an attached video.
       this.isInitialized = true;
       console.log('Video Engine initialized');
     } catch (error) {
@@ -272,10 +270,20 @@ export class VideoEngine extends EventEmitter {
   // لقطة شاشة
   // ═════════════════════════════════════════════════════════════════════════
 
-  public takeScreenshot(): string {
-    if (!this.videoElement || !this.canvas || !this.ctx) {
-      throw new Error('Video element not attached');
+  private ensureScreenshotCanvas(): void {
+    if (this.canvas && this.ctx) return;
+    if (typeof document === 'undefined') {
+      throw new Error('Video screenshots require a renderer document.');
     }
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    if (!this.ctx) throw new Error('Video screenshot canvas is unavailable.');
+  }
+
+  public takeScreenshot(): string {
+    if (!this.videoElement) throw new Error('Video element not attached');
+    this.ensureScreenshotCanvas();
+    if (!this.canvas || !this.ctx) throw new Error('Video screenshot canvas is unavailable.');
 
     const video = this.videoElement;
     this.canvas.width = video.videoWidth;

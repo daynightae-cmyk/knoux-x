@@ -11,7 +11,11 @@
  */
 
 import EventEmitter from 'events';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import path from 'path';
+
+import { app } from 'electron';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
@@ -75,6 +79,12 @@ export class LibraryManager extends EventEmitter {
   private playlists: Map<string, Playlist> = new Map();
   private isInitialized = false;
   private scanInProgress = false;
+  private storagePath: string | null;
+
+  constructor(storagePath?: string) {
+    super();
+    this.storagePath = storagePath ?? null;
+  }
 
   // ═════════════════════════════════════════════════════════════════════════
   // التهيئة والإغلاق
@@ -386,17 +396,22 @@ export class LibraryManager extends EventEmitter {
   // تحميل وحفظ المكتبة
   // ═════════════════════════════════════════════════════════════════════════
 
+  private resolveStoragePath(): string {
+    this.storagePath ??= join(app.getPath('userData'), 'library', 'library.json');
+    return this.storagePath;
+  }
+
   private async loadLibrary(): Promise<void> {
     try {
-      const data = await window.knouxAPI.settings.get<string>('library', '{}');
-      const library = JSON.parse(data);
+      const data = await readFile(this.resolveStoragePath(), 'utf8');
+      const library = JSON.parse(data) as { media?: Record<string, MediaItem>; playlists?: Record<string, Playlist> };
 
       if (library.media) {
         for (const [path, media] of Object.entries(library.media)) {
           this.media.set(path, {
-            ...(media as MediaItem),
-            addedAt: new Date((media as MediaItem).addedAt),
-            lastPlayed: (media as MediaItem).lastPlayed ? new Date((media as MediaItem).lastPlayed!) : undefined,
+            ...media,
+            addedAt: new Date(media.addedAt),
+            lastPlayed: media.lastPlayed ? new Date(media.lastPlayed) : undefined,
           });
         }
       }
@@ -404,23 +419,26 @@ export class LibraryManager extends EventEmitter {
       if (library.playlists) {
         for (const [id, playlist] of Object.entries(library.playlists)) {
           this.playlists.set(id, {
-            ...(playlist as Playlist),
-            createdAt: new Date((playlist as Playlist).createdAt),
-            updatedAt: new Date((playlist as Playlist).updatedAt),
+            ...playlist,
+            createdAt: new Date(playlist.createdAt),
+            updatedAt: new Date(playlist.updatedAt),
           });
         }
       }
     } catch (error) {
-      console.warn('Failed to load library:', error);
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn('Failed to load library:', error);
     }
   }
 
   private async saveLibrary(): Promise<void> {
+    const storagePath = this.resolveStoragePath();
     const library = {
       media: Object.fromEntries(this.media),
       playlists: Object.fromEntries(this.playlists),
     };
-
-    await window.knouxAPI.settings.set('library', JSON.stringify(library));
+    const temporaryPath = `${storagePath}.tmp`;
+    await mkdir(dirname(storagePath), { recursive: true });
+    await writeFile(temporaryPath, `${JSON.stringify(library, null, 2)}\n`, 'utf8');
+    await rename(temporaryPath, storagePath);
   }
 }

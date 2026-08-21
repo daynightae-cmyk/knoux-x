@@ -481,6 +481,114 @@
   box-shadow: 0 0 8px #ff2bd6;
 }
 
+.multitrack-branches {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.multitrack-branches h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+
+.multitrack-branches .creative-muted {
+  margin: 0;
+  color: var(--knoux-text-muted);
+  font-size: 12px;
+}
+
+.multitrack-branch-create {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.multitrack-branch-create input {
+  min-width: 0;
+  padding: 8px 10px;
+  color: var(--knoux-text);
+  background: var(--knoux-surface-muted);
+  border: 1px solid var(--knoux-border);
+  border-radius: 8px;
+}
+
+.multitrack-branch-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.multitrack-branch-row {
+  display: flex;
+  align-items: center;
+}
+
+.multitrack-branch-row button {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--knoux-text);
+  text-align: start;
+  background: color-mix(in srgb, var(--knoux-surface-muted) 75%, transparent);
+  border: 1px solid var(--knoux-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.multitrack-branch-row button:hover {
+  border-color: var(--knoux-accent);
+}
+
+.multitrack-branch-row button span {
+  overflow: hidden;
+  color: var(--knoux-text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multitrack-branch-comparison {
+  display: grid;
+  gap: 6px;
+}
+
+.multitrack-branch-comparison h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.multitrack-branch-comparison table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.multitrack-branch-comparison td {
+  padding: 5px 8px;
+  color: var(--knoux-text-secondary);
+  font-size: 12px;
+  border-bottom: 1px solid var(--knoux-border);
+}
+
+.multitrack-branch-comparison td:first-child {
+  color: var(--knoux-text-muted);
+}
+
+.multitrack-branch-comparison td:last-child {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 1250px) {
   .multitrack-main-grid {
     grid-template-columns: 1fr;

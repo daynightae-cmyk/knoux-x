@@ -100,11 +100,20 @@ async function waitForDebugEndpoint(port, child) {
 
 async function findPlayerPage(browser) {
   const deadline = Date.now() + 45000;
+  let observedPages = [];
   while (Date.now() < deadline) {
+    observedPages = [];
     for (const context of browser.contexts()) {
       for (const page of context.pages()) {
         try {
-          if (await page.locator('.player-viewport-boundary').count()) return page;
+          const playerBoundaryCount = await page.locator('.player-viewport-boundary').count();
+          if (playerBoundaryCount) return page;
+          observedPages.push({
+            url: page.url(),
+            title: await page.title(),
+            readyState: await page.evaluate(() => document.readyState),
+            bodyText: (await page.locator('body').innerText()).slice(0, 2000),
+          });
         } catch {
           // Splash windows may close during discovery.
         }
@@ -112,7 +121,7 @@ async function findPlayerPage(browser) {
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
   }
-  fail('Main player page was not discovered.');
+  fail('Main player page was not discovered.', { observedPages });
 }
 
 async function measure(page) {

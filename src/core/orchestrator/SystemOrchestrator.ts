@@ -117,6 +117,7 @@ export class SystemOrchestrator extends EventEmitter {
   private mainWindow: BrowserWindow | null = null;
   private initialized = false;
   private workerPool: Map<string, Worker> = new Map();
+  private readonly initializationCleanup: Array<() => Promise<void>> = [];
 
   private constructor(config: SystemConfiguration) {
     super();
@@ -189,26 +190,39 @@ export class SystemOrchestrator extends EventEmitter {
 
       // Initialize security
       await this.security.initialize();
+      this.initializationCleanup.push(() => this.security.shutdown());
 
       // Initialize DSP
       await this.dsp.initialize();
+      this.initializationCleanup.push(() => this.dsp.shutdown());
 
-      // Initialize services in order
+      // Initialize services in order, recording a reverse-order rollback for
+      // any later startup failure.
       await this.services.settings.initialize();
+      this.initializationCleanup.push(() => this.services.settings.shutdown());
       await this.services.file.initialize();
+      this.initializationCleanup.push(() => this.services.file.shutdown());
       await this.services.library.initialize();
+      this.initializationCleanup.push(() => this.services.library.shutdown());
       await this.services.playlist.initialize();
+      this.initializationCleanup.push(() => this.services.playlist.shutdown());
       await this.services.audio.initialize();
+      this.initializationCleanup.push(() => this.services.audio.shutdown());
       await this.services.video.initialize();
+      this.initializationCleanup.push(() => this.services.video.shutdown());
       await this.services.subtitle.initialize();
+      this.initializationCleanup.push(() => this.services.subtitle.shutdown());
       await this.services.ai.initialize();
+      this.initializationCleanup.push(() => this.services.ai.shutdown());
       await this.services.player.initialize();
+      this.initializationCleanup.push(() => this.services.player.shutdown());
 
       // Load saved settings
       await this.loadSettings();
 
       // Initialize worker pool
       this.initializeWorkerPool();
+      this.initializationCleanup.push(async () => this.terminateWorkerPool());
 
       this.initialized = true;
       this.state.status = 'ready';
@@ -217,8 +231,20 @@ export class SystemOrchestrator extends EventEmitter {
       console.log('SystemOrchestrator initialized successfully');
     } catch (error) {
       this.state.status = 'error';
+      await this.rollbackFailedInitialization();
       this.emit('error', error);
       throw error;
+    }
+  }
+
+  private async rollbackFailedInitialization(): Promise<void> {
+    const cleanup = this.initializationCleanup.splice(0).reverse();
+    for (const stop of cleanup) {
+      try {
+        await stop();
+      } catch (error) {
+        console.error('Failed to clean up a partially initialized service:', error);
+      }
     }
   }
 
@@ -252,6 +278,7 @@ export class SystemOrchestrator extends EventEmitter {
     // Terminate workers
     this.terminateWorkerPool();
 
+    this.initializationCleanup.length = 0;
     this.initialized = false;
     this.emit('shutdown');
 

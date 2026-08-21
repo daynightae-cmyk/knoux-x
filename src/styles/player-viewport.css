@@ -103,18 +103,93 @@ body,
 }
 
 .player-viewport-boundary .video-element {
-  display: block; /* FIX: Remove inline spacing */
+  display: block;
   max-width: 100%;
   max-height: 100%;
+  background: #000;
+}
+
+/* The boundary owns the live fit-mode state selected by PlayerViewportBoundary. */
+.player-viewport-boundary[data-fit-mode='contain'] .video-element {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
+.player-viewport-boundary[data-fit-mode='cover'] .video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player-viewport-boundary[data-fit-mode='fill'] .video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.player-viewport-boundary[data-fit-mode='original'] .video-element {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: none;
+}
+
+/* Controls occupy the video plane, never a flex row in the document flow. */
 .player-viewport-boundary .controls-overlay {
-  flex: 0 0 auto; /* FIX: Don't grow or shrink */
-  max-height: 120px;
-  overflow-y: auto;
-  /* Safe area inset for Electron window chrome */
-  padding-bottom: max(var(--safe-area-inset-bottom, 0px), env(safe-area-inset-bottom));
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 24px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.player-viewport-boundary .controls-overlay > * {
+  pointer-events: auto;
+}
+
+.player-viewport-toolbar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+}
+
+/* Display state is set on <html> by PlayerViewportBoundary and affects live layout. */
+html[data-player-display-mode='theater'] .app-shell[data-current-view='player'] .player-viewport-boundary > .player-view,
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .player-viewport-boundary > .player-view {
+  padding: 0;
+}
+
+html[data-player-display-mode='theater'] .app-shell[data-current-view='player'] .player-viewport-boundary .video-container,
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .player-viewport-boundary .video-container {
+  border-radius: 0;
+}
+
+html[data-player-display-mode='theater'] .app-shell[data-current-view='player'] .player-viewport-toolbar {
+  top: 8px;
+}
+
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'],
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .player-viewport-boundary {
+  background: #000;
+}
+
+html[data-player-display-mode='cinema'] .app-shell[data-current-view='player'] .player-viewport-toolbar {
+  opacity: 0.8;
 }
 
 .player-viewport-boundary .empty-state {

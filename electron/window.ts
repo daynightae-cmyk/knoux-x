@@ -27,6 +27,18 @@ export async function createWindow(): Promise<BrowserWindow> {
     },
   });
 
+  if (process.env.KNOUX_VIEWPORT_SMOKE === '1') {
+    mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      console.error('KNOUX_VIEWPORT_RENDERER_CONSOLE', { level, message, line, sourceId });
+    });
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+      console.error('KNOUX_VIEWPORT_RENDERER_LOAD_FAILED', { errorCode, errorDescription, validatedURL });
+    });
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      console.error('KNOUX_VIEWPORT_RENDERER_GONE', details);
+    });
+  }
+
   // Load the renderer
   const isDev = process.env.VITE_DEV_SERVER_URL;
   if (isDev) {

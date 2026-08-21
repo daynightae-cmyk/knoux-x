@@ -5,6 +5,7 @@
  * exposes one documented, least-privilege API namespace; keeping the assembly
  * here prevents the packaged app from silently receiving a settings-only API.
  */
+import './preload-runtime';
 import './preload';
 import './preload-creative-expose';
 import './preload-image-studio';

@@ -196,3 +196,14 @@ describe('packaged Electron window shell', () => {
     expect(windowSource).toContain("await mainWindow.loadFile(join(__dirname, '..', 'renderer', 'main_window', 'index.html'))");
   });
 });
+
+
+describe('packaged preload runtime identity', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('assembles the desktop runtime descriptor before exposing renderer bridge namespaces', () => {
+    const preloadEntry = fs.readFileSync(path.join(repositoryRoot, 'electron', 'preload-entry.ts'), 'utf8');
+    expect(preloadEntry).toContain("import './preload-runtime';");
+    expect(preloadEntry.indexOf("import './preload-runtime';")).toBeLessThan(preloadEntry.indexOf("import './preload';"));
+  });
+});

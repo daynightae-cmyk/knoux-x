@@ -197,6 +197,11 @@ describe('keyframed audio coverage — correctness', () => {
     expect(metrics.audioDensity).toBeCloseTo(0.5, 1);
   });
 
+  test('quiet positive effective gain remains audible under canonical mixer semantics', () => {
+    const project = projectWithItem(2, 0.0005);
+    expect(computeBranchMetrics(project).audioDensity).toBe(1);
+  });
+
   test('volume changes halfway through item -> 0.5', () => {
     const project = projectWithItem(2, 1, [
       { id: 'kf1', property: 'volume', time: 1, value: 1, easing: 'linear' },

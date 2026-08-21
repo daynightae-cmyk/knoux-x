@@ -83,11 +83,11 @@ function findAudibleCrossing(
 ): number {
   let lo = tStart;
   let hi = tEnd;
-  const startAudible = gainStart > 0.001;
+  const startAudible = gainStart > 0;
   for (let iter = 0; iter < 20; iter += 1) {
     const mid = (lo + hi) / 2;
     const gain = audibleGainAt(item, track, anySoloTrack, mid);
-    const midAudible = gain > 0.001;
+    const midAudible = gain > 0;
     if (midAudible === startAudible) lo = mid;
     else hi = mid;
   }
@@ -107,7 +107,7 @@ function audibleSegmentsForItem(
 
   if (!hasTimeVaryingGain(item)) {
     const gain = audibleGainAt(item, track, anySoloTrack, 0);
-    if (gain > 0.001) {
+    if (gain > 0) {
       return [{ timelineStart: item.timelineStart, duration: item.duration }];
     }
     return [];
@@ -142,9 +142,9 @@ function audibleSegmentsForItem(
     const mid = (t1 + t2) / 2;
     const gainMid = audibleGainAt(item, track, anySoloTrack, mid);
 
-    const audible1 = gain1 > 0.001;
-    const audible2 = gain2 > 0.001;
-    const audibleMid = gainMid > 0.001;
+    const audible1 = gain1 > 0;
+    const audible2 = gain2 > 0;
+    const audibleMid = gainMid > 0;
 
     if (audible1 && audible2) {
       segments.push({ timelineStart: item.timelineStart + t1, duration: t2 - t1 });

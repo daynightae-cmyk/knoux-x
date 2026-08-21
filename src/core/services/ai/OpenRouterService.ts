@@ -23,7 +23,7 @@ export interface StreamCallback {
   onComplete(): void;
 }
 
-class OpenRouterService {
+export class OpenRouterService {
   private config: AIConfig = {
     apiKey: '',
     model: 'mistralai/mistral-7b-instruct',
@@ -247,7 +247,8 @@ class OpenRouterService {
       let buffer = '';
 
       try {
-        while (true) {
+        let streamComplete = false;
+        while (!streamComplete) {
           const { done, value } = await reader.read();
           if (done) break;
 
@@ -260,6 +261,7 @@ class OpenRouterService {
             if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
               if (data === '[DONE]') {
+                streamComplete = true;
                 break;
               }
               try {

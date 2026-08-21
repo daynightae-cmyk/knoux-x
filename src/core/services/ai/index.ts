@@ -1,15 +1,9 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - AI Services Export
- * ═══════════════════════════════════════════════════════════════════════
+ * KNOUX Player X — AI service exports.
+ *
+ * This module exposes only the implemented OpenRouter client surface. Model
+ * catalogues and media-analysis types are not exported because this client
+ * does not implement those capabilities.
  */
-
-export { OpenRouterService, openRouterService, AVAILABLE_MODELS } from './OpenRouterService';
-export type { 
-  ChatMessage, 
-  ChatContext, 
-  MediaAnalysis, 
-  PlaylistRecommendation,
-  AIModel,
-  ServiceStatus 
-} from './OpenRouterService';
+export { OpenRouterService, openRouterService } from './OpenRouterService';
+export type { AIConfig, AIResponse, StreamCallback } from './OpenRouterService';

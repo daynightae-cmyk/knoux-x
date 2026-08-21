@@ -1,11 +1,8 @@
 /**
- * Electron IPC Setup
- * Initializes all IPC handlers for main process
+ * Canonical IPC bootstrap for the Electron main process.
+ *
+ * All production handlers are registered through `setupIPCHandlers` with the
+ * authoritative registry; legacy settings-only registration is intentionally
+ * not used by the packaged application.
  */
-
-import { setupSettingsHandlers } from './settings-handlers';
-
-export function setupIpcHandlers(): void {
-  // Initialize all IPC handler groups
-  setupSettingsHandlers();
-}
+export { setupIPCHandlers } from './setup';

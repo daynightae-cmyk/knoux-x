@@ -65,7 +65,7 @@ try {
         reportStartup('primary-bootstrap');
         await import('./media-tool-env');
         const { startPrimaryApplication } = await import('./main');
-        return startPrimaryApplication(process.argv);
+        return startPrimaryApplication();
       },
       exit: terminateProcess,
       onFatal: (error) => {

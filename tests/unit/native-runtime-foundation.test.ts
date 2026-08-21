@@ -180,9 +180,8 @@ describe('IPC and BrowserWindow source inventory', () => {
     expect(constructions.map((entry) => path.relative(repositoryRoot, entry.filePath).replace(/\\/g, '/'))).toEqual([
       'electron/creative/recording-region-service.ts',
       'electron/creative/region-capture-service.ts',
-      'electron/main.ts',
-      'electron/main.ts',
       'electron/startup/packaged-ipc-smoke.ts',
+      'electron/window.ts',
     ]);
     for (const construction of constructions) expect(construction.block).toContain('...SECURE_RENDERER_PREFERENCES');
   });

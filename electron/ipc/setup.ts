@@ -416,7 +416,7 @@ function setupLibraryHandlers(ipc: IpcRegistrar, orchestrator: SystemOrchestrato
 // معالجات الإعدادات
 // ═══════════════════════════════════════════════════════════════════════════
 
-function setupSettingsHandlers(ipc: IpcRegistrar, orchestrator: SystemOrchestrator): void {
+export function registerSettingsHandlers(ipc: IpcRegistrar, orchestrator: SystemOrchestrator): void {
   ipc.handle(IPC_INVOKE.SETTINGS_GET, async (_, key: string, defaultValue?) => {
     return orchestrator.services.settings.get(key, defaultValue);
   });
@@ -568,7 +568,7 @@ export function setupIPCHandlers(registry: AuthoritativeIpcRegistry, orchestrato
   setupVideoHandlers(registry.forOwner('core-video'), orchestrator);
   setupSubtitleHandlers(registry.forOwner('core-subtitle'), orchestrator);
   setupLibraryHandlers(registry.forOwner('core-library'), orchestrator);
-  setupSettingsHandlers(registry.forOwner('core-settings'), orchestrator);
+  registerSettingsHandlers(registry.forOwner('core-settings'), orchestrator);
   setupWindowHandlers(registry.forOwner('core-window'), orchestrator);
   setupSystemHandlers(registry.forOwner('core-system'), orchestrator, registry);
   setupAIHandlers(registry.forOwner('core-ai'), orchestrator);

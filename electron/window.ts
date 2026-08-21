@@ -2,8 +2,11 @@
  * Electron Window Management
  */
 
-import { BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
+
+import { BrowserWindow } from 'electron';
+
+import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from './window-security';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -19,10 +22,8 @@ export async function createWindow(): Promise<BrowserWindow> {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      preload: join(__dirname, 'preload-entry.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      enableRemoteModule: false,
+      ...SECURE_RENDERER_PREFERENCES,
+      preload: resolveTrustedPreloadPath(),
     },
   });
 

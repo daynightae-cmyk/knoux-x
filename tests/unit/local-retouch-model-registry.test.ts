@@ -10,6 +10,7 @@ describe('local retouch model registry', () => {
 
     expect(model).not.toBeNull();
     expect(model?.capability).toBe('face-landmarks');
+    expect(LOCAL_RETOUCH_MODELS.map(({ capability }) => capability)).toEqual(['face-landmarks']);
     expect(canInstallLocalRetouchModel(model!)).toBe(true);
   });
 

@@ -17,6 +17,7 @@ import { IPC_INBOUND, IPC_OUTBOUND } from './ipc/contract';
 import { authoritativeIpc } from './ipc/runtime';
 import { authorizeMediaPaths } from './ipc/setup';
 import { createWindow, getMainWindow } from './window';
+import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
 
 let activeOrchestrator: SystemOrchestrator | null = null;
 let shutdownPromise: Promise<void> | null = null;
@@ -201,6 +202,16 @@ function initializePrimaryApplication(): Promise<void> {
 }
 
 export async function startPrimaryApplication(): Promise<{ handleSecondInstance(argv: readonly string[]): void }> {
+  const ranSettingsSelfTest = await maybeRunSettingsPersistenceSelfTest(
+    process.argv,
+    app,
+    async (evidencePath) => {
+      const { runSettingsPersistenceSelfTest } = await import('./startup/settings-persistence-self-test');
+      await runSettingsPersistenceSelfTest(evidencePath);
+    },
+  );
+  if (ranSettingsSelfTest) return { handleSecondInstance: () => undefined };
+
   startupPromise ??= initializePrimaryApplication();
   await startupPromise;
 

@@ -244,6 +244,51 @@ describe('keyframed audio coverage — correctness', () => {
     const metrics = computeBranchMetrics(project);
     expect(metrics.audioDensity).toBeCloseTo(0.5, 1);
   });
+
+  test('fade-in plus opposing volume keyframe keeps a silent-endpoint interior audible', () => {
+    const project = projectWithItem(4, 1, [{ id: 'kf-end', property: 'volume', time: 4, value: 0, easing: 'linear' }]);
+    project.tracks[0].items[0].audio.fadeIn = 4;
+    expect(computeBranchMetrics(project).audioDensity).toBeGreaterThan(0.99);
+  });
+
+  test('fade-out plus opposing volume keyframes keeps a silent-endpoint interior audible', () => {
+    const project = projectWithItem(4, 1, [
+      { id: 'kf-start', property: 'volume', time: 0, value: 0, easing: 'linear' },
+      { id: 'kf-end', property: 'volume', time: 4, value: 1, easing: 'linear' },
+    ]);
+    project.tracks[0].items[0].audio.fadeOut = 4;
+    expect(computeBranchMetrics(project).audioDensity).toBeGreaterThan(0.99);
+  });
+
+  test('0-to-positive-to-0 volume triangle retains positive interior coverage', () => {
+    const project = projectWithItem(4, 1, [
+      { id: 'kf-start', property: 'volume', time: 0, value: 0, easing: 'linear' },
+      { id: 'kf-peak', property: 'volume', time: 2, value: 1, easing: 'linear' },
+      { id: 'kf-end', property: 'volume', time: 4, value: 0, easing: 'linear' },
+    ]);
+    expect(computeBranchMetrics(project).audioDensity).toBeGreaterThan(0.99);
+  });
+
+  test('multiple volume keyframes preserve coverage without fixed-interval sampling', () => {
+    const project = projectWithItem(4, 1, [
+      { id: 'kf-start', property: 'volume', time: 0, value: 0, easing: 'linear' },
+      { id: 'kf-a', property: 'volume', time: 1, value: 0.5, easing: 'linear' },
+      { id: 'kf-b', property: 'volume', time: 2, value: 0.2, easing: 'linear' },
+      { id: 'kf-c', property: 'volume', time: 3, value: 0.8, easing: 'linear' },
+      { id: 'kf-end', property: 'volume', time: 4, value: 0, easing: 'linear' },
+    ]);
+    expect(computeBranchMetrics(project).audioDensity).toBeGreaterThan(0.99);
+  });
+
+  test('video audio follows the same silent-endpoint interior coverage semantics', () => {
+    let project = baseProject();
+    project.tracks = [createTrack('video-1', 'video', 'Video', 0)];
+    const item = createTimelineItem({ id: 'video-1', trackId: 'video-1', kind: 'video', name: 'V', sourcePath: 'C:/a.mp4', timelineStart: 0, duration: 4, sourceIn: 0, sourceOut: 4 });
+    item.audio.fadeIn = 4;
+    item.keyframes = [{ id: 'kf-end', property: 'volume', time: 4, value: 0, easing: 'linear' }] as never;
+    project = insertItem(project, item);
+    expect(computeBranchMetrics(project).audioDensity).toBeGreaterThan(0.99);
+  });
 });
 
 describe('zero-duration metrics — NaN guard', () => {

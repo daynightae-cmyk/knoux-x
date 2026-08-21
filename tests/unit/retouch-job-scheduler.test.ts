@@ -39,6 +39,7 @@ describe('RetouchJobScheduler (single interactive lease across both engines)', (
 
   function setup(): {
     scheduler: RetouchJobScheduler;
+    governor: MemoryGovernor;
     queue: RetouchRenderQueue;
     cv: OpenCvClient;
     queueWorker: MockViteWorker;
@@ -58,8 +59,79 @@ describe('RetouchJobScheduler (single interactive lease across both engines)', (
     });
     void cv.readiness();
     cvWorker.emit({ type: 'configured', caps: AVAILABLE_CAPS });
-    return { scheduler, queue, cv, queueWorker, cvWorker, cancelled };
+    return { scheduler, governor, queue, cv, queueWorker, cvWorker, cancelled };
   }
+
+  describe('memory lease retirement', () => {
+    function begin(scheduler: RetouchJobScheduler, jobId: string) {
+      const lease = scheduler.beginInteractive({ engine: 'render-queue', jobId, width: 16, height: 16, manual: true });
+      expect(lease).not.toBeNull();
+      return lease!;
+    }
+
+    it('returns to zero after normal completion', () => {
+      const { scheduler, governor } = setup();
+      const lease = begin(scheduler, 'complete');
+      expect(governor.currentBytes).toBeGreaterThan(0);
+      scheduler.endInteractive(lease);
+      expect(governor.currentBytes).toBe(0);
+    });
+
+    it('returns to zero after cancellation', () => {
+      const { scheduler, governor } = setup();
+      begin(scheduler, 'cancel');
+      scheduler.cancelActive();
+      expect(governor.currentBytes).toBe(0);
+    });
+
+    it('releases the superseded lease through its real release path', () => {
+      const { scheduler, governor } = setup();
+      begin(scheduler, 'superseded');
+      const replacement = begin(scheduler, 'replacement');
+      expect(governor.currentBytes).toBe(MemoryGovernor.footprintFor(16, 16, 3));
+      scheduler.endInteractive(replacement);
+      expect(governor.currentBytes).toBe(0);
+    });
+
+    it('does not accumulate leases during repeated slider supersession', () => {
+      const { scheduler, governor } = setup();
+      let active = begin(scheduler, 'slider-0');
+      for (let index = 1; index < 50; index += 1) active = begin(scheduler, `slider-${index}`);
+      expect(governor.currentBytes).toBe(MemoryGovernor.footprintFor(16, 16, 3));
+      scheduler.endInteractive(active);
+      expect(governor.currentBytes).toBe(0);
+    });
+
+    it('returns to zero after a failed queue render', async () => {
+      const { scheduler, governor, queue, queueWorker } = setup();
+      const lease = begin(scheduler, 'failed-render');
+      const rendering = queue.enqueue({ id: 'failed-render', dedupeKey: 'failed-render', priority: 'interactive', image: image(1), operation: guidedSkinOperation() });
+      await Promise.resolve();
+      queueWorker.emit({ type: 'failed', jobId: 'failed-render', reason: 'renderer failed' });
+      await expect(rendering).rejects.toThrow('renderer failed');
+      scheduler.endInteractive(lease);
+      expect(governor.currentBytes).toBe(0);
+      queue.dispose();
+    });
+
+    it('releases cancel-and-replacement cycles without retaining the cancelled lease', () => {
+      const { scheduler, governor } = setup();
+      begin(scheduler, 'cancelled');
+      scheduler.cancelActive();
+      const replacement = begin(scheduler, 'replacement');
+      expect(governor.currentBytes).toBe(MemoryGovernor.footprintFor(16, 16, 3));
+      scheduler.endInteractive(replacement);
+      expect(governor.currentBytes).toBe(0);
+    });
+
+    it('returns to zero after many sequential jobs', () => {
+      const { scheduler, governor } = setup();
+      for (let index = 0; index < 50; index += 1) {
+        scheduler.endInteractive(begin(scheduler, `sequential-${index}`));
+        expect(governor.currentBytes).toBe(0);
+      }
+    });
+  });
 
   it('keeps peak interactive concurrency at exactly one across a 25-dispatch storm', async () => {
     const { scheduler, queue, cv, queueWorker, cvWorker, cancelled } = setup();

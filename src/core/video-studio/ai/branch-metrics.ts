@@ -9,7 +9,7 @@
  */
 
 import type { MultitrackProject, TimelineItem, TimelineTrack } from '../../creative/multitrackProject';
-import { interpolateKeyframes, projectDuration } from '../../creative/multitrackProject';
+import { activeAudioGain, projectDuration } from '../../creative/multitrackProject';
 
 import { estimateRenderCostMs, type RenderCostTarget } from './render-cost';
 
@@ -62,18 +62,7 @@ function audibleGainAt(
 ): number {
   audibleGainAtCallCount += 1;
   if (!isAudioCapable(item, track)) return 0;
-  if (track.hidden || track.muted) return 0;
-  if (item.audio.muted) return 0;
-  if (anySoloTrack && !track.solo) return 0;
-  if (track.volume <= 0) return 0;
-  let fade = 1;
-  if (item.audio.fadeIn > 0 && localTime < item.audio.fadeIn) fade = Math.min(fade, localTime / item.audio.fadeIn);
-  const remaining = item.duration - localTime;
-  if (item.audio.fadeOut > 0 && remaining < item.audio.fadeOut) fade = Math.min(fade, remaining / item.audio.fadeOut);
-  if (fade <= 0) return 0;
-  const keyframedVolume = interpolateKeyframes(item.keyframes, 'volume', localTime, item.audio.volume);
-  const gain = track.volume * keyframedVolume * fade;
-  return Math.max(0, Math.min(4, gain));
+  return activeAudioGain(track, item, item.timelineStart + localTime, anySoloTrack).gain;
 }
 
 function hasTimeVaryingGain(item: TimelineItem): boolean {
@@ -150,9 +139,12 @@ function audibleSegmentsForItem(
 
     const gain1 = audibleGainAt(item, track, anySoloTrack, t1);
     const gain2 = audibleGainAt(item, track, anySoloTrack, t2);
+    const mid = (t1 + t2) / 2;
+    const gainMid = audibleGainAt(item, track, anySoloTrack, mid);
 
     const audible1 = gain1 > 0.001;
     const audible2 = gain2 > 0.001;
+    const audibleMid = gainMid > 0.001;
 
     if (audible1 && audible2) {
       segments.push({ timelineStart: item.timelineStart + t1, duration: t2 - t1 });
@@ -162,6 +154,15 @@ function audibleSegmentsForItem(
         segments.push({ timelineStart: item.timelineStart + t1, duration: crossing - t1 });
       } else {
         segments.push({ timelineStart: item.timelineStart + crossing, duration: t2 - crossing });
+      }
+    } else if (audibleMid) {
+      // A fade multiplied by an opposing keyframed volume can be silent at both
+      // interval endpoints while remaining audible in the interior. Preserve
+      // the boundary-based algorithm, but split around the single interior lobe.
+      const entering = findAudibleCrossing(item, track, anySoloTrack, t1, mid, gain1, gainMid);
+      const leaving = findAudibleCrossing(item, track, anySoloTrack, mid, t2, gainMid, gain2);
+      if (leaving > entering) {
+        segments.push({ timelineStart: item.timelineStart + entering, duration: leaving - entering });
       }
     }
   }

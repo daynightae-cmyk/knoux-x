@@ -99,9 +99,9 @@ describe('keyframe timing — contextual validation', () => {
     const project = projectWithItem(2, 1);
     const plan: Record<string, unknown> = basePlan(project);
     plan.operations = [{ op: 'upsert-keyframe', id: 'op1', itemId: 'item1', keyframe: { id: 'kf1', property: 'volume', time: 5, value: 0.5, easing: 'linear' } }];
-    expect(() => parseEditPlan(plan)).not.toThrow();
+    expect(() => parseEditPlan(plan, project)).toThrow(/Keyframe time cannot exceed/i);
     const store = new EditPlanStore();
-    await expect(store.record(project, plan)).rejects.toThrow(/contextual validation failed|Keyframe time cannot exceed/i);
+    await expect(store.record(project, plan)).rejects.toThrow(/Keyframe time cannot exceed/i);
     expect(() => replayEditPlan(project, plan)).toThrow(/Keyframe time cannot exceed/i);
   });
 

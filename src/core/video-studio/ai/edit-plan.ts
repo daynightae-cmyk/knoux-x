@@ -380,7 +380,7 @@ function validateOperation(operation: EditOperation): void {
  * Validates a full plan and returns a sanitized clone. Throws TypeError on
  * any malformed field; runs the same structural checks the replay uses.
  */
-export function parseEditPlan(value: unknown): EditPlan {
+export function parseEditPlan(value: unknown, sourceProject?: MultitrackProject): EditPlan {
   if (!value || typeof value !== 'object') throw new TypeError('Edit plan must be an object.');
   const candidate = value as Partial<EditPlan>;
   if (candidate.schema !== EDIT_PLAN_SCHEMA || candidate.version !== EDIT_PLAN_VERSION) {
@@ -410,7 +410,7 @@ export function parseEditPlan(value: unknown): EditPlan {
   if (typeof candidate.revision !== 'number' || !Number.isInteger(candidate.revision) || candidate.revision < 1) {
     throw new TypeError('Plan revision must be a positive integer.');
   }
-  return {
+  const plan: EditPlan = {
     schema: EDIT_PLAN_SCHEMA,
     version: EDIT_PLAN_VERSION,
     planId,
@@ -428,6 +428,18 @@ export function parseEditPlan(value: unknown): EditPlan {
     evidence: { ...candidate.evidence },
     revision: candidate.revision,
   };
+  if (sourceProject) {
+    const items = new Map(sourceProject.tracks.flatMap((track) => track.items.map((item) => [item.id, item] as const)));
+    for (const operation of plan.operations) {
+      if (operation.op !== 'upsert-keyframe') continue;
+      const item = items.get(operation.itemId);
+      if (!item) throw new RangeError(`Keyframe target item ${operation.itemId} does not exist.`);
+      if (operation.keyframe.time > item.duration) {
+        throw new RangeError(`Keyframe time cannot exceed item duration for ${operation.itemId}.`);
+      }
+    }
+  }
+  return plan;
 }
 
 export function createPlanEnvironment(): EditPlanEnvironment {

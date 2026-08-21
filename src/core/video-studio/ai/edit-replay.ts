@@ -151,7 +151,7 @@ export interface ReplaySummary {
  * apply → validate.
  */
 export function replayEditPlan(project: MultitrackProject, planValue: unknown, requireRevisionMatch = true): ReplaySummary {
-  const plan = parseEditPlan(planValue);
+  const plan = parseEditPlan(planValue, project);
   if (requireRevisionMatch) assertPlanMatchesProject(plan, project);
   return {
     project: applyEditPlan(project, planValue),

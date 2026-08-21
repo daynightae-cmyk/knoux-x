@@ -207,3 +207,14 @@ describe('packaged preload runtime identity', () => {
     expect(preloadEntry.indexOf("import './preload-runtime';")).toBeLessThan(preloadEntry.indexOf("import './preload';"));
   });
 });
+
+
+describe('initial media argument delivery', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('queues the primary process arguments after startup for renderer-ready delivery', () => {
+    const mainSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'main.ts'), 'utf8');
+    expect(mainSource).toContain('await startupPromise;\n\n  // The first instance has no `second-instance` event');
+    expect(mainSource).toContain('queueMediaPaths(process.argv);');
+  });
+});

@@ -204,6 +204,10 @@ export async function startPrimaryApplication(): Promise<{ handleSecondInstance(
   startupPromise ??= initializePrimaryApplication();
   await startupPromise;
 
+  // The first instance has no `second-instance` event, so preserve its media
+  // argument until the renderer announces readiness and can receive IPC.
+  queueMediaPaths(process.argv);
+
   app.on('before-quit', (event) => {
     if (shutdownPromise) return;
     event.preventDefault();

@@ -139,6 +139,20 @@ describe('KNOUX video studio D10/D11 edit plan', () => {
     expect(() => replayEditPlan(project, plan, false)).not.toThrow();
   });
 
+  test('replay refuses content drift even when project id and updatedAt are unchanged', () => {
+    const project = sampleProject();
+    const plan = basePlan(project);
+    const drifted = sampleProject();
+    const driftedClip = drifted.tracks.flatMap((track) => track.items).find((item) => item.id === 'clip-b');
+    if (!driftedClip) throw new Error('missing clip-b');
+    driftedClip.transform.opacity = 0.4;
+
+    expect(drifted.id).toBe(project.id);
+    expect(drifted.updatedAt).toBe(project.updatedAt);
+    expect(projectFingerprint(drifted)).not.toBe(plan.sourceProjectFingerprint);
+    expect(() => replayEditPlan(drifted, plan)).toThrow(EditPlanReplayError);
+  });
+
   test('replay returns project valid under parseMultitrackProject (structure gate)', () => {
     const project = sampleProject();
     const plan = basePlan(project);

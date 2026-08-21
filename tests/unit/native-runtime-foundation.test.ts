@@ -218,3 +218,17 @@ describe('initial media argument delivery', () => {
     expect(mainSource).toContain('queueMediaPaths(process.argv);');
   });
 });
+
+
+describe('startup quit lifecycle ordering', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('registers cleanup-protected quit handlers before awaiting primary startup', () => {
+    const mainSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'main.ts'), 'utf8');
+    const lifecycleRegistration = mainSource.indexOf('registerApplicationLifecycleHandlers();');
+    const startupAssignment = mainSource.indexOf('startupPromise ??= initializePrimaryApplication();');
+    expect(lifecycleRegistration).toBeGreaterThan(-1);
+    expect(startupAssignment).toBeGreaterThan(lifecycleRegistration);
+    expect(mainSource).toContain("reportCleanupFailure: (error) => console.error('KNOUX_RUNTIME_CLEANUP_FAILED', error)");
+  });
+});

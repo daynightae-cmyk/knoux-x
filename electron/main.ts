@@ -17,11 +17,13 @@ import { IPC_INBOUND, IPC_OUTBOUND } from './ipc/contract';
 import { authoritativeIpc } from './ipc/runtime';
 import { authorizeMediaPaths } from './ipc/setup';
 import { createWindow, getMainWindow } from './window';
+import { registerApplicationLifecycle } from './startup/application-lifecycle';
 import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
 
 let activeOrchestrator: SystemOrchestrator | null = null;
 let shutdownPromise: Promise<void> | null = null;
 let startupPromise: Promise<void> | null = null;
+let lifecycleHandlersRegistered = false;
 let rendererReady = false;
 const pendingMediaPaths: string[] = [];
 const MEDIA_EXTENSIONS = new Set(['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.opus']);
@@ -168,6 +170,21 @@ app.on('open-file', (event, filePath) => {
   queueMediaPaths([filePath]);
 });
 
+function registerApplicationLifecycleHandlers(): void {
+  if (lifecycleHandlersRegistered) return;
+  lifecycleHandlersRegistered = true;
+  registerApplicationLifecycle({
+    onBeforeQuit: (listener) => app.on('before-quit', listener),
+    onWindowAllClosed: (listener) => app.on('window-all-closed', listener),
+    quit: () => app.quit(),
+    exit: (exitCode) => app.exit(exitCode),
+  }, {
+    platform: process.platform,
+    cleanup: () => cleanupApplication('application-quit'),
+    reportCleanupFailure: (error) => console.error('KNOUX_RUNTIME_CLEANUP_FAILED', error),
+  });
+}
+
 function initializePrimaryApplication(): Promise<void> {
   return (async () => {
     await app.whenReady();
@@ -212,6 +229,9 @@ export async function startPrimaryApplication(): Promise<{ handleSecondInstance(
   );
   if (ranSettingsSelfTest) return { handleSecondInstance: () => undefined };
 
+  // Register lifecycle protection before startup can await native services or a
+  // window; a quit received during boot must still run centralized cleanup.
+  registerApplicationLifecycleHandlers();
   startupPromise ??= initializePrimaryApplication();
   await startupPromise;
 
@@ -219,15 +239,6 @@ export async function startPrimaryApplication(): Promise<{ handleSecondInstance(
   // argument until the renderer announces readiness and can receive IPC.
   queueMediaPaths(process.argv);
 
-  app.on('before-quit', (event) => {
-    if (shutdownPromise) return;
-    event.preventDefault();
-    void cleanupApplication('application-quit').finally(() => app.exit(0));
-  });
-
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

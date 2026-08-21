@@ -17,7 +17,7 @@ import {
 } from '../../creative/multitrackProject';
 import type { MultitrackProject } from '../../creative/multitrackProject';
 
-import { parseEditPlan } from './edit-plan';
+import { parseEditPlan, projectFingerprint, projectRevision } from './edit-plan';
 
 export class EditPlanReplayError extends Error {
   constructor(message: string, readonly operationId: string) {
@@ -26,10 +26,14 @@ export class EditPlanReplayError extends Error {
   }
 }
 
-/** Guard: the plan must reference the project revision it was approved against. */
-export function assertPlanMatchesProject(plan: { sourceProjectRevision: string }, project: MultitrackProject): void {
-  const revision = `${project.id}@${project.updatedAt}@`;
-  if (!plan.sourceProjectRevision.startsWith(revision)) {
+/** Guard: the plan must reference the exact project revision it was approved against. */
+export function assertPlanMatchesProject(
+  plan: { sourceProjectRevision: string; sourceProjectFingerprint: string },
+  project: MultitrackProject,
+): void {
+  const revision = projectRevision(project);
+  const fingerprint = projectFingerprint(project);
+  if (plan.sourceProjectRevision !== revision || plan.sourceProjectFingerprint !== fingerprint) {
     throw new EditPlanReplayError('Plan source revision does not match the current project revision.', '');
   }
 }

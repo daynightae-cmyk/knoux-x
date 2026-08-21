@@ -186,3 +186,13 @@ describe('IPC and BrowserWindow source inventory', () => {
     for (const construction of constructions) expect(construction.block).toContain('...SECURE_RENDERER_PREFERENCES');
   });
 });
+
+
+describe('packaged Electron window shell', () => {
+  const repositoryRoot = path.resolve(__dirname, '..', '..');
+
+  test('loads the Forge Vite main_window renderer from the packaged build directory', () => {
+    const windowSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'window.ts'), 'utf8');
+    expect(windowSource).toContain("await mainWindow.loadFile(join(__dirname, '..', 'renderer', 'main_window', 'index.html'))");
+  });
+});

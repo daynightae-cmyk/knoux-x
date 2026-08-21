@@ -30,10 +30,11 @@ export async function createWindow(): Promise<BrowserWindow> {
   // Load the renderer
   const isDev = process.env.VITE_DEV_SERVER_URL;
   if (isDev) {
-    mainWindow.loadURL(isDev);
+    await mainWindow.loadURL(isDev);
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(join(__dirname, '..', 'renderer', 'index.html'));
+    // The Forge Vite renderer is emitted beside build/ under renderer/main_window.
+    await mainWindow.loadFile(join(__dirname, '..', 'renderer', 'main_window', 'index.html'));
   }
 
   mainWindow.on('closed', () => {

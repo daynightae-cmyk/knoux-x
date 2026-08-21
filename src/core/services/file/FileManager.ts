@@ -11,7 +11,11 @@
  */
 
 import EventEmitter from 'events';
+import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import path from 'path';
+
+import { app } from 'electron';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // أنواع البيانات
@@ -47,6 +51,12 @@ export class FileManager extends EventEmitter {
   private recentFiles: RecentFile[] = [];
   private favorites: Set<string> = new Set();
   private isInitialized = false;
+  private storageDirectory: string | null;
+
+  constructor(storageDirectory?: string) {
+    super();
+    this.storageDirectory = storageDirectory ?? null;
+  }
 
   private readonly mediaExtensions = new Set([
     // Video
@@ -90,30 +100,42 @@ export class FileManager extends EventEmitter {
   // ═════════════════════════════════════════════════════════════════════════
 
   public async readFile(filePath: string): Promise<Buffer> {
-    return window.knouxAPI.file.readFile(filePath);
+    return readFile(filePath);
   }
 
   public async writeFile(filePath: string, data: Buffer | string): Promise<void> {
-    return window.knouxAPI.file.writeFile(filePath, data);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, data);
   }
 
   public async deleteFile(filePath: string): Promise<boolean> {
-    return window.knouxAPI.file.deleteFile(filePath);
+    try {
+      await rm(filePath);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
   }
 
   public async exists(filePath: string): Promise<boolean> {
-    return window.knouxAPI.file.exists(filePath);
+    try {
+      await access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public async getStats(filePath: string): Promise<FileInfo> {
-    const stats = await window.knouxAPI.file.getStats(filePath);
+    const details = await stat(filePath);
     return {
       path: filePath,
       name: path.basename(filePath),
-      size: stats.size,
-      created: new Date(stats.created),
-      modified: new Date(stats.modified),
-      isDirectory: stats.isDirectory,
+      size: details.size,
+      created: details.birthtime,
+      modified: details.mtime,
+      isDirectory: details.isDirectory(),
       extension: path.extname(filePath).toLowerCase(),
     };
   }
@@ -123,7 +145,14 @@ export class FileManager extends EventEmitter {
   // ═════════════════════════════════════════════════════════════════════════
 
   public async scanDirectory(dirPath: string, recursive = false): Promise<string[]> {
-    return window.knouxAPI.file.scanDirectory(dirPath, recursive);
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    const files: string[] = [];
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name);
+      if (entry.isFile()) files.push(fullPath);
+      else if (recursive && entry.isDirectory()) files.push(...await this.scanDirectory(fullPath, true));
+    }
+    return files;
   }
 
   public async getMediaFiles(dirPath: string, recursive = false): Promise<FileInfo[]> {
@@ -186,16 +215,12 @@ export class FileManager extends EventEmitter {
   }
 
   private async loadRecentFiles(): Promise<void> {
-    try {
-      const data = await window.knouxAPI.settings.get<string>('recentFiles', '[]');
-      this.recentFiles = JSON.parse(data);
-    } catch {
-      this.recentFiles = [];
-    }
+    const saved = await this.readJson<RecentFile[]>('recent-files.json', []);
+    this.recentFiles = saved.map((entry) => ({ ...entry, lastOpened: new Date(entry.lastOpened) }));
   }
 
   private async saveRecentFiles(): Promise<void> {
-    await window.knouxAPI.settings.set('recentFiles', JSON.stringify(this.recentFiles));
+    await this.writeJson('recent-files.json', this.recentFiles);
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -232,17 +257,34 @@ export class FileManager extends EventEmitter {
     return Array.from(this.favorites);
   }
 
-  private async loadFavorites(): Promise<void> {
+  private resolveStoragePath(fileName: string): string {
+    this.storageDirectory ??= join(app.getPath('userData'), 'files');
+    return join(this.storageDirectory, fileName);
+  }
+
+  private async readJson<T>(fileName: string, fallback: T): Promise<T> {
     try {
-      const data = await window.knouxAPI.settings.get<string>('favorites', '[]');
-      this.favorites = new Set(JSON.parse(data));
-    } catch {
-      this.favorites = new Set();
+      return JSON.parse(await readFile(this.resolveStoragePath(fileName), 'utf8')) as T;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn(`Failed to read ${fileName}:`, error);
+      return fallback;
     }
   }
 
+  private async writeJson(fileName: string, value: unknown): Promise<void> {
+    const storagePath = this.resolveStoragePath(fileName);
+    const temporaryPath = `${storagePath}.tmp`;
+    await mkdir(dirname(storagePath), { recursive: true });
+    await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    await rename(temporaryPath, storagePath);
+  }
+
+  private async loadFavorites(): Promise<void> {
+    this.favorites = new Set(await this.readJson<string[]>('favorites.json', []));
+  }
+
   private async saveFavorites(): Promise<void> {
-    await window.knouxAPI.settings.set('favorites', JSON.stringify(Array.from(this.favorites)));
+    await this.writeJson('favorites.json', Array.from(this.favorites));
   }
 
   // ═════════════════════════════════════════════════════════════════════════

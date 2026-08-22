@@ -1,32 +1,34 @@
-import EventEmitter from 'events';
-
-import { DSPSystemManager } from '../../core/dsp/DSPSystemManager';
-
 /**
- * Renderer-side audio manager that handles actual Web Audio graph creation
- * and processing. This lives in the renderer and owns the audio graph.
+ * KNOUX Player XT - Renderer Audio Manager
+ *
+ * Browser/Web Audio API only - no Node.js dependencies.
+ * Designed to run in Electron renderer with nodeIntegration: false, sandbox: true.
  */
+
 export interface RendererAudioSettings {
   volume: number;
   muted: boolean;
   balance: number;
   equalizer: number[];
-  effects: Record<string, unknown>;
+  effects: Record<string, Record<string, number>>;
 }
 
-export class PlayerAudioManager extends EventEmitter {
-  private dsp: DSPSystemManager;
+type Listener = (data: unknown) => void;
+
+export class PlayerAudioManager {
   private settings: RendererAudioSettings;
   private audioContext: AudioContext | null = null;
   private gainNode: GainNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private analyser: AnalyserNode | null = null;
+  private mediaElement: HTMLAudioElement | HTMLVideoElement | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
+  private eqFilters: BiquadFilterNode[] = [];
+  private effectNodes: Map<string, AudioNode> = new Map();
   private isInitialized = false;
+  private listeners: Map<string, Listener[]> = new Map();
 
-  constructor(dsp: DSPSystemManager) {
-    super();
-    this.dsp = dsp;
+  constructor() {
     this.settings = {
       volume: 1.0,
       muted: false,
@@ -36,105 +38,152 @@ export class PlayerAudioManager extends EventEmitter {
     };
   }
 
-  /**
-   * Initialize the audio manager (called once)
-   */
-  public async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-    // No AudioContext creation here - done when attaching to media element
-    this.isInitialized = true;
+  private emit(event: string, data?: unknown): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach((listener) => listener(data));
+    }
   }
 
-  /**
-   * Shutdown and dispose of resources
-   */
-  public async shutdown(): Promise<void> {
-    this.disconnect();
-    this.isInitialized = false;
+  public on(event: string, listener: Listener): () => void {
+    const eventListeners = this.listeners.get(event) || [];
+    eventListeners.push(listener);
+    this.listeners.set(event, eventListeners);
+    return () => this.off(event, listener);
   }
 
-  /**
-   * Attach the audio graph to a media element
-   * @param element The video/audio element to attach to
-   */
-  public attachToMediaElement(element: HTMLVideoElement): void {
-    // Disconnect any existing connections first
-    this.disconnect();
+  public off(event: string, listener: Listener): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(listener);
+      if (index !== -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+  }
+
+  public attachToMediaElement(element: HTMLAudioElement | HTMLVideoElement): void {
+    if (this.mediaElement === element && this.isInitialized) {
+      return;
+    }
+
+    this.detach();
+
+    this.mediaElement = element;
 
     try {
-      // Create audio context
       this.audioContext = new AudioContext({
         sampleRate: 48000,
         latencyHint: 'playback',
       });
 
-      // Create source node from media element
       this.sourceNode = this.audioContext.createMediaElementSource(element);
 
-      // Create gain node for volume control
       this.gainNode = this.audioContext.createGain();
       this.gainNode.gain.value = this.settings.muted ? 0 : this.settings.volume;
 
-      // Create stereo panner for balance
       this.stereoPanner = this.audioContext.createStereoPanner();
       this.stereoPanner.pan.value = this.settings.balance;
 
-      // Create analyser for visualizations
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
       this.analyser.smoothingTimeConstant = 0.8;
 
-      // Connect the audio graph: source -> gain -> panner -> analyser -> destination
-      this.sourceNode.connect(this.gainNode);
-      this.gainNode.connect(this.stereoPanner);
-      this.stereoPanner.connect(this.analyser);
-      this.analyser.connect(this.audioContext.destination);
+      this.createEqualizerFilters();
 
-      // Apply initial DSP settings
-      this.applyEqualizer(this.settings.equalizer);
-      this.dsp.enable(Object.values(this.settings.effects).some(e => e !== 0 && e !== false));
+      this.connectGraph();
 
+      this.isInitialized = true;
       this.emit('attached', element);
     } catch (error) {
-      console.error('Failed to attach audio graph to media element:', error);
-      this.disconnect();
+      console.error('Failed to attach to media element:', error);
+      this.detach();
       throw error;
     }
   }
 
-  /**
-   * Disconnect and clean up audio graph nodes
-   */
-  public disconnect(): void {
+  private createEqualizerFilters(): void {
+    const frequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    this.eqFilters = frequencies.map((freq) => {
+      const filter = this.audioContext!.createBiquadFilter();
+      filter.type = 'peaking';
+      filter.frequency.value = freq;
+      filter.Q.value = 1.4;
+      filter.gain.value = 0;
+      return filter;
+    });
+  }
+
+  private connectGraph(): void {
+    if (!this.sourceNode || !this.gainNode || !this.stereoPanner || !this.analyser) {
+      return;
+    }
+
+    let lastNode: AudioNode = this.sourceNode;
+
+    this.eqFilters.forEach((filter) => {
+      lastNode.connect(filter);
+      lastNode = filter;
+    });
+
+    lastNode.connect(this.gainNode);
+    this.gainNode.connect(this.stereoPanner);
+
+    this.effectNodes.forEach((node) => {
+      this.stereoPanner!.connect(node);
+      node.connect(this.analyser!);
+    });
+
+    if (this.effectNodes.size === 0) {
+      this.stereoPanner.connect(this.analyser);
+    }
+
+    this.analyser.connect(this.audioContext!.destination);
+  }
+
+  private reconnectGraph(): void {
+    if (!this.isInitialized) return;
+
+    this.gainNode?.disconnect();
+    this.stereoPanner?.disconnect();
+    this.analyser?.disconnect();
+    this.eqFilters.forEach((filter) => filter.disconnect());
+    this.effectNodes.forEach((node) => node.disconnect());
+
+    this.connectGraph();
+  }
+
+  public detach(): void {
     if (this.sourceNode) {
       this.sourceNode.disconnect();
       this.sourceNode = null;
     }
 
-    if (this.gainNode) {
-      this.gainNode.disconnect();
-      this.gainNode = null;
-    }
+    this.gainNode?.disconnect();
+    this.gainNode = null;
 
-    if (this.stereoPanner) {
-      this.stereoPanner.disconnect();
-      this.stereoPanner = null;
-    }
+    this.stereoPanner?.disconnect();
+    this.stereoPanner = null;
 
-    if (this.analyser) {
-      this.analyser.disconnect();
-      this.analyser = null;
-    }
+    this.analyser?.disconnect();
+    this.analyser = null;
+
+    this.eqFilters.forEach((filter) => filter.disconnect());
+    this.eqFilters = [];
+
+    this.effectNodes.forEach((node) => node.disconnect());
+    this.effectNodes.clear();
 
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;
     }
+
+    this.mediaElement = null;
+    this.isInitialized = false;
+    this.emit('detached');
   }
 
-  /**
-   * Apply volume setting to the gain node
-   */
   public async setVolume(volume: number): Promise<void> {
     this.settings.volume = Math.max(0, Math.min(1, volume));
 
@@ -145,9 +194,6 @@ export class PlayerAudioManager extends EventEmitter {
     this.emit('volume-change', this.settings.volume);
   }
 
-  /**
-   * Apply mute setting to the gain node
-   */
   public async setMuted(muted: boolean): Promise<void> {
     this.settings.muted = muted;
 
@@ -159,9 +205,6 @@ export class PlayerAudioManager extends EventEmitter {
     this.emit('mute-change', this.settings.muted);
   }
 
-  /**
-   * Apply balance setting to the stereo panner
-   */
   public async setBalance(balance: number): Promise<void> {
     this.settings.balance = Math.max(-1, Math.min(1, balance));
 
@@ -172,136 +215,124 @@ export class PlayerAudioManager extends EventEmitter {
     this.emit('balance-change', this.settings.balance);
   }
 
-  /**
-   * Get current volume setting
-   */
-  public getVolume(): number {
-    return this.settings.volume;
-  }
-
-  /**
-   * Check if audio is muted
-   */
-  public isMuted(): boolean {
-    return this.settings.muted;
-  }
-
-  /**
-   * Get current balance setting
-   */
-  public getBalance(): number {
-    return this.settings.balance;
-  }
-
-  /**
-   * Apply equalizer bands to DSP
-   */
   public async setEqualizer(bands: number[]): Promise<void> {
     if (bands.length !== 10) {
       throw new Error('Equalizer must have exactly 10 bands');
     }
 
     this.settings.equalizer = bands.map((gain) => Math.max(-20, Math.min(20, gain)));
-    this.applyEqualizer(this.settings.equalizer);
+
+    this.eqFilters.forEach((filter, index) => {
+      filter.gain.setValueAtTime(this.settings.equalizer[index], this.audioContext!.currentTime);
+    });
 
     this.emit('equalizer-change', this.settings.equalizer);
   }
 
-  /**
-   * Apply equalizer settings to DSP system
-   */
-  private applyEqualizer(bands: number[]): void {
-    bands.forEach((gain, index) => {
-      this.dsp.setEqualizerBand(index, gain);
-    });
-  }
+  public async setEffect(effectId: string, params: Record<string, number>): Promise<void> {
+    this.settings.effects[effectId] = params;
 
-  /**
-   * Get current equalizer settings
-   */
-  public getEqualizer(): number[] {
-    return [...this.settings.equalizer];
-  }
-
-  /**
-   * Set effect parameter
-   */
-  public async setEffect(effect: string, params: unknown): Promise<void> {
-    this.settings.effects[effect] = params;
-
-    // Map effect names to DSP effect IDs and parameter names
-    const effectParamMap: Record<string, string[]> = {
-      'bass-boost': ['amount', 'frequency'],
-      'surround': ['width', 'delay'],
-      'night-mode': ['compression', 'limit'],
-      'voice-enhance': ['clarity', 'presence'],
-      'reverb': ['room', 'damp', 'wet'],
-    };
-
-    const validParams = effectParamMap[effect];
-    if (validParams && typeof params === 'object' && params !== null) {
-      const paramsObj = params as Record<string, unknown>;
-      for (const paramName of validParams) {
-        const value = paramsObj[paramName];
-        if (typeof value === 'number') {
-          this.dsp.setEffectParam(effect, paramName, value);
-        }
-      }
-      // Enable the effect in DSP
-      this.dsp.setEffectEnabled(effect, true);
+    const existingNode = this.effectNodes.get(effectId);
+    if (existingNode) {
+      existingNode.disconnect();
+      this.effectNodes.delete(effectId);
     }
 
-    // Update DSP enabled state based on whether any effects are active
-    const hasActiveEffects = Object.values(this.settings.effects).some(
-      value => value !== 0 && value !== false && value !== null
-    );
-    this.dsp.enable(hasActiveEffects);
+    const effectNode = this.createEffectNode(effectId, params);
+    if (effectNode) {
+      this.effectNodes.set(effectId, effectNode);
+    }
 
-    this.emit('effect-change', effect, params);
+    this.reconnectGraph();
+    this.emit('effect-change', { effectId, params });
   }
 
-  /**
-   * Enable or disable DSP processing
-   */
+  private createEffectNode(effectId: string, params: Record<string, number>): AudioNode | null {
+    if (!this.audioContext) return null;
+
+    switch (effectId) {
+      case 'bass-boost': {
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowshelf';
+        filter.frequency.value = params.frequency || 100;
+        filter.gain.value = (params.amount || 50) / 10;
+        return filter;
+      }
+      case 'surround': {
+        const delay = this.audioContext.createDelay();
+        delay.delayTime.value = (params.delay || 20) / 1000;
+        const gain = this.audioContext.createGain();
+        gain.gain.value = (params.width || 75) / 100;
+        delay.connect(gain);
+        return delay;
+      }
+      case 'night-mode': {
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.value = params.limit || -10;
+        compressor.ratio.value = 1 + (params.compression || 60) / 20;
+        compressor.knee.value = 30;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
+        return compressor;
+      }
+      case 'voice-enhance': {
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = 3000;
+        filter.Q.value = 1;
+        filter.gain.value = (params.clarity || 50) / 25;
+        return filter;
+      }
+      case 'reverb': {
+        const convolver = this.audioContext.createConvolver();
+        const wetGain = this.audioContext.createGain();
+        wetGain.gain.value = (params.wet || 25) / 100;
+        const dryGain = this.audioContext.createGain();
+        dryGain.gain.value = 1 - wetGain.gain.value;
+
+        const impulse = this.createImpulseResponse(
+          params.room || 30,
+          params.damp || 50,
+          this.audioContext.sampleRate
+        );
+        convolver.buffer = impulse;
+
+        const merger = this.audioContext.createChannelMerger(2);
+        dryGain.connect(merger, 0, 0);
+        convolver.connect(wetGain);
+        wetGain.connect(merger, 0, 1);
+
+        return merger;
+      }
+      default:
+        return null;
+    }
+  }
+
+  private createImpulseResponse(room: number, damp: number, sampleRate: number): AudioBuffer {
+    const length = sampleRate * (room / 100) * 2;
+    const buffer = this.audioContext!.createBuffer(2, length, sampleRate);
+
+    for (let channel = 0; channel < 2; channel++) {
+      const data = buffer.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        const decay = Math.pow(1 - damp / 100, i / length);
+        data[i] = (Math.random() * 2 - 1) * decay * 0.5;
+      }
+    }
+
+    return buffer;
+  }
+
   public async enableDSP(enabled: boolean): Promise<void> {
-    this.dsp.enable(enabled);
+    if (enabled && !this.isInitialized && this.mediaElement) {
+      this.attachToMediaElement(this.mediaElement);
+    } else if (!enabled) {
+      this.detach();
+    }
     this.emit('dsp-change', enabled);
   }
 
-  /**
-   * Apply multiple audio settings at once
-   */
-  public async applySettings(settings: Partial<RendererAudioSettings>): Promise<void> {
-    if (settings.volume !== undefined) {
-      await this.setVolume(settings.volume);
-    }
-    if (settings.muted !== undefined) {
-      await this.setMuted(settings.muted);
-    }
-    if (settings.balance !== undefined) {
-      await this.setBalance(settings.balance);
-    }
-    if (settings.equalizer !== undefined) {
-      await this.setEqualizer(settings.equalizer);
-    }
-    if (settings.effects !== undefined) {
-      // Apply each effect
-      for (const [effect, params] of Object.entries(settings.effects)) {
-        await this.setEffect(effect, params);
-      }
-    }
-  }
-
-  /**
-   * Get current audio settings
-   */
-  public getSettings(): RendererAudioSettings {
-    return { ...this.settings };
-  }
-
-  /**
-   * Get visualizer data from analyser node
-   */
   public getVisualizerData(): Uint8Array {
     if (!this.analyser) {
       return new Uint8Array(128);
@@ -312,9 +343,6 @@ export class PlayerAudioManager extends EventEmitter {
     return dataArray;
   }
 
-  /**
-   * Get waveform data from analyser node
-   */
   public getWaveformData(): Uint8Array {
     if (!this.analyser) {
       return new Uint8Array(128);
@@ -325,9 +353,6 @@ export class PlayerAudioManager extends EventEmitter {
     return dataArray;
   }
 
-  /**
-   * Get frequency data from analyser node
-   */
   public getFrequencyData(): Float32Array {
     if (!this.analyser) {
       return new Float32Array(128);
@@ -336,5 +361,13 @@ export class PlayerAudioManager extends EventEmitter {
     const dataArray = new Float32Array(this.analyser.frequencyBinCount);
     this.analyser.getFloatFrequencyData(dataArray);
     return dataArray;
+  }
+
+  public getSettings(): RendererAudioSettings {
+    return { ...this.settings };
+  }
+
+  public isAttached(): boolean {
+    return this.isInitialized && this.mediaElement !== null;
   }
 }

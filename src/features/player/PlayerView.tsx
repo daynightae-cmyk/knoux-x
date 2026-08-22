@@ -16,6 +16,7 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
   Volume2,
   VolumeX,
   X,
@@ -30,6 +31,8 @@ import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 import type { CaptureFormat } from '../../core/creative/capture';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
+
+import { PlayerAudioManager } from './PlayerAudioManager';
 
 interface CapturedFrame {
   dataUrl: string;
@@ -86,6 +89,7 @@ export const PlayerView: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<number | null>(null);
   const lastPersistedSecondRef = useRef(-1);
+  const audioManagerRef = useRef<PlayerAudioManager | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [buffering, setBuffering] = useState(false);
@@ -94,6 +98,10 @@ export const PlayerView: React.FC = () => {
   const [capturing, setCapturing] = useState(false);
   const [subtitle, setSubtitle] = useState<LoadedSubtitle | null>(null);
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
+  const [showAudioControls, setShowAudioControls] = useState(false);
+  const [balance, setBalance] = useState(0);
+  const [equalizer, setEqualizer] = useState<number[]>(new Array(10).fill(0));
+  const [activeEffect, setActiveEffect] = useState<string | null>(null);
   const { t } = useTranslation();
 
   const {
@@ -121,6 +129,13 @@ export const PlayerView: React.FC = () => {
   } = usePlayerStore();
 
   useEffect(() => {
+    audioManagerRef.current = new PlayerAudioManager();
+    return () => {
+      audioManagerRef.current?.detach();
+    };
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
       const firstPath = paths[0];
       if (!firstPath) return;
@@ -143,10 +158,13 @@ export const PlayerView: React.FC = () => {
     lastPersistedSecondRef.current = -1;
     if (!currentMedia) {
       setMediaUrl(null);
+      audioManagerRef.current?.detach();
       return () => { active = false; };
     }
     void window.knouxCreativeAPI.media.toUrl(currentMedia)
-      .then((url) => { if (active) setMediaUrl(url); })
+      .then((url) => {
+        if (active) setMediaUrl(url);
+      })
       .catch((reason) => {
         if (!active) return;
         setMediaUrl(null);
@@ -154,6 +172,18 @@ export const PlayerView: React.FC = () => {
       });
     return () => { active = false; };
   }, [currentMedia]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const audioManager = audioManagerRef.current;
+    if (!video || !audioManager || !mediaUrl) return;
+
+    audioManager.attachToMediaElement(video);
+
+    return () => {
+      audioManager.detach();
+    };
+  }, [mediaUrl]);
 
   useEffect(() => {
     if (!subtitle) {
@@ -167,12 +197,22 @@ export const PlayerView: React.FC = () => {
 
   useEffect(() => {
     const video = videoRef.current;
+    const audioManager = audioManagerRef.current;
     if (!video) return;
-    video.volume = Math.max(0, Math.min(1, volume));
-    video.muted = muted;
+
     video.playbackRate = playbackRate;
     video.loop = loop;
-  }, [loop, mediaUrl, muted, playbackRate, volume]);
+
+    if (audioManager && audioManager.isAttached()) {
+      audioManager.setVolume(volume);
+      audioManager.setMuted(muted);
+      audioManager.setBalance(balance);
+      audioManager.setEqualizer(equalizer);
+    } else if (video) {
+      video.volume = Math.max(0, Math.min(1, volume));
+      video.muted = muted;
+    }
+  }, [loop, mediaUrl, muted, playbackRate, volume, balance, equalizer]);
 
   useEffect(() => () => {
     if (controlsTimeoutRef.current !== null) window.clearTimeout(controlsTimeoutRef.current);
@@ -253,8 +293,40 @@ export const PlayerView: React.FC = () => {
   const handleVolumeChange = useCallback((value: number): void => {
     const nextVolume = Math.max(0, Math.min(1, value / 100));
     setVolume(nextVolume);
-    if (videoRef.current) videoRef.current.volume = nextVolume;
+    audioManagerRef.current?.setVolume(nextVolume);
   }, [setVolume]);
+
+  const handleBalanceChange = useCallback((value: number): void => {
+    const nextBalance = Math.max(-1, Math.min(1, value / 100));
+    setBalance(nextBalance);
+    audioManagerRef.current?.setBalance(nextBalance);
+  }, []);
+
+  const handleEqualizerChange = useCallback((bandIndex: number, gain: number): void => {
+    setEqualizer((prev) => {
+      const nextEqualizer = [...prev];
+      nextEqualizer[bandIndex] = Math.max(-20, Math.min(20, gain));
+      audioManagerRef.current?.setEqualizer(nextEqualizer);
+      return nextEqualizer;
+    });
+  }, []);
+
+  const handleEffectToggle = useCallback((effectId: string): void => {
+    if (activeEffect === effectId) {
+      audioManagerRef.current?.setEffect(effectId, {});
+      setActiveEffect(null);
+    } else {
+      const effectParams: Record<string, Record<string, number>> = {
+        'bass-boost': { amount: 50, frequency: 100 },
+        'surround': { width: 75, delay: 20 },
+        'night-mode': { compression: 60, limit: -10 },
+        'voice-enhance': { clarity: 50, presence: 30 },
+        'reverb': { room: 30, damp: 50, wet: 25 },
+      };
+      audioManagerRef.current?.setEffect(effectId, effectParams[effectId] ?? {});
+      setActiveEffect(effectId);
+    }
+  }, [activeEffect]);
 
   const showControlsTemporarily = useCallback((): void => {
     setShowControls(true);
@@ -562,6 +634,9 @@ export const PlayerView: React.FC = () => {
                     <button type="button" className="control-btn" onClick={toggleMute} title={t('player.mute')} aria-label={t('player.mute')}>{muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
                     <div className="volume-slider"><NeonSlider value={muted ? 0 : volume * 100} min={0} max={100} onChange={handleVolumeChange} glowColor="#8b5cf6" height="sm" /></div>
                   </div>
+                  <div className="audio-controls-toggle">
+                    <button type="button" className={`control-btn ${showAudioControls ? 'active' : ''}`} onClick={() => setShowAudioControls(!showAudioControls)} title={t('player.advancedAudio') ?? 'Advanced Audio'} aria-label={t('player.advancedAudio') ?? 'Advanced Audio'}><SlidersHorizontal size={18} /></button>
+                  </div>
                   <NeonSelect className="playback-rate-select" value={String(playbackRate)} onChange={(value) => setPlaybackRate(Number(value))} aria-label={t('player.speed')} options={[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => ({ value: String(rate), label: `${rate}×` }))} />
                   <div className="control-group">
                     <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title={t('player.pip')} aria-label={t('player.pip')} disabled={!document.pictureInPictureEnabled}><PictureInPicture size={18} /></button>
@@ -570,6 +645,65 @@ export const PlayerView: React.FC = () => {
                 </div>
               </NeonPanel>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAudioControls && mediaUrl && (
+          <motion.div className="advanced-audio-panel" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+            <NeonPanel variant="dark" padding="md">
+              <div className="audio-section">
+                <h4>{t('player.balance') ?? 'Balance'}</h4>
+                <NeonSlider
+                  value={(balance + 1) * 50}
+                  min={0}
+                  max={100}
+                  onChange={handleBalanceChange}
+                  glowColor="#06b6d4"
+                  height="sm"
+                  showTooltip
+                  tooltipFormatter={(v) => v === 50 ? 'Center' : v < 50 ? `L ${Math.round((50-v)*2)}%` : `R ${Math.round((v-50)*2)}%`}
+                />
+              </div>
+              <div className="audio-section">
+                <h4>{t('player.equalizer') ?? 'Equalizer'}</h4>
+                <div className="eq-bands">
+                  {equalizer.map((gain, index) => (
+                    <div key={index} className="eq-band">
+                      <NeonSlider
+                        value={gain + 20}
+                        min={0}
+                        max={40}
+                        onChange={(v) => handleEqualizerChange(index, v - 20)}
+                        glowColor="#8b5cf6"
+                        height="sm"
+                        showTooltip
+                        tooltipFormatter={(v) => `${v - 20}dB`}
+                      />
+                      <span className="eq-frequency">{[32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000][index]}Hz</span>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" className="control-btn" onClick={() => { const flat = new Array(10).fill(0); setEqualizer(flat); audioManagerRef.current?.setEqualizer(flat); }}>{t('player.flatEQ') ?? 'Flat'}</button>
+              </div>
+              <div className="audio-section">
+                <h4>{t('player.effects') ?? 'Effects'}</h4>
+                <div className="effects-grid">
+                  {['bass-boost', 'surround', 'night-mode', 'voice-enhance', 'reverb'].map((effectId) => (
+                    <button
+                      key={effectId}
+                      type="button"
+                      className={`effect-btn ${activeEffect === effectId ? 'active' : ''}`}
+                      onClick={() => handleEffectToggle(effectId)}
+                      title={effectId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    >
+                      {effectId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </NeonPanel>
           </motion.div>
         )}
       </AnimatePresence>

@@ -12,7 +12,7 @@ import type { HttpClient } from '../ai-gateway/http-client';
 import { FalAdapter } from '../ai-gateway/fal-adapter';
 import { HfAdapter } from '../ai-gateway/hf-adapter';
 import { KnouxCloudAdapter } from '../ai-gateway/knoux-adapter';
-import { adjustmentKinds } from '../../src/core/image-studio/adjustments/adjustments';
+import { adjustmentKinds, applyAdjustment } from '../../src/core/image-studio/adjustments/adjustments';
 import {
   findImageModel,
   IMAGE_MODELS,
@@ -869,7 +869,7 @@ export class ImageStudioService {
     return true;
   }
 
-  applyAdjustmentOp(layerId: string, adjustmentType: string, parameters: object): boolean {
+  async applyAdjustmentOp(layerId: string, adjustmentType: string, parameters: object): Promise<boolean> {
     const layer = this.requireLayer(layerId);
     if (layer.kind !== 'raster') throw new TypeError('Adjustments can only be applied to raster layers.');
     const kinds = adjustmentKinds();
@@ -878,8 +878,31 @@ export class ImageStudioService {
     const document = this.requireCurrent();
     const asset = document.embeddedAssets.find((entry) => entry.id === layer.assetId);
     if (!asset) throw new Error('Raster layer references a missing embedded asset.');
-    void asset;
-    throw new Error('deferred');
+    const buffer = await decodeDataUrl(asset.dataUrl);
+    const adjustedBuffer = applyAdjustment(adjustmentType as never, buffer, parameters as Record<string, unknown>);
+    this.mutate((doc) => {
+      const { layer: newLayer, asset: newAsset } = createRasterLayer(doc, {
+        id: layer.id,
+        name: layer.name,
+        assetId: layer.assetId,
+        dataUrl: dataUrlOf(encodePng(adjustedBuffer), 'image/png'),
+        width: adjustedBuffer.width,
+        height: adjustedBuffer.height,
+        mime: 'image/png',
+        parentId: layer.parentId,
+        opacity: layer.opacity,
+        blendMode: layer.blendMode,
+      });
+      doc.embeddedAssets = doc.embeddedAssets.map((entry) =>
+        entry.id === layer.assetId ? newAsset : entry
+      );
+      doc.layers = doc.layers.map((entry) =>
+        entry.id === layer.id ? newLayer : entry
+      );
+      if (doc.activeLayerId === layer.id) doc.activeLayerId = newLayer.id;
+      return doc;
+    });
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

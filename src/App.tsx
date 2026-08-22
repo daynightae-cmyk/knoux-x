@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { Sidebar } from './components/layout/Sidebar';
@@ -10,6 +10,7 @@ import { QuickAccessToolbar } from './components/toolbars/QuickAccessToolbar';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
+import { ForgeSplash } from './features/splash/ForgeSplash';
 import { useTranslation } from './i18n';
 import { useAppStore } from './store/appStore';
 import type { ViewType } from './store/appStore';
@@ -113,6 +114,7 @@ const App: React.FC = () => {
   } = useAppStore();
   const { t } = useTranslation();
   const workspaceLoadedRef = useRef(false);
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -216,6 +218,7 @@ const App: React.FC = () => {
       <FirstRunExperience />
       <CommandShortcutController />
       <Sprint02CommandRuntime />
+      {!splashDone && <ForgeSplash onComplete={() => setSplashDone(true)} />}
     </div>
   );
 };

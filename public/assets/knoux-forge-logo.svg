@@ -1,0 +1,16 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Knoux Forge">
+  <defs>
+    <linearGradient id="forgeMark" x1="24" y1="22" x2="136" y2="138" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9d4ff"/>
+    </linearGradient>
+    <linearGradient id="forgeAccent" x1="96" y1="92" x2="146" y2="142" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <!-- Angular K forged from two sharp shards -->
+  <path d="M40 22 L66 22 L66 64 L96 22 L130 22 L88 78 L132 138 L102 138 L66 80 L66 138 L40 138 Z" fill="url(#forgeMark)"/>
+  <!-- Forge spark accent -->
+  <path d="M104 96 L150 92 L120 122 L150 150 L112 144 L96 124 Z" fill="url(#forgeAccent)"/>
+</svg>

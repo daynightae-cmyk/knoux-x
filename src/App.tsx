@@ -114,6 +114,7 @@ const App: React.FC = () => {
   } = useAppStore();
   const { t } = useTranslation();
   const workspaceLoadedRef = useRef(false);
+  const startupMediaHandledRef = useRef(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -140,6 +141,10 @@ const App: React.FC = () => {
       if (!active) return;
       const workspace = value as WorkspaceSettings;
       applyWorkspace(workspace);
+      if (startupMediaHandledRef.current) {
+        workspaceLoadedRef.current = true;
+        return;
+      }
       if (!workspace.hiddenModules.includes(workspace.lastOpenedSection)) setView(workspace.lastOpenedSection as ViewType);
       workspaceLoadedRef.current = true;
     });
@@ -167,6 +172,7 @@ const App: React.FC = () => {
           return;
         }
         usePlayerStore.getState().setCurrentMedia(firstPath);
+        startupMediaHandledRef.current = true;
         setView('player');
       }).catch(() => { /* ignore media that cannot be probed */ });
     });

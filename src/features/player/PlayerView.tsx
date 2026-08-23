@@ -179,6 +179,10 @@ export const PlayerView: React.FC = () => {
   }, [subtitle]);
 
   useEffect(() => {
+    setSubtitle(null);
+  }, [currentMedia]);
+
+  useEffect(() => {
     const video = videoRef.current;
     const audioManager = audioManagerRef.current;
     if (!video) return;
@@ -296,7 +300,7 @@ export const PlayerView: React.FC = () => {
 
   const handleEffectToggle = useCallback((effectId: string): void => {
     if (activeEffect === effectId) {
-      audioManagerRef.current?.setEffect(effectId, {});
+      void audioManagerRef.current?.removeEffect(effectId);
       setActiveEffect(null);
     } else {
       const effectParams: Record<string, Record<string, number>> = {
@@ -306,7 +310,7 @@ export const PlayerView: React.FC = () => {
         'voice-enhance': { clarity: 50, presence: 30 },
         'reverb': { room: 30, damp: 50, wet: 25 },
       };
-      audioManagerRef.current?.setEffect(effectId, effectParams[effectId] ?? {});
+      void audioManagerRef.current?.setEffect(effectId, effectParams[effectId] ?? {});
       setActiveEffect(effectId);
     }
   }, [activeEffect]);

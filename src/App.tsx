@@ -12,6 +12,7 @@ import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
 import { useAppStore } from './store/appStore';
+import { usePlayerStore } from './store/playerStore';
 import type { ViewType } from './store/appStore';
 import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
 import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
@@ -156,6 +157,22 @@ const App: React.FC = () => {
       return window.knouxAPI.settings.set('workspace', { ...workspace, lastOpenedSection: currentView });
     });
   }, [currentView]);
+
+  useEffect(() => {
+    const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
+      const firstPath = paths[0];
+      if (!firstPath) return;
+      void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
+        if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
+          return;
+        }
+        usePlayerStore.getState().setCurrentMedia(firstPath);
+        setView('player');
+      }).catch(() => { /* ignore media that cannot be probed */ });
+    });
+    window.knouxAPI.app.ready();
+    return unsubscribe;
+  }, [setView]);
 
   return (
     <div className="app-shell" data-current-view={currentView}>

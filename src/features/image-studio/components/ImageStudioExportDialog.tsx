@@ -5,6 +5,7 @@ import { NeonSelect } from '../../../components/neon/NeonSelect';
 import { NeonInput } from '../../../components/neon/NeonInput';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
+import { syncRetouchState } from '../retouch/syncRetouchState';
 
 export const ImageStudioExportDialog: React.FC = () => {
   const { t } = useTranslation();
@@ -21,9 +22,10 @@ export const ImageStudioExportDialog: React.FC = () => {
     setIsExporting(true);
     setExportResult(null);
     try {
+      await syncRetouchState(currentDocument);
        const result = await window.knouxImageStudioAPI.exportFlattened({
          format: format as 'png' | 'jpeg' | 'webp',
-         quality,
+         quality: format === 'png' ? null : quality,
          width,
          height,
          mime: format === 'png' ? 'image/png' : format === 'jpeg' ? 'image/jpeg' : 'image/webp',
@@ -53,9 +55,10 @@ export const ImageStudioExportDialog: React.FC = () => {
     setIsExporting(true);
     setExportResult(null);
     try {
+      await syncRetouchState(currentDocument);
        const result = await window.knouxImageStudioAPI.exportLayer(layerId, {
          format: format as 'png' | 'jpeg' | 'webp',
-         quality,
+         quality: format === 'png' ? null : quality,
          width,
          height,
          mime: format === 'png' ? 'image/png' : format === 'jpeg' ? 'image/jpeg' : 'image/webp',

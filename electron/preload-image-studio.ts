@@ -11,6 +11,7 @@ import type {
   ImageTask,
   ImageTransform,
   LayerMask,
+  RetouchDocumentState,
 } from '../src/core/image-studio/document/schema';
 
 import type { RecoverySession } from './image-studio/image-studio-service';
@@ -48,6 +49,8 @@ const imageStudioAPI = {
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_CLOSE, filePath),
   getCurrent: (): Promise<ImageStudioDocument | null> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT),
+  syncRetouch: (updates: Array<{ layerId: string; retouche: RetouchDocumentState | null }>): Promise<ImageStudioDocument> =>
+    invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_SYNC_RETOUCH, updates),
   recent: (): Promise<string[]> => invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_RECENT),
   migrate: (filePath: string): Promise<object> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_MIGRATE, filePath),

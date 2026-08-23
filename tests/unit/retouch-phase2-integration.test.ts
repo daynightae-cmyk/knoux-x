@@ -722,6 +722,10 @@ describe('slider transaction coalescing (acceptance 11)', () => {
     useImageStudioStore.getState().commitRetouchTransaction();
     expect(getHistoryLength()).toBe(h0 + 1);
     expect(getRetouchOps()).toHaveLength(2);
+    useImageStudioStore.getState().undo();
+    expect(getRetouchOps()).toHaveLength(0);
+    useImageStudioStore.getState().redo();
+    expect(getRetouchOps()).toHaveLength(2);
   });
 });
 

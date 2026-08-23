@@ -6,7 +6,7 @@ import { NeonButton } from '../../../components/neon/NeonButton';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
 import { preloadAsset, getCachedAsset } from '../retouch/assetResolver';
-import { applyRetouchToLayer } from '../retouch/perLayerRenderer';
+import { applyRetouchToLayer, getRetouchPreviewProxy } from '../retouch/perLayerRenderer';
 import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';
 
 export const ImageStudioCanvas: React.FC = () => {
@@ -27,6 +27,7 @@ export const ImageStudioCanvas: React.FC = () => {
     setSelection,
     documentVersion,
     showOriginal,
+    transactionActive,
     renderError,
     setRenderError,
   } = useImageStudioStore();
@@ -41,42 +42,43 @@ export const ImageStudioCanvas: React.FC = () => {
   const canvasWidth = currentDocument?.canvas.width ?? 1920;
   const canvasHeight = currentDocument?.canvas.height ?? 1080;
 
-  useEffect(() => {
-    if (!currentDocument) return;
-    for (const layer of currentDocument.layers) {
-      if (layer.kind === 'raster' && 'assetId' in layer && layer.assetId) {
-        void preloadAsset(layer.assetId);
-      }
-    }
-  }, [currentDocument]);
-
   const renderFrame = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas || !currentDocument) return;
     const myVersion = ++renderVersionRef.current;
     try {
       setRenderError(null);
+      await Promise.all(
+        currentDocument.layers.map((layer) =>
+          layer.kind === 'raster' && layer.assetId ? preloadAsset(layer.assetId) : Promise.resolve(null)
+        ),
+      );
+      if (myVersion !== renderVersionRef.current) return;
       const resolveAsset = (assetId: string): RgbaBuffer | null => getCachedAsset(assetId);
       const useOriginal = showingOriginal || showOriginal;
-      let doc = currentDocument;
+      const renderedLayers = new Map<string, RgbaBuffer>();
       if (!useOriginal) {
-        const newLayers = await Promise.all(
+        await Promise.all(
           currentDocument.layers.map(async (layer) => {
-            if (layer.kind !== 'raster') return layer;
+            if (layer.kind !== 'raster') return;
             const retouche = (layer as unknown as { retouche?: { operations: unknown[]; masks: unknown[] } }).retouche;
-            if (!retouche || retouche.operations.length === 0) return layer;
-            const assetBuf = resolveAsset((layer as unknown as { assetId: string }).assetId);
-            if (!assetBuf) return layer;
-            const result = await applyRetouchToLayer(
-              { source: assetBuf, documentWidth: canvasWidth, documentHeight: canvasHeight },
-              retouche as never,
-            );
-            return { ...layer, __renderedBuffer: result } as never;
+            if (!retouche || retouche.operations.length === 0) return;
+            const assetBuf = resolveAsset(layer.assetId);
+            if (!assetBuf) return;
+            const context = { source: assetBuf, documentWidth: canvasWidth, documentHeight: canvasHeight };
+            const result = transactionActive
+              ? await getRetouchPreviewProxy(context, retouche as never)
+              : await applyRetouchToLayer(context, retouche as never, 'final');
+            renderedLayers.set(layer.id, result);
           }),
         );
-        doc = { ...currentDocument, layers: newLayers } as typeof currentDocument;
       }
-      const result = flattenDocument(doc, { resolveAsset, canvas: { width: canvasWidth, height: canvasHeight } });
+      if (myVersion !== renderVersionRef.current) return;
+      const result = flattenDocument(currentDocument, {
+        resolveAsset,
+        resolveLayer: (layer) => renderedLayers.get(layer.id) ?? null,
+        canvas: { width: canvasWidth, height: canvasHeight },
+      });
       // Apply legacy post-composite retouch for migrated documents
       let finalBuffer = result;
       if (!useOriginal && currentDocument.legacyCompositeRetouch && currentDocument.legacyCompositeRetouch.operations.length > 0) {
@@ -87,11 +89,14 @@ export const ImageStudioCanvas: React.FC = () => {
       if (!ctx) return;
       const imageData = new ImageData(finalBuffer.data, finalBuffer.width, finalBuffer.height);
       ctx.putImageData(imageData, 0, 0);
+      canvas.dataset.renderedVersion = String(myVersion);
+      canvas.dataset.renderQuality = transactionActive ? 'preview' : 'final';
+      canvas.dataset.renderSource = transactionActive && Math.max(canvasWidth, canvasHeight) > 1024 ? 'proxy' : 'full';
     } catch (err) {
       if (myVersion !== renderVersionRef.current) return;
       setRenderError(err instanceof Error ? err.message : String(err));
     }
-  }, [currentDocument, canvasWidth, canvasHeight, showingOriginal, showOriginal, setRenderError]);
+  }, [currentDocument, canvasWidth, canvasHeight, showingOriginal, showOriginal, transactionActive, setRenderError]);
 
   useEffect(() => {
     void renderFrame();
@@ -99,6 +104,8 @@ export const ImageStudioCanvas: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement | null;
+      if (target?.matches('input, textarea, [contenteditable="true"]')) return;
       if (e.key === '\\' && !e.repeat && !isDragging) {
         setShowingOriginal(true);
         setIsDragging(true);
@@ -281,7 +288,7 @@ export const ImageStudioCanvas: React.FC = () => {
             }}
           />
         )}
-        {showingOriginal && (
+        {(showingOriginal || showOriginal) && (
           <div className="image-studio-before-badge">BEFORE</div>
         )}
       </div>

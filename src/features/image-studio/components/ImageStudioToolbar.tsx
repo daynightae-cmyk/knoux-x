@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
+import { syncRetouchState } from '../retouch/syncRetouchState';
 
 export const ImageStudioToolbar: React.FC = () => {
   const { t } = useTranslation();
@@ -68,6 +69,7 @@ export const ImageStudioToolbar: React.FC = () => {
     if (!path || !currentDocument) return;
     setLoading(true);
     try {
+      await syncRetouchState(currentDocument);
       await window.knouxImageStudioAPI.save(path);
       state.setDirty(false);
       state.setSaved(true);
@@ -93,6 +95,7 @@ export const ImageStudioToolbar: React.FC = () => {
         properties: ['createDirectory', 'showOverwriteConfirmation'],
       });
       if (!filePath) return;
+      if (state.currentDocument) await syncRetouchState(state.currentDocument);
       await window.knouxImageStudioAPI.saveAs(filePath);
       state.setDocumentPath(filePath);
       state.setDirty(false);
@@ -155,9 +158,10 @@ export const ImageStudioToolbar: React.FC = () => {
     if (!currentDocument) return;
     setLoading(true);
     try {
+      await syncRetouchState(currentDocument);
        const result = await window.knouxImageStudioAPI.exportFlattened({
          format: 'png',
-         quality: 0.94,
+         quality: null,
          width: currentDocument.canvas.width,
          height: currentDocument.canvas.height,
          mime: 'image/png',

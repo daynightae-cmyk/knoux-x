@@ -127,7 +127,7 @@ describe('image-studio runtime', () => {
   }
 
   test('registers every Image Studio invoke and outbound channel', () => {
-    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(61);
+    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(62);
     expect(IMAGE_STUDIO_OUTBOUND_CHANNELS).toHaveLength(5);
     for (const channel of IMAGE_STUDIO_INVOKE_CHANNELS) {
       expect(handlers.has(channel)).toBe(true);
@@ -154,6 +154,15 @@ describe('image-studio runtime', () => {
     expect(saved).toBe(target);
     const recent = (await invoke(IPC_INVOKE.IMAGE_STUDIO_RECENT)) as string[];
     expect(recent).toContain(target);
+  });
+
+  test('sync-retouch accepts an empty bounded update and rejects unknown layers', async () => {
+    const document = await createDocument();
+    const synced = (await invoke(IPC_INVOKE.IMAGE_STUDIO_SYNC_RETOUCH, [])) as Record<string, unknown>;
+    expect(synced.documentId).toBe(document.documentId);
+    await expect(invoke(IPC_INVOKE.IMAGE_STUDIO_SYNC_RETOUCH, [
+      { layerId: 'missing-layer', retouche: null },
+    ])).rejects.toThrow(/unknown raster layer/i);
   });
 
   test('validates a relative open path through the service', async () => {

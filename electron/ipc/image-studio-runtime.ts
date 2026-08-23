@@ -11,6 +11,7 @@ import type {
   ImageTask,
   ImageTransform,
   LayerMask,
+  RetouchDocumentState,
 } from '../../src/core/image-studio/document/schema';
 import {
   ImageStudioService,
@@ -234,6 +235,15 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT,
     trusted(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT, async () => service.getCurrent())
+  );
+
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_SYNC_RETOUCH,
+    trusted(
+      IPC_INVOKE.IMAGE_STUDIO_SYNC_RETOUCH,
+      async (_event, updates: Array<{ layerId: string; retouche: RetouchDocumentState | null }>) =>
+        service.syncRetouchState(updates)
+    )
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_RECENT,

@@ -149,5 +149,18 @@ describe('image studio compositor', () => {
     const flattened = flattenDocument(document, { resolveAsset: () => buffer });
     expect(flattened.data[3]).toBe(255);
     expect(flattened.data[0]).toBe(128);
+    expect(buffer.data[3]).toBe(255);
+  });
+
+  it('flattenDocument uses a layer-aware rendered override without changing the registered asset', () => {
+    const source = solidBuffer(2, 2, { r: 255, g: 0, b: 0, a: 255 });
+    const rendered = solidBuffer(2, 2, { r: 0, g: 255, b: 0, a: 255 });
+    const { document } = documentWithLayer(source);
+    const flattened = flattenDocument(document, {
+      resolveAsset: () => source,
+      resolveLayer: (layer) => layer.id === document.layers[0].id ? rendered : null,
+    });
+    expect(Array.from(flattened.data.slice(0, 4))).toEqual([0, 255, 0, 255]);
+    expect(Array.from(source.data.slice(0, 4))).toEqual([255, 0, 0, 255]);
   });
 });

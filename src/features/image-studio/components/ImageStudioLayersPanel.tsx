@@ -14,6 +14,7 @@ export const ImageStudioLayersPanel: React.FC = () => {
     layerTree,
     setActiveLayerId,
     setSelectedLayerIds,
+    setLayerVisibility,
   } = useImageStudioStore();
 
   const handleLayerClick = useCallback((layerId: string, event: React.MouseEvent): void => {
@@ -46,8 +47,9 @@ export const ImageStudioLayersPanel: React.FC = () => {
   }, []);
 
   const handleVisibilityToggle = useCallback((layerId: string, visible: boolean): void => {
+    setLayerVisibility(layerId, visible);
     void window.knouxImageStudioAPI.setVisibility(layerId, visible);
-  }, []);
+  }, [setLayerVisibility]);
 
   const handleOpacityChange = useCallback((layerId: string, opacity: number): void => {
     void window.knouxImageStudioAPI.setOpacity(layerId, opacity);

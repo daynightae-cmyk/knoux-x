@@ -55,6 +55,7 @@ import {
   createImageStudioDocument,
   createRasterLayer,
   migrateLegacyFlatImage,
+  parseImageStudioDocument,
 } from '../../src/core/image-studio/document/document';
 import {
   IMAGE_STUDIO_LIMITS,
@@ -67,6 +68,7 @@ import type {
   LayerMask,
   RetouchOperationRecord,
   RetouchMaskRecord,
+  RetouchDocumentState,
 } from '../../src/core/image-studio/document/schema';
 import {
   dataUrlOf,
@@ -615,6 +617,41 @@ export class ImageStudioService {
 
   getCurrent(): ImageStudioDocument | null {
     return this.current ? structuredClone(this.current) : null;
+  }
+
+  syncRetouchState(
+    updates: Array<{ layerId: string; retouche: RetouchDocumentState | null }>,
+  ): ImageStudioDocument {
+    const document = this.requireCurrent();
+    if (!Array.isArray(updates) || updates.length > IMAGE_STUDIO_LIMITS.layerCountMax) {
+      throw new TypeError('Retouch state update is invalid.');
+    }
+    const byLayer = new Map<string, RetouchDocumentState | null>();
+    for (const update of updates) {
+      if (!update || typeof update !== 'object' || typeof update.layerId !== 'string' || update.layerId.length === 0) {
+        throw new TypeError('Retouch state update is invalid.');
+      }
+      if (byLayer.has(update.layerId)) throw new Error('Retouch state update contains a duplicate layer.');
+      const layer = document.layers.find((candidate) => candidate.id === update.layerId);
+      if (!layer || layer.kind !== 'raster') throw new Error('Retouch state update references an unknown raster layer.');
+      byLayer.set(update.layerId, update.retouche ?? null);
+    }
+    const layers = document.layers.map((layer) => {
+      if (!byLayer.has(layer.id)) return layer;
+      const next = { ...layer } as ImageLayer & { retouche?: RetouchDocumentState };
+      const retouche = byLayer.get(layer.id);
+      if (retouche === null) delete next.retouche;
+      else next.retouche = structuredClone(retouche);
+      return next as ImageLayer;
+    });
+    const next = parseImageStudioDocument({
+      ...document,
+      layers,
+      updatedAt: new Date().toISOString(),
+    });
+    this.current = next;
+    this.dirty = true;
+    return structuredClone(next);
   }
 
   currentPathHint(): string | null {
@@ -1513,48 +1550,39 @@ export class ImageStudioService {
         // A layer referencing an undecodable asset simply contributes nothing.
       }
     }
-    const layersWithRetouch: typeof document.layers = [];
+    const renderedLayers = new Map<string, RgbaBuffer>();
     for (const layer of document.layers) {
       if (layer.kind !== 'raster') {
-        layersWithRetouch.push(layer);
         continue;
       }
       const layerRetouch = (layer as unknown as Record<string, unknown>).retouche as
         | { operations: RetouchOperationRecord[]; masks: RetouchMaskRecord[] }
         | undefined;
       if (!layerRetouch || layerRetouch.operations.length === 0) {
-        layersWithRetouch.push(layer);
         continue;
       }
       const assetId = (layer as unknown as { assetId: string }).assetId;
       const assetBuf = assets.get(assetId);
       if (!assetBuf) {
-        layersWithRetouch.push(layer);
         continue;
       }
       const enabledOps = layerRetouch.operations.filter((op) => op.enabled);
       if (enabledOps.length === 0) {
-        layersWithRetouch.push(layer);
         continue;
       }
       const engineOps = enabledOps.map(documentRetouchOpToEngineOp) as RetouchOperation[];
       const engineMasks = documentMasksToEngineMasks(layerRetouch.masks);
-      let mutated = assetBuf;
-      for (const op of engineOps) {
-        mutated = await renderRetouchPipeline({
-          source: mutated,
-          operations: [op],
-          masks: engineMasks,
-          quality: 'export',
-        });
-      }
-      assets.set(assetId, mutated);
-      layersWithRetouch.push(layer);
+      renderedLayers.set(layer.id, await renderRetouchPipeline({
+        source: assetBuf,
+        operations: engineOps,
+        masks: engineMasks,
+        quality: 'export',
+      }));
     }
-    const docWithRetouch = { ...document, layers: layersWithRetouch } as ImageStudioDocument;
-    let flattened = await flattenDocument(docWithRetouch, {
+    let flattened = await flattenDocument(document, {
       canvas: { width: document.canvas.width, height: document.canvas.height },
       resolveAsset: (assetId) => assets.get(assetId) ?? null,
+      resolveLayer: (layer) => renderedLayers.get(layer.id) ?? null,
       renderers: [],
     });
     // Apply legacy post-composite retouch for migrated documents

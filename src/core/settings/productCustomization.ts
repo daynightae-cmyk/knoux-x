@@ -59,7 +59,7 @@ export interface StudioPreset {
 
 export type WorkspaceModuleId =
   | 'player' | 'library' | 'queue' | 'capture' | 'recording' | 'editor'
-  | 'image-editor' | 'slideshow' | 'audio-tools' | 'export' | 'settings';
+  | 'image-editor' | 'image-studio' | 'slideshow' | 'audio-tools' | 'export' | 'settings';
 
 export interface WorkspacePreset {
   id: string;
@@ -107,7 +107,7 @@ export const RECORDING_TOOLBAR_BUTTONS: readonly RecordingToolbarButtonId[] = [
 
 export const WORKSPACE_MODULES: readonly WorkspaceModuleId[] = [
   'player', 'library', 'queue', 'capture', 'recording', 'editor',
-  'image-editor', 'slideshow', 'audio-tools', 'export', 'settings',
+  'image-editor', 'image-studio', 'slideshow', 'audio-tools', 'export', 'settings',
 ];
 
 export const STUDIO_PRESET_KINDS: readonly StudioPresetKind[] = [
@@ -191,7 +191,7 @@ export const DEFAULT_WORKSPACE_PRESETS: WorkspacePreset[] = [
   workspacePreset('library', 'Library', ['library', 'player', 'queue'], ['open-library-folder', 'open-file', 'play-pause']),
   workspacePreset('recording', 'Recording', ['recording', 'player'], ['record-start-stop', 'record-pause-resume', 'screenshot']),
   workspacePreset('screenshot', 'Screenshot', ['capture', 'image-editor'], ['screenshot', 'region-capture', 'copy']),
-  workspacePreset('image', 'Image', ['image-editor', 'capture'], ['open-file', 'save', 'save-as', 'export']),
+  workspacePreset('image', 'Image', ['image-editor', 'image-studio', 'capture'], ['open-file', 'save', 'save-as', 'export']),
   workspacePreset('video', 'Video', ['editor', 'player', 'export'], ['split-clip', 'save', 'undo', 'redo', 'export']),
   workspacePreset('slideshow', 'Slideshow', ['slideshow', 'library', 'export'], ['open-file', 'save', 'export']),
   workspacePreset('audio', 'Audio', ['audio-tools', 'library', 'export'], ['open-file', 'save', 'export']),

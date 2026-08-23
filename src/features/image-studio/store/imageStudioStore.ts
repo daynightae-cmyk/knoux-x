@@ -115,6 +115,7 @@ interface ImageStudioActions {
   redo: () => void;
   toggleShowOriginal: () => void;
   setRenderError: (error: string | null) => void;
+  setLayerVisibility: (layerId: string, visible: boolean) => void;
   beginRetouchTransaction: () => void;
   commitRetouchTransaction: () => void;
   addRetouchOperation: (operation: Omit<RetouchOperationRecord, 'id' | 'createdAt'> & { id?: string }) => void;
@@ -139,6 +140,25 @@ function setLayerRetouch(layer: ImageLayer, retouche: RetouchDocumentState): Ima
   return { ...layer, retouche } as unknown as ImageLayer;
 }
 
+function buildLayerTree(layers: ImageLayer[]): ImageStudioLayerNode[] {
+  const childrenByParent = new Map<string | null, ImageLayer[]>();
+  for (const layer of layers) {
+    const siblings = childrenByParent.get(layer.parentId) ?? [];
+    siblings.push(layer);
+    childrenByParent.set(layer.parentId, siblings);
+  }
+  const visit = (layer: ImageLayer, ancestors: Set<string>): ImageStudioLayerNode => {
+    if (ancestors.has(layer.id)) return { layer, children: [] };
+    const nextAncestors = new Set(ancestors);
+    nextAncestors.add(layer.id);
+    return {
+      layer,
+      children: (childrenByParent.get(layer.id) ?? []).map((child) => visit(child, nextAncestors)),
+    };
+  };
+  return (childrenByParent.get(null) ?? []).map((layer) => visit(layer, new Set()));
+}
+
 function applyDocMutation(
   state: { currentDocument: ImageStudioDocument | null; history: ImageStudioHistoryEntry[]; historyIndex: number; documentVersion: number; transactionActive: boolean; transactionSnapshot: unknown },
   nextDoc: ImageStudioDocument
@@ -146,6 +166,7 @@ function applyDocMutation(
   if (state.transactionActive) {
     return {
       currentDocument: nextDoc,
+      layerTree: buildLayerTree(nextDoc.layers),
       documentVersion: state.documentVersion + 1,
     };
   }
@@ -154,6 +175,7 @@ function applyDocMutation(
   if (trimmed.length > 100) trimmed.shift();
   return {
     currentDocument: nextDoc,
+    layerTree: buildLayerTree(nextDoc.layers),
     history: trimmed,
     historyIndex: trimmed.length - 1,
     documentVersion: state.documentVersion + 1,
@@ -196,9 +218,9 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     currentDocument: document,
     dirty: false,
     saved: true,
-    activeLayerId: null,
+    activeLayerId: document?.activeLayerId ?? null,
     selectedLayerIds: [],
-    layerTree: [],
+    layerTree: document ? buildLayerTree(document.layers) : [],
     history: document ? [{ document: structuredClone(document), timestamp: new Date().toISOString() }] : [],
     historyIndex: document ? 0 : -1,
     selection: null,
@@ -212,6 +234,7 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
 
   restoreDocumentForUndo: (document) => set((state) => ({
     currentDocument: document,
+    layerTree: document ? buildLayerTree(document.layers) : [],
     dirty: true,
     saved: false,
     documentVersion: state.documentVersion + 1,
@@ -251,6 +274,16 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
   setLoadingMessage: (message) => set(() => ({ loadingMessage: message })),
   toggleShowOriginal: () => set((state) => ({ showOriginal: !state.showOriginal })),
 
+  setLayerVisibility: (layerId, visible) => set((state) => {
+    const document = state.currentDocument;
+    if (!document) return {};
+    const index = document.layers.findIndex((layer) => layer.id === layerId);
+    if (index < 0 || document.layers[index].visible === visible) return {};
+    const layers = [...document.layers];
+    layers[index] = { ...layers[index], visible, updatedAt: new Date().toISOString() };
+    return applyDocMutation(state, { ...document, layers, updatedAt: new Date().toISOString() });
+  }),
+
   undo: () => set((state) => {
     const prevIndex = state.historyIndex - 1;
     if (prevIndex < 0 || prevIndex >= state.history.length) return {};
@@ -258,8 +291,11 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     if (!entry) return {};
     return {
       currentDocument: structuredClone(entry.document as ImageStudioDocument),
+      layerTree: buildLayerTree((entry.document as ImageStudioDocument).layers),
       historyIndex: prevIndex,
       documentVersion: state.documentVersion + 1,
+      dirty: true,
+      saved: false,
     };
   }),
 
@@ -270,8 +306,11 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     if (!entry) return {};
     return {
       currentDocument: structuredClone(entry.document as ImageStudioDocument),
+      layerTree: buildLayerTree((entry.document as ImageStudioDocument).layers),
       historyIndex: nextIndex,
       documentVersion: state.documentVersion + 1,
+      dirty: true,
+      saved: false,
     };
   }),
   setRenderError: (error) => set(() => ({ renderError: error })),
@@ -286,7 +325,7 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
       return { transactionActive: false, transactionSnapshot: null };
     }
     const trimmed = state.history.slice(0, state.historyIndex + 1);
-    trimmed.push({ document: state.transactionSnapshot, timestamp: new Date().toISOString() });
+    trimmed.push({ document: structuredClone(state.currentDocument), timestamp: new Date().toISOString() });
     if (trimmed.length > 100) trimmed.shift();
     return {
       transactionActive: false,

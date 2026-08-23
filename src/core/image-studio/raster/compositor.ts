@@ -23,6 +23,9 @@ export interface LayerRenderer {
 
 export interface CompositorOptions {
   resolveAsset: ResolveAsset;
+  /** Optional layer-aware source override used by runtime preview/export.
+   *  This keeps two layers that reference the same asset independently renderable. */
+  resolveLayer?: (layer: ImageLayer) => RgbaBuffer | null;
   renderers?: LayerRenderer[];
   canvas?: { width: number; height: number };
   includeHidden?: boolean;
@@ -228,7 +231,7 @@ export function flattenDocument(
     if (!layer.visible) continue;
     let source: RgbaBuffer | null = null;
     if (layer.kind === 'raster') {
-      source = layer.assetId ? resolveAsset(layer.assetId) : null;
+      source = options.resolveLayer?.(layer) ?? (layer.assetId ? resolveAsset(layer.assetId) : null);
     } else if (layer.kind === 'fill') {
       source = fillLayerBuffer(layer as never, canvas);
     } else {
@@ -246,6 +249,7 @@ export function flattenDocument(
       if (mask) source = applyMaskBuffer(source, mask, layer.mask.inverted, layer.mask.opacity);
     }
     if (layer.opacity < 1) {
+      source = clone(source);
       for (let i = 3; i < source.data.length; i += 4) {
         source.data[i] = unitToByte(byteToUnit(source.data[i]) * layer.opacity);
       }

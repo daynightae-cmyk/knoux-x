@@ -207,6 +207,7 @@ export const IPC_SOURCE_INVENTORY = {
   'image-studio:save-as': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:close': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:get-current': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
+  'image-studio:sync-retouch': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:recent': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:migrate': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:validate': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },

@@ -1,13 +1,19 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { RgbaBuffer } from '../../../core/image-studio/raster/compositor';
+import { flattenDocument } from '../../../core/image-studio/raster/compositor';
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
+import { preloadAsset, getCachedAsset } from '../retouch/assetResolver';
+import { applyRetouchToLayer } from '../retouch/perLayerRenderer';
+import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';
 
 export const ImageStudioCanvas: React.FC = () => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const renderVersionRef = useRef(0);
   const {
     currentDocument,
     activeLayerId,
@@ -19,15 +25,98 @@ export const ImageStudioCanvas: React.FC = () => {
     setPan,
     selection,
     setSelection,
+    documentVersion,
+    showOriginal,
+    renderError,
+    setRenderError,
   } = useImageStudioStore();
 
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectStart, setSelectStart] = useState({ x: 0, y: 0 });
+  const [showingOriginal, setShowingOriginal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const canvasWidth = currentDocument?.canvas.width ?? 1920;
   const canvasHeight = currentDocument?.canvas.height ?? 1080;
+
+  useEffect(() => {
+    if (!currentDocument) return;
+    for (const layer of currentDocument.layers) {
+      if (layer.kind === 'raster' && 'assetId' in layer && layer.assetId) {
+        void preloadAsset(layer.assetId);
+      }
+    }
+  }, [currentDocument]);
+
+  const renderFrame = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !currentDocument) return;
+    const myVersion = ++renderVersionRef.current;
+    try {
+      setRenderError(null);
+      const resolveAsset = (assetId: string): RgbaBuffer | null => getCachedAsset(assetId);
+      const useOriginal = showingOriginal || showOriginal;
+      let doc = currentDocument;
+      if (!useOriginal) {
+        const newLayers = await Promise.all(
+          currentDocument.layers.map(async (layer) => {
+            if (layer.kind !== 'raster') return layer;
+            const retouche = (layer as unknown as { retouche?: { operations: unknown[]; masks: unknown[] } }).retouche;
+            if (!retouche || retouche.operations.length === 0) return layer;
+            const assetBuf = resolveAsset((layer as unknown as { assetId: string }).assetId);
+            if (!assetBuf) return layer;
+            const result = await applyRetouchToLayer(
+              { source: assetBuf, documentWidth: canvasWidth, documentHeight: canvasHeight },
+              retouche as never,
+            );
+            return { ...layer, __renderedBuffer: result } as never;
+          }),
+        );
+        doc = { ...currentDocument, layers: newLayers } as typeof currentDocument;
+      }
+      const result = flattenDocument(doc, { resolveAsset, canvas: { width: canvasWidth, height: canvasHeight } });
+      // Apply legacy post-composite retouch for migrated documents
+      let finalBuffer = result;
+      if (!useOriginal && currentDocument.legacyCompositeRetouch && currentDocument.legacyCompositeRetouch.operations.length > 0) {
+        finalBuffer = await applyRetouchToBuffer(result, currentDocument.legacyCompositeRetouch, 'preview');
+      }
+      if (myVersion !== renderVersionRef.current) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const imageData = new ImageData(finalBuffer.data, finalBuffer.width, finalBuffer.height);
+      ctx.putImageData(imageData, 0, 0);
+    } catch (err) {
+      if (myVersion !== renderVersionRef.current) return;
+      setRenderError(err instanceof Error ? err.message : String(err));
+    }
+  }, [currentDocument, canvasWidth, canvasHeight, showingOriginal, showOriginal, setRenderError]);
+
+  useEffect(() => {
+    void renderFrame();
+  }, [renderFrame, documentVersion]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === '\\' && !e.repeat && !isDragging) {
+        setShowingOriginal(true);
+        setIsDragging(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent): void => {
+      if (e.key === '\\') {
+        setShowingOriginal(false);
+        setIsDragging(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isDragging]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>): void => {
     event.preventDefault();
@@ -141,7 +230,7 @@ export const ImageStudioCanvas: React.FC = () => {
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
-          className="image-studio-canvas"
+          className={`image-studio-canvas ${renderError ? 'image-studio-canvas--error' : ''}`}
           onClick={handleCanvasClick}
         />
         {currentDocument && (
@@ -155,7 +244,7 @@ export const ImageStudioCanvas: React.FC = () => {
                   left: layer.transform?.e ?? 0,
                   top: layer.transform?.f ?? 0,
                   opacity: layer.opacity,
-                   mixBlendMode: layer.blendMode as React.CSSProperties['mixBlendMode'],
+                  mixBlendMode: layer.blendMode as React.CSSProperties['mixBlendMode'],
                   display: layer.visible ? 'block' : 'none',
                 }}
               >
@@ -192,7 +281,15 @@ export const ImageStudioCanvas: React.FC = () => {
             }}
           />
         )}
+        {showingOriginal && (
+          <div className="image-studio-before-badge">BEFORE</div>
+        )}
       </div>
+      {renderError && (
+        <div className="image-studio-render-error" title={renderError}>
+          Render error — press \ to compare
+        </div>
+      )}
       <div className="image-studio-canvas-controls">
         <NeonButton variant="ghost" size="sm" onClick={() => void handleFitCanvas()}>{t('imageStudio.fitCanvas')}</NeonButton>
         <NeonButton variant="ghost" size="sm" onClick={() => void handleActualPixels()}>{t('imageStudio.actualPixels')}</NeonButton>

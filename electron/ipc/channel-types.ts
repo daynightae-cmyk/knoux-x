@@ -274,6 +274,7 @@ export interface InvokeArgumentMap {
   'image-studio:import-retouch-asset': [filePath: string, profile?: 'low' | 'standard' | 'high'];
   'image-studio:read-retouch-proxy': [proxyRef: string];
   'image-studio:release-retouch-asset': [assetRef: string];
+  'image-studio:read-asset': [assetId: string];
   // Video Studio
   'video-studio:list-providers': [];
   'video-studio:provider-status': [];
@@ -334,6 +335,7 @@ export interface InvokeResultMap {
   'image-studio:import-retouch-asset': object;
   'image-studio:read-retouch-proxy': Uint8Array | null;
   'image-studio:release-retouch-asset': boolean;
+  'image-studio:read-asset': Uint8Array | null;
 
 // Video Studio
   'video-studio:list-providers': object[]; 'video-studio:provider-status': object; 'video-studio:list-models': object[]; 'video-studio:create-job': object; 'video-studio:cancel-job': boolean; 'video-studio:retry-job': object | null; 'video-studio:get-job': object | null; 'video-studio:list-jobs': object[]; 'video-studio:remove-job': boolean; 'video-studio:ai-health': object; 'video-studio:ai-entitlement': object; 'video-studio:ai-plan': object; 'video-studio:ai-settings-get': object; 'video-studio:ai-settings-set': boolean; 'video-studio:gateway-config-get': object; 'video-studio:gateway-config-set': boolean; 'video-studio:set-credential': boolean; 'video-studio:offline-jobs': object[];

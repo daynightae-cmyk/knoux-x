@@ -65,6 +65,8 @@ import type {
   ImageStudioDocument,
   ImageTask,
   LayerMask,
+  RetouchOperationRecord,
+  RetouchMaskRecord,
 } from '../../src/core/image-studio/document/schema';
 import {
   dataUrlOf,
@@ -108,6 +110,17 @@ import {
 } from '../../src/core/image-studio/raster/compositor';
 import type { RgbaBuffer } from '../../src/core/image-studio/raster/compositor';
 import { migrateToCurrent } from '../../src/core/image-studio/system/migrations';
+import {
+  renderRetouchPipeline,
+} from '../../src/features/image-editor/retouch/retouchEngine';
+import type {
+  RetouchOperation,
+} from '../../src/features/image-editor/retouch/retouchEngine';
+import {
+  documentRetouchOpToEngineOp,
+  documentMasksToEngineMasks,
+  applyRetouchToBuffer,
+} from '../../src/features/image-studio/retouch/retouchPreviewBridge';
 
 const AUTOSAVE_INTERVAL_MS = 60_000;
 const MAX_RECENT_PROJECTS = 20;
@@ -1500,11 +1513,55 @@ export class ImageStudioService {
         // A layer referencing an undecodable asset simply contributes nothing.
       }
     }
-    return flattenDocument(document, {
+    const layersWithRetouch: typeof document.layers = [];
+    for (const layer of document.layers) {
+      if (layer.kind !== 'raster') {
+        layersWithRetouch.push(layer);
+        continue;
+      }
+      const layerRetouch = (layer as unknown as Record<string, unknown>).retouche as
+        | { operations: RetouchOperationRecord[]; masks: RetouchMaskRecord[] }
+        | undefined;
+      if (!layerRetouch || layerRetouch.operations.length === 0) {
+        layersWithRetouch.push(layer);
+        continue;
+      }
+      const assetId = (layer as unknown as { assetId: string }).assetId;
+      const assetBuf = assets.get(assetId);
+      if (!assetBuf) {
+        layersWithRetouch.push(layer);
+        continue;
+      }
+      const enabledOps = layerRetouch.operations.filter((op) => op.enabled);
+      if (enabledOps.length === 0) {
+        layersWithRetouch.push(layer);
+        continue;
+      }
+      const engineOps = enabledOps.map(documentRetouchOpToEngineOp) as RetouchOperation[];
+      const engineMasks = documentMasksToEngineMasks(layerRetouch.masks);
+      let mutated = assetBuf;
+      for (const op of engineOps) {
+        mutated = await renderRetouchPipeline({
+          source: mutated,
+          operations: [op],
+          masks: engineMasks,
+          quality: 'export',
+        });
+      }
+      assets.set(assetId, mutated);
+      layersWithRetouch.push(layer);
+    }
+    const docWithRetouch = { ...document, layers: layersWithRetouch } as ImageStudioDocument;
+    let flattened = await flattenDocument(docWithRetouch, {
       canvas: { width: document.canvas.width, height: document.canvas.height },
       resolveAsset: (assetId) => assets.get(assetId) ?? null,
       renderers: [],
     });
+    // Apply legacy post-composite retouch for migrated documents
+    if (document.legacyCompositeRetouch && document.legacyCompositeRetouch.operations.length > 0) {
+      flattened = await applyRetouchToBuffer(flattened, document.legacyCompositeRetouch, 'export');
+    }
+    return flattened;
   }
 
   private async performAutosave(document: ImageStudioDocument, autosavePath: string): Promise<void> {

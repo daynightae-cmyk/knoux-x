@@ -191,6 +191,11 @@ export function createImageStudioDocument(
       crashRecovered: false,
       lastOpenedByVersion: options.applicationVersion ?? '',
     },
+    retouch: {
+      version: 1,
+      operations: [],
+      masks: [],
+    },
   };
   return document;
 }
@@ -357,7 +362,18 @@ function parseLayer(
       const layer = value as unknown as RasterLayer;
       validId(layer.assetId, 'Raster asset ID');
       assetIds.add(layer.assetId);
-      return { ...merged, kind: 'raster', assetId: layer.assetId } as RasterLayer;
+      let retouche = layer.retouche;
+      if (retouche !== undefined && retouche !== null) {
+        if (
+          !Array.isArray(retouche.operations) ||
+          !Array.isArray(retouche.masks) ||
+          typeof retouche.version !== 'number'
+        )
+          throw new TypeError('Layer retouch state is malformed.');
+      } else {
+        retouche = undefined;
+      }
+      return { ...merged, kind: 'raster', assetId: layer.assetId, retouche } as RasterLayer;
     }
     case 'fill': {
       const layer = value as unknown as FillLayer;
@@ -659,6 +675,72 @@ export function parseImageStudioDocument(value: unknown): ImageStudioDocument {
   finite(document.grid.spacing, 'Grid spacing');
   if (!Array.isArray(document.migrationHistory))
     throw new TypeError('Migration history is malformed.');
+  if (document.retouch !== undefined && document.retouch !== null) {
+    if (
+      typeof document.retouch !== 'object' ||
+      !Array.isArray((document.retouch as unknown as { operations: unknown }).operations) ||
+      !Array.isArray((document.retouch as unknown as { masks: unknown }).masks) ||
+      typeof (document.retouch as unknown as { version: unknown }).version !== 'number'
+    )
+      throw new TypeError('Retouch state is malformed.');
+    for (const op of document.retouch.operations) {
+      if (
+        !op ||
+        typeof (op as { id: unknown }).id !== 'string' ||
+        typeof (op as { type: unknown }).type !== 'string' ||
+        typeof (op as { enabled: unknown }).enabled !== 'boolean' ||
+        typeof (op as { createdAt: unknown }).createdAt !== 'number'
+      )
+        throw new TypeError('Retouch operation is malformed.');
+    }
+    for (const mask of document.retouch.masks) {
+      if (
+        !mask ||
+        typeof (mask as { id: unknown }).id !== 'string' ||
+        typeof (mask as { width: unknown }).width !== 'number' ||
+        typeof (mask as { height: unknown }).height !== 'number'
+      )
+        throw new TypeError('Retouch mask is malformed.');
+    }
+  } else {
+    document.retouch = { version: 1, operations: [], masks: [] };
+  }
+
+  // Validate legacyCompositeRetouch if present
+  if (document.legacyCompositeRetouch !== undefined && document.legacyCompositeRetouch !== null) {
+    const lcr = document.legacyCompositeRetouch;
+    if (
+      typeof lcr !== 'object' ||
+      !Array.isArray(lcr.operations) ||
+      !Array.isArray(lcr.masks) ||
+      typeof lcr.version !== 'number'
+    )
+      throw new TypeError('Legacy composite retouch state is malformed.');
+    for (const op of lcr.operations) {
+      if (
+        !op ||
+        typeof (op as { id: unknown }).id !== 'string' ||
+        typeof (op as { type: unknown }).type !== 'string' ||
+        typeof (op as { enabled: unknown }).enabled !== 'boolean' ||
+        typeof (op as { createdAt: unknown }).createdAt !== 'number'
+      )
+        throw new TypeError('Legacy composite retouch operation is malformed.');
+    }
+  }
+
+  // Legacy migration: document.retouch → legacyCompositeRetouch
+  // Old documents had retouch applied AFTER the full composite. We preserve
+  // that semantic by storing it in a dedicated read-only field. The renderer
+  // applies this post-composite ONLY for migrated documents.
+  // New documents must use per-layer layer.retouche instead.
+  if (document.retouch && document.retouch.operations.length > 0) {
+    const alreadyMigrated = !!document.legacyCompositeRetouch;
+    if (!alreadyMigrated) {
+      document.legacyCompositeRetouch = document.retouch;
+      document.retouch = { version: 1, operations: [], masks: [] };
+    }
+  }
+
   return clone(document);
 }
 

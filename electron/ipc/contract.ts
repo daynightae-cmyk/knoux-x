@@ -250,6 +250,7 @@ export const IPC_INVOKE = {
   IMAGE_STUDIO_IMPORT_RETOUCH_ASSET: 'image-studio:import-retouch-asset',
   IMAGE_STUDIO_READ_RETOUCH_PROXY: 'image-studio:read-retouch-proxy',
   IMAGE_STUDIO_RELEASE_RETOUCH_ASSET: 'image-studio:release-retouch-asset',
+  IMAGE_STUDIO_READ_ASSET: 'image-studio:read-asset',
   // Video Studio
   VIDEO_STUDIO_LIST_PROVIDERS: 'video-studio:list-providers',
   VIDEO_STUDIO_PROVIDER_STATUS: 'video-studio:provider-status',
@@ -600,6 +601,7 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'image-studio:import-retouch-asset', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
   { channel: 'image-studio:read-retouch-proxy', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
   { channel: 'image-studio:release-retouch-asset', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: 'image-studio request tuple', result: 'image-studio result', basic: false },
+  { channel: 'image-studio:read-asset', direction: 'invoke', owner: 'image-studio', exposedBy: 'preload', arguments: '[assetId: string]', result: 'Uint8Array | null', basic: true },
   // Image Studio — outbound events
   { channel: 'image-studio:autosave', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'image-studio:job-progress', direction: 'outbound-event', owner: 'image-studio', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },

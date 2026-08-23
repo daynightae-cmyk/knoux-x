@@ -537,6 +537,36 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
     IPC_INVOKE.IMAGE_STUDIO_RELEASE_RETOUCH_ASSET,
     trusted(IPC_INVOKE.IMAGE_STUDIO_RELEASE_RETOUCH_ASSET, async (_event, assetRef: string) => retouchAssets.release(assetRef))
   );
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_READ_ASSET,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, async (_event, assetId: string) => {
+      if (typeof assetId !== 'string' || assetId.length === 0 || assetId.length > 256) {
+        throw new TypeError('Asset ID is invalid.');
+      }
+      const doc = service.getCurrent();
+      if (!doc) return null;
+      const asset = doc.embeddedAssets.find((a: { id: string }) => a.id === assetId);
+      if (!asset) return null;
+      if (asset.path) {
+        const fs = await import('node:fs/promises');
+        try {
+          const buf = await fs.readFile(asset.path);
+          return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+        } catch {
+          return null;
+        }
+      }
+      if (asset.dataUrl) {
+        const match = asset.dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (!match) return null;
+        const binary = atob(match[1]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+      return null;
+    })
+  );
   return {
 
     service,

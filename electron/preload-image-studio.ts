@@ -145,6 +145,8 @@ const imageStudioAPI = {
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_READ_RETOUCH_PROXY, proxyRef),
   releaseRetouchAsset: (assetRef: string): Promise<boolean> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_RELEASE_RETOUCH_ASSET, assetRef),
+  readAsset: (assetId: string): Promise<Uint8Array | null> =>
+    invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, assetId),
   onAutosave: (callback: (filePath: string) => void): (() => void) => {
     const listener = (_event: unknown, filePath: string) => callback(filePath);
     onDesktopEvent(IPC_OUTBOUND.IMAGE_STUDIO_AUTOSAVE, listener);

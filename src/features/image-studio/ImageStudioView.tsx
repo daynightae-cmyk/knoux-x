@@ -9,6 +9,7 @@ import { ImageStudioLayersPanel } from './components/ImageStudioLayersPanel';
 import { ImageStudioPropertiesPanel } from './components/ImageStudioPropertiesPanel';
 import { ImageStudioAdjustmentsPanel } from './components/ImageStudioAdjustmentsPanel';
 import { ImageStudioHistoryPanel } from './components/ImageStudioHistoryPanel';
+import { ImageStudioRetouchPanel } from './components/ImageStudioRetouchPanel';
 import { ImageStudioAIStudioPanel } from './components/ImageStudioAIStudioPanel';
 import { ImageStudioModelCatalog } from './components/ImageStudioModelCatalog';
 import { ImageStudioJobQueue } from './components/ImageStudioJobQueue';
@@ -145,6 +146,7 @@ export const ImageStudioView: React.FC = () => {
           <ImageStudioLayersPanel />
           <ImageStudioPropertiesPanel />
           <ImageStudioAdjustmentsPanel />
+          <ImageStudioRetouchPanel />
           <ImageStudioHistoryPanel />
         </aside>
 

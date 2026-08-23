@@ -489,3 +489,262 @@
     grid-template-rows: auto 1fr auto;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Retouch Panel
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.retouch-panel {
+  background: var(--knoux-surface, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.retouch-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.retouch-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+.retouch-panel-empty,
+.retouch-panel-hint {
+  padding: 8px;
+  text-align: center;
+  color: var(--knoux-text-secondary, #888);
+  font-size: 12px;
+}
+
+.retouch-category-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.1));
+  padding-bottom: 4px;
+}
+
+.retouch-category-tab {
+  flex: 1;
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  color: var(--knoux-text-secondary, #888);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.retouch-category-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.retouch-category-tab.active {
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--knoux-accent, #8b5cf6);
+  border-bottom: 2px solid var(--knoux-accent, #8b5cf6);
+}
+
+.retouch-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.retouch-tool-button {
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
+  color: var(--knoux-text, #ccc);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: center;
+}
+
+.retouch-tool-button:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--knoux-accent, #8b5cf6);
+  color: white;
+}
+
+.retouch-tool-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.retouch-operations-list {
+  margin-top: 8px;
+  border-top: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.1));
+  padding-top: 8px;
+}
+
+.retouch-operations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.retouch-operations-count {
+  font-size: 11px;
+  color: var(--knoux-text-secondary, #888);
+}
+
+.retouch-operation-item {
+  border: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.retouch-operation-item.disabled {
+  opacity: 0.5;
+}
+
+.retouch-operation-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.retouch-operation-toggle {
+  background: none;
+  border: none;
+  color: var(--knoux-accent, #8b5cf6);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.retouch-operation-label {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--knoux-text, #ccc);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retouch-operation-type {
+  font-weight: 500;
+}
+
+.retouch-operation-kind {
+  color: var(--knoux-text-secondary, #888);
+  font-size: 10px;
+}
+
+.retouch-operation-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.retouch-op-action {
+  background: none;
+  border: none;
+  color: var(--knoux-text-secondary, #888);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 3px;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.retouch-op-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.retouch-op-action--danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.retouch-operation-editor {
+  padding: 6px;
+  border-top: 1px solid var(--knoux-border, rgba(255, 255, 255, 0.08));
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.retouch-op-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retouch-op-editor--placeholder {
+  color: var(--knoux-text-secondary, #888);
+  font-size: 11px;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.retouch-slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.retouch-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--knoux-text-secondary, #aaa);
+}
+
+.retouch-slider-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--knoux-text, #ccc);
+  min-width: 32px;
+  text-align: right;
+}
+
+.retouch-slider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.retouch-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--knoux-accent, #8b5cf6);
+  cursor: pointer;
+}
+
+.retouch-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--knoux-accent, #8b5cf6);
+  border: none;
+  cursor: pointer;
+}

@@ -169,12 +169,27 @@ const App: React.FC = () => {
       if (!firstPath) return;
       void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
         if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
+          console.warn('[KNOUX] Startup media probe found no playable streams:', firstPath, probe);
+          useAppStore.getState().addNotification({
+            type: 'error',
+            title: 'Could not open media',
+            message: 'The selected file contains no playable audio or video stream.',
+            duration: 6000,
+          });
           return;
         }
         usePlayerStore.getState().setCurrentMedia(firstPath);
         startupMediaHandledRef.current = true;
         setView('player');
-      }).catch(() => { /* ignore media that cannot be probed */ });
+      }).catch((error) => {
+        console.error('[KNOUX] Startup media probe failed:', firstPath, error);
+        useAppStore.getState().addNotification({
+          type: 'error',
+          title: 'Could not open media',
+          message: 'The selected media file could not be opened.',
+          duration: 6000,
+        });
+      });
     });
     window.knouxAPI.app.ready();
     return unsubscribe;

@@ -127,7 +127,7 @@ describe('image-studio runtime', () => {
   }
 
   test('registers every Image Studio invoke and outbound channel', () => {
-    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(60);
+    expect(IMAGE_STUDIO_INVOKE_CHANNELS).toHaveLength(61);
     expect(IMAGE_STUDIO_OUTBOUND_CHANNELS).toHaveLength(5);
     for (const channel of IMAGE_STUDIO_INVOKE_CHANNELS) {
       expect(handlers.has(channel)).toBe(true);
@@ -262,5 +262,76 @@ describe('image-studio runtime', () => {
     controller.close();
     const current = await invoke(IPC_INVOKE.IMAGE_STUDIO_GET_CURRENT);
     expect(current).toBeNull();
+  });
+});
+
+describe('IMAGE_STUDIO_READ_ASSET security (acceptance 3)', () => {
+  let registrar: IpcRegistrar;
+  let handlers: Map<string, (event: unknown, ...args: unknown[]) => unknown>;
+  let controller: ImageStudioRuntimeController;
+
+  beforeEach(async () => {
+    mockUserData = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-read-asset-'));
+    safeStorageAvailable = true;
+    mockStores.clear();
+    handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
+    registrar = {
+      handle: (channel, listener) => {
+        handlers.set(channel, listener as never);
+      },
+      on: jest.fn() as never,
+      removeListener: jest.fn() as never,
+      send: jest.fn() as never,
+    };
+    controller = setupImageStudioRuntime(registrar);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  afterEach(async () => {
+    controller.close();
+    await fs.rm(mockUserData, { recursive: true, force: true });
+  });
+
+  async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
+    const handler = handlers.get(channel);
+    if (!handler) throw new Error(`No Image Studio handler registered for ${channel}.`);
+    return handler(trustedEvent(), ...args);
+  }
+
+  test('FAIL: unknown assetId returns null', async () => {
+    const result = await invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, 'asset-unknown-' + Date.now());
+    expect(result).toBeNull();
+  });
+
+  test('FAIL: empty assetId throws validation error', async () => {
+    await expect(invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, '')).rejects.toThrow(/Asset ID is invalid/);
+  });
+
+  test('FAIL: oversized assetId throws validation error', async () => {
+    const oversized = 'a'.repeat(257);
+    await expect(invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, oversized)).rejects.toThrow(/Asset ID is invalid/);
+  });
+
+  test('FAIL: assetId with null/non-string throws validation error', async () => {
+    await expect(invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, null as unknown)).rejects.toThrow(/Asset ID is invalid/);
+    await expect(invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, 123 as unknown)).rejects.toThrow(/Asset ID is invalid/);
+  });
+
+  test('SECURITY: renderer cannot supply filesystem paths - only assetId', async () => {
+    // The handler only accepts assetId string, never a path
+    // This test verifies the contract: renderer sends assetId, main process resolves from embeddedAssets
+    // Any path-like string passed as assetId is treated as assetId, not a path
+    // and will fail the "unknown assetId" check (return null)
+    const pathLikeAssetId = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
+    const pathResult = await invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, pathLikeAssetId);
+    expect(pathResult).toBeNull(); // Treated as unknown assetId, not a path
+
+    const uncLikeAssetId = '\\\\server\\share\\file.png';
+    const uncResult = await invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, uncLikeAssetId);
+    expect(uncResult).toBeNull();
+
+    const traversalAssetId = '../../../../etc/passwd';
+    const traversalResult = await invoke(IPC_INVOKE.IMAGE_STUDIO_READ_ASSET, traversalAssetId);
+    expect(traversalResult).toBeNull();
   });
 });

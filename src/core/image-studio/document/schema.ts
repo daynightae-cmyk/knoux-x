@@ -105,6 +105,8 @@ export interface RasterLayer extends LayerBase {
   kind: 'raster';
   /** Reference to the embedded pixel asset holding this layer's pixels. */
   assetId: string;
+  /** Per-layer retouch operations, masks, and version. Migrated from document.retouch. */
+  retouche?: RetouchDocumentState;
 }
 
 export interface FillLayer extends LayerBase {
@@ -302,6 +304,43 @@ export interface AIImageProvenance {
   accepted: boolean | null;
 }
 
+export interface RetouchOperationRecord {
+  id: string;
+  type: string;
+  enabled: boolean;
+  createdAt: number;
+  opacity?: number;
+  maskId?: string | null;
+  kind?: string;
+  parameters?: Record<string, unknown>;
+  position?: { x: number; y: number };
+  radius?: number;
+  strength?: number;
+  feather?: number;
+  source?: { x: number; y: number };
+  target?: { x: number; y: number };
+  center?: { x: number; y: number };
+  texturePreserve?: number;
+  inverted?: boolean;
+  [key: string]: unknown;
+}
+
+export interface RetouchMaskRecord {
+  id: string;
+  width: number;
+  height: number;
+  alphaDataUrl: string | null;
+  featherPx: number;
+  inverted: boolean;
+  revision: number;
+}
+
+export interface RetouchDocumentState {
+  version: number;
+  operations: RetouchOperationRecord[];
+  masks: RetouchMaskRecord[];
+}
+
 export interface ImageStudioDocument {
   schema: typeof IMAGE_STUDIO_SCHEMA;
   schemaVersion: typeof IMAGE_STUDIO_SCHEMA_VERSION;
@@ -336,6 +375,12 @@ export interface ImageStudioDocument {
     crashRecovered: boolean;
     lastOpenedByVersion: string;
   };
+  retouch?: RetouchDocumentState;
+  /** Legacy post-composite retouch — preserved from old documents where
+   *  document.retouch was applied after the full composite. Read-only;
+   *  the UI must never create new operations here. Applied by the renderer
+   *  ONLY for migrated documents to preserve backward visual compatibility. */
+  legacyCompositeRetouch?: RetouchDocumentState;
 }
 
 export const IMAGE_STUDIO_LIMITS = Object.freeze({

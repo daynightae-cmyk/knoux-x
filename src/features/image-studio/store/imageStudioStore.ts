@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 
-import type { ImageStudioDocument, ImageLayer } from '../../../core/image-studio/document/schema';
+import type {
+  ImageStudioDocument,
+  ImageLayer,
+  RetouchDocumentState,
+  RetouchMaskRecord,
+  RetouchOperationRecord,
+} from '../../../core/image-studio/document/schema';
 
 export interface ImageStudioLayerNode {
   layer: ImageLayer;
@@ -72,10 +78,16 @@ export interface ImageStudioState {
   errors: string[];
   isLoading: boolean;
   loadingMessage: string;
+  documentVersion: number;
+  showOriginal: boolean;
+  transactionActive: boolean;
+  transactionSnapshot: unknown;
+  renderError: string | null;
 }
 
 interface ImageStudioActions {
   setCurrentDocument: (document: ImageStudioDocument | null) => void;
+  restoreDocumentForUndo: (document: ImageStudioDocument | null) => void;
   setDocumentPath: (path: string | null) => void;
   setDirty: (dirty: boolean) => void;
   setSaved: (saved: boolean) => void;
@@ -99,6 +111,55 @@ interface ImageStudioActions {
   setLoading: (loading: boolean) => void;
   setLoadingMessage: (message: string) => void;
   reset: () => void;
+  undo: () => void;
+  redo: () => void;
+  toggleShowOriginal: () => void;
+  setRenderError: (error: string | null) => void;
+  beginRetouchTransaction: () => void;
+  commitRetouchTransaction: () => void;
+  addRetouchOperation: (operation: Omit<RetouchOperationRecord, 'id' | 'createdAt'> & { id?: string }) => void;
+  updateRetouchOperation: (id: string, patch: Partial<RetouchOperationRecord>) => void;
+  removeRetouchOperation: (id: string) => void;
+  toggleRetouchOperation: (id: string) => void;
+  moveRetouchOperation: (id: string, toIndex: number) => void;
+  reorderRetouchOperations: (orderedIds: string[]) => void;
+  clearRetouchOperations: () => void;
+  duplicateRetouchOperation: (id: string) => void;
+  addRetouchMask: (mask: Omit<RetouchMaskRecord, 'id' | 'revision'> & { id?: string }) => void;
+  removeRetouchMask: (id: string) => void;
+}
+
+function ensureLayerRetouch(layer: ImageLayer): RetouchDocumentState {
+  const val = (layer as unknown as Record<string, unknown>).retouche;
+  if (val && typeof val === 'object') return val as RetouchDocumentState;
+  return { version: 1, operations: [], masks: [] };
+}
+
+function setLayerRetouch(layer: ImageLayer, retouche: RetouchDocumentState): ImageLayer {
+  return { ...layer, retouche } as unknown as ImageLayer;
+}
+
+function applyDocMutation(
+  state: { currentDocument: ImageStudioDocument | null; history: ImageStudioHistoryEntry[]; historyIndex: number; documentVersion: number; transactionActive: boolean; transactionSnapshot: unknown },
+  nextDoc: ImageStudioDocument
+): Partial<ImageStudioState> {
+  if (state.transactionActive) {
+    return {
+      currentDocument: nextDoc,
+      documentVersion: state.documentVersion + 1,
+    };
+  }
+  const trimmed = state.history.slice(0, state.historyIndex + 1);
+  trimmed.push({ document: structuredClone(nextDoc), timestamp: new Date().toISOString() });
+  if (trimmed.length > 100) trimmed.shift();
+  return {
+    currentDocument: nextDoc,
+    history: trimmed,
+    historyIndex: trimmed.length - 1,
+    documentVersion: state.documentVersion + 1,
+    dirty: true,
+    saved: false,
+  };
 }
 
 export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>()((set) => ({
@@ -125,6 +186,12 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
   errors: [],
   isLoading: false,
   loadingMessage: '',
+  documentVersion: 0,
+  showOriginal: false,
+  transactionActive: false,
+  transactionSnapshot: null,
+  renderError: null,
+
   setCurrentDocument: (document) => set(() => ({
     currentDocument: document,
     dirty: false,
@@ -132,11 +199,24 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     activeLayerId: null,
     selectedLayerIds: [],
     layerTree: [],
-    history: [],
-    historyIndex: -1,
+    history: document ? [{ document: structuredClone(document), timestamp: new Date().toISOString() }] : [],
+    historyIndex: document ? 0 : -1,
     selection: null,
     errors: [],
+    documentVersion: 0,
+    showOriginal: false,
+    transactionActive: false,
+    transactionSnapshot: null,
+    renderError: null,
   })),
+
+  restoreDocumentForUndo: (document) => set((state) => ({
+    currentDocument: document,
+    dirty: true,
+    saved: false,
+    documentVersion: state.documentVersion + 1,
+  })),
+
   setDocumentPath: (path) => set(() => ({ documentPath: path })),
   setDirty: (dirty) => set(() => ({ dirty, saved: !dirty })),
   setSaved: (saved) => set(() => ({ saved, dirty: !saved })),
@@ -169,6 +249,55 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
   clearErrors: () => set(() => ({ errors: [] })),
   setLoading: (loading) => set(() => ({ isLoading: loading })),
   setLoadingMessage: (message) => set(() => ({ loadingMessage: message })),
+  toggleShowOriginal: () => set((state) => ({ showOriginal: !state.showOriginal })),
+
+  undo: () => set((state) => {
+    const prevIndex = state.historyIndex - 1;
+    if (prevIndex < 0 || prevIndex >= state.history.length) return {};
+    const entry = state.history[prevIndex];
+    if (!entry) return {};
+    return {
+      currentDocument: structuredClone(entry.document as ImageStudioDocument),
+      historyIndex: prevIndex,
+      documentVersion: state.documentVersion + 1,
+    };
+  }),
+
+  redo: () => set((state) => {
+    const nextIndex = state.historyIndex + 1;
+    if (nextIndex < 0 || nextIndex >= state.history.length) return {};
+    const entry = state.history[nextIndex];
+    if (!entry) return {};
+    return {
+      currentDocument: structuredClone(entry.document as ImageStudioDocument),
+      historyIndex: nextIndex,
+      documentVersion: state.documentVersion + 1,
+    };
+  }),
+  setRenderError: (error) => set(() => ({ renderError: error })),
+
+  beginRetouchTransaction: () => set((state) => ({
+    transactionActive: true,
+    transactionSnapshot: structuredClone(state.currentDocument),
+  })),
+
+  commitRetouchTransaction: () => set((state) => {
+    if (!state.transactionActive || !state.transactionSnapshot) {
+      return { transactionActive: false, transactionSnapshot: null };
+    }
+    const trimmed = state.history.slice(0, state.historyIndex + 1);
+    trimmed.push({ document: state.transactionSnapshot, timestamp: new Date().toISOString() });
+    if (trimmed.length > 100) trimmed.shift();
+    return {
+      transactionActive: false,
+      transactionSnapshot: null,
+      history: trimmed,
+      historyIndex: trimmed.length - 1,
+      dirty: true,
+      saved: false,
+    };
+  }),
+
   reset: () => set(() => ({
     currentDocument: null,
     documentPath: null,
@@ -193,5 +322,230 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     errors: [],
     isLoading: false,
     loadingMessage: '',
+    documentVersion: 0,
+    showOriginal: false,
+    transactionActive: false,
+    transactionSnapshot: null,
+    renderError: null,
   })),
+
+  addRetouchOperation: (operation) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    const layerId = state.activeLayerId;
+    if (!layerId) return {};
+    const layerIdx = doc.layers.findIndex((l) => l.id === layerId);
+    if (layerIdx === -1) return {};
+    const layer = doc.layers[layerIdx];
+    const retouch = ensureLayerRetouch(layer);
+    const id = operation.id ?? `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    if (retouch.operations.some((op) => op.id === id)) return {};
+    const newOp: RetouchOperationRecord = {
+      ...operation,
+      id,
+      createdAt: Date.now(),
+    } as RetouchOperationRecord;
+    const newRetouch: RetouchDocumentState = {
+      ...retouch,
+      operations: [...retouch.operations, newOp],
+    };
+    const newLayers = [...doc.layers];
+    newLayers[layerIdx] = setLayerRetouch(layer, newRetouch);
+    const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+    return applyDocMutation(state, nextDoc);
+  }),
+
+  updateRetouchOperation: (id, patch) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      const idx = retouch.operations.findIndex((op) => op.id === id);
+      if (idx === -1) continue;
+      const updated: RetouchOperationRecord = { ...retouch.operations[idx], ...patch };
+      const newOps = [...retouch.operations];
+      newOps[idx] = updated;
+      const newRetouch: RetouchDocumentState = { ...retouch, operations: newOps };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  removeRetouchOperation: (id) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      if (!retouch.operations.some((op) => op.id === id)) continue;
+      const newRetouch: RetouchDocumentState = {
+        ...retouch,
+        operations: retouch.operations.filter((op) => op.id !== id),
+      };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  toggleRetouchOperation: (id) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      const idx = retouch.operations.findIndex((op) => op.id === id);
+      if (idx === -1) continue;
+      const updated: RetouchOperationRecord = {
+        ...retouch.operations[idx],
+        enabled: !retouch.operations[idx].enabled,
+      };
+      const newOps = [...retouch.operations];
+      newOps[idx] = updated;
+      const newRetouch: RetouchDocumentState = { ...retouch, operations: newOps };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  moveRetouchOperation: (id, toIndex) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      const fromIndex = retouch.operations.findIndex((op) => op.id === id);
+      if (fromIndex === -1) continue;
+      const clampedTo = Math.max(0, Math.min(retouch.operations.length - 1, toIndex));
+      if (fromIndex === clampedTo) return {};
+      const newOps = [...retouch.operations];
+      const [moved] = newOps.splice(fromIndex, 1);
+      newOps.splice(clampedTo, 0, moved);
+      const newRetouch: RetouchDocumentState = { ...retouch, operations: newOps };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  reorderRetouchOperations: (orderedIds) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      const byId = new Map(retouch.operations.map((op) => [op.id, op]));
+      const ordered = orderedIds.map((oid) => byId.get(oid)).filter((op): op is RetouchOperationRecord => Boolean(op));
+      const remaining = retouch.operations.filter((op) => !orderedIds.includes(op.id));
+      if (ordered.length === 0 && remaining.length === retouch.operations.length) continue;
+      const newRetouch: RetouchDocumentState = {
+        ...retouch,
+        operations: [...ordered, ...remaining],
+      };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  clearRetouchOperations: () => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    const layerId = state.activeLayerId;
+    if (!layerId) return {};
+    const layerIdx = doc.layers.findIndex((l) => l.id === layerId);
+    if (layerIdx === -1) return {};
+    const layer = doc.layers[layerIdx];
+    const retouch = ensureLayerRetouch(layer);
+    if (retouch.operations.length === 0) return {};
+    const newRetouch: RetouchDocumentState = { ...retouch, operations: [] };
+    const newLayers = [...doc.layers];
+    newLayers[layerIdx] = setLayerRetouch(layer, newRetouch);
+    const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+    return applyDocMutation(state, nextDoc);
+  }),
+
+  duplicateRetouchOperation: (id) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    for (let li = 0; li < doc.layers.length; li++) {
+      const layer = doc.layers[li];
+      const retouch = ensureLayerRetouch(layer);
+      const source = retouch.operations.find((op) => op.id === id);
+      if (!source) continue;
+      const newId = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const duplicate: RetouchOperationRecord = {
+        ...structuredClone(source),
+        id: newId,
+        createdAt: Date.now(),
+      };
+      const newRetouch: RetouchDocumentState = {
+        ...retouch,
+        operations: [...retouch.operations, duplicate],
+      };
+      const newLayers = [...doc.layers];
+      newLayers[li] = setLayerRetouch(layer, newRetouch);
+      const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+      return applyDocMutation(state, nextDoc);
+    }
+    return {};
+  }),
+
+  addRetouchMask: (mask) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    const layerId = state.activeLayerId;
+    if (!layerId) return {};
+    const layerIdx = doc.layers.findIndex((l) => l.id === layerId);
+    if (layerIdx === -1) return {};
+    const layer = doc.layers[layerIdx];
+    const retouch = ensureLayerRetouch(layer);
+    const id = mask.id ?? `mask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    if (retouch.masks.some((m) => m.id === id)) return {};
+    const newMask: RetouchMaskRecord = { ...mask, id, revision: 1 } as RetouchMaskRecord;
+    const newRetouch: RetouchDocumentState = {
+      ...retouch,
+      masks: [...retouch.masks, newMask],
+    };
+    const newLayers = [...doc.layers];
+    newLayers[layerIdx] = setLayerRetouch(layer, newRetouch);
+    const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+    return applyDocMutation(state, nextDoc);
+  }),
+
+  removeRetouchMask: (id) => set((state) => {
+    const doc = state.currentDocument;
+    if (!doc) return {};
+    const layerId = state.activeLayerId;
+    if (!layerId) return {};
+    const layerIdx = doc.layers.findIndex((l) => l.id === layerId);
+    if (layerIdx === -1) return {};
+    const layer = doc.layers[layerIdx];
+    const retouch = ensureLayerRetouch(layer);
+    if (!retouch.masks.some((m) => m.id === id)) return {};
+    const newRetouch: RetouchDocumentState = {
+      ...retouch,
+      masks: retouch.masks.filter((m) => m.id !== id),
+      operations: retouch.operations.map((op) =>
+        op.maskId === id ? { ...op, maskId: null } : op
+      ),
+    };
+    const newLayers = [...doc.layers];
+    newLayers[layerIdx] = setLayerRetouch(layer, newRetouch);
+    const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+    return applyDocMutation(state, nextDoc);
+  }),
 }));

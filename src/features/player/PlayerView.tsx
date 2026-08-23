@@ -102,6 +102,8 @@ export const PlayerView: React.FC = () => {
   const [balance, setBalance] = useState(0);
   const [equalizer, setEqualizer] = useState<number[]>(new Array(10).fill(0));
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
+  const subtitleRequestRef = useRef(0);
+  const subtitleDelayRequestRef = useRef(0);
   const { t } = useTranslation();
 
   const {
@@ -127,6 +129,8 @@ export const PlayerView: React.FC = () => {
     next,
     previous,
   } = usePlayerStore();
+
+  const currentMediaRef = useRef(currentMedia);
 
   useEffect(() => {
     audioManagerRef.current = new PlayerAudioManager();
@@ -180,6 +184,10 @@ export const PlayerView: React.FC = () => {
 
   useEffect(() => {
     setSubtitle(null);
+  }, [currentMedia]);
+
+  useEffect(() => {
+    currentMediaRef.current = currentMedia;
   }, [currentMedia]);
 
   useEffect(() => {
@@ -452,21 +460,35 @@ export const PlayerView: React.FC = () => {
   }, [captureFrameSequence, capturing, currentMedia, t]);
 
   const selectSubtitle = useCallback(async (): Promise<void> => {
+    const requestId = ++subtitleRequestRef.current;
+    const mediaAtRequest = currentMediaRef.current;
     setError(null);
     try {
       const loaded = await window.knouxCreativeAPI.subtitles.select(subtitle?.delaySeconds ?? 0);
+      if (requestId !== subtitleRequestRef.current) return;
+      if (mediaAtRequest !== currentMediaRef.current) return;
       if (loaded) setSubtitle(loaded);
     } catch (reason) {
+      if (requestId !== subtitleRequestRef.current) return;
+      if (mediaAtRequest !== currentMediaRef.current) return;
       setError(reason instanceof Error ? reason.message : 'Subtitle file could not be loaded.');
     }
   }, [subtitle?.delaySeconds]);
 
   const changeSubtitleDelay = useCallback(async (delta: number): Promise<void> => {
     if (!subtitle) return;
+    const requestId = ++subtitleDelayRequestRef.current;
+    const mediaAtRequest = currentMediaRef.current;
+    const filePathAtRequest = subtitle.filePath;
     const delay = Math.max(-60, Math.min(60, Number((subtitle.delaySeconds + delta).toFixed(25))));
     try {
-      setSubtitle(await window.knouxCreativeAPI.subtitles.reload(subtitle.filePath, delay));
+      const reloaded = await window.knouxCreativeAPI.subtitles.reload(filePathAtRequest, delay);
+      if (requestId !== subtitleDelayRequestRef.current) return;
+      if (mediaAtRequest !== currentMediaRef.current) return;
+      setSubtitle(reloaded);
     } catch (reason) {
+      if (requestId !== subtitleDelayRequestRef.current) return;
+      if (mediaAtRequest !== currentMediaRef.current) return;
       setError(reason instanceof Error ? reason.message : 'Subtitle delay could not be changed.');
     }
   }, [subtitle]);

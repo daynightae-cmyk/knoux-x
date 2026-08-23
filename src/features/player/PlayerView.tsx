@@ -136,23 +136,6 @@ export const PlayerView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
-      const firstPath = paths[0];
-      if (!firstPath) return;
-      void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
-        if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
-          throw new Error('Open With media contains no playable stream.');
-        }
-        setCurrentMedia(firstPath);
-        setSubtitle(null);
-        setError(null);
-      }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Open With media validation failed.'));
-    });
-    window.knouxAPI.app.ready();
-    return unsubscribe;
-  }, [setCurrentMedia]);
-
-  useEffect(() => {
     let active = true;
     setError(null);
     lastPersistedSecondRef.current = -1;

@@ -247,6 +247,17 @@ export class PlayerAudioManager {
     this.emit('effect-change', { effectId, params });
   }
 
+  public async removeEffect(effectId: string): Promise<void> {
+    const existingNode = this.effectNodes.get(effectId);
+    if (existingNode) {
+      existingNode.disconnect();
+      this.effectNodes.delete(effectId);
+      this.reconnectGraph();
+    }
+    delete this.settings.effects[effectId];
+    this.emit('effect-change', { effectId, params: null, enabled: false });
+  }
+
   private createEffectNode(effectId: string, params: Record<string, number>): AudioNode | null {
     if (!this.audioContext) return null;
 

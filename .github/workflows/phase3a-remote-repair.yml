@@ -6,6 +6,7 @@ on:
       - wip/phase3a-runtime-recovery
     paths:
       - tools/phase3a-remote-repair.cjs
+      - tools/phase3a-repair-bootstrap.cjs
       - .github/workflows/phase3a-remote-repair.yml
   pull_request:
     branches:
@@ -49,7 +50,7 @@ jobs:
 
       - name: Apply focused Phase 3A repair
         shell: pwsh
-        run: node tools/phase3a-remote-repair.cjs
+        run: node tools/phase3a-repair-bootstrap.cjs
 
       - name: Clean install
         shell: pwsh
@@ -79,7 +80,7 @@ jobs:
         shell: pwsh
         run: git diff --check
 
-      - name: Commit verified repair and remove temporary runner
+      - name: Commit verified repair and remove temporary runners
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
@@ -89,6 +90,7 @@ jobs:
           git add src/features/image-studio/components/imageStudioCanvasInteraction.ts
           git add tests/unit/retouch-phase3-canvas-targeting.test.ts
           git rm --ignore-unmatch tools/phase3a-remote-repair.cjs
+          git rm --ignore-unmatch tools/phase3a-repair-bootstrap.cjs
           git rm --ignore-unmatch .github/workflows/phase3a-remote-repair.yml
           git diff --cached --check
           git commit -m "fix(image-studio): preserve retouch target across brush strokes"

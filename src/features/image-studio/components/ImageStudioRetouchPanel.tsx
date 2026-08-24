@@ -504,7 +504,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
             className="retouch-tool-button"
             onClick={() => handleAddTool(tool)}
             disabled={!hasDocument || !hasActiveLayer}
-            data-testid={`retouch-add-${tool.label.toLowerCase().replace(/[^a-z]/g, '-')}`}
+            data-testid={`retouch-add-${tool.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
           >
             {tool.label}
           </button>

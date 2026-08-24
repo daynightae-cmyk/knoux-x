@@ -9,6 +9,12 @@ import { preloadAsset, getCachedAsset } from '../retouch/assetResolver';
 import { applyRetouchToLayer, getRetouchPreviewProxy } from '../retouch/perLayerRenderer';
 import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';
 
+import {
+  clientPointToCanvasDocument,
+  findTopmostVisibleLayerAtPoint,
+  isStrokeRetouchType,
+} from './imageStudioCanvasInteraction';
+
 export const ImageStudioCanvas: React.FC = () => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -158,10 +164,7 @@ export const ImageStudioCanvas: React.FC = () => {
 
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
     const retouchType = activeRetouchOperation?.type;
-    const supportsStroke = retouchType === 'geometry-warp'
-      || retouchType === 'manual-smooth'
-      || retouchType === 'manual-healing'
-      || retouchType === 'manual-dodge-burn';
+    const supportsStroke = isStrokeRetouchType(retouchType);
     if (event.button === 0 && supportsStroke && activeRetouchOperation) {
       const point = getDocumentPoint(event);
       if (!transactionActive) beginRetouchTransaction();
@@ -282,23 +285,32 @@ export const ImageStudioCanvas: React.FC = () => {
   }, [setSelection]);
 
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>): void => {
+    // A completed retouch stroke generates a click event after pointerup.
+    // Do not let that click silently retarget subsequent retouch operations.
+    if (isStrokeRetouchType(activeRetouchOperation?.type)) return;
+    if (!currentDocument) return;
+
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / zoom;
-    const y = (event.clientY - rect.top) / zoom;
-    if (currentDocument) {
-      const clickedLayer = currentDocument.layers.find((layer) => {
-        const tx = layer.transform ? layer.transform.e : 0;
-        const ty = layer.transform ? layer.transform.f : 0;
-        return x >= tx && x <= tx + (currentDocument?.canvas.width ?? 0) && y >= ty && y <= ty + (currentDocument?.canvas.height ?? 0);
-      });
-      if (clickedLayer) {
-        setActiveLayerId(clickedLayer.id);
-      } else {
-        setActiveLayerId(null);
-        setSelection(null);
-      }
+    const point = clientPointToCanvasDocument(
+      event.clientX,
+      event.clientY,
+      rect,
+      canvasWidth,
+      canvasHeight,
+    );
+    const clickedLayer = findTopmostVisibleLayerAtPoint(
+      currentDocument.layers,
+      point,
+      currentDocument.canvas.width,
+      currentDocument.canvas.height,
+    );
+    if (clickedLayer) {
+      setActiveLayerId(clickedLayer.id);
+    } else {
+      setActiveLayerId(null);
+      setSelection(null);
     }
-  }, [currentDocument, zoom, setActiveLayerId, setSelection]);
+  }, [activeRetouchOperation, canvasHeight, canvasWidth, currentDocument, setActiveLayerId, setSelection]);
 
   const handleFitCanvas = useCallback((): void => {
     if (!containerRef.current) return;

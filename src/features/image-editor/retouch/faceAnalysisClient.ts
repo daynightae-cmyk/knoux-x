@@ -110,7 +110,7 @@ export class FaceAnalysisClient {
           }
         };
         this.worker.addEventListener('message', onMessage);
-        const wasmRoot = `${window.location.origin}${import.meta.env.BASE_URL}mediapipe`;
+        const wasmRoot = new URL(`${import.meta.env.BASE_URL}mediapipe/`, window.location.href).toString();
         this.worker.postMessage({ type: 'configure', modelBuffer: model.buffer.buffer, wasmRoot }, [model.buffer.buffer]);
       }).catch((error: unknown) => reject(error));
     });

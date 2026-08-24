@@ -30,6 +30,10 @@ export const ImageStudioCanvas: React.FC = () => {
     transactionActive,
     renderError,
     setRenderError,
+    activeTool,
+    updateRetouchOperation,
+    beginRetouchTransaction,
+    commitRetouchTransaction,
   } = useImageStudioStore();
 
   const [isPanning, setIsPanning] = useState(false);
@@ -38,6 +42,13 @@ export const ImageStudioCanvas: React.FC = () => {
   const [selectStart, setSelectStart] = useState({ x: 0, y: 0 });
   const [showingOriginal, setShowingOriginal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [retouchStroke, setRetouchStroke] = useState<{
+    operationId: string;
+    type: string;
+    lastX: number;
+    lastY: number;
+  } | null>(null);
+  const retouchStrokeRef = useRef<typeof retouchStroke>(null);
 
   const canvasWidth = currentDocument?.canvas.width ?? 1920;
   const canvasHeight = currentDocument?.canvas.height ?? 1080;
@@ -131,28 +142,116 @@ export const ImageStudioCanvas: React.FC = () => {
     setZoom(zoom * delta);
   }, [zoom, setZoom]);
 
+  const getDocumentPoint = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(canvasWidth, (event.clientX - rect.left - panX) / zoom)),
+      y: Math.max(0, Math.min(canvasHeight, (event.clientY - rect.top - panY) / zoom)),
+    };
+  }, [canvasHeight, canvasWidth, panX, panY, zoom]);
+
+  const activeRetouchOperation = (() => {
+    const activeLayer = currentDocument?.layers.find((layer) => layer.id === activeLayerId);
+    const retouche = (activeLayer as unknown as { retouche?: { operations: Array<{ id: string; type: string; strokes?: unknown[] }> } } | undefined)?.retouche;
+    return retouche?.operations.find((operation) => operation.id === activeTool) ?? null;
+  })();
+
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    const retouchType = activeRetouchOperation?.type;
+    const supportsStroke = retouchType === 'geometry-warp'
+      || retouchType === 'manual-smooth'
+      || retouchType === 'manual-healing'
+      || retouchType === 'manual-dodge-burn';
+    if (event.button === 0 && supportsStroke && activeRetouchOperation) {
+      const point = getDocumentPoint(event);
+      if (!transactionActive) beginRetouchTransaction();
+      const nextStroke = { operationId: activeRetouchOperation.id, type: retouchType, lastX: point.x, lastY: point.y };
+      retouchStrokeRef.current = nextStroke;
+      setRetouchStroke(nextStroke);
+      if (retouchType === 'manual-healing') {
+        updateRetouchOperation(activeRetouchOperation.id, {
+          position: point,
+          source: { x: Math.max(0, point.x - 24), y: point.y },
+        });
+      } else if (retouchType === 'manual-smooth' || retouchType === 'manual-dodge-burn') {
+        updateRetouchOperation(activeRetouchOperation.id, { center: point });
+      }
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
     if (event.button === 1 || (event.button === 0 && event.altKey)) {
       setIsPanning(true);
       setPanStart({ x: event.clientX - panX, y: event.clientY - panY });
       event.currentTarget.setPointerCapture(event.pointerId);
     } else if (event.button === 0) {
       setIsSelecting(true);
-      const rect = event.currentTarget.getBoundingClientRect();
-      setSelectStart({
-        x: (event.clientX - rect.left) / zoom,
-        y: (event.clientY - rect.top) / zoom,
-      });
+      setSelectStart(getDocumentPoint(event));
     }
-  }, [panX, panY, zoom]);
+  }, [activeRetouchOperation, beginRetouchTransaction, getDocumentPoint, panX, panY, transactionActive, updateRetouchOperation]);
 
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    const activeStroke = retouchStrokeRef.current;
+    if (activeStroke && (event.buttons & 1)) {
+      const point = getDocumentPoint(event);
+      if (activeStroke.type === 'geometry-warp') {
+        const existingStrokes = activeRetouchOperation?.strokes ?? [];
+        updateRetouchOperation(activeStroke.operationId, {
+          strokes: [...existingStrokes, {
+            id: `stroke-${Date.now().toString(36)}`,
+            x: activeStroke.lastX,
+            y: activeStroke.lastY,
+            radius: 64,
+            dx: point.x - activeStroke.lastX,
+            dy: point.y - activeStroke.lastY,
+            strength: 0.6,
+            mode: 'push',
+          }],
+        });
+      } else if (activeStroke.type === 'manual-healing') {
+        updateRetouchOperation(activeStroke.operationId, {
+          position: point,
+          source: { x: Math.max(0, point.x - 24), y: point.y },
+        });
+      } else {
+        updateRetouchOperation(activeStroke.operationId, { center: point });
+      }
+      const nextStroke = { ...activeStroke, lastX: point.x, lastY: point.y };
+      retouchStrokeRef.current = nextStroke;
+      setRetouchStroke(nextStroke);
+      return;
+    }
     if (isPanning) {
       setPan(event.clientX - panStart.x, event.clientY - panStart.y);
     }
-  }, [isPanning, panStart.x, panStart.y, setPan]);
+  }, [activeRetouchOperation, getDocumentPoint, isPanning, panStart.x, panStart.y, setPan, updateRetouchOperation]);
+
+  const finishRetouchStroke = useCallback((): boolean => {
+    if (!retouchStrokeRef.current) return false;
+    retouchStrokeRef.current = null;
+    commitRetouchTransaction();
+    setRetouchStroke(null);
+    return true;
+  }, [commitRetouchTransaction]);
+
+  useEffect(() => {
+    const finalize = (): void => { finishRetouchStroke(); };
+    window.addEventListener('mouseup', finalize);
+    window.addEventListener('pointerup', finalize);
+    window.addEventListener('pointercancel', finalize);
+    return () => {
+      window.removeEventListener('mouseup', finalize);
+      window.removeEventListener('pointerup', finalize);
+      window.removeEventListener('pointercancel', finalize);
+    };
+  }, [finishRetouchStroke]);
 
   const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (finishRetouchStroke()) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      return;
+    }
     if (isPanning) {
       setIsPanning(false);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -161,20 +260,22 @@ export const ImageStudioCanvas: React.FC = () => {
     }
     if (isSelecting) {
       setIsSelecting(false);
-      const rect = event.currentTarget.getBoundingClientRect();
-      const endX = (event.clientX - rect.left) / zoom;
-      const endY = (event.clientY - rect.top) / zoom;
-      const x = Math.min(selectStart.x, endX);
-      const y = Math.min(selectStart.y, endY);
-      const width = Math.abs(endX - selectStart.x);
-      const height = Math.abs(endY - selectStart.y);
+      const end = getDocumentPoint(event);
+      const x = Math.min(selectStart.x, end.x);
+      const y = Math.min(selectStart.y, end.y);
+      const width = Math.abs(end.x - selectStart.x);
+      const height = Math.abs(end.y - selectStart.y);
       if (width > 5 && height > 5) {
         setSelection({ x, y, width, height });
       } else {
         setSelection(null);
       }
     }
-  }, [isPanning, isSelecting, selectStart, zoom, setSelection]);
+  }, [finishRetouchStroke, getDocumentPoint, isPanning, isSelecting, selectStart, setSelection]);
+
+  const handleMouseUp = useCallback((): void => {
+    finishRetouchStroke();
+  }, [finishRetouchStroke]);
 
   const handleDoubleClick = useCallback((): void => {
     setSelection(null);
@@ -222,8 +323,11 @@ export const ImageStudioCanvas: React.FC = () => {
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerUpCapture={handlePointerUp}
+      onPointerCancelCapture={handlePointerUp}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onMouseUp={handleMouseUp}
       onDoubleClick={handleDoubleClick}
       role="region"
       aria-label={t('imageStudio.canvas')}

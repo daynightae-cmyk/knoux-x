@@ -395,6 +395,8 @@ export const ImageStudioRetouchPanel: React.FC = () => {
     clearRetouchOperations,
     beginRetouchTransaction,
     commitRetouchTransaction,
+    transactionActive,
+    setActiveTool,
   } = useImageStudioStore();
 
   const [activeCategory, setActiveCategory] = useState<RetouchTool>('portrait');
@@ -424,9 +426,18 @@ export const ImageStudioRetouchPanel: React.FC = () => {
         (opData as Record<string, unknown>).kind = tool.defaults.kind;
         (opData as Record<string, unknown>).parameters = tool.defaults.parameters;
       }
-      addRetouchOperation(opData);
+      if (transactionActive) commitRetouchTransaction();
+      const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const requiresPointerCommit = tool.type === 'geometry-warp'
+        || tool.type === 'manual-healing'
+        || tool.type === 'manual-smooth'
+        || tool.type === 'manual-dodge-burn';
+      if (requiresPointerCommit) beginRetouchTransaction();
+      addRetouchOperation({ ...opData, id });
+      setExpandedOpId(id);
+      setActiveTool(id);
     },
-    [currentDocument, addRetouchOperation]
+    [beginRetouchTransaction, commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]
   );
 
   const handlePatch = useCallback(
@@ -522,7 +533,10 @@ export const ImageStudioRetouchPanel: React.FC = () => {
                 </button>
                 <button
                   className="retouch-operation-label"
-                  onClick={() => setExpandedOpId(expandedOpId === op.id ? null : op.id)}
+                  onClick={() => {
+                    setExpandedOpId(expandedOpId === op.id ? null : op.id);
+                    setActiveTool(op.id);
+                  }}
                 >
                   <span className="retouch-operation-type">{op.type}</span>
                   {op.kind && <span className="retouch-operation-kind"> ({String(op.kind)})</span>}

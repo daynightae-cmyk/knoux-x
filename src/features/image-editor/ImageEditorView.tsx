@@ -1820,7 +1820,16 @@ export const ImageEditorView: React.FC = () => {
                 <div className="image-editor-face-intelligence">
                   <div className="image-editor-retouch-mask-heading">
                     <strong>{t('imageEditor.faceAnalysis')}</strong>
-                    {faceAnalysis?.status === 'ready' && <span className="image-editor-retouch-mask-ready">{faceAnalysis.faces.length}</span>}
+                    {faceAnalysis?.status === 'ready' && (
+                      <span
+                        className="image-editor-retouch-mask-ready"
+                        data-testid="face-analysis-result"
+                        data-face-count={faceAnalysis.faces.length}
+                        data-landmark-count={faceAnalysis.faces.reduce((total, face) => total + face.landmarks.length, 0)}
+                      >
+                        {faceAnalysis.faces.length}
+                      </span>
+                    )}
                   </div>
                   <NeonButton variant="ghost" size="sm" leftIcon={<Aperture size={14} />} onClick={() => void handleFaceAnalysis()} disabled={!hasDocument || faceAnalysisBusy || !desktopRuntime} fullWidth>
                     {faceAnalysisBusy ? t('imageEditor.faceAnalyzing') : t('imageEditor.faceAnalyze')}

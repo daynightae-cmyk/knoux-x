@@ -142,6 +142,10 @@ export const ImageStudioToolbar: React.FC = () => {
         properties: ['openFile'],
       });
       if (!filePath) return;
+      const current = useImageStudioStore.getState().currentDocument;
+      if (current) {
+        await syncRetouchState(current);
+      }
       const document = await window.knouxImageStudioAPI.importAsLayer(filePath);
       useImageStudioStore.getState().setCurrentDocument(document);
       useImageStudioStore.getState().setDirty(true);

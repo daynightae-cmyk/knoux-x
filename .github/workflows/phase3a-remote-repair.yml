@@ -1,0 +1,77 @@
+name: Phase 3A Remote Repair
+
+on:
+  push:
+    branches:
+      - wip/phase3a-runtime-recovery
+    paths:
+      - tools/phase3a-remote-repair.cjs
+      - .github/workflows/phase3a-remote-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-verify:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout WIP branch
+        uses: actions/checkout@v4
+        with:
+          ref: wip/phase3a-runtime-recovery
+          fetch-depth: 0
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Apply focused Phase 3A repair
+        shell: pwsh
+        run: node tools/phase3a-remote-repair.cjs
+
+      - name: Clean install
+        shell: pwsh
+        run: npm ci
+
+      - name: Typecheck
+        shell: pwsh
+        run: npm run typecheck
+
+      - name: ESLint
+        shell: pwsh
+        run: npm run lint
+
+      - name: Focused Phase 3 tests
+        shell: pwsh
+        run: npx jest tests/unit/retouch-phase3-integration.test.ts tests/unit/retouch-phase3-canvas-targeting.test.ts --runInBand
+
+      - name: Full Jest serial
+        shell: pwsh
+        run: npm test -- --runInBand
+
+      - name: Electron Forge package
+        shell: pwsh
+        run: npm run package
+
+      - name: Diff hygiene
+        shell: pwsh
+        run: git diff --check
+
+      - name: Commit verified repair and remove temporary runner
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/image-studio/components/ImageStudioCanvas.tsx
+          git add src/features/image-studio/components/ImageStudioRetouchPanel.tsx
+          git add src/features/image-studio/components/imageStudioCanvasInteraction.ts
+          git add tests/unit/retouch-phase3-canvas-targeting.test.ts
+          git rm --ignore-unmatch tools/phase3a-remote-repair.cjs
+          git rm --ignore-unmatch .github/workflows/phase3a-remote-repair.yml
+          git diff --cached --check
+          git commit -m "fix(image-studio): preserve retouch target across brush strokes"
+          git push origin HEAD:wip/phase3a-runtime-recovery

@@ -428,16 +428,13 @@ export const ImageStudioRetouchPanel: React.FC = () => {
       }
       if (transactionActive) commitRetouchTransaction();
       const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-      const requiresPointerCommit = tool.type === 'geometry-warp'
-        || tool.type === 'manual-healing'
-        || tool.type === 'manual-smooth'
-        || tool.type === 'manual-dodge-burn';
-      if (requiresPointerCommit) beginRetouchTransaction();
+      // Arming a brush is a normal document mutation. The transaction starts
+      // only on the first pointer-down, so an unused brush cannot strand preview mode.
       addRetouchOperation({ ...opData, id });
       setExpandedOpId(id);
       setActiveTool(id);
     },
-    [beginRetouchTransaction, commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]
+    [commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]
   );
 
   const handlePatch = useCallback(

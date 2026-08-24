@@ -42,19 +42,14 @@ describe('Phase 3 canvas retouch targeting', () => {
   });
 
   test('overlapping layers select the topmost visible layer', () => {
-    const bottom = layer('bottom');
-    const top = layer('top');
-    expect(findTopmostVisibleLayerAtPoint([bottom, top], { x: 100, y: 100 }, 500, 500)?.id).toBe('top');
+    expect(findTopmostVisibleLayerAtPoint([layer('bottom'), layer('top')], { x: 100, y: 100 }, 500, 500)?.id).toBe('top');
   });
 
   test('invisible top layer does not steal targeting from visible layer below', () => {
-    const bottom = layer('bottom');
-    const top = layer('top', false);
-    expect(findTopmostVisibleLayerAtPoint([bottom, top], { x: 100, y: 100 }, 500, 500)?.id).toBe('bottom');
+    expect(findTopmostVisibleLayerAtPoint([layer('bottom'), layer('top', false)], { x: 100, y: 100 }, 500, 500)?.id).toBe('bottom');
   });
 
   test('point outside translated layers returns null', () => {
-    const translated = layer('translated', true, 600, 600);
-    expect(findTopmostVisibleLayerAtPoint([translated], { x: 100, y: 100 }, 200, 200)).toBeNull();
+    expect(findTopmostVisibleLayerAtPoint([layer('translated', true, 600, 600)], { x: 100, y: 100 }, 200, 200)).toBeNull();
   });
 });

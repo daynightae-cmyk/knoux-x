@@ -476,7 +476,7 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
           outData[i] = Math.round(result.data[i] * (1 - blendFactor) + tinted.data[i] * blendFactor);
           outData[i + 1] = Math.round(result.data[i + 1] * (1 - blendFactor) + tinted.data[i + 1] * blendFactor);
           outData[i + 2] = Math.round(result.data[i + 2] * (1 - blendFactor) + tinted.data[i + 2] * blendFactor);
-          outData[i + 3] = 255;
+          outData[i + 3] = result.data[i + 3];
         }
         result = new ImageData(outData, imageData.width, imageData.height);
       }
@@ -535,7 +535,7 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
         for (let i = 0; i < blendedMaskData.length; i += 4) {
           const existingAlpha = mask.data[i + 3] / 255;
           const newAlpha = localMask.data[i + 3] / 255;
-          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);
+          blendedMaskData[i + 3] = Math.round(existingAlpha * newAlpha * 255);
         }
       }
       const blendedMaskImage = new ImageData(blendedMaskData, imageData.width, imageData.height);
@@ -554,7 +554,7 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
         for (let i = 0; i < blendedMaskData.length; i += 4) {
           const existingAlpha = mask.data[i + 3] / 255;
           const newAlpha = localMask.data[i + 3] / 255;
-          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);
+          blendedMaskData[i + 3] = Math.round(existingAlpha * newAlpha * 255);
         }
       }
       const blendedMaskImage = new ImageData(blendedMaskData, imageData.width, imageData.height);

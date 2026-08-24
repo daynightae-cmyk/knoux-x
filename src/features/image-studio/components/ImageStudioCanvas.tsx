@@ -197,17 +197,21 @@ export const ImageStudioCanvas: React.FC = () => {
     if (activeStroke && (event.buttons & 1)) {
       const point = getDocumentPoint(event);
       if (activeStroke.type === 'geometry-warp') {
-        const existingStrokes = activeRetouchOperation?.strokes ?? [];
+        const latestOperations = useImageStudioStore.getState().currentDocument?.layers.flatMap((layer) => {
+          const retouche = (layer as unknown as { retouche?: { operations: Array<{ id: string; strokes?: Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }> }> } }).retouche;
+          return retouche?.operations ?? [];
+        }) ?? [];
+        const existingStrokes = latestOperations.find((operation) => operation.id === activeStroke.operationId)?.strokes ?? [];
         updateRetouchOperation(activeStroke.operationId, {
           strokes: [...existingStrokes, {
-            id: `stroke-${Date.now().toString(36)}`,
+            id: 'stroke-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
             x: activeStroke.lastX,
             y: activeStroke.lastY,
             radius: 64,
             dx: point.x - activeStroke.lastX,
             dy: point.y - activeStroke.lastY,
             strength: 0.6,
-            mode: 'push',
+            mode: 'push' as const,
           }],
         });
       } else if (activeStroke.type === 'manual-healing') {
@@ -226,7 +230,7 @@ export const ImageStudioCanvas: React.FC = () => {
     if (isPanning) {
       setPan(event.clientX - panStart.x, event.clientY - panStart.y);
     }
-  }, [activeRetouchOperation, getDocumentPoint, isPanning, panStart.x, panStart.y, setPan, updateRetouchOperation]);
+  }, [getDocumentPoint, isPanning, panStart.x, panStart.y, setPan, updateRetouchOperation]);
 
   const finishRetouchStroke = useCallback((): boolean => {
     if (!retouchStrokeRef.current) return false;

@@ -1,0 +1,111 @@
+name: Phase 3A Finalize
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'wip/phase3a-runtime-recovery' &&
+      github.actor == 'daynightae-cmyk'
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout guarded WIP branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: wip/phase3a-runtime-recovery
+          fetch-depth: 0
+
+      - name: Setup Node 20.20.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Configure native toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+
+      - name: Apply reviewed production fixes
+        shell: pwsh
+        run: node tools/phase3a-remote-repair.cjs
+
+      - name: Install deterministic dependencies
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        shell: pwsh
+        run: npm run typecheck
+
+      - name: ESLint zero warnings
+        shell: pwsh
+        run: npm run lint -- --max-warnings=0
+
+      - name: Focused Phase 3 tests
+        shell: pwsh
+        run: npx jest tests/unit/retouch-phase3-integration.test.ts tests/unit/retouch-phase3-canvas-targeting.test.ts --runInBand
+
+      - name: Full Jest serial
+        shell: pwsh
+        run: npm test -- --runInBand
+
+      - name: Electron Forge package
+        shell: pwsh
+        run: npm run package -- --arch=x64
+
+      - name: Verify intended diff only
+        shell: pwsh
+        run: |
+          git diff --check
+          $allowed = @(
+            'src/features/image-editor/retouch/retouchEngine.ts',
+            'src/features/image-studio/components/ImageStudioCanvas.tsx',
+            'src/features/image-studio/components/ImageStudioRetouchPanel.tsx',
+            'src/features/image-studio/components/imageStudioCanvasInteraction.ts',
+            'tests/unit/retouch-phase3-integration.test.ts',
+            'tests/unit/retouch-phase3-canvas-targeting.test.ts'
+          )
+          $changed = @(git diff --name-only)
+          $unexpected = @($changed | Where-Object { $_ -notin $allowed })
+          if ($unexpected.Count -gt 0) {
+            Write-Host 'Unexpected tracked modifications:'
+            $unexpected | ForEach-Object { Write-Host $_ }
+            throw 'Finalization modified files outside the allowlist.'
+          }
+
+      - name: Commit verified production repair and remove temporary tooling
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/image-editor/retouch/retouchEngine.ts
+          git add src/features/image-studio/components/ImageStudioCanvas.tsx
+          git add src/features/image-studio/components/ImageStudioRetouchPanel.tsx
+          git add src/features/image-studio/components/imageStudioCanvasInteraction.ts
+          git add tests/unit/retouch-phase3-integration.test.ts
+          git add tests/unit/retouch-phase3-canvas-targeting.test.ts
+          git rm --ignore-unmatch tools/phase3a-remote-repair.cjs
+          git rm --ignore-unmatch .github/workflows/phase3a-finalize.yml
+          git diff --cached --check
+          git commit -m "fix(image-studio): harden phase 3 portrait retouch runtime"
+          git push origin HEAD:wip/phase3a-runtime-recovery

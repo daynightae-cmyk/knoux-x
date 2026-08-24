@@ -13,80 +13,116 @@ function write(rel, content) {
   fs.writeFileSync(target, content, 'utf8');
 }
 
-function replaceExact(rel, before, after) {
+function replaceOnceIfNeeded(rel, before, after) {
   const source = read(rel);
-  if (!source.includes(before)) {
-    throw new Error(`Expected block not found in ${rel}`);
-  }
-  const occurrences = source.split(before).length - 1;
-  if (occurrences !== 1) {
-    throw new Error(`Expected exactly one block in ${rel}, found ${occurrences}`);
+  if (source.includes(after)) return;
+  const count = source.split(before).length - 1;
+  if (count !== 1) {
+    throw new Error(`Expected one legacy block in ${rel}, found ${count}`);
   }
   write(rel, source.replace(before, after));
 }
 
+function replaceCountIfNeeded(rel, before, after, expectedCount) {
+  const source = read(rel);
+  if (!source.includes(before) && source.includes(after)) return;
+  const count = source.split(before).length - 1;
+  if (count !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} legacy blocks in ${rel}, found ${count}`);
+  }
+  write(rel, source.split(before).join(after));
+}
+
 const canvas = 'src/features/image-studio/components/ImageStudioCanvas.tsx';
 
-replaceExact(
-  canvas,
-  "import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';\n",
-  "import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';\n\nimport {\n  clientPointToCanvasDocument,\n  findTopmostVisibleLayerAtPoint,\n  isStrokeRetouchType,\n} from './imageStudioCanvasInteraction';\n",
-);
+const staleWarpBefore = [
+  "      if (activeStroke.type === 'geometry-warp') {",
+  '        const existingStrokes = activeRetouchOperation?.strokes ?? [];',
+  '        updateRetouchOperation(activeStroke.operationId, {',
+  '          strokes: [...existingStrokes, {',
+  '            id: `stroke-${Date.now().toString(36)}`,',
+  '            x: activeStroke.lastX,',
+  '            y: activeStroke.lastY,',
+  '            radius: 64,',
+  '            dx: point.x - activeStroke.lastX,',
+  '            dy: point.y - activeStroke.lastY,',
+  '            strength: 0.6,',
+  "            mode: 'push',",
+  '          }],',
+  '        });',
+].join('\n');
 
-replaceExact(
-  canvas,
-  `    const retouchType = activeRetouchOperation?.type;\n    const supportsStroke = retouchType === 'geometry-warp'\n      || retouchType === 'manual-smooth'\n      || retouchType === 'manual-healing'\n      || retouchType === 'manual-dodge-burn';\n`,
-  `    const retouchType = activeRetouchOperation?.type;\n    const supportsStroke = isStrokeRetouchType(retouchType);\n`,
-);
+const staleWarpAfter = [
+  "      if (activeStroke.type === 'geometry-warp') {",
+  '        const latestOperations = useImageStudioStore.getState().currentDocument?.layers.flatMap((layer) => {',
+  "          const retouche = (layer as unknown as { retouche?: { operations: Array<{ id: string; strokes?: Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }> }> } }).retouche;",
+  '          return retouche?.operations ?? [];',
+  '        }) ?? [];',
+  '        const existingStrokes = latestOperations.find((operation) => operation.id === activeStroke.operationId)?.strokes ?? [];',
+  '        updateRetouchOperation(activeStroke.operationId, {',
+  '          strokes: [...existingStrokes, {',
+  "            id: 'stroke-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),",
+  '            x: activeStroke.lastX,',
+  '            y: activeStroke.lastY,',
+  '            radius: 64,',
+  '            dx: point.x - activeStroke.lastX,',
+  '            dy: point.y - activeStroke.lastY,',
+  '            strength: 0.6,',
+  "            mode: 'push' as const,",
+  '          }],',
+  '        });',
+].join('\n');
+replaceOnceIfNeeded(canvas, staleWarpBefore, staleWarpAfter);
 
-replaceExact(
+replaceOnceIfNeeded(
   canvas,
-  `      if (activeStroke.type === 'geometry-warp') {\n        const existingStrokes = activeRetouchOperation?.strokes ?? [];\n        updateRetouchOperation(activeStroke.operationId, {\n          strokes: [...existingStrokes, {\n            id: \`stroke-\${Date.now().toString(36)}\`,\n            x: activeStroke.lastX,\n            y: activeStroke.lastY,\n            radius: 64,\n            dx: point.x - activeStroke.lastX,\n            dy: point.y - activeStroke.lastY,\n            strength: 0.6,\n            mode: 'push',\n          }],\n        });\n`,
-  `      if (activeStroke.type === 'geometry-warp') {\n        const latestOperations = useImageStudioStore.getState().currentDocument?.layers.flatMap((layer) => {\n          const retouche = (layer as unknown as { retouche?: { operations: Array<{ id: string; strokes?: unknown[] }> } }).retouche;\n          return retouche?.operations ?? [];\n        }) ?? [];\n        const existingStrokes = latestOperations.find((operation) => operation.id === activeStroke.operationId)?.strokes ?? [];\n        updateRetouchOperation(activeStroke.operationId, {\n          strokes: [...existingStrokes, {\n            id: 'stroke-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),\n            x: activeStroke.lastX,\n            y: activeStroke.lastY,\n            radius: 64,\n            dx: point.x - activeStroke.lastX,\n            dy: point.y - activeStroke.lastY,\n            strength: 0.6,\n            mode: 'push',\n          }],\n        });\n`,
-);
-
-replaceExact(
-  canvas,
-  `  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>): void => {\n    const rect = event.currentTarget.getBoundingClientRect();\n    const x = (event.clientX - rect.left) / zoom;\n    const y = (event.clientY - rect.top) / zoom;\n    if (currentDocument) {\n      const clickedLayer = currentDocument.layers.find((layer) => {\n        const tx = layer.transform ? layer.transform.e : 0;\n        const ty = layer.transform ? layer.transform.f : 0;\n        return x >= tx && x <= tx + (currentDocument?.canvas.width ?? 0) && y >= ty && y <= ty + (currentDocument?.canvas.height ?? 0);\n      });\n      if (clickedLayer) {\n        setActiveLayerId(clickedLayer.id);\n      } else {\n        setActiveLayerId(null);\n        setSelection(null);\n      }\n    }\n  }, [currentDocument, zoom, setActiveLayerId, setSelection]);\n`,
-  `  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>): void => {\n    // Pointer-driven retouch tools own primary canvas clicks. The click generated\n    // after pointerup must not silently retarget the next stroke to another layer.\n    if (isStrokeRetouchType(activeRetouchOperation?.type)) return;\n    if (!currentDocument) return;\n\n    const rect = event.currentTarget.getBoundingClientRect();\n    const point = clientPointToCanvasDocument(\n      event.clientX,\n      event.clientY,\n      rect,\n      canvasWidth,\n      canvasHeight,\n    );\n    const clickedLayer = findTopmostVisibleLayerAtPoint(\n      currentDocument.layers,\n      point,\n      currentDocument.canvas.width,\n      currentDocument.canvas.height,\n    );\n    if (clickedLayer) {\n      setActiveLayerId(clickedLayer.id);\n    } else {\n      setActiveLayerId(null);\n      setSelection(null);\n    }\n  }, [activeRetouchOperation, canvasHeight, canvasWidth, currentDocument, setActiveLayerId, setSelection]);\n`,
+  '  }, [activeRetouchOperation, getDocumentPoint, isPanning, panStart.x, panStart.y, setPan, updateRetouchOperation]);',
+  '  }, [getDocumentPoint, isPanning, panStart.x, panStart.y, setPan, updateRetouchOperation]);',
 );
 
 const panel = 'src/features/image-studio/components/ImageStudioRetouchPanel.tsx';
-replaceExact(
+const transactionArmBefore = [
+  '      const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;',
+  "      const requiresPointerCommit = tool.type === 'geometry-warp'",
+  "        || tool.type === 'manual-healing'",
+  "        || tool.type === 'manual-smooth'",
+  "        || tool.type === 'manual-dodge-burn';",
+  '      if (requiresPointerCommit) beginRetouchTransaction();',
+  '      addRetouchOperation({ ...opData, id });',
+].join('\n');
+const transactionArmAfter = [
+  '      const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;',
+  '      // Arming a brush is a normal document mutation. The transaction starts',
+  '      // only on the first pointer-down, so an unused brush cannot strand preview mode.',
+  '      addRetouchOperation({ ...opData, id });',
+].join('\n');
+replaceOnceIfNeeded(panel, transactionArmBefore, transactionArmAfter);
+replaceOnceIfNeeded(
   panel,
-  `      const id = \`retouch-\${Date.now().toString(36)}-\${Math.random().toString(36).slice(2, 8)}\`;\n      const requiresPointerCommit = tool.type === 'geometry-warp'\n        || tool.type === 'manual-healing'\n        || tool.type === 'manual-smooth'\n        || tool.type === 'manual-dodge-burn';\n      if (requiresPointerCommit) beginRetouchTransaction();\n      addRetouchOperation({ ...opData, id });\n`,
-  `      const id = \`retouch-\${Date.now().toString(36)}-\${Math.random().toString(36).slice(2, 8)}\`;\n      // Adding/arming a pointer tool is a normal document mutation. The brush\n      // transaction begins only on the first pointer-down so an unused tool can\n      // never strand the canvas in proxy-preview mode.\n      addRetouchOperation({ ...opData, id });\n`,
-);
-replaceExact(
-  panel,
-  `    [beginRetouchTransaction, commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]\n`,
-  `    [commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]\n`,
-);
-replaceExact(
-  panel,
-  "            data-testid={`retouch-add-${tool.label.toLowerCase().replace(/[^a-z]/g, '-')}`}\n",
-  "            data-testid={`retouch-add-${tool.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}\n",
+  '    [beginRetouchTransaction, commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]',
+  '    [commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]',
 );
 
 const engine = 'src/features/image-editor/retouch/retouchEngine.ts';
-replaceExact(
+replaceOnceIfNeeded(
   engine,
-  '          outData[i + 3] = 255;\n',
-  '          outData[i + 3] = result.data[i + 3];\n',
-);
-replaceExact(
-  engine,
-  `          const existingAlpha = mask.data[i + 3] / 255;\n          const newAlpha = localMask.data[i + 3] / 255;\n          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);\n`,
-  `          const existingAlpha = mask.data[i + 3] / 255;\n          const newAlpha = localMask.data[i + 3] / 255;\n          blendedMaskData[i + 3] = Math.round(existingAlpha * newAlpha * 255);\n`,
-);
-// The same additive-mask block exists once more in dodge/burn after the first replacement.
-replaceExact(
-  engine,
-  `          const existingAlpha = mask.data[i + 3] / 255;\n          const newAlpha = localMask.data[i + 3] / 255;\n          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);\n`,
-  `          const existingAlpha = mask.data[i + 3] / 255;\n          const newAlpha = localMask.data[i + 3] / 255;\n          blendedMaskData[i + 3] = Math.round(existingAlpha * newAlpha * 255);\n`,
+  '          outData[i + 3] = 255;',
+  '          outData[i + 3] = result.data[i + 3];',
 );
 
-write('src/features/image-studio/components/imageStudioCanvasInteraction.ts', `import type { ImageLayer } from '../../../core/image-studio/document/schema';
+const additiveMask = [
+  '          const existingAlpha = mask.data[i + 3] / 255;',
+  '          const newAlpha = localMask.data[i + 3] / 255;',
+  '          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);',
+].join('\n');
+const intersectMask = [
+  '          const existingAlpha = mask.data[i + 3] / 255;',
+  '          const newAlpha = localMask.data[i + 3] / 255;',
+  '          blendedMaskData[i + 3] = Math.round(existingAlpha * newAlpha * 255);',
+].join('\n');
+replaceCountIfNeeded(engine, additiveMask, intersectMask, 2);
+
+const helper = `import type { ImageLayer } from '../../../core/image-studio/document/schema';
 
 export type StrokeRetouchType =
   | 'geometry-warp'
@@ -154,9 +190,10 @@ export function findTopmostVisibleLayerAtPoint(
   }
   return null;
 }
-`);
+`;
+write('src/features/image-studio/components/imageStudioCanvasInteraction.ts', helper);
 
-write('tests/unit/retouch-phase3-canvas-targeting.test.ts', `import type { ImageLayer } from '../../src/core/image-studio/document/schema';
+const targetingTests = `import type { ImageLayer } from '../../src/core/image-studio/document/schema';
 import {
   clientPointToCanvasDocument,
   findTopmostVisibleLayerAtPoint,
@@ -211,13 +248,12 @@ describe('Phase 3 canvas retouch targeting', () => {
     expect(findTopmostVisibleLayerAtPoint([layer('translated', true, 600, 600)], { x: 100, y: 100 }, 200, 200)).toBeNull();
   });
 });
-`);
+`;
+write('tests/unit/retouch-phase3-canvas-targeting.test.ts', targetingTests);
 
-write('tests/unit/retouch-phase3-integration.test.ts', `/** Phase 3 runtime/pixel contracts for the advanced portrait operations. */
+const integrationTests = `/** Phase 3 runtime/pixel contracts for advanced portrait operations. */
 
-import {
-  renderRetouchPipeline,
-} from '../../src/features/image-editor/retouch/retouchEngine';
+import { renderRetouchPipeline } from '../../src/features/image-editor/retouch/retouchEngine';
 import type {
   GeometryWarpOperation,
   MakeupGlowOperation,
@@ -279,7 +315,7 @@ describe('Phase 3 advanced portrait contracts', () => {
     for (let i = 3; i < result.data.length; i += 4) expect(result.data[i]).toBe(73);
   });
 
-  test('geometry-warp changes a non-uniform image deterministically while preserving dimensions', async () => {
+  test('geometry-warp changes non-uniform pixels deterministically and preserves dimensions', async () => {
     const source = gradientBuffer();
     const op: GeometryWarpOperation = {
       id: 'test-geo', type: 'geometry-warp', enabled: true, createdAt: 1, mode: 'push', opacity: 1,
@@ -301,7 +337,7 @@ describe('Phase 3 advanced portrait contracts', () => {
     expect(result.height).toBe(source.height);
   });
 
-  test('manual dodge/burn intersects its local brush with a referenced zero mask', async () => {
+  test('manual dodge/burn intersects its brush with a referenced zero mask', async () => {
     const source = makeBuffer(8, 8, [110, 120, 130]);
     const mask = zeroMask('zero-mask', 8, 8);
     const op: ManualDodgeBurnOperation = { id: 'db', type: 'manual-dodge-burn', enabled: true, createdAt: 1, mode: 'dodge', strength: 1, center: { x: 4, y: 4 }, radius: 3, opacity: 1, maskId: mask.id };
@@ -309,7 +345,7 @@ describe('Phase 3 advanced portrait contracts', () => {
     expect(Array.from(result.data)).toEqual(Array.from(source.data));
   });
 
-  test('manual smooth intersects its local brush with a referenced zero mask', async () => {
+  test('manual smooth intersects its brush with a referenced zero mask', async () => {
     const source = gradientBuffer(8, 8);
     const mask = zeroMask('zero-smooth', 8, 8);
     const op: ManualSmoothOperation = { id: 'sm', type: 'manual-smooth', enabled: true, createdAt: 1, strength: 1, texturePreserve: 0.5, center: { x: 4, y: 4 }, radius: 3, opacity: 1, maskId: mask.id };
@@ -326,7 +362,7 @@ describe('Phase 3 advanced portrait contracts', () => {
     expect(hashBytes(result.data)).toBe(hashBytes(enabledOnly.data));
   });
 
-  test('new operation records survive JSON persistence round-trip exactly', () => {
+  test('new operation records survive persistence serialization exactly', () => {
     const op: GeometryWarpOperation = {
       id: 'persist-geo', type: 'geometry-warp', enabled: true, createdAt: 42, mode: 'push', opacity: 0.75,
       strokes: [{ id: 'stroke-a', x: 4, y: 5, radius: 12, dx: 2, dy: -1, strength: 0.6, mode: 'push' }],
@@ -335,6 +371,7 @@ describe('Phase 3 advanced portrait contracts', () => {
     expect(structuredClone(op)).toEqual(op);
   });
 });
-`);
+`;
+write('tests/unit/retouch-phase3-integration.test.ts', integrationTests);
 
 console.log('Phase 3A production repair prepared.');

@@ -83,7 +83,58 @@ export function documentRetouchOpToEngineOp(record: RetouchOperationRecord): Ret
       return {
         ...base,
         type: 'teeth-whitening',
+        strength: (record.strength as number) ?? 0.5,
+      };
+    case 'makeup-tint':
+      return {
+        ...base,
+        type: 'makeup-tint',
+        color: (record.color as string) ?? '#ff6699',
+        strength: (record.strength as number) ?? 0.5,
+        blendMode: (record.blendMode as 'normal' | 'soft-light' | 'color' | 'luminosity') ?? 'normal',
+      };
+    case 'makeup-glow':
+      return {
+        ...base,
+        type: 'makeup-glow',
+        strength: (record.strength as number) ?? 0.5,
+        tintColor: (record.tintColor as string) ?? undefined,
+      };
+    case 'geometry-warp':
+      return {
+        ...base,
+        type: 'geometry-warp',
+        mode: (record.mode as 'push' | 'pinch' | 'expand') ?? 'expand',
+        strokes: (record.strokes as Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }>) ?? [],
+        freezeMaskId: (record.freezeMaskId as string | null) ?? null,
+      };
+    case 'manual-healing':
+      return {
+        ...base,
+        type: 'manual-healing',
+        position: record.position ?? { x: 0, y: 0 },
+        radius: record.radius ?? 8,
         strength: record.strength ?? 0.5,
+        feather: record.feather ?? 0.75,
+        source: record.source,
+      };
+    case 'manual-smooth':
+      return {
+        ...base,
+        type: 'manual-smooth',
+        strength: (record.strength as number) ?? 0.5,
+        texturePreserve: (record.texturePreserve as number) ?? 0.76,
+        center: record.center ?? { x: 0, y: 0 },
+        radius: record.radius ?? 32,
+      };
+    case 'manual-dodge-burn':
+      return {
+        ...base,
+        type: 'manual-dodge-burn',
+        mode: (record.mode as 'dodge' | 'burn') ?? 'dodge',
+        strength: (record.strength as number) ?? 0.5,
+        center: record.center ?? { x: 0, y: 0 },
+        radius: record.radius ?? 32,
       };
     default:
       return base as RetouchOperation;

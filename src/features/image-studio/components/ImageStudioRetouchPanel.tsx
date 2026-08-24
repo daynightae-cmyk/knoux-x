@@ -31,8 +31,12 @@ const RETOUCH_TOOLS_REGISTRY: ToolDef[] = [
   { type: 'adjustment', label: 'Levels', category: 'adjustments', defaults: { kind: 'levels' as AdjustmentType, parameters: { inputBlack: 0, inputWhite: 1, gamma: 1, outputBlack: 0, outputWhite: 1 } } },
   { type: 'adjustment', label: 'Hue / Saturation', category: 'adjustments', defaults: { kind: 'hue-saturation' as AdjustmentType, parameters: { hue: 0, saturation: 0.5, lightness: 0.5 } } },
   { type: 'adjustment', label: 'Vibrance', category: 'adjustments', defaults: { kind: 'vibrance' as AdjustmentType, parameters: { vibrance: 0 } } },
-  { type: 'adjustment', label: 'Temperature / Tint', category: 'adjustments', defaults: { kind: 'temperature-tint' as AdjustmentType, parameters: { temperature: 0, tint: 0 } } },
-  { type: 'adjustment', label: 'Shadows / Highlights', category: 'adjustments', defaults: { kind: 'shadows-highlights' as AdjustmentType, parameters: { shadows: 0, highlights: 0 } } },
+  { type: 'makeup-tint', label: 'Makeup Tint', category: 'portrait', defaults: { color: '#ff6699', strength: 0.5, blendMode: 'normal', opacity: 1 } },
+  { type: 'makeup-glow', label: 'Makeup Glow', category: 'portrait', defaults: { strength: 0.5, tintColor: '#ffd6a5', opacity: 1 } },
+  { type: 'geometry-warp', label: 'Geometry Warp', category: 'portrait', defaults: { mode: 'expand', strokes: [], freezeMaskId: null, opacity: 1 } },
+  { type: 'manual-healing', label: 'Manual Heal', category: 'portrait', defaults: { position: { x: 0, y: 0 }, radius: 8, strength: 0.5, feather: 0.75, opacity: 1 } },
+  { type: 'manual-smooth', label: 'Manual Smooth', category: 'portrait', defaults: { strength: 0.5, texturePreserve: 0.76, center: { x: 0, y: 0 }, radius: 32, opacity: 1 } },
+  { type: 'manual-dodge-burn', label: 'Dodge / Burn', category: 'portrait', defaults: { mode: 'dodge', strength: 0.5, center: { x: 0, y: 0 }, radius: 32, opacity: 1 } },
   { type: 'adjustment', label: 'Black & White', category: 'adjustments', defaults: { kind: 'black-white' as AdjustmentType, parameters: { red: 0.4, green: 0.4, blue: 0.2 } } },
   { type: 'adjustment', label: 'Gamma', category: 'adjustments', defaults: { kind: 'gamma' as AdjustmentType, parameters: { gamma: 1 } } },
   { type: 'adjustment', label: 'Invert', category: 'adjustments', defaults: { kind: 'invert' as AdjustmentType, parameters: {} } },
@@ -312,6 +316,56 @@ function OperationEditor({
   onDragEnd?: () => void;
 }) {
   switch (op.type) {
+    case 'makeup-tint': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Strength" value={(op.strength as number) ?? 0.5} min={0} max={1} step={0.01} onChange={(v) => onPatch({ strength: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
+    case 'makeup-glow': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Strength" value={(op.strength as number) ?? 0.5} min={0} max={1} step={0.01} onChange={(v) => onPatch({ strength: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
+    case 'geometry-warp': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
+    case 'manual-healing': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Strength" value={(op.strength as number) ?? 0.5} min={0} max={1} step={0.01} onChange={(v) => onPatch({ strength: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Radius" value={(op.radius as number) ?? 8} min={1} max={100} step={1} onChange={(v) => onPatch({ radius: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
+    case 'manual-smooth': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Strength" value={(op.strength as number) ?? 0.5} min={0} max={1} step={0.01} onChange={(v) => onPatch({ strength: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Radius" value={(op.radius as number) ?? 32} min={1} max={200} step={1} onChange={(v) => onPatch({ radius: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
+    case 'manual-dodge-burn': {
+      return (
+        <div className="retouch-op-editor">
+          <SliderField label="Strength" value={(op.strength as number) ?? 0.5} min={0} max={1} step={0.01} onChange={(v) => onPatch({ strength: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Radius" value={(op.radius as number) ?? 32} min={1} max={200} step={1} onChange={(v) => onPatch({ radius: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        </div>
+      );
+    }
     case 'spot-healing':
       return <SpotHealEditor op={op} onPatch={onPatch} onDragStart={onDragStart} onDragEnd={onDragEnd} />;
     case 'clone':

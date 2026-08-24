@@ -31,13 +31,18 @@ import type { AdjustmentType } from '../../../core/image-studio/document/schema'
 import type { RgbaBuffer } from '../../../core/image-studio/raster/compositor';
 import {
   blemishRemoval,
+  cloneImageData,
+  colorAdjust,
+  cosmeticTint,
   createGradientMask,
   eyeEnhancement,
   guidedSkinSmooth,
   patchHeal,
+  portraitGlow,
   teethWhitening,
   type PatchHealRequest,
 } from '../beauty/beautyOperations';
+import { liquifyMeshWarp } from '../retouch/liquify/liquifyMesh';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain model - discriminated, strongly typed, serializable
@@ -50,7 +55,14 @@ export type RetouchOperationType =
   | 'brush-mask'
   | 'skin-smoothing'
   | 'eye-enhancement'
-  | 'teeth-whitening';
+  | 'teeth-whitening'
+  // Phase 3 portrait / makeup / body architecture — real pixel operations
+  | 'makeup-tint'
+  | 'makeup-glow'
+  | 'geometry-warp'
+  | 'manual-healing'
+  | 'manual-smooth'
+  | 'manual-dodge-burn';
 
 export interface BaseRetouchOperation {
   id: string;
@@ -122,6 +134,64 @@ export interface TeethWhiteningOperation extends BaseRetouchOperation {
   maskId?: string | null;
 }
 
+// Phase 3 portrait / makeup / manual retouch extensions
+export interface MakeupTintOperation extends BaseRetouchOperation {
+  type: 'makeup-tint';
+  color: string;
+  strength: number;
+  blendMode?: 'normal' | 'soft-light' | 'color' | 'luminosity';
+  opacity?: number;
+  maskId?: string | null;
+}
+
+export interface MakeupGlowOperation extends BaseRetouchOperation {
+  type: 'makeup-glow';
+  strength: number;
+  tintColor?: string;
+  opacity?: number;
+  maskId?: string | null;
+}
+
+export interface GeometryWarpOperation extends BaseRetouchOperation {
+  type: 'geometry-warp';
+  mode: 'push' | 'pinch' | 'expand';
+  strokes?: Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }>; // serialized stroke data
+  freezeMaskId?: string | null;
+  opacity?: number;
+  maskId?: string | null;
+}
+
+export interface ManualHealingOperation extends BaseRetouchOperation {
+  type: 'manual-healing';
+  position: { x: number; y: number };
+  radius: number;
+  strength: number;
+  feather?: number;
+  source?: { x: number; y: number };
+  opacity?: number;
+  maskId?: string | null;
+}
+
+export interface ManualSmoothOperation extends BaseRetouchOperation {
+  type: 'manual-smooth';
+  strength: number;
+  texturePreserve?: number;
+  center?: { x: number; y: number };
+  radius?: number;
+  opacity?: number;
+  maskId?: string | null;
+}
+
+export interface ManualDodgeBurnOperation extends BaseRetouchOperation {
+  type: 'manual-dodge-burn';
+  mode: 'dodge' | 'burn';
+  strength: number;
+  center?: { x: number; y: number };
+  radius?: number;
+  opacity?: number;
+  maskId?: string | null;
+}
+
 export type RetouchOperation =
   | AdjustmentRetouchOperation
   | SpotHealingOperation
@@ -129,7 +199,13 @@ export type RetouchOperation =
   | BrushMaskOperation
   | SkinSmoothingOperation
   | EyeEnhancementOperation
-  | TeethWhiteningOperation;
+  | TeethWhiteningOperation
+  | MakeupTintOperation
+  | MakeupGlowOperation
+  | GeometryWarpOperation
+  | ManualHealingOperation
+  | ManualSmoothOperation
+  | ManualDodgeBurnOperation;
 
 export type FutureRetouchOperation = BaseRetouchOperation & {
   type: string;
@@ -379,6 +455,112 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
     case 'teeth-whitening': {
       const t = op as TeethWhiteningOperation;
       result = teethWhitening(imageData, t.strength, mask);
+      break;
+    }
+    case 'makeup-tint': {
+      const m = op as MakeupTintOperation;
+      result = cosmeticTint(imageData, m.color, m.strength, mask);
+      break;
+    }
+    case 'makeup-glow': {
+      const m = op as MakeupGlowOperation;
+      result = portraitGlow(imageData, m.strength, mask);
+      // Optional tint blend for gloss/shine effect — blend glow over source with tint
+      if (m.tintColor) {
+        const tinted = cosmeticTint(imageData, m.tintColor, m.strength * 0.4, mask);
+        // Blend glow + tint using opacity-aware blend
+        const outData = new Uint8ClampedArray(imageData.width * imageData.height * 4);
+        for (let i = 0; i < outData.length; i += 4) {
+          const alpha = (mask ? (mask.data[i + 3] / 255) : 1) * (m.opacity ?? 1);
+          const blendFactor = alpha * 0.6;
+          outData[i] = Math.round(result.data[i] * (1 - blendFactor) + tinted.data[i] * blendFactor);
+          outData[i + 1] = Math.round(result.data[i + 1] * (1 - blendFactor) + tinted.data[i + 1] * blendFactor);
+          outData[i + 2] = Math.round(result.data[i + 2] * (1 - blendFactor) + tinted.data[i + 2] * blendFactor);
+          outData[i + 3] = 255;
+        }
+        result = new ImageData(outData, imageData.width, imageData.height);
+      }
+      break;
+    }
+    case 'geometry-warp': {
+      const g = op as GeometryWarpOperation;
+      // Use existing liquify mesh with serialized strokes; freeze mask protects important regions
+      const freezeMask = g.freezeMaskId ? getMaskImageData(masks.get(g.freezeMaskId)) : undefined;
+      const strokes = (g.strokes ?? []).map((s: { id?: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }) => ({
+        id: s.id ?? `stroke-${Math.random()}`,
+        mode: s.mode,
+        x: s.x,
+        y: s.y,
+        radius: s.radius,
+        dx: s.dx,
+        dy: s.dy,
+        strength: s.strength,
+      }));
+      if (strokes.length > 0) {
+        result = liquifyMeshWarp(imageData, strokes, freezeMask);
+      } else {
+        result = cloneImageData(imageData);
+      }
+      break;
+    }
+    case 'manual-healing': {
+      const m = op as ManualHealingOperation;
+      // Delegate to existing patch heal / blemish removal depending on whether source is provided
+      if (m.source) {
+        const req = {
+          targetX: m.position.x,
+          targetY: m.position.y,
+          sourceX: m.source.x,
+          sourceY: m.source.y,
+          radius: m.radius,
+          feather: m.feather,
+        };
+        result = patchHeal(imageData, req, mask);
+      } else {
+        result = blemishRemoval(imageData, m.radius, 10 - m.strength * 10, mask);
+      }
+      break;
+    }
+    case 'manual-smooth': {
+      const m = op as ManualSmoothOperation;
+      // Center/radius define a localized smooth area; fall back to full image if not specified
+      const cx = m.center?.x ?? imageData.width / 2;
+      const cy = m.center?.y ?? imageData.height / 2;
+      const r = m.radius ?? Math.min(imageData.width, imageData.height) / 2;
+      // Create a localized gradient mask centered at the smooth region
+      const localMask = createGradientMask(imageData.width, imageData.height, cx, cy, r, r * 0.5);
+      // Blend the mask with any existing mask using the alpha channel
+      const blendedMaskData = new Uint8ClampedArray(localMask.data);
+      if (mask) {
+        for (let i = 0; i < blendedMaskData.length; i += 4) {
+          const existingAlpha = mask.data[i + 3] / 255;
+          const newAlpha = localMask.data[i + 3] / 255;
+          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);
+        }
+      }
+      const blendedMaskImage = new ImageData(blendedMaskData, imageData.width, imageData.height);
+      result = guidedSkinSmooth(imageData, m.strength, m.texturePreserve ?? 0.76, blendedMaskImage);
+      break;
+    }
+    case 'manual-dodge-burn': {
+      const d = op as ManualDodgeBurnOperation;
+      // Use colorAdjust for pixel-level dodge (brightness) / burn (contrast + darken)
+      const cx = d.center?.x ?? imageData.width / 2;
+      const cy = d.center?.y ?? imageData.height / 2;
+      const r = d.radius ?? Math.min(imageData.width, imageData.height) / 3;
+      const localMask = createGradientMask(imageData.width, imageData.height, cx, cy, r, r * 0.5);
+      const blendedMaskData = new Uint8ClampedArray(localMask.data);
+      if (mask) {
+        for (let i = 0; i < blendedMaskData.length; i += 4) {
+          const existingAlpha = mask.data[i + 3] / 255;
+          const newAlpha = localMask.data[i + 3] / 255;
+          blendedMaskData[i + 3] = Math.round(Math.min(1, existingAlpha + newAlpha) * 255);
+        }
+      }
+      const blendedMaskImage = new ImageData(blendedMaskData, imageData.width, imageData.height);
+      const brightness = d.mode === 'dodge' ? d.strength * 0.3 : -d.strength * 0.15;
+      const contrast = d.mode === 'dodge' ? d.strength * 0.2 : d.strength * 0.3;
+      result = colorAdjust(imageData, 0, contrast, brightness, blendedMaskImage);
       break;
     }
     default:

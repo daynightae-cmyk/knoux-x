@@ -75,3 +75,5 @@ jobs:
           git diff --cached --check
           git commit -m "fix(image-studio): preserve retouch target across brush strokes"
           git push origin HEAD:wip/phase3a-runtime-recovery
+
+# trigger: 2026-08-24

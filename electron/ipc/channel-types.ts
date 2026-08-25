@@ -272,6 +272,7 @@ export interface InvokeArgumentMap {
   'image-studio:remove-job': [jobId: string];
   'image-studio:import-result': [jobId: string, accept: boolean];
   'image-studio:get-face-model': [];
+  'image-studio:get-pose-model': [];
   'image-studio:import-retouch-asset': [filePath: string, profile?: 'low' | 'standard' | 'high'];
   'image-studio:read-retouch-proxy': [proxyRef: string];
   'image-studio:release-retouch-asset': [assetRef: string];
@@ -333,6 +334,7 @@ export interface InvokeResultMap {
   // Image Studio
   'image-studio:create': object; 'image-studio:open': object | null; 'image-studio:save': string | null; 'image-studio:save-as': string | null; 'image-studio:close': VoidResult; 'image-studio:get-current': object | null; 'image-studio:sync-retouch': object; 'image-studio:recent': string[]; 'image-studio:migrate': object; 'image-studio:validate': object; 'image-studio:recover': object; 'image-studio:create-layer': object; 'image-studio:delete-layer': boolean; 'image-studio:duplicate-layer': object; 'image-studio:rename-layer': boolean; 'image-studio:reorder-layers': boolean; 'image-studio:group-layers': object; 'image-studio:ungroup-layers': boolean; 'image-studio:set-visibility': boolean; 'image-studio:set-locked': boolean; 'image-studio:set-opacity': boolean; 'image-studio:set-blend-mode': boolean; 'image-studio:set-transform': boolean; 'image-studio:add-mask': boolean; 'image-studio:update-mask': boolean; 'image-studio:remove-mask': boolean; 'image-studio:apply-adjustment': boolean; 'image-studio:undo': boolean; 'image-studio:redo': boolean; 'image-studio:can-undo': boolean; 'image-studio:can-redo': boolean; 'image-studio:create-checkpoint': boolean; 'image-studio:import-image': object; 'image-studio:import-as-layer': object; 'image-studio:export-document': object; 'image-studio:export-flattened': object; 'image-studio:export-layer': object; 'image-studio:inspect-format': object; 'image-studio:autosave-status': object; 'image-studio:trigger-autosave': string; 'image-studio:recovery-sessions': object[]; 'image-studio:restore-recovery': object; 'image-studio:discard-recovery': boolean; 'image-studio:list-providers': object[]; 'image-studio:provider-status': object; 'image-studio:list-models': object[]; 'image-studio:refresh-models': object[]; 'image-studio:validate-credential': object; 'image-studio:set-credential': object; 'image-studio:remove-credential': boolean; 'image-studio:create-job': string; 'image-studio:cancel-job': boolean; 'image-studio:retry-job': string; 'image-studio:get-job': object | null; 'image-studio:list-jobs': object[]; 'image-studio:remove-job': boolean;   'image-studio:import-result': object;
   'image-studio:get-face-model': object;
+  'image-studio:get-pose-model': object;
   'image-studio:import-retouch-asset': object;
   'image-studio:read-retouch-proxy': Uint8Array | null;
   'image-studio:release-retouch-asset': boolean;

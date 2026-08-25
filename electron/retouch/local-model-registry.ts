@@ -1,4 +1,4 @@
-export type RetouchModelCapability = 'face-landmarks' | 'portrait-segmentation' | 'super-resolution';
+export type RetouchModelCapability = 'face-landmarks' | 'body-landmarks' | 'portrait-segmentation' | 'super-resolution';
 
 export interface LocalRetouchModelManifest {
   id: string;
@@ -30,6 +30,18 @@ export const LOCAL_RETOUCH_MODELS: readonly LocalRetouchModelManifest[] = Object
     sizeBytes: 3758596,
     downloadUrl: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
     sha256: '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff',
+  },
+  {
+    id: 'mediapipe-pose-landmarker-full',
+    displayName: 'MediaPipe Pose Landmarker (Full)',
+    version: 'latest-float16',
+    capability: 'body-landmarks',
+    runtime: 'mediapipe',
+    license: 'Apache-2.0 (MediaPipe model distribution).',
+    commercialUse: 'allowed',
+    sizeBytes: 9398198,
+    downloadUrl: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
+    sha256: '4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad',
   },
 ]);
 

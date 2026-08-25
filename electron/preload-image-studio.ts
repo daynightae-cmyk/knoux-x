@@ -142,6 +142,8 @@ const imageStudioAPI = {
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, jobId, accept),
   getVerifiedFaceModel: (): Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL),
+  getVerifiedPoseModel: (): Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }> =>
+    invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_GET_POSE_MODEL),
   importRetouchAsset: (filePath: string, profile?: 'low' | 'standard' | 'high'): Promise<object> =>
     invokeDesktop(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RETOUCH_ASSET, filePath, profile),
   readRetouchProxy: (proxyRef: string): Promise<Uint8Array | null> =>

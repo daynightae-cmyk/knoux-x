@@ -146,7 +146,11 @@ export class LiquifyMesh {
           if (distance >= influence) continue;
 
           if (freezeMask) {
-            const nodeIndex = (clamp(nodeY, 0, this.height - 1) * this.width + clamp(nodeX, 0, this.width - 1)) * 4;
+            const imageX = clamp(nodeX, 0, this.width - 1);
+            const imageY = clamp(nodeY, 0, this.height - 1);
+            const maskX = Math.round(imageX * Math.max(0, freezeMask.width - 1) / Math.max(1, this.width - 1));
+            const maskY = Math.round(imageY * Math.max(0, freezeMask.height - 1) / Math.max(1, this.height - 1));
+            const nodeIndex = (maskY * freezeMask.width + maskX) * 4;
             if (freezeMask.data[nodeIndex + 3] > 127) continue;
           }
 

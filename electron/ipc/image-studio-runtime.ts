@@ -22,6 +22,7 @@ import {
   type ImageStudioRuntimeStores,
 } from '../image-studio/image-studio-runtime-support';
 import { readVerifiedFaceModel } from '../retouch/face-model-service';
+import { readVerifiedPoseModel } from '../retouch/pose-model-service';
 import { RetouchAssetStore, type RetouchQualityProfile } from '../retouch/retouch-asset-store';
 
 import {
@@ -530,6 +531,10 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL,
     trusted(IPC_INVOKE.IMAGE_STUDIO_GET_FACE_MODEL, async () => readVerifiedFaceModel())
+  );
+  ipc.handle(
+    IPC_INVOKE.IMAGE_STUDIO_GET_POSE_MODEL,
+    trusted(IPC_INVOKE.IMAGE_STUDIO_GET_POSE_MODEL, async () => readVerifiedPoseModel())
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_IMPORT_RETOUCH_ASSET,

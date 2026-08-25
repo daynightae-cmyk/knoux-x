@@ -2,12 +2,14 @@ import type { ImageLayer } from '../../../core/image-studio/document/schema';
 
 export type StrokeRetouchType =
   | 'geometry-warp'
+  | 'body-reshape'
   | 'manual-smooth'
   | 'manual-healing'
   | 'manual-dodge-burn';
 
 const STROKE_RETOUCH_TYPES: ReadonlySet<StrokeRetouchType> = new Set([
   'geometry-warp',
+  'body-reshape',
   'manual-smooth',
   'manual-healing',
   'manual-dodge-burn',

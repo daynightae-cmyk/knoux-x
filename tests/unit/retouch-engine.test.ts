@@ -318,3 +318,130 @@ describe('retouch engine - preview and stale guard', () => {
     expect(exported.width).toBe(source.width);
   });
 });
+
+
+describe('retouch engine - Manual Heal initialization', () => {
+  it('keeps an armed Manual Heal operation with no source byte-identical and immutable', async () => {
+    const source = makeBuffer(8, 8, [100, 100, 100]);
+    source.data[0] = 220;
+    source.data[1] = 20;
+    source.data[2] = 10;
+    const sourceBefore = new Uint8ClampedArray(source.data);
+    const result = await renderRetouchPipeline({
+      source,
+      operations: [{
+        type: 'manual-healing',
+        enabled: true,
+        position: { x: 0, y: 0 },
+        radius: 8,
+        strength: 0.5,
+        feather: 0.75,
+      } as any],
+      masks: new Map(),
+      quality: 'final',
+    });
+
+    expect(result.width).toBe(source.width);
+    expect(result.height).toBe(source.height);
+    expect(buffersEqual(result, { width: source.width, height: source.height, data: sourceBefore })).toBe(true);
+    expect(buffersEqual(source, { width: source.width, height: source.height, data: sourceBefore })).toBe(true);
+  });
+
+  it('keeps Manual Heal byte-identical when its source is invalid rather than running a fallback', async () => {
+    const source = makeBuffer(8, 8, [100, 100, 100]);
+    source.data[0] = 220;
+    source.data[1] = 20;
+    source.data[2] = 10;
+    const sourceBefore = new Uint8ClampedArray(source.data);
+    const result = await renderRetouchPipeline({
+      source,
+      operations: [{
+        type: 'manual-healing',
+        enabled: true,
+        position: { x: 3, y: 3 },
+        source: { x: -1, y: 3 },
+        radius: 4,
+        strength: 1,
+        feather: 0.75,
+      } as any],
+      masks: new Map(),
+      quality: 'final',
+    });
+
+    expect(buffersEqual(result, { width: source.width, height: source.height, data: sourceBefore })).toBe(true);
+    expect(buffersEqual(source, { width: source.width, height: source.height, data: sourceBefore })).toBe(true);
+  });
+
+  it('patch-heals a local region only after a real source and target are initialized', async () => {
+    const source = makeBuffer(8, 8, [100, 100, 100]);
+    const sourceBefore = new Uint8ClampedArray(source.data);
+    const sourceIndex = (1 * 8 + 1) * 4;
+    const targetIndex = (6 * 8 + 6) * 4;
+    source.data[sourceIndex] = 240;
+    source.data[sourceIndex + 1] = 30;
+    source.data[sourceIndex + 2] = 20;
+    source.data[targetIndex] = 10;
+    source.data[targetIndex + 1] = 40;
+    source.data[targetIndex + 2] = 220;
+    const immutableInput = new Uint8ClampedArray(source.data);
+
+    const result = await renderRetouchPipeline({
+      source,
+      operations: [{
+        type: 'manual-healing',
+        enabled: true,
+        position: { x: 6, y: 6 },
+        source: { x: 1, y: 1 },
+        radius: 1,
+        strength: 0.5,
+        feather: 1,
+      } as any],
+      masks: new Map(),
+      quality: 'final',
+    });
+
+    expect(result.width).toBe(8);
+    expect(result.height).toBe(8);
+    expect(result.data[targetIndex]).not.toBe(immutableInput[targetIndex]);
+    expect(buffersEqual(source, { width: 8, height: 8, data: immutableInput })).toBe(true);
+    expect(sourceBefore.length).toBe(source.data.length);
+  });
+});
+
+
+describe('retouch engine - Manual tool arming', () => {
+  it.each([
+    { type: 'manual-smooth', strength: 0.5, radius: 32 },
+    { type: 'manual-dodge-burn', mode: 'dodge', strength: 0.5, radius: 32 },
+  ])('keeps an armed $type operation byte-identical until a canvas gesture initializes its center', async (op: any) => {
+    const source = makeBuffer(8, 8, [100, 100, 100]);
+    source.data[0] = 220;
+    source.data[1] = 20;
+    source.data[2] = 10;
+    const before = new Uint8ClampedArray(source.data);
+
+    const result = await renderRetouchPipeline({
+      source,
+      operations: [{ ...op, enabled: true }],
+      masks: new Map(),
+      quality: 'final',
+    });
+
+    expect(buffersEqual(result, { width: source.width, height: source.height, data: before })).toBe(true);
+    expect(buffersEqual(source, { width: source.width, height: source.height, data: before })).toBe(true);
+  });
+});
+
+
+describe('retouch engine - Body Reshape', () => {
+  it('is byte-identical without resolved strokes and changes pixels only with explicit geometry', async () => {
+    const source = makeBuffer(32, 32, [60, 80, 120]);
+    for (let y = 8; y < 24; y += 1) for (let x = 8; x < 24; x += 1) source.data[(y * 32 + x) * 4] = 220;
+    const before = new Uint8ClampedArray(source.data);
+    const neutral = await renderRetouchPipeline({ source, operations: [{ id: 'body-neutral', type: 'body-reshape', enabled: true, createdAt: 1, analysisModelId: 'mediapipe-pose-landmarker-full', strokes: [] }], masks: new Map(), quality: 'final' });
+    expect(buffersEqual(neutral, { width: source.width, height: source.height, data: before })).toBe(true);
+    const warped = await renderRetouchPipeline({ source, operations: [{ id: 'body-waist', type: 'body-reshape', enabled: true, createdAt: 2, analysisModelId: 'mediapipe-pose-landmarker-full', strokes: [{ id: 'waist', mode: 'pinch', x: 16, y: 16, radius: 10, dx: 0, dy: 0, strength: 0.8 }] }], masks: new Map(), quality: 'final' });
+    expect(buffersEqual(warped, { width: source.width, height: source.height, data: before })).toBe(false);
+    expect(buffersEqual(source, { width: source.width, height: source.height, data: before })).toBe(true);
+  });
+});

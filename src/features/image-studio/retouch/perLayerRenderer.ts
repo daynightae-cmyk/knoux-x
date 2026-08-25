@@ -65,6 +65,16 @@ export async function getRetouchPreviewProxy(
     if (scaled.center) scaled.center = { x: scaled.center.x * scale, y: scaled.center.y * scale };
     if (typeof scaled.radius === 'number') scaled.radius = scaled.radius * scale;
     if (typeof scaled.feather === 'number') scaled.feather = scaled.feather * scale;
+    if (Array.isArray(scaled.strokes)) {
+      scaled.strokes = scaled.strokes.map((stroke) => ({
+        ...stroke,
+        x: typeof stroke.x === 'number' ? stroke.x * scale : stroke.x,
+        y: typeof stroke.y === 'number' ? stroke.y * scale : stroke.y,
+        radius: typeof stroke.radius === 'number' ? stroke.radius * scale : stroke.radius,
+        dx: typeof stroke.dx === 'number' ? stroke.dx * scale : stroke.dx,
+        dy: typeof stroke.dy === 'number' ? stroke.dy * scale : stroke.dy,
+      }));
+    }
     return scaled;
   });
   const scaledRetouch: RetouchDocumentState = {

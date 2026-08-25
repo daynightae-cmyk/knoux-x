@@ -60,6 +60,7 @@ export type RetouchOperationType =
   | 'makeup-tint'
   | 'makeup-glow'
   | 'geometry-warp'
+  | 'body-reshape'
   | 'manual-healing'
   | 'manual-smooth'
   | 'manual-dodge-burn';
@@ -161,6 +162,16 @@ export interface GeometryWarpOperation extends BaseRetouchOperation {
   maskId?: string | null;
 }
 
+export interface BodyReshapeOperation extends BaseRetouchOperation {
+  type: 'body-reshape';
+  /** Resolved, serializable strokes derived from real pose geometry in the UI. */
+  strokes: Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }>;
+  freezeMaskId?: string | null;
+  analysisModelId: string;
+  opacity?: number;
+  maskId?: string | null;
+}
+
 export interface ManualHealingOperation extends BaseRetouchOperation {
   type: 'manual-healing';
   position: { x: number; y: number };
@@ -203,6 +214,7 @@ export type RetouchOperation =
   | MakeupTintOperation
   | MakeupGlowOperation
   | GeometryWarpOperation
+  | BodyReshapeOperation
   | ManualHealingOperation
   | ManualSmoothOperation
   | ManualDodgeBurnOperation;
@@ -482,12 +494,13 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
       }
       break;
     }
-    case 'geometry-warp': {
-      const g = op as GeometryWarpOperation;
+    case 'geometry-warp':
+    case 'body-reshape': {
+      const g = op as GeometryWarpOperation | BodyReshapeOperation;
       // Use existing liquify mesh with serialized strokes; freeze mask protects important regions
       const freezeMask = g.freezeMaskId ? getMaskImageData(masks.get(g.freezeMaskId)) : undefined;
-      const strokes = (g.strokes ?? []).map((s: { id?: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }) => ({
-        id: s.id ?? `stroke-${Math.random()}`,
+      const strokes = (g.strokes ?? []).map((s: { id?: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }, index: number) => ({
+        id: s.id ?? `stroke-${index}`,
         mode: s.mode,
         x: s.x,
         y: s.y,
@@ -505,29 +518,52 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
     }
     case 'manual-healing': {
       const m = op as ManualHealingOperation;
-      // Delegate to existing patch heal / blemish removal depending on whether source is provided
-      if (m.source) {
-        const req = {
-          targetX: m.position.x,
-          targetY: m.position.y,
-          sourceX: m.source.x,
-          sourceY: m.source.y,
-          radius: m.radius,
-          feather: m.feather,
-        };
-        result = patchHeal(imageData, req, mask);
-      } else {
-        result = blemishRemoval(imageData, m.radius, 10 - m.strength * 10, mask);
+      // A newly armed Manual Heal operation intentionally has no source. It must be
+      // pixel-neutral until the first real canvas gesture establishes both points.
+      // In particular, never fall back to full-frame blemish removal here.
+      const validPoint = (point: { x: number; y: number } | undefined): point is { x: number; y: number } => {
+        if (!point) return false;
+        return Number.isFinite(point.x)
+          && Number.isFinite(point.y)
+          && point.x >= 0
+          && point.y >= 0
+          && point.x < imageData.width
+          && point.y < imageData.height;
+      };
+      const validRadius = Number.isFinite(m.radius) && m.radius > 0;
+      if (!validPoint(m.position) || !validPoint(m.source) || !validRadius) {
+        return buffer;
       }
+      const req: PatchHealRequest = {
+        targetX: m.position.x,
+        targetY: m.position.y,
+        sourceX: m.source.x,
+        sourceY: m.source.y,
+        radius: m.radius,
+        feather: m.feather,
+      };
+      result = patchHeal(imageData, req, mask);
       break;
     }
     case 'manual-smooth': {
       const m = op as ManualSmoothOperation;
-      // Center/radius define a localized smooth area; fall back to full image if not specified
-      const cx = m.center?.x ?? imageData.width / 2;
-      const cy = m.center?.y ?? imageData.height / 2;
-      const r = m.radius ?? Math.min(imageData.width, imageData.height) / 2;
-      // Create a localized gradient mask centered at the smooth region
+      if (!m.center
+        || !Number.isFinite(m.center.x)
+        || !Number.isFinite(m.center.y)
+        || m.center.x < 0
+        || m.center.y < 0
+        || m.center.x >= imageData.width
+        || m.center.y >= imageData.height
+        || !Number.isFinite(m.radius)
+        || (m.radius ?? 0) <= 0
+        || !Number.isFinite(m.strength)
+        || m.strength <= 0) {
+        return buffer;
+      }
+      // A manual tool only becomes active after its first real canvas gesture.
+      const cx = m.center.x;
+      const cy = m.center.y;
+      const r = m.radius as number;
       const localMask = createGradientMask(imageData.width, imageData.height, cx, cy, r, r * 0.5);
       // Blend the mask with any existing mask using the alpha channel
       const blendedMaskData = new Uint8ClampedArray(localMask.data);
@@ -544,10 +580,23 @@ function applyOperation(buffer: RgbaBuffer, op: RetouchOperation, masks: Map<str
     }
     case 'manual-dodge-burn': {
       const d = op as ManualDodgeBurnOperation;
-      // Use colorAdjust for pixel-level dodge (brightness) / burn (contrast + darken)
-      const cx = d.center?.x ?? imageData.width / 2;
-      const cy = d.center?.y ?? imageData.height / 2;
-      const r = d.radius ?? Math.min(imageData.width, imageData.height) / 3;
+      if (!d.center
+        || !Number.isFinite(d.center.x)
+        || !Number.isFinite(d.center.y)
+        || d.center.x < 0
+        || d.center.y < 0
+        || d.center.x >= imageData.width
+        || d.center.y >= imageData.height
+        || !Number.isFinite(d.radius)
+        || (d.radius ?? 0) <= 0
+        || !Number.isFinite(d.strength)
+        || d.strength <= 0) {
+        return buffer;
+      }
+      // A manual tool only becomes active after its first real canvas gesture.
+      const cx = d.center.x;
+      const cy = d.center.y;
+      const r = d.radius as number;
       const localMask = createGradientMask(imageData.width, imageData.height, cx, cy, r, r * 0.5);
       const blendedMaskData = new Uint8ClampedArray(localMask.data);
       if (mask) {

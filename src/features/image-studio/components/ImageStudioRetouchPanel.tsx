@@ -1,14 +1,20 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { NeonButton } from '../../../components/neon/NeonButton';
+import { NeonSelect } from '../../../components/neon/NeonSelect';
 import type { AdjustmentType, RetouchDocumentState, RetouchOperationRecord } from '../../../core/image-studio/document/schema';
+import { BodyAnalysisClient } from '../../image-editor/retouch/bodyAnalysisClient';
+import type { BodyAnalysisResult, BodySegmentationMask, DerivedBodyGeometry, DetectedBody } from '../../image-editor/retouch/bodyAnalysisContract';
+import { BODY_ANALYSIS_MODEL_ID } from '../../image-editor/retouch/bodyAnalysisContract';
+import { bodyReshapeStrokes, EMPTY_BODY_RESHAPE_CONTROLS, type BodyReshapeControls } from '../../image-editor/retouch/bodyReshapeGeometry';
 import { useImageStudioStore } from '../store/imageStudioStore';
 
-type RetouchTool = 'healing' | 'portrait' | 'adjustments' | 'masks';
+type RetouchTool = 'healing' | 'portrait' | 'body' | 'adjustments' | 'masks';
 
 const RETOUCH_TOOLS: { id: RetouchTool; label: string }[] = [
   { id: 'healing', label: 'Healing' },
   { id: 'portrait', label: 'Portrait' },
+  { id: 'body', label: 'Body' },
   { id: 'adjustments', label: 'Adjustments' },
   { id: 'masks', label: 'Masks' },
 ];
@@ -35,8 +41,17 @@ const RETOUCH_TOOLS_REGISTRY: ToolDef[] = [
   { type: 'makeup-glow', label: 'Makeup Glow', category: 'portrait', defaults: { strength: 0.5, tintColor: '#ffd6a5', opacity: 1 } },
   { type: 'geometry-warp', label: 'Geometry Warp', category: 'portrait', defaults: { mode: 'expand', strokes: [], freezeMaskId: null, opacity: 1 } },
   { type: 'manual-healing', label: 'Manual Heal', category: 'portrait', defaults: { position: { x: 0, y: 0 }, radius: 8, strength: 0.5, feather: 0.75, opacity: 1 } },
-  { type: 'manual-smooth', label: 'Manual Smooth', category: 'portrait', defaults: { strength: 0.5, texturePreserve: 0.76, center: { x: 0, y: 0 }, radius: 32, opacity: 1 } },
-  { type: 'manual-dodge-burn', label: 'Dodge / Burn', category: 'portrait', defaults: { mode: 'dodge', strength: 0.5, center: { x: 0, y: 0 }, radius: 32, opacity: 1 } },
+  { type: 'manual-smooth', label: 'Manual Smooth', category: 'portrait', defaults: { strength: 0.5, texturePreserve: 0.76, radius: 32, opacity: 1 } },
+  { type: 'manual-dodge-burn', label: 'Dodge / Burn', category: 'portrait', defaults: { mode: 'dodge', strength: 0.5, radius: 32, opacity: 1 } },
+  { type: 'body-reshape', label: 'Body Slim', category: 'body', defaults: { bodyControl: 'overallSlim' } },
+  { type: 'body-reshape', label: 'Waist', category: 'body', defaults: { bodyControl: 'waist' } },
+  { type: 'body-reshape', label: 'Hips', category: 'body', defaults: { bodyControl: 'hips' } },
+  { type: 'body-reshape', label: 'Shoulders', category: 'body', defaults: { bodyControl: 'shoulders' } },
+  { type: 'body-reshape', label: 'Arm', category: 'body', defaults: { bodyControl: 'arms' } },
+  { type: 'body-reshape', label: 'Leg', category: 'body', defaults: { bodyControl: 'legs' } },
+  { type: 'body-reshape', label: 'Leg Length', category: 'body', defaults: { bodyControl: 'legLength' } },
+  { type: 'body-reshape', label: 'Torso Width', category: 'body', defaults: { bodyControl: 'torsoWidth' } },
+  { type: 'geometry-warp', label: 'Manual Body Warp', category: 'body', defaults: { mode: 'push', strokes: [], freezeMaskId: null, opacity: 1 } },
   { type: 'adjustment', label: 'Black & White', category: 'adjustments', defaults: { kind: 'black-white' as AdjustmentType, parameters: { red: 0.4, green: 0.4, blue: 0.2 } } },
   { type: 'adjustment', label: 'Gamma', category: 'adjustments', defaults: { kind: 'gamma' as AdjustmentType, parameters: { gamma: 1 } } },
   { type: 'adjustment', label: 'Invert', category: 'adjustments', defaults: { kind: 'invert' as AdjustmentType, parameters: {} } },
@@ -48,6 +63,51 @@ const RETOUCH_TOOLS_REGISTRY: ToolDef[] = [
   { type: 'adjustment', label: 'Vignette', category: 'adjustments', defaults: { kind: 'vignette' as AdjustmentType, parameters: { amount: 0.3, inner: 0.7 } } },
   { type: 'adjustment', label: 'Noise', category: 'adjustments', defaults: { kind: 'noise' as AdjustmentType, parameters: { amount: 5, seed: 0 } } },
 ];
+
+function bytesToDataUrl(bytes: Uint8Array | Uint8ClampedArray, mime: string): string {
+  let binary = '';
+  const batch = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += batch) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + batch)));
+  }
+  return `data:${mime};base64,${btoa(binary)}`;
+}
+
+function createBodyProtectionMask(
+  segmentation: BodySegmentationMask,
+  geometry: DerivedBodyGeometry,
+): string {
+  const data = new Uint8ClampedArray(segmentation.width * segmentation.height * 4);
+  for (let index = 0; index < segmentation.data.length; index += 1) {
+    const alpha = segmentation.data[index] > 127 ? 0 : 255;
+    const offset = index * 4;
+    data[offset + 3] = alpha;
+  }
+  const protect = (point: { x: number; y: number } | null | undefined, radius: number): void => {
+    if (!point) return;
+    const centerX = point.x * segmentation.width;
+    const centerY = point.y * segmentation.height;
+    const radiusPx = Math.max(2, radius * Math.max(segmentation.width, segmentation.height));
+    const minX = Math.max(0, Math.floor(centerX - radiusPx));
+    const maxX = Math.min(segmentation.width - 1, Math.ceil(centerX + radiusPx));
+    const minY = Math.max(0, Math.floor(centerY - radiusPx));
+    const maxY = Math.min(segmentation.height - 1, Math.ceil(centerY + radiusPx));
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        if (Math.hypot(x - centerX, y - centerY) > radiusPx) continue;
+        data[(y * segmentation.width + x) * 4 + 3] = 255;
+      }
+    }
+  };
+  if (geometry.head) protect(geometry.head.center, Math.max(geometry.head.radius * 1.35, 0.025));
+  const jointRadius = 0.012;
+  for (const limb of [geometry.arms.left, geometry.arms.right, geometry.legs.left, geometry.legs.right]) {
+    if (!limb) continue;
+    protect(limb[0], jointRadius);
+    protect(limb[1], jointRadius);
+  }
+  return bytesToDataUrl(data, 'application/octet-stream');
+}
 
 function SliderField({
   label,
@@ -304,6 +364,58 @@ function AdjustmentEditor({
   }
 }
 
+const BODY_CONTROL_KEYS: ReadonlySet<keyof BodyReshapeControls> = new Set([
+  'overallSlim', 'waist', 'hips', 'shoulders', 'arms', 'legs', 'legLength', 'torsoWidth',
+]);
+
+function isBodyControlKey(value: unknown): value is keyof BodyReshapeControls {
+  return typeof value === 'string' && BODY_CONTROL_KEYS.has(value as keyof BodyReshapeControls);
+}
+
+function BodyReshapeEditor({
+  op,
+  onPatch,
+  onDragStart,
+  onDragEnd,
+}: {
+  op: RetouchOperationRecord;
+  onPatch: (patch: Partial<RetouchOperationRecord>) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
+  const control = op.bodyControl;
+  const geometry = op.bodyGeometry as DerivedBodyGeometry | undefined;
+  const imageWidth = Number(op.analysisImageWidth);
+  const imageHeight = Number(op.analysisImageHeight);
+  const isAutomatic = isBodyControlKey(control) && Boolean(geometry) && imageWidth > 0 && imageHeight > 0;
+  const updateStrength = (value: number): void => {
+    if (!isAutomatic || !isBodyControlKey(control) || !geometry) {
+      onPatch({ strength: value });
+      return;
+    }
+    const controls: BodyReshapeControls = { ...EMPTY_BODY_RESHAPE_CONTROLS, [control]: value };
+    onPatch({
+      strength: value,
+      strokes: bodyReshapeStrokes(geometry, imageWidth, imageHeight, controls),
+    });
+  };
+  return (
+    <div className="retouch-op-editor">
+      <SliderField
+        label={isAutomatic ? 'Amount' : 'Manual Strength'}
+        value={(op.strength as number) ?? 0.25}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={updateStrength}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />
+      <SliderField label="Opacity" value={(op.opacity as number) ?? 1} min={0} max={1} step={0.01} onChange={(v) => onPatch({ opacity: v })} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+    </div>
+  );
+}
+
 function OperationEditor({
   op,
   onPatch,
@@ -339,6 +451,8 @@ function OperationEditor({
         </div>
       );
     }
+    case 'body-reshape':
+      return <BodyReshapeEditor op={op} onPatch={onPatch} onDragStart={onDragStart} onDragEnd={onDragEnd} />;
     case 'manual-healing': {
       return (
         <div className="retouch-op-editor">
@@ -387,6 +501,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
     currentDocument,
     activeLayerId,
     addRetouchOperation,
+    addRetouchMask,
     updateRetouchOperation,
     removeRetouchOperation,
     toggleRetouchOperation,
@@ -401,12 +516,67 @@ export const ImageStudioRetouchPanel: React.FC = () => {
 
   const [activeCategory, setActiveCategory] = useState<RetouchTool>('portrait');
   const [expandedOpId, setExpandedOpId] = useState<string | null>(null);
+  const [bodyAnalysis, setBodyAnalysis] = useState<BodyAnalysisResult | null>(null);
+  const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
+  const [bodyAnalysisRunning, setBodyAnalysisRunning] = useState(false);
+  const bodyClientRef = useRef<BodyAnalysisClient | null>(null);
 
   const activeLayer = currentDocument?.layers.find((l) => l.id === activeLayerId);
   const retouch = activeLayer?.kind === 'raster'
     ? (activeLayer as unknown as { retouche?: RetouchDocumentState }).retouche
     : undefined;
   const operations = retouch?.operations ?? [];
+  const activeRasterAsset = useMemo(() => {
+    if (activeLayer?.kind !== 'raster') return null;
+    return currentDocument?.embeddedAssets.find((asset) => asset.id === activeLayer.assetId) ?? null;
+  }, [activeLayer, currentDocument?.embeddedAssets]);
+  const detectedBodies = bodyAnalysis?.status === 'ready' ? bodyAnalysis.bodies : [];
+  const selectedBody: DetectedBody | null = detectedBodies.find((body) => body.id === selectedBodyId) ?? detectedBodies[0] ?? null;
+
+  useEffect(() => {
+    const api = typeof window === 'undefined' ? undefined : window.knouxImageStudioAPI;
+    if (!api?.getVerifiedPoseModel) return undefined;
+    const client = new BodyAnalysisClient(() => api.getVerifiedPoseModel());
+    bodyClientRef.current = client;
+    return () => {
+      if (bodyClientRef.current === client) bodyClientRef.current = null;
+      client.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    setBodyAnalysis(null);
+    setSelectedBodyId(null);
+  }, [activeRasterAsset?.id]);
+
+  const runBodyAnalysis = useCallback(async (): Promise<void> => {
+    if (!activeRasterAsset || !bodyClientRef.current) {
+      setBodyAnalysis({ status: 'model-unavailable', modelId: BODY_ANALYSIS_MODEL_ID, reason: 'The verified local pose runtime or active raster asset is unavailable.' });
+      return;
+    }
+    setBodyAnalysisRunning(true);
+    try {
+      let imageDataUrl = activeRasterAsset.dataUrl;
+      if (!imageDataUrl) {
+        const bytes = await window.knouxImageStudioAPI.readAsset(activeRasterAsset.id);
+        if (bytes?.length) imageDataUrl = bytesToDataUrl(bytes, activeRasterAsset.mime);
+      }
+      if (!imageDataUrl) {
+        setBodyAnalysis({ status: 'failed', modelId: BODY_ANALYSIS_MODEL_ID, reason: 'The active raster pixels are not available locally.' });
+        return;
+      }
+      const result = await bodyClientRef.current.analyze({
+        imageDataUrl,
+        imageWidth: activeRasterAsset.width,
+        imageHeight: activeRasterAsset.height,
+        maxBodies: 4,
+      });
+      setBodyAnalysis(result);
+      setSelectedBodyId(result.status === 'ready' ? result.bodies[0]?.id ?? null : null);
+    } finally {
+      setBodyAnalysisRunning(false);
+    }
+  }, [activeRasterAsset]);
 
   const filteredTools = useMemo(
     () => RETOUCH_TOOLS_REGISTRY.filter((tool) => tool.category === activeCategory),
@@ -426,6 +596,36 @@ export const ImageStudioRetouchPanel: React.FC = () => {
         (opData as Record<string, unknown>).kind = tool.defaults.kind;
         (opData as Record<string, unknown>).parameters = tool.defaults.parameters;
       }
+      if (tool.type === 'body-reshape') {
+        if (!activeRasterAsset || !selectedBody) return;
+        const bodyControl = tool.defaults.bodyControl;
+        let freezeMaskId: string | null = null;
+        if (bodyAnalysis?.status === 'ready' && bodyAnalysis.segmentationMask) {
+          const mask = bodyAnalysis.segmentationMask;
+          freezeMaskId = `body-protection-${activeRasterAsset.id}-${selectedBody.id}-${BODY_ANALYSIS_MODEL_ID}`;
+          if (!retouch?.masks.some((entry) => entry.id === freezeMaskId)) {
+            addRetouchMask({
+              id: freezeMaskId,
+              width: mask.width,
+              height: mask.height,
+              alphaDataUrl: createBodyProtectionMask(mask, selectedBody.geometry),
+              featherPx: 0,
+              inverted: false,
+            });
+          }
+        }
+        Object.assign(opData as Record<string, unknown>, {
+          analysisModelId: BODY_ANALYSIS_MODEL_ID,
+          analysisSubjectId: selectedBody.id,
+          analysisImageWidth: activeRasterAsset.width,
+          analysisImageHeight: activeRasterAsset.height,
+          bodyGeometry: selectedBody.geometry,
+          bodyControl,
+          strokes: [],
+          freezeMaskId,
+          strength: 0,
+        });
+      }
       if (transactionActive) commitRetouchTransaction();
       const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       // Arming a brush is a normal document mutation. The transaction starts
@@ -434,7 +634,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
       setExpandedOpId(id);
       setActiveTool(id);
     },
-    [commitRetouchTransaction, currentDocument, addRetouchOperation, setActiveTool, transactionActive]
+    [activeRasterAsset, addRetouchMask, addRetouchOperation, bodyAnalysis, commitRetouchTransaction, currentDocument, retouch?.masks, selectedBody, setActiveTool, transactionActive]
   );
 
   const handlePatch = useCallback(
@@ -494,13 +694,52 @@ export const ImageStudioRetouchPanel: React.FC = () => {
         ))}
       </div>
 
+      {activeCategory === 'body' && (
+        <section className="retouch-body-analysis" aria-label="Local body analysis">
+          <div className="retouch-body-analysis-row">
+            <span data-testid="body-analysis-status">
+              {bodyAnalysisRunning
+                ? 'Analyzing locally…'
+                : bodyAnalysis?.status === 'ready'
+                  ? `${detectedBodies.length} body${detectedBodies.length === 1 ? '' : 'ies'} detected locally${bodyAnalysis.segmentationAvailable ? ' · segmentation ready' : ''}`
+                  : bodyAnalysis?.status === 'failed'
+                    ? `Analysis failed: ${bodyAnalysis.reason}`
+                    : bodyAnalysis?.status === 'model-unavailable'
+                      ? `Model unavailable: ${bodyAnalysis.reason}`
+                      : 'Local analysis not run'}
+            </span>
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={() => { void runBodyAnalysis(); }}
+              disabled={!activeRasterAsset || bodyAnalysisRunning}
+              data-testid="retouch-analyze-body"
+            >
+              {bodyAnalysisRunning ? 'Analyzing' : 'Analyze Body'}
+            </NeonButton>
+          </div>
+          <div className="retouch-body-subject-label" data-testid="body-subject-selector">
+            <NeonSelect
+              label="Subject"
+              aria-label="Body subject"
+              value={selectedBody?.id ?? ''}
+              onChange={(value) => setSelectedBodyId(value || null)}
+              disabled={detectedBodies.length === 0}
+              options={detectedBodies.length === 0
+                ? [{ value: '', label: 'No analyzed subject', disabled: true }]
+                : detectedBodies.map((body) => ({ value: body.id, label: `${body.id} · ${(body.confidence * 100).toFixed(0)}% confidence` }))}
+            />
+          </div>
+        </section>
+      )}
+
       <div className="retouch-tools-grid" data-testid={`retouch-tools-${activeCategory}`}>
         {filteredTools.map((tool) => (
           <button
             key={`${tool.type}-${tool.label}`}
             className="retouch-tool-button"
             onClick={() => handleAddTool(tool)}
-            disabled={!hasDocument || !hasActiveLayer}
+            disabled={!hasDocument || !hasActiveLayer || (tool.category === 'body' && !selectedBody)}
             data-testid={`retouch-add-${tool.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`}
           >
             {tool.label}
@@ -518,6 +757,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
               key={op.id}
               className={`retouch-operation-item ${expandedOpId === op.id ? 'expanded' : ''} ${!op.enabled ? 'disabled' : ''}`}
               data-testid={`retouch-op-${op.id}`}
+              data-stroke-count={Array.isArray(op.strokes) ? op.strokes.length : undefined}
             >
               <div className="retouch-operation-header">
                 <button

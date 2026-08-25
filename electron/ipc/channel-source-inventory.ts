@@ -259,6 +259,7 @@ export const IPC_SOURCE_INVENTORY = {
   'image-studio:remove-job': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:import-result': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:get-face-model': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
+  'image-studio:get-pose-model': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:import-retouch-asset': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:read-retouch-proxy': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },
   'image-studio:release-retouch-asset': { sourceRoots: ['electron/ipc/image-studio-runtime.ts', 'electron/preload-image-studio.ts'], lifecycle: 'active' },

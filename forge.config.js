@@ -154,6 +154,8 @@ const icon = path.resolve(__dirname, 'assets/icons/app-icon');
 const ffmpeg = optionalBinary('ffmpeg-static');
 const ffprobe = optionalBinary('@derhuerst/ffprobe-static');
 const bundledBrandAssets = [
+  // Keep verified local retouch models at resources/assets/models in packaged builds.
+  path.resolve(__dirname, 'assets'),
   path.resolve(__dirname, 'assets/branding'),
   path.resolve(__dirname, 'assets/installer'),
   path.resolve(__dirname, 'splash.html'),

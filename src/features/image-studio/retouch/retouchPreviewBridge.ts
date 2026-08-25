@@ -108,6 +108,14 @@ export function documentRetouchOpToEngineOp(record: RetouchOperationRecord): Ret
         strokes: (record.strokes as Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }>) ?? [],
         freezeMaskId: (record.freezeMaskId as string | null) ?? null,
       };
+    case 'body-reshape':
+      return {
+        ...base,
+        type: 'body-reshape',
+        strokes: (record.strokes as Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }>) ?? [],
+        freezeMaskId: (record.freezeMaskId as string | null) ?? null,
+        analysisModelId: (record.analysisModelId as string) ?? 'mediapipe-pose-landmarker-full',
+      };
     case 'manual-healing':
       return {
         ...base,
@@ -124,7 +132,7 @@ export function documentRetouchOpToEngineOp(record: RetouchOperationRecord): Ret
         type: 'manual-smooth',
         strength: (record.strength as number) ?? 0.5,
         texturePreserve: (record.texturePreserve as number) ?? 0.76,
-        center: record.center ?? { x: 0, y: 0 },
+        center: record.center,
         radius: record.radius ?? 32,
       };
     case 'manual-dodge-burn':
@@ -133,7 +141,7 @@ export function documentRetouchOpToEngineOp(record: RetouchOperationRecord): Ret
         type: 'manual-dodge-burn',
         mode: (record.mode as 'dodge' | 'burn') ?? 'dodge',
         strength: (record.strength as number) ?? 0.5,
-        center: record.center ?? { x: 0, y: 0 },
+        center: record.center,
         radius: record.radius ?? 32,
       };
     default:

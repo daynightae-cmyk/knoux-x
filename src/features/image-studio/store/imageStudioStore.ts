@@ -159,6 +159,13 @@ function buildLayerTree(layers: ImageLayer[]): ImageStudioLayerNode[] {
   return (childrenByParent.get(null) ?? []).map((layer) => visit(layer, new Set()));
 }
 
+function isUninitializedManualRetouchOperation(operation: RetouchOperationRecord): boolean {
+  return (operation.type === 'manual-healing' && !operation.source)
+    || ((operation.type === 'manual-smooth' || operation.type === 'manual-dodge-burn') && !operation.center)
+    || ((operation.type === 'geometry-warp' || operation.type === 'body-reshape')
+      && (!Array.isArray(operation.strokes) || operation.strokes.length === 0));
+}
+
 function applyDocMutation(
   state: { currentDocument: ImageStudioDocument | null; history: ImageStudioHistoryEntry[]; historyIndex: number; documentVersion: number; transactionActive: boolean; transactionSnapshot: unknown },
   nextDoc: ImageStudioDocument
@@ -391,6 +398,16 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
     const newLayers = [...doc.layers];
     newLayers[layerIdx] = setLayerRetouch(layer, newRetouch);
     const nextDoc: ImageStudioDocument = { ...doc, layers: newLayers, updatedAt: new Date().toISOString() };
+    // Arming a manual brush must remain pixel-neutral and must not create a
+    // standalone undo step. The first pointer gesture starts its transaction
+    // and commits the operation together with its initialized geometry.
+    if (isUninitializedManualRetouchOperation(newOp)) {
+      return {
+        currentDocument: nextDoc,
+        layerTree: buildLayerTree(nextDoc.layers),
+        documentVersion: state.documentVersion + 1,
+      };
+    }
     return applyDocMutation(state, nextDoc);
   }),
 

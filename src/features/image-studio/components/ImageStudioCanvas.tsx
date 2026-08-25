@@ -196,7 +196,7 @@ export const ImageStudioCanvas: React.FC = () => {
     const activeStroke = retouchStrokeRef.current;
     if (activeStroke && (event.buttons & 1)) {
       const point = getDocumentPoint(event);
-      if (activeStroke.type === 'geometry-warp') {
+      if (activeStroke.type === 'geometry-warp' || activeStroke.type === 'body-reshape') {
         const latestOperations = useImageStudioStore.getState().currentDocument?.layers.flatMap((layer) => {
           const retouche = (layer as unknown as { retouche?: { operations: Array<{ id: string; strokes?: Array<{ id: string; x: number; y: number; radius: number; dx: number; dy: number; strength: number; mode: 'push' | 'pinch' | 'expand' }> }> } }).retouche;
           return retouche?.operations ?? [];
@@ -336,6 +336,7 @@ export const ImageStudioCanvas: React.FC = () => {
     <div
       className="image-studio-canvas-container"
       ref={containerRef}
+      data-active-retouch-type={activeRetouchOperation?.type ?? ''}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

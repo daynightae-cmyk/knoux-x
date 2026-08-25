@@ -99,11 +99,14 @@ jobs:
           $newExe = "const exePath = path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe'); assert(fs.existsSync(exePath), 'Electron runtime executable is missing.');"
           $oldLaunch = 'app = await electron.launch({ executablePath: exePath, timeout: 60000 });'
           $newLaunch = "console.log('PHASE3A_LAUNCH_START', exePath); app = await electron.launch({ executablePath: exePath, args: [root], cwd: root, timeout: 60000, env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1', ELECTRON_LOG_FILE: path.join(evidenceDir, 'electron.log'), KNOUX_STARTUP_TRACE_FILE: path.join(evidenceDir, 'startup-trace.log') } }); console.log('PHASE3A_LAUNCH_OK');"
+          $oldTour = "await page.keyboard.press('Escape').catch(() => undefined);"
+          $newTour = "const firstRun = page.locator('.first-run-backdrop'); await firstRun.waitFor({ state: 'visible', timeout: 5000 }).catch(() => undefined); if (await firstRun.isVisible()) { console.log('PHASE3A_DISMISS_FIRST_RUN'); await firstRun.locator('.tour-skip').click(); await firstRun.waitFor({ state: 'hidden', timeout: 10000 }); }"
           if (-not $text.Contains($oldExe)) { throw 'Expected executable selection marker not found.' }
           if (-not $text.Contains($oldLaunch)) { throw 'Expected Electron launch marker not found.' }
-          $text = $text.Replace($oldExe, $newExe).Replace($oldLaunch, $newLaunch)
+          if (-not $text.Contains($oldTour)) { throw 'Expected first-run marker not found.' }
+          $text = $text.Replace($oldExe, $newExe).Replace($oldLaunch, $newLaunch).Replace($oldTour, $newTour)
           Set-Content -LiteralPath $file -Value $text -Encoding utf8NoBOM
-          Select-String -LiteralPath $file -Pattern 'PHASE3A_LAUNCH_START|electron.exe|args: \[root\]' | ForEach-Object { $_.Line | Write-Host }
+          Select-String -LiteralPath $file -Pattern 'PHASE3A_LAUNCH_START|PHASE3A_DISMISS_FIRST_RUN|args: \[root\]' | ForEach-Object { $_.Line | Write-Host }
 
       - name: Run real Electron Phase 3A acceptance
         shell: pwsh

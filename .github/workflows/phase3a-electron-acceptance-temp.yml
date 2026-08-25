@@ -84,6 +84,28 @@ jobs:
           npm test -- --runInBand
           if ($LASTEXITCODE -ne 0) { throw 'Full Jest failed.' }
 
+      - name: Validate Manual Heal unpainted no-op hypothesis
+        shell: pwsh
+        run: |
+          $file = 'src\features\image-editor\retouch\retouchEngine.ts'
+          $text = Get-Content -LiteralPath $file -Raw
+          $old = "const m = op as ManualHealingOperation;`r`n      // Delegate to existing patch heal / blemish removal depending on whether source is provided"
+          if (-not $text.Contains($old)) {
+            $old = "const m = op as ManualHealingOperation;`n      // Delegate to existing patch heal / blemish removal depending on whether source is provided"
+          }
+          if (-not $text.Contains($old)) { throw 'Manual Heal engine marker not found.' }
+          $newline = if ($old.Contains("`r`n")) { "`r`n" } else { "`n" }
+          $new = "const m = op as ManualHealingOperation;${newline}      // An armed manual-heal operation has no sampled source until pointer-down.${newline}      // Rendering it before the first stroke must be an immediate pixel-identical no-op.${newline}      if (!m.source) return buffer;${newline}      // Delegate to existing patch heal once a real stroke has supplied source/target coordinates"
+          $text = $text.Replace($old, $new)
+          Set-Content -LiteralPath $file -Value $text -Encoding utf8NoBOM
+          Select-String -LiteralPath $file -Pattern 'armed manual-heal|if \(!m.source\) return buffer' | ForEach-Object { $_.Line | Write-Host }
+
+      - name: Typecheck runtime hypothesis
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'Manual Heal hypothesis does not typecheck.' }
+
       - name: Package real Electron application
         shell: pwsh
         run: |
@@ -106,7 +128,6 @@ jobs:
           if (-not $text.Contains($oldTour)) { throw 'Expected first-run marker not found.' }
           $text = $text.Replace($oldExe, $newExe).Replace($oldLaunch, $newLaunch).Replace($oldTour, $newTour)
           Set-Content -LiteralPath $file -Value $text -Encoding utf8NoBOM
-          Select-String -LiteralPath $file -Pattern 'PHASE3A_LAUNCH_START|PHASE3A_DISMISS_FIRST_RUN|args: \[root\]' | ForEach-Object { $_.Line | Write-Host }
 
       - name: Run real Electron Phase 3A acceptance
         shell: pwsh
@@ -129,7 +150,7 @@ jobs:
           foreach ($diagnostic in @('_temp\phase3a-ci-evidence\startup-trace.log', '_temp\phase3a-ci-evidence\electron.log')) {
             if (Test-Path $diagnostic) {
               Write-Host "=== $diagnostic ==="
-              Get-Content $diagnostic -Tail 200 | Write-Host
+              Get-Content $diagnostic -Tail 100 | Write-Host
             }
           }
 

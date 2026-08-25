@@ -90,6 +90,21 @@ jobs:
           npm run package -- --arch=x64
           if ($LASTEXITCODE -ne 0) { throw 'Electron Forge package failed.' }
 
+      - name: Prepare proven built-runtime launch variant
+        shell: pwsh
+        run: |
+          $file = 'tools\phase3a-electron-acceptance.cjs'
+          $text = Get-Content -LiteralPath $file -Raw
+          $oldExe = 'const exePath = findPackagedExe();'
+          $newExe = "const exePath = path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe'); assert(fs.existsSync(exePath), 'Electron runtime executable is missing.');"
+          $oldLaunch = 'app = await electron.launch({ executablePath: exePath, timeout: 60000 });'
+          $newLaunch = "console.log('PHASE3A_LAUNCH_START', exePath); app = await electron.launch({ executablePath: exePath, args: [root], cwd: root, timeout: 60000, env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1', ELECTRON_LOG_FILE: path.join(evidenceDir, 'electron.log'), KNOUX_STARTUP_TRACE_FILE: path.join(evidenceDir, 'startup-trace.log') } }); console.log('PHASE3A_LAUNCH_OK');"
+          if (-not $text.Contains($oldExe)) { throw 'Expected executable selection marker not found.' }
+          if (-not $text.Contains($oldLaunch)) { throw 'Expected Electron launch marker not found.' }
+          $text = $text.Replace($oldExe, $newExe).Replace($oldLaunch, $newLaunch)
+          Set-Content -LiteralPath $file -Value $text -Encoding utf8NoBOM
+          Select-String -LiteralPath $file -Pattern 'PHASE3A_LAUNCH_START|electron.exe|args: \[root\]' | ForEach-Object { $_.Line | Write-Host }
+
       - name: Run real Electron Phase 3A acceptance
         shell: pwsh
         env:
@@ -107,6 +122,12 @@ jobs:
             Get-Content $json -Raw | Write-Host
           } else {
             Write-Host 'Evidence JSON was not produced.'
+          }
+          foreach ($diagnostic in @('_temp\phase3a-ci-evidence\startup-trace.log', '_temp\phase3a-ci-evidence\electron.log')) {
+            if (Test-Path $diagnostic) {
+              Write-Host "=== $diagnostic ==="
+              Get-Content $diagnostic -Tail 200 | Write-Host
+            }
           }
 
       - name: Upload Phase 3A evidence

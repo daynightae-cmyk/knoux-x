@@ -1,0 +1,119 @@
+name: Phase 3A Electron Acceptance TEMP
+
+on:
+  push:
+    branches:
+      - wip/phase3a-runtime-recovery
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3a-electron-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  accept:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout exact WIP head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node 20.20.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure MSVC 2022 native toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+          node -v
+          npm -v
+
+      - name: Install deterministic dependencies
+        shell: pwsh
+        run: |
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+
+      - name: Rebuild Electron native modules
+        shell: pwsh
+        run: |
+          npm exec electron-rebuild -- -f --only better-sqlite3,sharp
+          if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
+
+      - name: TypeScript gate
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'TypeScript failed.' }
+
+      - name: ESLint zero-warning gate
+        shell: pwsh
+        run: |
+          npm run lint -- --max-warnings=0
+          if ($LASTEXITCODE -ne 0) { throw 'ESLint failed.' }
+
+      - name: Focused Phase 3A regression tests
+        shell: pwsh
+        run: |
+          npm test -- --runInBand tests/unit/retouch-phase3-integration.test.ts tests/unit/retouch-phase3-canvas-targeting.test.ts
+          if ($LASTEXITCODE -ne 0) { throw 'Focused Phase 3A tests failed.' }
+
+      - name: Full Jest serial gate
+        shell: pwsh
+        run: |
+          npm test -- --runInBand
+          if ($LASTEXITCODE -ne 0) { throw 'Full Jest failed.' }
+
+      - name: Package real Electron application
+        shell: pwsh
+        run: |
+          npm run package -- --arch=x64
+          if ($LASTEXITCODE -ne 0) { throw 'Electron Forge package failed.' }
+
+      - name: Run real Electron Phase 3A acceptance
+        shell: pwsh
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          node tools/phase3a-electron-acceptance.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Phase 3A Electron acceptance failed.' }
+
+      - name: Require evidence JSON
+        if: always()
+        shell: pwsh
+        run: |
+          $json = '_temp\phase3a-ci-evidence\retouch-phase3-electron-acceptance.json'
+          if (Test-Path $json) {
+            Get-Content $json -Raw | Write-Host
+          } else {
+            Write-Host 'Evidence JSON was not produced.'
+          }
+
+      - name: Upload Phase 3A evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3a-electron-acceptance-${{ github.sha }}
+          path: _temp/phase3a-ci-evidence/
+          if-no-files-found: warn
+          retention-days: 7

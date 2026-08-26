@@ -151,7 +151,7 @@ export class LiquifyMesh {
             const maskX = Math.round(imageX * Math.max(0, freezeMask.width - 1) / Math.max(1, this.width - 1));
             const maskY = Math.round(imageY * Math.max(0, freezeMask.height - 1) / Math.max(1, this.height - 1));
             const nodeIndex = (maskY * freezeMask.width + maskX) * 4;
-            if (freezeMask.data[nodeIndex + 3] > 127) continue;
+            if (freezeMask.data[nodeIndex + 3] > 0) continue;
           }
 
           const falloffValue = Math.pow(1 - distance / influence, falloff);
@@ -242,7 +242,27 @@ export function liquifyMeshWarp(imageData: ImageData, strokes: LiquifyStroke[], 
   const mesh = new LiquifyMesh(imageData.width, imageData.height, settings);
   mesh.applyStrokes(strokes, freezeMask);
   if (strokes.length === 0) return cloneImageData(imageData);
-  return mesh.warp(imageData);
+  const warped = mesh.warp(imageData);
+  if (!freezeMask) return warped;
+
+  // A non-zero alpha is a hard freeze contract. Mesh nodes alone cannot uphold
+  // it at interpolated boundaries, so restore protected destination pixels from
+  // the immutable source after the warp.
+  const output = new Uint8ClampedArray(warped.data);
+  for (let y = 0; y < imageData.height; y += 1) {
+    const maskY = Math.round(y * Math.max(0, freezeMask.height - 1) / Math.max(1, imageData.height - 1));
+    for (let x = 0; x < imageData.width; x += 1) {
+      const maskX = Math.round(x * Math.max(0, freezeMask.width - 1) / Math.max(1, imageData.width - 1));
+      const maskOffset = (maskY * freezeMask.width + maskX) * 4 + 3;
+      if (freezeMask.data[maskOffset] === 0) continue;
+      const pixelOffset = (y * imageData.width + x) * 4;
+      output[pixelOffset] = imageData.data[pixelOffset];
+      output[pixelOffset + 1] = imageData.data[pixelOffset + 1];
+      output[pixelOffset + 2] = imageData.data[pixelOffset + 2];
+      output[pixelOffset + 3] = imageData.data[pixelOffset + 3];
+    }
+  }
+  return { width: imageData.width, height: imageData.height, data: output } as ImageData;
 }
 
 function cloneImageData(imageData: ImageData): ImageData {

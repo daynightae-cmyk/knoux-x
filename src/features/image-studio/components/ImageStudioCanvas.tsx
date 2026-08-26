@@ -74,6 +74,7 @@ export const ImageStudioCanvas: React.FC = () => {
       const resolveAsset = (assetId: string): RgbaBuffer | null => getCachedAsset(assetId);
       const useOriginal = showingOriginal || showOriginal;
       const renderedLayers = new Map<string, RgbaBuffer>();
+      const retouchRenderBufferRef: { current: Pick<RgbaBuffer, 'width' | 'height'> | null } = { current: null };
       if (!useOriginal) {
         await Promise.all(
           currentDocument.layers.map(async (layer) => {
@@ -87,6 +88,8 @@ export const ImageStudioCanvas: React.FC = () => {
               ? await getRetouchPreviewProxy(context, retouche as never)
               : await applyRetouchToLayer(context, retouche as never, 'final');
             renderedLayers.set(layer.id, result);
+            const hasEnabledRetouchOperation = (retouche as { operations?: Array<{ enabled?: boolean }> }).operations?.some((operation) => operation.enabled) ?? false;
+            if (transactionActive && hasEnabledRetouchOperation) retouchRenderBufferRef.current = { width: result.width, height: result.height };
           }),
         );
       }
@@ -109,6 +112,8 @@ export const ImageStudioCanvas: React.FC = () => {
       canvas.dataset.renderedVersion = String(myVersion);
       canvas.dataset.renderQuality = transactionActive ? 'preview' : 'final';
       canvas.dataset.renderSource = transactionActive && Math.max(canvasWidth, canvasHeight) > 1024 ? 'proxy' : 'full';
+      canvas.dataset.renderBufferWidth = String(retouchRenderBufferRef.current?.width ?? finalBuffer.width);
+      canvas.dataset.renderBufferHeight = String(retouchRenderBufferRef.current?.height ?? finalBuffer.height);
     } catch (err) {
       if (myVersion !== renderVersionRef.current) return;
       setRenderError(err instanceof Error ? err.message : String(err));

@@ -697,7 +697,15 @@ export const ImageStudioRetouchPanel: React.FC = () => {
       {activeCategory === 'body' && (
         <section className="retouch-body-analysis" aria-label="Local body analysis">
           <div className="retouch-body-analysis-row">
-            <span data-testid="body-analysis-status">
+            <span
+      data-testid="body-analysis-status"
+      data-analysis-elapsed-ms={bodyAnalysis?.status === 'ready' ? bodyAnalysis.elapsedMs : undefined}
+      data-waist-width={selectedBody?.geometry.waist?.width}
+      data-hips-width={selectedBody?.geometry.hips?.width}
+      data-shoulders-width={selectedBody?.geometry.shoulders?.width}
+      data-subject-bounds={selectedBody?.geometry.subjectBounds ? JSON.stringify(selectedBody.geometry.subjectBounds) : undefined}
+      data-body-geometry={selectedBody ? JSON.stringify(selectedBody.geometry) : undefined}
+    >
               {bodyAnalysisRunning
                 ? 'Analyzing locally…'
                 : bodyAnalysis?.status === 'ready'
@@ -757,6 +765,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
               key={op.id}
               className={`retouch-operation-item ${expandedOpId === op.id ? 'expanded' : ''} ${!op.enabled ? 'disabled' : ''}`}
               data-testid={`retouch-op-${op.id}`}
+              data-body-control={op.type === 'body-reshape' && isBodyControlKey(op.bodyControl) ? op.bodyControl : undefined}
               data-stroke-count={Array.isArray(op.strokes) ? op.strokes.length : undefined}
             >
               <div className="retouch-operation-header">

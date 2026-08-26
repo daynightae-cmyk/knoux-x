@@ -19,6 +19,7 @@ import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrche
 import { getBuildIdentity } from '../build-identity';
 import { authorizedMediaPaths } from '../security/path-registry';
 import { validateExternalUrl } from '../security/validation';
+import { getPhase3bAcceptanceSavePath, takePhase3bAcceptanceOpenPath } from '../retouch/phase3b-acceptance-runtime';
 
 import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
 import type { StructuredValue } from './channel-types';
@@ -57,19 +58,22 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
 
   ipc.handle(IPC_INVOKE.FILE_OPEN, async (event, rawOptions) => {
     const options = validateFileDialogOptions(rawOptions);
-    const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] } : await dialog.showOpenDialog(dialogOwner(event), {
-      title: options.title || 'Open File',
-      defaultPath: options.defaultPath,
-      buttonLabel: options.buttonLabel,
-      filters: options.filters || [
-        { name: 'Media Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
-        { name: 'Video Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'] },
-        { name: 'Audio Files', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
-        { name: 'Subtitle Files', extensions: ['srt', 'vtt', 'ass', 'ssa'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-      properties: ['openFile'],
-    });
+    const acceptancePath = takePhase3bAcceptanceOpenPath();
+    const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] }
+      : acceptancePath ? { canceled: false, filePaths: [acceptancePath] }
+        : await dialog.showOpenDialog(dialogOwner(event), {
+          title: options.title || 'Open File',
+          defaultPath: options.defaultPath,
+          buttonLabel: options.buttonLabel,
+          filters: options.filters || [
+            { name: 'Media Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
+            { name: 'Video Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'] },
+            { name: 'Audio Files', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
+            { name: 'Subtitle Files', extensions: ['srt', 'vtt', 'ass', 'ssa'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+          properties: ['openFile'],
+        });
     return result.canceled ? cancelledDialogResult('open') : authorizedPaths.authorizeFile(result.filePaths[0]);
   });
 
@@ -99,12 +103,15 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
 
   ipc.handle(IPC_INVOKE.FILE_SAVE, async (event, rawOptions) => {
     const options = validateFileDialogOptions(rawOptions);
-    const result = deterministicDialogCancellation ? { canceled: true, filePath: undefined } : await dialog.showSaveDialog(dialogOwner(event), {
-      title: options.title || 'Save File',
-      defaultPath: options.defaultPath,
-      buttonLabel: options.buttonLabel,
-      filters: options.filters,
-    });
+    const acceptancePath = getPhase3bAcceptanceSavePath();
+    const result = deterministicDialogCancellation ? { canceled: true, filePath: undefined }
+      : acceptancePath ? { canceled: false, filePath: acceptancePath }
+        : await dialog.showSaveDialog(dialogOwner(event), {
+          title: options.title || 'Save File',
+          defaultPath: options.defaultPath,
+          buttonLabel: options.buttonLabel,
+          filters: options.filters,
+        });
     return result.canceled || !result.filePath ? cancelledDialogResult('save') : authorizedPaths.authorizeFile(result.filePath);
   });
 

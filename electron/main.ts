@@ -18,6 +18,7 @@ import { authoritativeIpc } from './ipc/runtime';
 import { authorizeMediaPaths } from './ipc/setup';
 import { createWindow, getMainWindow } from './window';
 import { registerApplicationLifecycle } from './startup/application-lifecycle';
+import { installPhase3bAcceptanceNetworkGuard } from './retouch/phase3b-acceptance-runtime';
 import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
 
 let activeOrchestrator: SystemOrchestrator | null = null;
@@ -188,6 +189,9 @@ function registerApplicationLifecycleHandlers(): void {
 function initializePrimaryApplication(): Promise<void> {
   return (async () => {
     await app.whenReady();
+    // Activated solely by the explicit packaged Phase 3B acceptance argument.
+    // It blocks HTTP(S) before the product window and renderer are created.
+    installPhase3bAcceptanceNetworkGuard();
 
     const preloadPath = join(__dirname, 'preload-entry.js');
     authoritativeIpc.configureStartup(preloadPath, getBuildIdentity());

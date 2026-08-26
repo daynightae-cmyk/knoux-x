@@ -1,49 +1,51 @@
 # تقرير أداء KNOuX X Retouch — Phase 3B
 
-**الحالة:** `PARTIAL`
-**سياق القياس:** تشغيل حقيقي للحزمة `out\KNOUX Player X-win32-x64\knoux-player-x.exe` عبر نافذة Electron الفعلية، مع نموذج Pose وMediaPipe WASM محليين داخل الحزمة. جُمعت النتائج من ملف الدليل المحلي `_temp/live-evidence/retouch-phase3b-electron-acceptance.json` في تشغيل ما قبل الالتزام على `5f7f65de84df6e0d46a0ddb9e585570f91a7396b`.
+**حالة تغطية الأداء:** `PASS` لمسارات التحليل، cache، proxy/final وstale المقاسة.
+**حالة الذاكرة:** `NOT MEASURED`.
 
-> هذه أرقام رصدية لدورة قبول واحدة على جهاز Windows المتصل، وليست أهداف خدمة أو ضمانات أداء. لا يجوز تحويلها إلى ادعاءات SLA.
+أُجريت مصفوفة الأداء في تشغيل Electron **معبأ فعلياً** باستخدام `knoux-player-x.exe`، لا خادم تطوير ولا `_electron.launch`. نشأت صورتا الحجم الصغير والمتوسط محلياً من fixture الجسم الكامل نفسه عبر إعادة تحجيم حقيقية، ثم استُخدمت الصور الثلاث في مسارات UI الفعلية للتحليل، منزلق الخصر، proxy/final، وتسلسل stale. تحفظ JSONات الخام تحت `_temp/live-evidence/retouch-phase3b-performance-{small,medium,full}.json`.
 
-## نطاق القياس
+> القياسات رصدية لجهاز Windows المتصل ودورة واحدة لكل حجم، وليست SLA أو وعداً بأداء موحد على كل جهاز.
 
-جرى استيراد صورة جسم كاملة فعلية بقياس **3000×4572** بكسل. غيّر القبول منزلق الخصر بحركة مؤشر فعلية، ثم انتظر ظهور طبقة معاينة proxy وانتهاء طبقة full. كما نفّذ سلسلة قيم متلاحقة للتحقق من عدم كتابة نتيجة قديمة فوق آخر حالة مطلوبة.
+## مصفوفة الأحجام الحقيقية
 
-| البند | النتيجة المقاسة | الحالة | الدليل |
-|---|---:|---|---|
-| تحليل الجسم المحلي | 1,301 ms | رُصد | `B9_stalePerformance.performance.analysisElapsedMs` |
-| أول معاينة proxy للخصر | 19,571 ms | رُصد | `B8_proxyFinal.preview.firstVisibleProxyMs` |
-| اكتمال full بعد رفع المؤشر | 4,502 ms | رُصد | `B8_proxyFinal.final.finalAfterPointerUpMs` |
-| ظهور proxy لسلسلة stale | 41,622 ms | رُصد | `B9_stalePerformance.performance.staleProxyLatencyMs` |
-| buffer المعاينة | 672×1024 RGBA | ناجح | `B8_proxyFinal.preview` |
-| buffer النهائي | 3000×4572 RGBA | ناجح | `B8_proxyFinal.final` |
-| الذاكرة | `NOT MEASURED` | غير مقاس | الدليل نفسه |
+| الحجم | أبعاد المصدر | تحليل محلي | cache hit | أول proxy | final بعد pointer-up | stale proxy | buffer proxy | buffer final |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| صغير | 750×1143 | 424 ms | 87 ms | 2,322 ms | 605 ms | 6,111 ms | 672×1024 | 750×1143 |
+| متوسط | 1500×2286 | 1,544 ms | 106 ms | 5,453 ms | 1,347 ms | 12,831 ms | 672×1024 | 1500×2286 |
+| كامل | 3000×4572 | 1,983 ms | 141 ms | 19,045 ms | 5,082 ms | 42,239 ms | 672×1024 | 3000×4572 |
 
-تُظهر البيانات أن الـproxy أصغر فعلاً من مساحة الوثيقة، وأن النظام عاد إلى buffer نهائي كامل الدقة بعد إنهاء المعاملة. كما احتفظ المنزلق بقيمة C الأخيرة ولم تُستبدل لوحة النهاية بنتيجة قديمة.
+يتحقق كل صف من أن buffer المعاينة أصغر من raster النهائي عند الإمكان، وأن معاملة الواجهة تعود إلى full-quality buffer بعد رفع المؤشر. كما أن تسلسل stale انتهى بالقيمة الأخيرة ولم يكتب نتيجة قديمة فوقها.
 
-## تفسير القياسات
+## cache ومعرّفات الطلبات
 
-يعكس زمن التحليل البالغ 1,301 ms تشغيل Pose Landmarker محلياً لا استدعاء خدمة سحابية. أما زمن proxy فيشمل بداية معاملة الواجهة والرندر المحلي؛ وهو أعلى من هدف تجربة تفاعلية مريحة في هذه الدورة، لذلك لا يمثل نجاح `proxy → final` حكماً بأن الأداء محسّن بصورة كافية على كل الأجهزة. نجاح الاختبار هنا هو **صدق الانتقال بين جودة المعاينة والنهاية** وعدم حدوث overwrite قديم، لا استيفاء حد زمني مطلوب.
+تظهر كل دورة **cache miss واحداً** للتحليل الأول، ثم **cache hit واحداً** عند إعادة طلب التحليل لنفس الأصل والأبعاد. لم يُرسل طلب Pose جديد في cache hit: بقيت قائمة `requestedIds` بطول 1 وقائمة `completedIds` بطول 1، ولم تبقَ طلبات معلقة. يسجل العميل أيضاً `inFlightDedupes` للحالات المتزامنة؛ لم تحدث dedupe متزامنة في هذه دورات UI المتسلسلة، ولذلك لا تُعرض قيمة غير مقاسة كادعاء أداء.
 
-| محور الأداء | الحكم | السبب |
+| الحجم | cache hits | cache misses | request IDs | completed IDs | pending IDs |
+|---|---:|---:|---:|---:|---:|
+| صغير | 1 | 1 | 1 | 1 | 0 |
+| متوسط | 1 | 1 | 1 | 1 | 0 |
+| كامل | 1 | 1 | 1 | 1 | 0 |
+
+الحماية من تحليل UI القديم تعمل عبر تسلسل request محلي في `ImageStudioRetouchPanel`: لا تُحدّث النتيجة الحالة المرئية إذا تغيّر تسلسل الطلب أو تبدل العميل قبل اكتمالها. ويغطي اختبار الوحدة عميل التحليل من خلال cache miss وin-flight dedupe وcache hit ومعرّف الطلب المكتمل.
+
+## نطاق القياس وحدوده
+
+| البند | الحالة | التفسير |
 |---|---|---|
-| مسار proxy → final على صورة كبيرة | `PASS` | buffer proxy أصغر بوضوح ثم عودة full 3000×4572.
-| حماية stale لآخر منزلق | `PASS` | قيمة C النهائية محفوظة ولا overwrite لاحق في الدليل.
-| قياس تحليل محلي | `PASS` | زمن واحد مسجل ونموذج محلي مؤكد.
-| مصفوفة أحجام صغيرة/متوسطة/كاملة | `PARTIAL` | لا يوجد في هذا الدليل سوى صورة 3000×4572.
-| cache hit/miss وتحليل stale بالـrequest IDs | `PARTIAL` | لا توجد instrumention نهائية مهيأة في الدليل.
-| الذاكرة واستهلاك CPU | `NOT MEASURED` | لم تُجمع telemetry للذاكرة أو CPU.
-
-## شروط تكرار القياس
-
-لإعادة نفس القياس، يجب استعمال نفس المسار المعبأ، وملف fixture المحلي، ووسيط تفعيل قبول Phase 3B المقيد، ثم قراءة حقول `B8_proxyFinal` و`B9_stalePerformance` من JSON الناتج. لا تُستخدم نتيجة من خادم تطوير أو من Playwright `_electron.launch` بديلاً عن هذا الدليل، لأن هذا التقرير يخص التنفيذ المعبأ فقط.
-
-## الفجوات قبل حكم أداء نهائي
-
-يلزم قبل تغيير حالة الأداء إلى `PASS` إنشاء مصفوفة حقيقية لثلاثة أحجام مشتقة محلية على الأقل، وتسجيل cache hit/miss ومعرّفات الطلبات وإلغاء التحليل القديم، وقياس الذاكرة بصورة قابلة لإعادة الإنتاج. يجب أن تُحفظ القيم الخام مع بيئة التشغيل، وألا تستبدل القياسات الفعلية بتقدير أو محاكاة.
+| تحليل Pose محلي | `PASS` | نموذج محلي وWASM محليان داخل الحزمة؛ كل الأحجام الثلاثة قِيست. |
+| cache hit/miss | `PASS` | سجلت UI cache hit حقيقياً بلا request جديد في كل حجم. |
+| request IDs | `PASS` | IDs المطلوبة والمكتملة والمعلقة معروضة من العميل المحلي. |
+| stale | `PASS` | آخر قيمة UI محفوظة، ولا stale overwrite في B9. |
+| proxy → final | `PASS` | أبعاد buffer المرصودة صادقة لكل صف. |
+| CPU | `NOT MEASURED` | لا توجد telemetry قابلة لإعادة الإنتاج. |
+| الذاكرة | `NOT MEASURED` | لم تجمع telemetry للذاكرة؛ لا يُقدّم تقدير بديل. |
+| حد تجربة أو SLA | `NOT DEFINED` | لا يوجد budget معتمد في هذا المشروع لاشتقاق حكم pass/fail زمني. |
 
 ## المراجع الداخلية
 
-1. `_temp/live-evidence/retouch-phase3b-electron-acceptance.json` — دليل Electron المعبأ، B0–B9، تشغيل ما قبل الالتزام.
-2. `_temp/phase3b-final-precommit-package.log` — سجل تعبئة Forge x64 للحزمة المستخدمة في الدليل.
-3. `tools/phase3b-electron-acceptance.cjs` — harness القبول الذي يسجل أبعاد buffers وحالة stale.
+1. `_temp/live-evidence/retouch-phase3b-performance-small.json` — تشغيل Electron المعبأ 750×1143.
+2. `_temp/live-evidence/retouch-phase3b-performance-medium.json` — تشغيل Electron المعبأ 1500×2286.
+3. `_temp/live-evidence/retouch-phase3b-performance-full.json` — تشغيل Electron المعبأ 3000×4572.
+4. `src/features/image-editor/retouch/bodyAnalysisClient.ts` — cache LRU، in-flight dedupe، ومعرّفات الطلبات.
+5. `tests/unit/body-analysis-client-diagnostics.test.ts` — اختبار cache وrequest IDs.

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { NeonSelect } from '../../../components/neon/NeonSelect';
 import type { AdjustmentType, RetouchDocumentState, RetouchOperationRecord } from '../../../core/image-studio/document/schema';
-import { BodyAnalysisClient } from '../../image-editor/retouch/bodyAnalysisClient';
+import { BodyAnalysisClient, type BodyAnalysisDiagnostics } from '../../image-editor/retouch/bodyAnalysisClient';
 import type { BodyAnalysisResult, BodySegmentationMask, DerivedBodyGeometry, DetectedBody } from '../../image-editor/retouch/bodyAnalysisContract';
 import { BODY_ANALYSIS_MODEL_ID } from '../../image-editor/retouch/bodyAnalysisContract';
 import { bodyReshapeStrokes, EMPTY_BODY_RESHAPE_CONTROLS, type BodyReshapeControls } from '../../image-editor/retouch/bodyReshapeGeometry';
@@ -517,9 +517,11 @@ export const ImageStudioRetouchPanel: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<RetouchTool>('portrait');
   const [expandedOpId, setExpandedOpId] = useState<string | null>(null);
   const [bodyAnalysis, setBodyAnalysis] = useState<BodyAnalysisResult | null>(null);
+  const [bodyAnalysisDiagnostics, setBodyAnalysisDiagnostics] = useState<BodyAnalysisDiagnostics | null>(null);
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
   const [bodyAnalysisRunning, setBodyAnalysisRunning] = useState(false);
   const bodyClientRef = useRef<BodyAnalysisClient | null>(null);
+  const bodyAnalysisRequestSequenceRef = useRef(0);
 
   const activeLayer = currentDocument?.layers.find((l) => l.id === activeLayerId);
   const retouch = activeLayer?.kind === 'raster'
@@ -545,8 +547,11 @@ export const ImageStudioRetouchPanel: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    bodyAnalysisRequestSequenceRef.current += 1;
     setBodyAnalysis(null);
+    setBodyAnalysisDiagnostics(null);
     setSelectedBodyId(null);
+    setBodyAnalysisRunning(false);
   }, [activeRasterAsset?.id]);
 
   const runBodyAnalysis = useCallback(async (): Promise<void> => {
@@ -554,6 +559,9 @@ export const ImageStudioRetouchPanel: React.FC = () => {
       setBodyAnalysis({ status: 'model-unavailable', modelId: BODY_ANALYSIS_MODEL_ID, reason: 'The verified local pose runtime or active raster asset is unavailable.' });
       return;
     }
+    const client = bodyClientRef.current;
+    const requestSequence = bodyAnalysisRequestSequenceRef.current + 1;
+    bodyAnalysisRequestSequenceRef.current = requestSequence;
     setBodyAnalysisRunning(true);
     try {
       let imageDataUrl = activeRasterAsset.dataUrl;
@@ -562,19 +570,23 @@ export const ImageStudioRetouchPanel: React.FC = () => {
         if (bytes?.length) imageDataUrl = bytesToDataUrl(bytes, activeRasterAsset.mime);
       }
       if (!imageDataUrl) {
-        setBodyAnalysis({ status: 'failed', modelId: BODY_ANALYSIS_MODEL_ID, reason: 'The active raster pixels are not available locally.' });
+        if (requestSequence === bodyAnalysisRequestSequenceRef.current) {
+          setBodyAnalysis({ status: 'failed', modelId: BODY_ANALYSIS_MODEL_ID, reason: 'The active raster pixels are not available locally.' });
+        }
         return;
       }
-      const result = await bodyClientRef.current.analyze({
+      const result = await client.analyze({
         imageDataUrl,
         imageWidth: activeRasterAsset.width,
         imageHeight: activeRasterAsset.height,
         maxBodies: 4,
       });
+      if (requestSequence !== bodyAnalysisRequestSequenceRef.current || bodyClientRef.current !== client) return;
       setBodyAnalysis(result);
+      setBodyAnalysisDiagnostics(client.getDiagnostics());
       setSelectedBodyId(result.status === 'ready' ? result.bodies[0]?.id ?? null : null);
     } finally {
-      setBodyAnalysisRunning(false);
+      if (requestSequence === bodyAnalysisRequestSequenceRef.current) setBodyAnalysisRunning(false);
     }
   }, [activeRasterAsset]);
 
@@ -700,6 +712,13 @@ export const ImageStudioRetouchPanel: React.FC = () => {
             <span
       data-testid="body-analysis-status"
       data-analysis-elapsed-ms={bodyAnalysis?.status === 'ready' ? bodyAnalysis.elapsedMs : undefined}
+      data-analysis-cache-hits={bodyAnalysisDiagnostics?.cacheHits}
+      data-analysis-cache-misses={bodyAnalysisDiagnostics?.cacheMisses}
+      data-analysis-inflight-dedupes={bodyAnalysisDiagnostics?.inFlightDedupes}
+      data-analysis-cache-entries={bodyAnalysisDiagnostics?.cacheEntries}
+      data-analysis-requested-ids={bodyAnalysisDiagnostics?.requestedRequestIds.join(',')}
+      data-analysis-completed-ids={bodyAnalysisDiagnostics?.completedRequestIds.join(',')}
+      data-analysis-pending-ids={bodyAnalysisDiagnostics?.pendingRequestIds.join(',')}
       data-waist-width={selectedBody?.geometry.waist?.width}
       data-hips-width={selectedBody?.geometry.hips?.width}
       data-shoulders-width={selectedBody?.geometry.shoulders?.width}

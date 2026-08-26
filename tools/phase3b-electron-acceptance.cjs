@@ -9,10 +9,10 @@ const asar = require('@electron/asar');
 
 const root = path.resolve(__dirname, '..');
 const evidenceDir = path.join(root, '_temp', 'live-evidence');
-const fixturePath = path.join(evidenceDir, 'retouch-phase3b-fullbody-fixture.jpg');
+const fixturePath = process.env.RETOUCH_PHASE3B_FIXTURE_PATH || path.join(evidenceDir, 'retouch-phase3b-fullbody-fixture.jpg');
 const projectPath = path.join(evidenceDir, 'retouch-phase3b-body.knouximage');
 const exportPath = path.join(evidenceDir, 'retouch-phase3b-body-export.png');
-const evidencePath = path.join(evidenceDir, 'retouch-phase3b-electron-acceptance.json');
+const evidencePath = process.env.RETOUCH_PHASE3B_EVIDENCE_PATH || path.join(evidenceDir, 'retouch-phase3b-electron-acceptance.json');
 const screenshotPath = path.join(evidenceDir, 'retouch-phase3b-electron-body.png');
 const runtimeUserDataPath = path.join(evidenceDir, 'retouch-phase3b-electron-userdata');
 const startupTracePath = path.join(evidenceDir, 'retouch-phase3b-packaged-startup.log');
@@ -167,6 +167,70 @@ async function protectionMetrics(page, beforeKey, afterKey, maskRecord, geometry
         if (isHead) { zones.headAbs += absDelta; zones.headMax = Math.max(zones.headMax, maxDelta); }
       }
     }
+    const displacementByGuard = Object.fromEntries(jointGuards.map((guard) => {
+      const centerX = Math.round(guard.point.x * (canvas.width - 1));
+      const centerY = Math.round(guard.point.y * (canvas.height - 1));
+      const patchRadius = Math.max(5, Math.round(Math.min(canvas.width, canvas.height) * 0.0025));
+      const searchRadius = Math.max(8, Math.round(Math.min(canvas.width, canvas.height) * 0.004));
+      const compare = (shiftX, shiftY) => {
+        let difference = 0;
+        let samples = 0;
+        for (let patchY = -patchRadius; patchY <= patchRadius; patchY += 1) {
+          const beforeY = centerY + patchY;
+          const afterY = beforeY + shiftY;
+          if (beforeY < 0 || beforeY >= canvas.height || afterY < 0 || afterY >= canvas.height) continue;
+          for (let patchX = -patchRadius; patchX <= patchRadius; patchX += 1) {
+            const beforeX = centerX + patchX;
+            const afterX = beforeX + shiftX;
+            if (beforeX < 0 || beforeX >= canvas.width || afterX < 0 || afterX >= canvas.width) continue;
+            const beforeOffset = (beforeY * canvas.width + beforeX) * 4;
+            const afterOffset = (afterY * canvas.width + afterX) * 4;
+            difference += Math.abs(snapshot.data[beforeOffset] - current.data[afterOffset]);
+            difference += Math.abs(snapshot.data[beforeOffset + 1] - current.data[afterOffset + 1]);
+            difference += Math.abs(snapshot.data[beforeOffset + 2] - current.data[afterOffset + 2]);
+            samples += 3;
+          }
+        }
+        return { normalizedDifference: samples ? difference / samples : Number.POSITIVE_INFINITY, samples };
+      };
+      let best = { dxPx: 0, dyPx: 0, normalizedDifference: Number.POSITIVE_INFINITY, samples: 0 };
+      let secondBest = Number.POSITIVE_INFINITY;
+      for (let dyPx = -searchRadius; dyPx <= searchRadius; dyPx += 1) {
+        for (let dxPx = -searchRadius; dxPx <= searchRadius; dxPx += 1) {
+          const candidate = compare(dxPx, dyPx);
+          if (candidate.normalizedDifference < best.normalizedDifference) {
+            secondBest = best.normalizedDifference;
+            best = { dxPx, dyPx, ...candidate };
+          } else if (candidate.normalizedDifference < secondBest) {
+            secondBest = candidate.normalizedDifference;
+          }
+        }
+      }
+      return [guard.id, {
+        method: 'local-rgb-block-match',
+        centerPx: { x: centerX, y: centerY },
+        patchRadiusPx: patchRadius,
+        searchRadiusPx: searchRadius,
+        dxPx: best.dxPx,
+        dyPx: best.dyPx,
+        magnitudePx: Math.hypot(best.dxPx, best.dyPx),
+        normalizedDifference: best.normalizedDifference,
+        confidenceGap: Number.isFinite(secondBest) ? secondBest - best.normalizedDifference : null,
+        samples: best.samples,
+      }];
+    }));
+    const limbContinuity = Object.fromEntries(['left-arm', 'right-arm', 'left-leg', 'right-leg'].map((limb) => {
+      const proximal = displacementByGuard[`${limb}-proximal`];
+      const joint = displacementByGuard[`${limb}-joint`];
+      const distal = displacementByGuard[`${limb}-distal`];
+      const vectorDelta = (a, b) => Math.hypot(a.dxPx - b.dxPx, a.dyPx - b.dyPx);
+      return [limb, {
+        proximalToJointDeltaPx: vectorDelta(proximal, joint),
+        jointToDistalDeltaPx: vectorDelta(joint, distal),
+        maximumAdjacentDeltaPx: Math.max(vectorDelta(proximal, joint), vectorDelta(joint, distal)),
+        status: 'measured-not-thresholded',
+      }];
+    }));
     return {
       changedPixelsTotal: zones.changedTotal, changedPixelsSubjectCore: zones.changedSubjectCore, changedPixelsSubjectEdge: zones.changedSubjectEdge,
       changedPixelsFarBackground: zones.changedFarBackground, farBackgroundPixels: zones.farBackground,
@@ -182,7 +246,9 @@ async function protectionMetrics(page, beforeKey, afterKey, maskRecord, geometry
         changedPixels: guard.changedPixels,
         maxChannelDelta: guard.maxChannelDelta,
         preservedByteIdentical: guard.changedPixels === 0 && guard.maxChannelDelta === 0,
+        displacement: displacementByGuard[guard.id],
       }])),
+      limbContinuity,
       changedBounds: zones.bounds.maxX >= 0 ? zones.bounds : null,
     };
   }, { beforeSnapshotKey: beforeKey, afterSnapshotKey: afterKey, mask: maskRecord, resolvedGeometry: geometry });
@@ -294,10 +360,19 @@ async function exerciseAutomaticBodyTool(page, { testId, control, label }) {
   const renderedControl = await operation.getAttribute('data-body-control');
   assert(renderedControl === control, `${label} rendered data-body-control=${String(renderedControl)} instead of ${control}.`);
   const slider = operation.locator('input[type="range"][min="-1"][max="1"]').first();
-  await slider.focus();
-  for (let index = 0; index < 8; index += 1) await page.keyboard.press('ArrowRight');
+  await slider.scrollIntoViewIfNeeded();
+  const sliderBox = await slider.boundingBox();
+  assert(sliderBox && sliderBox.width > 20, `${label} strength slider is unavailable.`);
+  await page.mouse.move(sliderBox.x + sliderBox.width * 0.50, sliderBox.y + sliderBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sliderBox.x + sliderBox.width * 0.58, sliderBox.y + sliderBox.height / 2, { steps: 5 });
+  await page.mouse.up();
   const changed = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash !== before.hash, `${label} did not alter full-quality pixels.`);
   if (protectionSnapshotKey) await storeCanvasPixels(page, 'B6-legs');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  const undo = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash === before.hash, `${label} undo did not restore the prior composed canvas.`);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  const redo = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash === changed.hash, `${label} redo did not restore the changed composed canvas.`);
   await operation.locator('button[data-testid^="retouch-remove-"]').click();
   const restored = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash === before.hash, `${label} removal did not restore the prior composed canvas.`);
   return {
@@ -306,9 +381,13 @@ async function exerciseAutomaticBodyTool(page, { testId, control, label }) {
     bodyControl: control,
     renderedControl,
     changed: changed.hash !== before.hash,
+    undoRestoredExact: undo.hash === before.hash,
+    redoRestoredExact: redo.hash === changed.hash,
     removeRestoredExact: restored.hash === before.hash,
     beforeHash: before.hash,
     changedHash: changed.hash,
+    undoHash: undo.hash,
+    redoHash: redo.hash,
     restoredHash: restored.hash,
     protectionSnapshotKey,
   };
@@ -325,6 +404,29 @@ async function strokeCanvas(page, startFraction, endFraction) {
   await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 8 });
   await page.mouse.move(end.x, end.y, { steps: 8 });
   await page.mouse.up();
+}
+async function rasterSourceFingerprint(page) {
+  return page.evaluate(async () => {
+    const api = window.knouxImageStudioAPI;
+    const documentState = await api.getCurrent();
+    if (!documentState) throw new Error('No Image Studio document is open.');
+    const assets = new Map(documentState.embeddedAssets.map((asset) => [asset.id, asset]));
+    const rasterLayers = documentState.layers.filter((layer) => layer.kind === 'raster');
+    const digest = async (value) => {
+      const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+      const hash = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
+    const layers = [];
+    for (const layer of rasterLayers) {
+      const asset = assets.get(layer.assetId);
+      if (!asset) throw new Error(`Raster layer ${layer.id} is missing embedded source asset ${layer.assetId}.`);
+      const source = asset.dataUrl ? asset.dataUrl : await api.readAsset(asset.id);
+      if (!source || (typeof source !== 'string' && !source.length)) throw new Error(`Raster source asset ${asset.id} has no locally readable bytes.`);
+      layers.push({ layerId: layer.id, assetId: asset.id, width: asset.width, height: asset.height, sourceSha256: await digest(source) });
+    }
+    return { rasterLayerCount: rasterLayers.length, sourceLayers: layers };
+  });
 }
 async function exportEvidence(page) {
   return page.evaluate(async () => {
@@ -429,6 +531,8 @@ async function main() {
     const baseline = await waitForCanvas(page, (sample) => sample.quality === 'final' && sample.width > 0, 'Imported body image did not render');
     logProgress('baseline-ready', `${baseline.width}x${baseline.height}`);
     await storeCanvasPixels(page, 'B0');
+    const sourceBeforeRetouch = await rasterSourceFingerprint(page);
+    assert(sourceBeforeRetouch.rasterLayerCount >= 1, 'Imported document has no raster source layer.');
     await page.getByRole('button', { name: 'Fit canvas', exact: true }).click();
     await page.waitForTimeout(200);
 
@@ -440,11 +544,35 @@ async function main() {
       return node && /detected locally/.test(node.textContent ?? '');
     }, undefined, { timeout: 120000 });
     const status = await page.getByTestId('body-analysis-status').innerText();
+    const readAnalysisDiagnostics = async () => page.getByTestId('body-analysis-status').evaluate((node) => ({
+      cacheHits: Number(node.getAttribute('data-analysis-cache-hits') ?? 0),
+      cacheMisses: Number(node.getAttribute('data-analysis-cache-misses') ?? 0),
+      inFlightDedupes: Number(node.getAttribute('data-analysis-inflight-dedupes') ?? 0),
+      cacheEntries: Number(node.getAttribute('data-analysis-cache-entries') ?? 0),
+      requestedIds: (node.getAttribute('data-analysis-requested-ids') ?? '').split(',').filter(Boolean),
+      completedIds: (node.getAttribute('data-analysis-completed-ids') ?? '').split(',').filter(Boolean),
+      pendingIds: (node.getAttribute('data-analysis-pending-ids') ?? '').split(',').filter(Boolean),
+    }));
+    const firstAnalysisDiagnostics = await readAnalysisDiagnostics();
+    assert(firstAnalysisDiagnostics.cacheMisses >= 1 && firstAnalysisDiagnostics.requestedIds.length >= 1, `Initial local pose analysis did not record a cache miss and request ID: ${JSON.stringify(firstAnalysisDiagnostics)}`);
+    const cachedAnalysisStartedAt = Date.now();
+    await page.getByTestId('retouch-analyze-body').click();
+    await page.waitForFunction(() => Number(document.querySelector('[data-testid="body-analysis-status"]')?.getAttribute('data-analysis-cache-hits') ?? 0) >= 1, undefined, { timeout: 30000 });
+    const cachedAnalysisDiagnostics = await readAnalysisDiagnostics();
+    const cachedAnalysisElapsedMs = Date.now() - cachedAnalysisStartedAt;
+    assert(cachedAnalysisDiagnostics.cacheHits >= firstAnalysisDiagnostics.cacheHits + 1, `Repeated analysis did not record a cache hit: ${JSON.stringify({ firstAnalysisDiagnostics, cachedAnalysisDiagnostics })}`);
+    assert(cachedAnalysisDiagnostics.requestedIds.length === firstAnalysisDiagnostics.requestedIds.length, `Cache hit dispatched an unexpected new pose request: ${JSON.stringify({ firstAnalysisDiagnostics, cachedAnalysisDiagnostics })}`);
+    assert(cachedAnalysisDiagnostics.completedIds.length === cachedAnalysisDiagnostics.requestedIds.length && cachedAnalysisDiagnostics.pendingIds.length === 0, `Pose request bookkeeping is incomplete after cache hit: ${JSON.stringify(cachedAnalysisDiagnostics)}`);
     const subjectSelector = page.getByTestId('body-subject-selector').getByRole('button', { name: 'Body subject', exact: true });
     const subjects = await subjectSelector.count();
     assert(subjects === 1 && !await subjectSelector.isDisabled(), 'Local pose analysis produced no selectable body.');
-    evidence.B0_localPose = { status, subjects, modelId: 'mediapipe-pose-landmarker-full' };
-    logProgress('B0-local-pose-ready', status);
+    evidence.B0_localPose = {
+      status,
+      subjects,
+      modelId: 'mediapipe-pose-landmarker-full',
+      analysisCache: { first: firstAnalysisDiagnostics, afterCacheHit: cachedAnalysisDiagnostics, cachedAnalysisElapsedMs },
+    };
+    logProgress('B0-local-pose-ready', `${status}; cache hit ${cachedAnalysisElapsedMs}ms`);
 
     await page.getByTestId('retouch-add-waist').click();
     const slider = page.locator('.retouch-operation-item.expanded input[type="range"]').first();
@@ -474,6 +602,20 @@ async function main() {
     };
     assert(evidence.B9_stalePerformance.pass, 'Body stale supersession acceptance failed.');
     logProgress('B9-stale-ready');
+    if (process.env.RETOUCH_PHASE3B_PERFORMANCE_ONLY === '1') {
+      evidence.performanceOnly = {
+        pass: true,
+        fixturePath,
+        fixtureDimensions: { width: baseline.width, height: baseline.height },
+        analysisCache: evidence.B0_localPose.analysisCache,
+        proxyFinal: proxyFinal,
+        stalePerformance: evidence.B9_stalePerformance,
+        memory: 'NOT MEASURED',
+      };
+      evidence.runtimeResult = 'PASS';
+      logProgress('PERFORMANCE-ONLY-PASS', `${baseline.width}x${baseline.height}`);
+      return;
+    }
     const bodyToolCases = [
       { testId: 'retouch-add-body-slim', control: 'overallSlim', label: 'Body Slim' },
       { testId: 'retouch-add-hips', control: 'hips', label: 'Hips' },
@@ -488,7 +630,7 @@ async function main() {
       bodyToolMatrix.push(await exerciseAutomaticBodyTool(page, toolCase));
       logProgress('body-tool-ready', toolCase.control);
     }
-    assert(bodyToolMatrix.every((entry) => entry.changed && entry.removeRestoredExact), 'At least one automatic body tool failed its rendered-change or exact-removal check.');
+    assert(bodyToolMatrix.every((entry) => entry.changed && entry.undoRestoredExact && entry.redoRestoredExact && entry.removeRestoredExact), 'At least one automatic body tool failed its rendered-change or exact-removal check.');
     evidence.bodyToolMatrix = { controls: bodyToolMatrix, pass: true };
     const operationCountBeforeManual = await page.locator('.retouch-operation-item').count();
     await page.getByTestId('retouch-add-manual-body-warp').click();
@@ -502,7 +644,17 @@ async function main() {
     const strokeCount = await manualOperation.getAttribute('data-stroke-count');
     const manualChanged = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash !== beforeManual.hash, `Manual body warp did not stabilize to altered full-quality pixels; activeType=${activeTypeBeforeStroke}; strokeCount=${strokeCount}`);
     await storeCanvasPixels(page, 'B2-manual');
-    evidence.B2_manualWarp = { beforeHash: beforeManual.hash, hash: manualChanged.hash, changed: manualChanged.hash !== beforeManual.hash, strokeCount, activeTypeBeforeStroke };
+    const sourceAfterManual = await rasterSourceFingerprint(page);
+    assert(JSON.stringify(sourceAfterManual) === JSON.stringify(sourceBeforeRetouch), `Retouch changed source raster bytes before save: ${JSON.stringify({ sourceBeforeRetouch, sourceAfterManual })}`);
+    evidence.B2_manualWarp = {
+      beforeHash: beforeManual.hash,
+      hash: manualChanged.hash,
+      changed: manualChanged.hash !== beforeManual.hash,
+      strokeCount,
+      activeTypeBeforeStroke,
+      sourceRasterUnchanged: true,
+      sourceFingerprint: sourceBeforeRetouch,
+    };
     logProgress('B2-manual-ready', `strokes=${strokeCount}`);
 
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -558,13 +710,23 @@ async function main() {
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('toolbar', { name: 'Document operations' }).getByRole('button', { name: 'Open', exact: true }).click();
     const reopened = await waitForCanvas(page, (sample) => sample.hash === manualChanged.hash, 'Reopened Phase 3B document differs from saved body output');
+    const sourceAfterReopen = await rasterSourceFingerprint(page);
+    assert(JSON.stringify(sourceAfterReopen) === JSON.stringify(sourceBeforeRetouch), `Save/reopen changed source raster bytes: ${JSON.stringify({ sourceBeforeRetouch, sourceAfterReopen })}`);
     const savedDoc = await page.evaluate(() => window.knouxImageStudioAPI.getCurrent());
     const bodyOperations = savedDoc.layers.flatMap((layer) => layer.retouche?.operations ?? []).filter((operation) => operation.type === 'body-reshape');
     const manualOperations = savedDoc.layers.flatMap((layer) => layer.retouche?.operations ?? []).filter((operation) => operation.type === 'geometry-warp');
     const protectionMasks = savedDoc.layers.flatMap((layer) => layer.retouche?.masks ?? []).filter((mask) => /^body-protection-/.test(mask.id));
     assert(bodyOperations.length >= 1 && manualOperations.length >= 1, 'Saved document did not retain automatic and manual body operations.');
     assert(Boolean(bodyOperations[0]?.freezeMaskId) && protectionMasks.length >= 1, 'Saved body operation did not retain its local protection mask.');
-    evidence.B4_saveReopen = { exact: reopened.hash === manualChanged.hash, projectSha256: hashFile(projectPath), bodyOperationCount: bodyOperations.length, manualOperationCount: manualOperations.length, protectionMaskCount: protectionMasks.length, freezeMaskId: bodyOperations[0]?.freezeMaskId ?? null };
+    evidence.B4_saveReopen = {
+      exact: reopened.hash === manualChanged.hash,
+      projectSha256: hashFile(projectPath),
+      bodyOperationCount: bodyOperations.length,
+      manualOperationCount: manualOperations.length,
+      protectionMaskCount: protectionMasks.length,
+      freezeMaskId: bodyOperations[0]?.freezeMaskId ?? null,
+      sourceRasterInvariant: { exact: true, before: sourceBeforeRetouch, afterManual: sourceAfterManual, afterReopen: sourceAfterReopen },
+    };
     logProgress('B4-save-reopen-ready');
 
     await page.getByRole('button', { name: 'Export Flattened', exact: true }).click();

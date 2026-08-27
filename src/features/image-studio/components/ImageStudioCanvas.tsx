@@ -8,6 +8,7 @@ import { useImageStudioStore } from '../store/imageStudioStore';
 import { preloadAsset, getCachedAsset } from '../retouch/assetResolver';
 import { applyRetouchToLayer, getRetouchPreviewProxy } from '../retouch/perLayerRenderer';
 import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';
+import { createRetouchPerformanceRecorder, markRetouchInteraction, markRetouchRenderRequested } from '../retouch/retouchPerformanceTelemetry';
 
 import {
   clientPointToCanvasDocument,
@@ -62,15 +63,31 @@ export const ImageStudioCanvas: React.FC = () => {
   const renderFrame = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas || !currentDocument) return;
+    markRetouchRenderRequested();
     const myVersion = ++renderVersionRef.current;
+    const timing = createRetouchPerformanceRecorder(
+      transactionActive ? 'preview' : 'final',
+      {
+        renderVersion: myVersion,
+        transactionActive,
+        documentWidth: canvasWidth,
+        documentHeight: canvasHeight,
+        layerCount: currentDocument.layers.length,
+      },
+    );
     try {
       setRenderError(null);
+      const preloadStartedAt = performance.now();
       await Promise.all(
         currentDocument.layers.map((layer) =>
           layer.kind === 'raster' && layer.assetId ? preloadAsset(layer.assetId) : Promise.resolve(null)
         ),
       );
-      if (myVersion !== renderVersionRef.current) return;
+      timing.record('canvas.assetPreload', preloadStartedAt);
+      if (myVersion !== renderVersionRef.current) {
+        timing.finish({ outcome: 'superseded-after-preload' });
+        return;
+      }
       const resolveAsset = (assetId: string): RgbaBuffer | null => getCachedAsset(assetId);
       const useOriginal = showingOriginal || showOriginal;
       const renderedLayers = new Map<string, RgbaBuffer>();
@@ -84,38 +101,98 @@ export const ImageStudioCanvas: React.FC = () => {
             const assetBuf = resolveAsset(layer.assetId);
             if (!assetBuf) return;
             const context = { source: assetBuf, documentWidth: canvasWidth, documentHeight: canvasHeight };
+            const layerRenderStartedAt = performance.now();
             const result = transactionActive
-              ? await getRetouchPreviewProxy(context, retouche as never)
-              : await applyRetouchToLayer(context, retouche as never, 'final');
+              ? await getRetouchPreviewProxy(context, retouche as never, 1024, timing)
+              : await applyRetouchToLayer(context, retouche as never, 'final', timing);
+            timing.record('canvas.layerRetouch', layerRenderStartedAt, {
+              layerId: layer.id,
+              outputWidth: result.width,
+              outputHeight: result.height,
+              outputBytes: result.data.byteLength,
+            });
             renderedLayers.set(layer.id, result);
             const hasEnabledRetouchOperation = (retouche as { operations?: Array<{ enabled?: boolean }> }).operations?.some((operation) => operation.enabled) ?? false;
             if (transactionActive && hasEnabledRetouchOperation) retouchRenderBufferRef.current = { width: result.width, height: result.height };
           }),
         );
       }
-      if (myVersion !== renderVersionRef.current) return;
+      if (myVersion !== renderVersionRef.current) {
+        timing.finish({ outcome: 'superseded-after-layer-render' });
+        return;
+      }
+      const previewScale = transactionActive && retouchRenderBufferRef.current
+        ? Math.min(1, 1024 / Math.max(canvasWidth, canvasHeight))
+        : 1;
+      const renderCanvas = {
+        width: Math.max(1, Math.round(canvasWidth * previewScale)),
+        height: Math.max(1, Math.round(canvasHeight * previewScale)),
+      };
+      const previewPlanStartedAt = performance.now();
+      timing.record('canvas.previewPlan', previewPlanStartedAt, {
+        usingInteractionProxy: previewScale < 1,
+        documentPixels: canvasWidth * canvasHeight,
+        renderPixels: renderCanvas.width * renderCanvas.height,
+        skippedDocumentPixels: Math.max(0, canvasWidth * canvasHeight - renderCanvas.width * renderCanvas.height),
+        renderWidth: renderCanvas.width,
+        renderHeight: renderCanvas.height,
+      });
+      const compositeStartedAt = performance.now();
       const result = flattenDocument(currentDocument, {
         resolveAsset,
         resolveLayer: (layer) => renderedLayers.get(layer.id) ?? null,
-        canvas: { width: canvasWidth, height: canvasHeight },
+        canvas: renderCanvas,
+        timing,
+      });
+      timing.record('canvas.composite', compositeStartedAt, {
+        outputWidth: result.width,
+        outputHeight: result.height,
+        outputBytes: result.data.byteLength,
       });
       // Apply legacy post-composite retouch for migrated documents
       let finalBuffer = result;
       if (!useOriginal && currentDocument.legacyCompositeRetouch && currentDocument.legacyCompositeRetouch.operations.length > 0) {
         finalBuffer = await applyRetouchToBuffer(result, currentDocument.legacyCompositeRetouch, 'preview');
       }
-      if (myVersion !== renderVersionRef.current) return;
+      if (myVersion !== renderVersionRef.current) {
+        timing.finish({ outcome: 'superseded-before-paint' });
+        return;
+      }
+      if (canvas.width !== finalBuffer.width) canvas.width = finalBuffer.width;
+      if (canvas.height !== finalBuffer.height) canvas.height = finalBuffer.height;
+      // Keep the interaction plane in document coordinates. Only its backing
+      // raster changes during a live proxy transaction, so overlays and pointer
+      // mapping remain tied to the full-resolution document.
+      canvas.style.width = `${canvasWidth}px`;
+      canvas.style.height = `${canvasHeight}px`;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      const imageDataStartedAt = performance.now();
       const imageData = new ImageData(finalBuffer.data, finalBuffer.width, finalBuffer.height);
+      timing.record('canvas.imageData', imageDataStartedAt, { bytes: finalBuffer.data.byteLength });
+      const paintStartedAt = performance.now();
       ctx.putImageData(imageData, 0, 0);
+      timing.record('canvas.paint', paintStartedAt, { width: finalBuffer.width, height: finalBuffer.height });
       canvas.dataset.renderedVersion = String(myVersion);
+      canvas.dataset.documentWidth = String(canvasWidth);
+      canvas.dataset.documentHeight = String(canvasHeight);
       canvas.dataset.renderQuality = transactionActive ? 'preview' : 'final';
-      canvas.dataset.renderSource = transactionActive && Math.max(canvasWidth, canvasHeight) > 1024 ? 'proxy' : 'full';
-      canvas.dataset.renderBufferWidth = String(retouchRenderBufferRef.current?.width ?? finalBuffer.width);
-      canvas.dataset.renderBufferHeight = String(retouchRenderBufferRef.current?.height ?? finalBuffer.height);
+      canvas.dataset.renderSource = previewScale < 1 ? 'proxy' : 'full';
+      canvas.dataset.renderBufferWidth = String(finalBuffer.width);
+      canvas.dataset.renderBufferHeight = String(finalBuffer.height);
+      timing.finish({
+        outcome: 'painted',
+        engineInputWidth: retouchRenderBufferRef.current?.width ?? finalBuffer.width,
+        engineInputHeight: retouchRenderBufferRef.current?.height ?? finalBuffer.height,
+        renderedWidth: finalBuffer.width,
+        renderedHeight: finalBuffer.height,
+      });
     } catch (err) {
-      if (myVersion !== renderVersionRef.current) return;
+      if (myVersion !== renderVersionRef.current) {
+        timing.finish({ outcome: 'superseded-error' });
+        return;
+      }
+      timing.finish({ outcome: 'error', error: err instanceof Error ? err.message : String(err) });
       setRenderError(err instanceof Error ? err.message : String(err));
     }
   }, [currentDocument, canvasWidth, canvasHeight, showingOriginal, showOriginal, transactionActive, setRenderError]);
@@ -170,6 +247,7 @@ export const ImageStudioCanvas: React.FC = () => {
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
     const retouchType = activeRetouchOperation?.type;
     const supportsStroke = isStrokeRetouchType(retouchType);
+    markRetouchInteraction();
     if (event.button === 0 && supportsStroke && activeRetouchOperation) {
       const point = getDocumentPoint(event);
       if (!transactionActive) beginRetouchTransaction();
@@ -363,6 +441,7 @@ export const ImageStudioCanvas: React.FC = () => {
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
+          style={{ width: canvasWidth, height: canvasHeight }}
           className={`image-studio-canvas ${renderError ? 'image-studio-canvas--error' : ''}`}
           onClick={handleCanvasClick}
         />

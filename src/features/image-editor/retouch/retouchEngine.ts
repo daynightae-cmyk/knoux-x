@@ -361,12 +361,18 @@ export function reorderOperations(state: RetouchState, orderedIds: string[]): Re
 export type RenderQuality = 'preview' | 'final' | 'export';
 export type RenderBackend = 'cpu' | 'gpu';
 
+/** Optional, production-inert profiling contract supplied by Image Studio. */
+export interface RetouchRenderTiming {
+  record(name: string, startedAt: number, details?: Record<string, number | string | boolean>): void;
+}
+
 export interface RenderRequest {
   source: RgbaBuffer;
   operations: RetouchOperation[];
   masks: Map<string, RetouchMask>;
   quality: RenderQuality;
   version: number;
+  timing?: RetouchRenderTiming;
 }
 
 export interface RenderResult {
@@ -653,7 +659,14 @@ export class CpuRetouchRenderer implements RetouchRenderer {
       void previewScale;
     }
 
+    const sourceCopyStartedAt = performance.now();
     let buffer: RgbaBuffer = { width: source.width, height: source.height, data: new Uint8ClampedArray(source.data) };
+    request.timing?.record('engine.sourceCopy', sourceCopyStartedAt, {
+      width: source.width,
+      height: source.height,
+      bytes: source.data.byteLength,
+      quality: request.quality,
+    });
 
     // Deterministic order: operation stack is authoritative
     for (const op of request.operations) {
@@ -662,7 +675,15 @@ export class CpuRetouchRenderer implements RetouchRenderer {
         throw new DOMException('Superseded by newer render', 'AbortError');
       }
       if (!op.enabled) continue;
+      const operationStartedAt = performance.now();
       buffer = applyOperation(buffer, op, request.masks);
+      request.timing?.record('engine.operation', operationStartedAt, {
+        operationId: op.id,
+        operationType: op.type,
+        width: buffer.width,
+        height: buffer.height,
+        bytes: buffer.data.byteLength,
+      });
     }
 
     // Final stale check before returning
@@ -723,6 +744,7 @@ export async function renderRetouchPipeline(input: {
   quality?: RenderQuality;
   version?: number;
   backend?: RenderBackend;
+  timing?: RetouchRenderTiming;
 }): Promise<RgbaBuffer> {
   const renderer = createRetouchRenderer(input.backend ?? 'cpu');
   try {
@@ -732,6 +754,7 @@ export async function renderRetouchPipeline(input: {
       masks: input.masks,
       quality: input.quality ?? 'final',
       version: input.version ?? 0,
+      timing: input.timing,
     });
     return result.buffer;
   } finally {

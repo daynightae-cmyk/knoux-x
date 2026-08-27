@@ -1,4 +1,5 @@
 import { createImageStudioDocument, createRasterLayer, addEmbeddedAsset, addLayer } from '../../src/core/image-studio/document/document';
+import { compositeRgba } from '../../src/core/image-studio/layers/blendModes';
 import {
   applyMaskBuffer,
   byteToUnit,
@@ -71,6 +72,62 @@ describe('image studio compositor', () => {
     const result = compositeBuffer(backdrop, source, 'normal');
     expect(result.data[0]).toBe(255);
     expect(result.data[3]).toBe(255);
+  });
+
+  it('compositeBuffer normal opaque path preserves length and source bytes', () => {
+    const backdrop = solidBuffer(2, 2, { r: 1, g: 2, b: 3, a: 255 });
+    const source = solidBuffer(2, 2, { r: 220, g: 70, b: 10, a: 255 });
+    const result = compositeBuffer(backdrop, source, 'normal');
+    expect(result.data).toHaveLength(16);
+    expect(Array.from(result.data)).toEqual(Array.from(source.data));
+    expect(result.data).not.toBe(source.data);
+  });
+
+  it('compositeBuffer normal fast path is byte-identical to the generic normal equation', () => {
+    const backdrop: RgbaBuffer = {
+      width: 5,
+      height: 1,
+      data: new Uint8ClampedArray([
+        0, 0, 0, 0,
+        255, 255, 255, 255,
+        11, 127, 251, 64,
+        240, 3, 100, 128,
+        18, 220, 71, 203,
+      ]),
+    };
+    const source: RgbaBuffer = {
+      width: 5,
+      height: 1,
+      data: new Uint8ClampedArray([
+        255, 80, 3, 0,
+        1, 3, 7, 255,
+        99, 7, 211, 18,
+        23, 240, 45, 127,
+        255, 255, 255, 254,
+      ]),
+    };
+    const actual = compositeBuffer(backdrop, source, 'normal');
+    const expected: number[] = [];
+    for (let index = 0; index < backdrop.data.length; index += 4) {
+      const result = compositeRgba('normal', {
+        r: backdrop.data[index] / 255,
+        g: backdrop.data[index + 1] / 255,
+        b: backdrop.data[index + 2] / 255,
+        a: backdrop.data[index + 3] / 255,
+      }, {
+        r: source.data[index] / 255,
+        g: source.data[index + 1] / 255,
+        b: source.data[index + 2] / 255,
+        a: source.data[index + 3] / 255,
+      });
+      expected.push(
+        unitToByte(result.r),
+        unitToByte(result.g),
+        unitToByte(result.b),
+        unitToByte(result.a),
+      );
+    }
+    expect(Array.from(actual.data)).toEqual(expected);
   });
 
   it('resampleBuffer scales with bilinear interpolation', () => {

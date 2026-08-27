@@ -8,6 +8,7 @@ import type { BodyAnalysisResult, BodySegmentationMask, DerivedBodyGeometry, Det
 import { BODY_ANALYSIS_MODEL_ID } from '../../image-editor/retouch/bodyAnalysisContract';
 import { bodyReshapeStrokes, EMPTY_BODY_RESHAPE_CONTROLS, type BodyReshapeControls } from '../../image-editor/retouch/bodyReshapeGeometry';
 import { useImageStudioStore } from '../store/imageStudioStore';
+import { markRetouchInteraction } from '../retouch/retouchPerformanceTelemetry';
 
 type RetouchTool = 'healing' | 'portrait' | 'body' | 'adjustments' | 'masks';
 
@@ -202,6 +203,7 @@ function SliderField({
         value={value}
         onChange={(e) => {
           document.documentElement.dataset.retouchSliderInput = String(Date.now());
+          markRetouchInteraction();
           valueChangedRef.current = true;
           onChange(Number.parseFloat(e.target.value));
           commitAfterIdle();

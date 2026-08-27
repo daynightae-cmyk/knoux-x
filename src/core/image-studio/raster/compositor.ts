@@ -21,6 +21,10 @@ export interface LayerRenderer {
   render(layer: ImageLayer, canvas: { width: number; height: number }): RgbaBuffer | null;
 }
 
+export interface CompositorTiming {
+  record(name: string, startedAt: number, details?: Record<string, number | string | boolean>): void;
+}
+
 export interface CompositorOptions {
   resolveAsset: ResolveAsset;
   /** Optional layer-aware source override used by runtime preview/export.
@@ -31,6 +35,8 @@ export interface CompositorOptions {
   includeHidden?: boolean;
   /** Seed used for dissolve so flattening is deterministic. */
   dissolveSeed?: number;
+  /** Optional profiling callback. It is only attached by explicit acceptance runs. */
+  timing?: CompositorTiming;
 }
 
 function clone<T>(value: T): T {
@@ -108,6 +114,7 @@ export function compositeBuffer(
 ): RgbaBuffer {
   if (backdrop.width !== source.width || backdrop.height !== source.height)
     throw new RangeError('Buffers must match in dimensions.');
+  if (blendMode === 'normal') return compositeNormalBuffer(backdrop, source);
   const out = clone(backdrop);
   for (let i = 0; i < backdrop.data.length; i += 4) {
     const x = (i / 4) % backdrop.width;
@@ -131,6 +138,57 @@ export function compositeBuffer(
     out.data[i + 3] = unitToByte(result.a);
   }
   return out;
+}
+
+/**
+ * The generic compositor intentionally supports every Photoshop-style blend
+ * mode. The common normal path is algebraically identical to compositeRgba,
+ * but runs directly on typed-array values: the previous route allocated four
+ * short-lived RGB/RGBA objects for each pixel before returning the same bytes.
+ */
+function compositeNormalBuffer(backdrop: RgbaBuffer, source: RgbaBuffer): RgbaBuffer {
+  // Opaque normal source fully replaces its backdrop. Checking alpha is far
+  // cheaper than the alpha-composition equation over a 13.7M-pixel document.
+  if (isFullyOpaque(source)) {
+    const data = new Uint8ClampedArray(source.data.length);
+    data.set(source.data);
+    return { width: source.width, height: source.height, data };
+  }
+  const out: RgbaBuffer = {
+    width: backdrop.width,
+    height: backdrop.height,
+    data: new Uint8ClampedArray(backdrop.data),
+  };
+  for (let i = 0; i < backdrop.data.length; i += 4) {
+    const sourceAlpha = source.data[i + 3] / 255;
+    const backdropAlpha = backdrop.data[i + 3] / 255;
+    const inverseSourceAlpha = 1 - sourceAlpha;
+    const outputAlpha = sourceAlpha + backdropAlpha * inverseSourceAlpha;
+    if (outputAlpha === 0) {
+      out.data[i] = 0;
+      out.data[i + 1] = 0;
+      out.data[i + 2] = 0;
+      out.data[i + 3] = 0;
+      continue;
+    }
+    const backgroundFactor = backdropAlpha * inverseSourceAlpha;
+    out.data[i] = unitToByte((sourceAlpha * (source.data[i] / 255) + backgroundFactor * (backdrop.data[i] / 255)) / outputAlpha);
+    out.data[i + 1] = unitToByte((sourceAlpha * (source.data[i + 1] / 255) + backgroundFactor * (backdrop.data[i + 1] / 255)) / outputAlpha);
+    out.data[i + 2] = unitToByte((sourceAlpha * (source.data[i + 2] / 255) + backgroundFactor * (backdrop.data[i + 2] / 255)) / outputAlpha);
+    out.data[i + 3] = unitToByte(outputAlpha);
+  }
+  return out;
+}
+
+function isFullyOpaque(buffer: RgbaBuffer): boolean {
+  // The fast path requires a complete typed RGBA array. Keeping malformed or
+  // structured-clone-compatible array-likes on the generic route preserves
+  // compositor behavior while production assets retain the optimized path.
+  if (buffer.data.length !== buffer.width * buffer.height * 4) return false;
+  for (let index = 3; index < buffer.data.length; index += 4) {
+    if (buffer.data[index] !== 255) return false;
+  }
+  return true;
 }
 
 /** Resample a source buffer into the target dimensions using bilinear
@@ -212,12 +270,14 @@ export function flattenDocument(
   document: ImageStudioDocument,
   options: CompositorOptions
 ): RgbaBuffer {
+  const flattenedStartedAt = performance.now();
   const canvas = options.canvas ?? { width: document.canvas.width, height: document.canvas.height };
   validateCanvas(canvas);
   const resolveAsset = options.resolveAsset;
   const renderers = options.renderers ?? [];
   const backgroundColor = document.canvas.backgroundColor;
-  const result = createBuffer(canvas.width, canvas.height, {
+  const allocationStartedAt = performance.now();
+  let result = createBuffer(canvas.width, canvas.height, {
     r: parseInt(backgroundColor.slice(1, 3), 16) || 0,
     g: parseInt(backgroundColor.slice(3, 5), 16) || 0,
     b: parseInt(backgroundColor.slice(5, 7), 16) || 0,
@@ -226,6 +286,11 @@ export function flattenDocument(
   if (document.canvas.backgroundMode === 'transparent') {
     for (let i = 3; i < result.data.length; i += 4) result.data[i] = 0;
   }
+  options.timing?.record('compositor.outputAllocation', allocationStartedAt, {
+    width: canvas.width,
+    height: canvas.height,
+    bytes: result.data.byteLength,
+  });
   const paintOrder = flattenPaintOrder(document.layers);
   for (const layer of paintOrder) {
     if (!layer.visible) continue;
@@ -242,11 +307,46 @@ export function flattenDocument(
     }
     if (!source) continue;
     if (source.width !== canvas.width || source.height !== canvas.height) {
+      const resampleStartedAt = performance.now();
+      const inputWidth = source.width;
+      const inputHeight = source.height;
       source = resampleBuffer(source, canvas.width, canvas.height);
+      options.timing?.record('compositor.resample', resampleStartedAt, {
+        layerId: layer.id,
+        inputWidth,
+        inputHeight,
+        outputWidth: canvas.width,
+        outputHeight: canvas.height,
+        processedPixels: canvas.width * canvas.height,
+        allocationBytes: source.data.byteLength,
+      });
     }
     if (layer.mask) {
       const mask = resolveAsset(layer.mask.assetId);
-      if (mask) source = applyMaskBuffer(source, mask, layer.mask.inverted, layer.mask.opacity);
+      if (mask) {
+        const maskResampleStartedAt = performance.now();
+        const maskForSource = mask.width === source.width && mask.height === source.height
+          ? mask
+          : resampleBuffer(mask, source.width, source.height);
+        if (maskForSource !== mask) {
+          options.timing?.record('compositor.maskResample', maskResampleStartedAt, {
+            layerId: layer.id,
+            inputWidth: mask.width,
+            inputHeight: mask.height,
+            outputWidth: source.width,
+            outputHeight: source.height,
+            processedPixels: source.width * source.height,
+            allocationBytes: maskForSource.data.byteLength,
+          });
+        }
+        const maskApplyStartedAt = performance.now();
+        source = applyMaskBuffer(source, maskForSource, layer.mask.inverted, layer.mask.opacity);
+        options.timing?.record('compositor.maskApply', maskApplyStartedAt, {
+          layerId: layer.id,
+          processedPixels: source.width * source.height,
+          allocationBytes: source.data.byteLength,
+        });
+      }
     }
     if (layer.opacity < 1) {
       source = clone(source);
@@ -254,11 +354,30 @@ export function flattenDocument(
         source.data[i] = unitToByte(byteToUnit(source.data[i]) * layer.opacity);
       }
     }
+    const compositeStartedAt = performance.now();
     const composited = compositeBuffer(result, source, layer.blendMode, {
       seed: options.dissolveSeed ?? 0,
     });
-    for (let i = 0; i < result.data.length; i++) result.data[i] = composited.data[i];
+    // compositeBuffer always returns a fresh result, so replacing this handle
+    // avoids a second full-document 55 MB copy after every visible layer.
+    result = composited;
+    options.timing?.record('compositor.blend', compositeStartedAt, {
+      layerId: layer.id,
+      blendMode: layer.blendMode,
+      processedPixels: canvas.width * canvas.height,
+      cloneAllocationBytes: composited.data.byteLength,
+      implementation: layer.blendMode === 'normal' ? 'typed-array-normal-fast-path-with-opaque-copy' : 'generic-blend',
+    });
+    options.timing?.record('compositor.resultAdopt', compositeStartedAt, {
+      layerId: layer.id,
+      copiedBytesAvoided: result.data.byteLength,
+    });
   }
+  options.timing?.record('compositor.total', flattenedStartedAt, {
+    width: canvas.width,
+    height: canvas.height,
+    outputBytes: result.data.byteLength,
+  });
   return result;
 }
 

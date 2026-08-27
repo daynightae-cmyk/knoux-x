@@ -59,6 +59,29 @@ function logProgress(stage, detail = '') {
   fs.appendFileSync(progressLogPath, `${line}\n`, 'utf8');
 }
 
+async function canvasFrameState(page) {
+  return page.locator('canvas.image-studio-canvas').evaluate((canvas) => ({
+    width: Number(canvas.dataset.documentWidth ?? canvas.width),
+    height: Number(canvas.dataset.documentHeight ?? canvas.height),
+    backingWidth: Number(canvas.dataset.renderBufferWidth ?? canvas.width),
+    backingHeight: Number(canvas.dataset.renderBufferHeight ?? canvas.height),
+    quality: canvas.dataset.renderQuality ?? null,
+    source: canvas.dataset.renderSource ?? null,
+    renderedVersion: Number(canvas.dataset.renderedVersion ?? 0),
+  }));
+}
+
+async function waitForCanvasFrame(page, predicate, message, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let frame = null;
+  while (Date.now() < deadline) {
+    frame = await canvasFrameState(page);
+    if (predicate(frame)) return frame;
+    await page.waitForTimeout(16);
+  }
+  throw new Error(`${message}; last=${JSON.stringify(frame)}`);
+}
+
 async function canvasSample(page) {
   return page.evaluate(async () => {
     const canvas = document.querySelector('canvas.image-studio-canvas');
@@ -69,8 +92,10 @@ async function canvasSample(page) {
     const digest = await crypto.subtle.digest('SHA-256', pixels);
     const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     return {
-      width: canvas.width,
-      height: canvas.height,
+      width: Number(canvas.dataset.documentWidth ?? canvas.width),
+      height: Number(canvas.dataset.documentHeight ?? canvas.height),
+      backingWidth: canvas.width,
+      backingHeight: canvas.height,
       hash,
       quality: canvas.dataset.renderQuality ?? null,
       source: canvas.dataset.renderSource ?? null,
@@ -80,6 +105,62 @@ async function canvasSample(page) {
     };
   });
 }
+function packagedProcessMetrics(rootPid) {
+  try {
+    const command = [
+      `$root = ${Number(rootPid)};`,
+      '$all = Get-CimInstance Win32_Process;',
+      '$pending = @($root); $seen = @();',
+      'while ($pending.Count -gt 0) { $currentProcessId = $pending[0]; if ($seen -contains $currentProcessId) { $pending = @($pending | Select-Object -Skip 1); continue }; $seen += $currentProcessId; $pending = @($pending | Select-Object -Skip 1) + @($all | Where-Object { $_.ParentProcessId -eq $currentProcessId } | ForEach-Object { $_.ProcessId }) };',
+      '$metrics = @($seen | ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue } | Where-Object { $_ });',
+      '[pscustomobject]@{ processIds = @($metrics | ForEach-Object { $_.Id }); processCount = @($metrics).Count; cpuSeconds = [double](@($metrics | Measure-Object -Property CPU -Sum).Sum); workingSetBytes = [int64](@($metrics | Measure-Object -Property WorkingSet64 -Sum).Sum); privateBytes = [int64](@($metrics | Measure-Object -Property PrivateMemorySize64 -Sum).Sum) } | ConvertTo-Json -Compress',
+    ].join(' ');
+    return JSON.parse(childProcess.execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8', windowsHide: true }).trim());
+  } catch (error) {
+    return { status: 'NOT MEASURED', reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function enableRetouchPerformance(page, label) {
+  await page.evaluate((runLabel) => {
+    window.__knouxRetouchPerformance = {
+      enabled: true,
+      maxTraces: 240,
+      label: runLabel,
+      traces: [],
+      counters: {
+        uiInteractionEvents: 0,
+        requestedFrames: 0,
+        startedFrames: 0,
+        completedFrames: 0,
+        discardedBeforeStart: 0,
+        supersededDuringRender: 0,
+        paintedFrames: 0,
+      },
+    };
+  }, label);
+}
+
+async function retouchPerformanceSnapshot(page, label) {
+  return page.evaluate((snapshotLabel) => {
+    const runtime = window.__knouxRetouchPerformance ?? {};
+    const memory = performance.memory
+      ? {
+        usedJsHeapSize: performance.memory.usedJSHeapSize,
+        totalJsHeapSize: performance.memory.totalJSHeapSize,
+        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+        externalArrayBufferBytes: 'NOT EXPOSED BY Chromium performance.memory',
+      }
+      : null;
+    return JSON.parse(JSON.stringify({
+      label: snapshotLabel,
+      counters: runtime.counters ?? null,
+      traces: runtime.traces ?? [],
+      rendererMemory: memory,
+    }));
+  }, label);
+}
+
 async function storeCanvasPixels(page, key) {
   await page.evaluate((snapshotKey) => {
     const canvas = document.querySelector('canvas.image-studio-canvas');
@@ -303,14 +384,21 @@ async function bodyProxyFinal(page, slider) {
   const documentBefore = await canvasSample(page);
   const startedAt = Date.now();
   await page.keyboard.down('PageUp');
-  const proxy = await waitForCanvas(
+  const proxyFrame = await waitForCanvasFrame(
     page,
-    (sample) => sample.quality === 'preview' && sample.source === 'proxy' && sample.bufferWidth < sample.width && sample.bufferHeight < sample.height,
+    (frame) => frame.quality === 'preview' && frame.source === 'proxy' && frame.backingWidth < frame.width && frame.backingHeight < frame.height,
     'Body slider did not produce a reduced proxy buffer during its transaction',
     30000,
   );
   const proxyObservedAt = Date.now();
+  const proxy = await canvasSample(page);
   await page.keyboard.up('PageUp');
+  const finalFrame = await waitForCanvasFrame(
+    page,
+    (frame) => frame.quality === 'final' && frame.source === 'full' && frame.width === documentBefore.width && frame.height === documentBefore.height && frame.backingWidth === frame.width && frame.backingHeight === frame.height,
+    'Body slider did not render its full-resolution final buffer',
+  );
+  const finalObservedAt = Date.now();
   const final = await waitForStableCanvas(
     page,
     (sample) => sample.quality === 'final' && sample.source === 'full' && sample.width === documentBefore.width && sample.height === documentBefore.height && sample.bufferWidth === sample.width && sample.bufferHeight === sample.height,
@@ -321,8 +409,8 @@ async function bodyProxyFinal(page, slider) {
     proxyObserved: true,
     finalObserved: true,
     document: { width: documentBefore.width, height: documentBefore.height },
-    preview: { width: proxy.bufferWidth, height: proxy.bufferHeight, rgbaSha256: proxy.hash, renderQuality: proxy.quality, renderSource: proxy.source, firstVisibleProxyMs: proxyObservedAt - startedAt },
-    final: { width: final.bufferWidth, height: final.bufferHeight, rgbaSha256: final.hash, renderQuality: final.quality, renderSource: final.source, finalAfterPointerUpMs: Date.now() - proxyObservedAt },
+    preview: { width: proxyFrame.backingWidth, height: proxyFrame.backingHeight, rgbaSha256: proxy.hash, renderQuality: proxy.quality, renderSource: proxy.source, firstVisibleProxyMs: proxyObservedAt - startedAt },
+    final: { width: finalFrame.backingWidth, height: finalFrame.backingHeight, rgbaSha256: final.hash, renderQuality: final.quality, renderSource: final.source, finalAfterPointerUpMs: finalObservedAt - proxyObservedAt },
   };
 }
 
@@ -354,6 +442,97 @@ async function bodyStaleSupersession(page, slider) {
     stabilizationHash: stable.hash,
     finalStoredValueEqualsC: true,
     staleOverwriteObserved: false,
+  };
+}
+
+async function runPerformanceStress(page, waistSlider, processMetrics) {
+  const sourceBefore = await rasterSourceFingerprint(page);
+  await enableRetouchPerformance(page, 'performance-stress');
+  const memoryBefore = await retouchPerformanceSnapshot(page, 'stress-before');
+  const processBefore = processMetrics();
+  const startedAt = Date.now();
+
+  await waistSlider.focus();
+  for (let index = 0; index < 20; index += 1) {
+    await page.keyboard.press(index % 2 === 0 ? 'ArrowDown' : 'ArrowUp');
+  }
+  await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Waist stress did not settle to a final frame.');
+
+  const hipsBefore = await page.locator('.retouch-operation-item').count();
+  await page.getByTestId('retouch-add-hips').click();
+  const hipsOperation = page.locator('.retouch-operation-item').nth(hipsBefore);
+  await hipsOperation.waitFor({ state: 'visible', timeout: 30000 });
+  const hipsSlider = hipsOperation.locator('input[type="range"]').first();
+  await hipsSlider.focus();
+  for (let index = 0; index < 20; index += 1) {
+    await page.keyboard.press(index % 2 === 0 ? 'ArrowDown' : 'ArrowUp');
+  }
+  await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Body-operation stress did not settle to a final frame.');
+
+  const manualBefore = await page.locator('.retouch-operation-item').count();
+  await page.getByTestId('retouch-add-manual-body-warp').click();
+  const manualOperation = page.locator('.retouch-operation-item').nth(manualBefore);
+  await manualOperation.waitFor({ state: 'visible', timeout: 30000 });
+  for (let index = 0; index < 10; index += 1) {
+    const y = 0.43 + (index % 4) * 0.035;
+    await strokeCanvas(page, { x: 0.43, y }, { x: 0.49 + (index % 3) * 0.018, y });
+  }
+  const afterStrokes = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Manual body-warp stress did not settle to a final frame.');
+
+  await waistSlider.focus();
+  // Repeated keydown while the native range remains held is the packaged
+  // Electron gesture already proven by B9. It produces A→B→C without closing
+  // the transaction between values, so a proxy frame is meaningful here.
+  await page.keyboard.down('PageDown');
+  const requestedA = await waistSlider.inputValue();
+  await page.keyboard.down('PageDown');
+  const requestedB = await waistSlider.inputValue();
+  await page.keyboard.down('PageDown');
+  const requestedC = await waistSlider.inputValue();
+  const abcPreview = await waitForCanvas(page, (sample) => sample.quality === 'preview' && sample.source === 'proxy', 'A→B→C stress did not paint a proxy frame.', 30000);
+  await page.keyboard.up('PageDown');
+  const abcFinal = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'A→B→C stress did not settle to a final frame.');
+  const finalWaistValue = await waistSlider.inputValue();
+
+  for (let index = 0; index < 2; index += 1) {
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Stress undo did not settle.');
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Stress redo did not settle.');
+  }
+
+  const sourceAfter = await rasterSourceFingerprint(page);
+  const state = await page.locator('.image-studio-view').evaluate((root) => ({
+    transactionActive: root.getAttribute('data-transaction-active'),
+    historyCount: Number(root.getAttribute('data-history-count') ?? 0),
+    historyIndex: Number(root.getAttribute('data-history-index') ?? -1),
+    renderError: document.querySelector('.image-studio-render-error')?.textContent ?? null,
+  }));
+  const memoryAfter = await retouchPerformanceSnapshot(page, 'stress-after');
+  const processAfter = processMetrics();
+  const sourceStable = JSON.stringify(sourceBefore) === JSON.stringify(sourceAfter);
+  const stableFinal = await canvasSample(page);
+  const pass = sourceStable
+    && state.transactionActive === 'false'
+    && !state.renderError
+    && finalWaistValue === requestedC
+    && stableFinal.hash === abcFinal.hash;
+  return {
+    durationMs: Date.now() - startedAt,
+    gestures: { waist: 20, bodyChanges: 20, manualStrokes: 10, rapidABC: [requestedA, requestedB, requestedC], undoRedoPairs: 2 },
+    proxy: { backing: { width: abcPreview.backingWidth, height: abcPreview.backingHeight }, logical: { width: abcPreview.width, height: abcPreview.height } },
+    final: { hash: abcFinal.hash, manualWarpHash: afterStrokes.hash, storedWaistValue: finalWaistValue, stableHash: stableFinal.hash },
+    sourceStable,
+    state,
+    memory: { before: memoryBefore.rendererMemory, after: memoryAfter.rendererMemory, processBefore, processAfter },
+    cpu: {
+      wallMs: Date.now() - startedAt,
+      processCpuMs: typeof processBefore.cpuSeconds === 'number' && typeof processAfter.cpuSeconds === 'number'
+        ? Math.max(0, (processAfter.cpuSeconds - processBefore.cpuSeconds) * 1000)
+        : 'NOT MEASURED',
+    },
+    telemetry: memoryAfter,
+    pass,
   };
 }
 
@@ -540,6 +719,7 @@ async function main() {
     }
     await page.getByText('Image Studio', { exact: true }).last().click();
     await page.locator('.image-studio-view').waitFor({ state: 'visible', timeout: 30000 });
+    await enableRetouchPerformance(page, 'phase3b-acceptance');
     logProgress('image-studio-visible');
     if (process.env.RETOUCH_PHASE3B_CLOSURE_ONLY === '1') {
       const closure = await runFinalClosureEvidence(page, {
@@ -634,13 +814,19 @@ async function main() {
     await storeCanvasPixels(page, 'B1-waist');
     evidence.B1_autoWaist = { baselineHash: baseline.hash, hash: autoChanged.hash, changed: autoChanged.hash !== baseline.hash };
     logProgress('B1-waist-ready');
+    await enableRetouchPerformance(page, 'B8-proxy-final');
     const proxyFinal = await bodyProxyFinal(page, slider);
+    const proxyFinalTelemetry = await retouchPerformanceSnapshot(page, 'B8-proxy-final');
+    const proxyFinalProcessMetrics = packagedProcessMetrics(packagedProcess.pid);
     assert(proxyFinal.preview.width < proxyFinal.document.width && proxyFinal.preview.height < proxyFinal.document.height, `Body preview buffer was not reduced: ${JSON.stringify(proxyFinal)}`);
-    evidence.B8_proxyFinal = proxyFinal;
+    evidence.B8_proxyFinal = { ...proxyFinal, telemetry: proxyFinalTelemetry, processMetrics: proxyFinalProcessMetrics };
     logProgress('B8-proxy-final-ready', `${proxyFinal.preview.width}x${proxyFinal.preview.height}->${proxyFinal.final.width}x${proxyFinal.final.height}`);
+    await enableRetouchPerformance(page, 'B9-stale-supersession');
     const staleSupersession = await bodyStaleSupersession(page, slider);
+    const staleTelemetry = await retouchPerformanceSnapshot(page, 'B9-stale-supersession');
     evidence.B9_stalePerformance = {
       staleSupersession,
+      telemetry: staleTelemetry,
       performance: {
         analysisElapsedMs: Number(await page.getByTestId('body-analysis-status').getAttribute('data-analysis-elapsed-ms')),
         waistProxyFirstVisibleMs: proxyFinal.preview.firstVisibleProxyMs,
@@ -653,14 +839,22 @@ async function main() {
     assert(evidence.B9_stalePerformance.pass, 'Body stale supersession acceptance failed.');
     logProgress('B9-stale-ready');
     if (process.env.RETOUCH_PHASE3B_PERFORMANCE_ONLY === '1') {
+      const stress = process.env.RETOUCH_PHASE3B_SKIP_STRESS === '1'
+        ? { status: 'NOT RUN', reason: 'Matrix sample: full-resolution stress is recorded separately.' }
+        : await runPerformanceStress(page, slider, () => packagedProcessMetrics(packagedProcess.pid));
+      if ('pass' in stress) assert(stress.pass, `Performance stress did not preserve product state: ${JSON.stringify(stress)}`);
       evidence.performanceOnly = {
         pass: true,
         fixturePath,
         fixtureDimensions: { width: baseline.width, height: baseline.height },
         analysisCache: evidence.B0_localPose.analysisCache,
-        proxyFinal: proxyFinal,
+        proxyFinal: evidence.B8_proxyFinal,
         stalePerformance: evidence.B9_stalePerformance,
-        memory: 'NOT MEASURED',
+        stress,
+        memory: {
+          proxyFinalRenderer: proxyFinalTelemetry.rendererMemory,
+          staleRenderer: staleTelemetry.rendererMemory,
+        },
       };
       evidence.runtimeResult = 'PASS';
       logProgress('PERFORMANCE-ONLY-PASS', `${baseline.width}x${baseline.height}`);

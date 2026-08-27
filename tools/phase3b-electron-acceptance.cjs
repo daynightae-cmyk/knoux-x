@@ -6,10 +6,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const asar = require('@electron/asar');
+const { runFinalClosureEvidence } = require('./phase3b-final-closure-helper.cjs');
 
 const root = path.resolve(__dirname, '..');
 const evidenceDir = path.join(root, '_temp', 'live-evidence');
 const fixturePath = process.env.RETOUCH_PHASE3B_FIXTURE_PATH || path.join(evidenceDir, 'retouch-phase3b-fullbody-fixture.jpg');
+const closureFixturePath = process.env.RETOUCH_PHASE3B_CLOSURE_FIXTURE_PATH || fixturePath;
 const projectPath = path.join(evidenceDir, 'retouch-phase3b-body.knouximage');
 const exportPath = path.join(evidenceDir, 'retouch-phase3b-body-export.png');
 const evidencePath = process.env.RETOUCH_PHASE3B_EVIDENCE_PATH || path.join(evidenceDir, 'retouch-phase3b-electron-acceptance.json');
@@ -18,7 +20,7 @@ const runtimeUserDataPath = path.join(evidenceDir, 'retouch-phase3b-electron-use
 const startupTracePath = path.join(evidenceDir, 'retouch-phase3b-packaged-startup.log');
 const acceptanceConfigPath = path.join(evidenceDir, 'retouch-phase3b-packaged-acceptance-config.json');
 const networkLogPath = path.join(evidenceDir, 'retouch-phase3b-packaged-network.json');
-const progressLogPath = path.join(evidenceDir, 'retouch-phase3b-acceptance-progress.log');
+const progressLogPath = process.env.RETOUCH_PHASE3B_PROGRESS_PATH || path.join(evidenceDir, `retouch-phase3b-acceptance-progress-${process.pid}.log`);
 const cdpEndpoint = 'http://127.0.0.1:9222';
 const packagedExecutablePath = path.join(root, 'out', 'KNOUX Player X-win32-x64', 'knoux-player-x.exe');
 
@@ -209,6 +211,7 @@ async function protectionMetrics(page, beforeKey, afterKey, maskRecord, geometry
       return [guard.id, {
         method: 'local-rgb-block-match',
         centerPx: { x: centerX, y: centerY },
+        localGuardRadiusPx: guard.radius * Math.min(canvas.width, canvas.height),
         patchRadiusPx: patchRadius,
         searchRadiusPx: searchRadius,
         dxPx: best.dxPx,
@@ -224,10 +227,19 @@ async function protectionMetrics(page, beforeKey, afterKey, maskRecord, geometry
       const joint = displacementByGuard[`${limb}-joint`];
       const distal = displacementByGuard[`${limb}-distal`];
       const vectorDelta = (a, b) => Math.hypot(a.dxPx - b.dxPx, a.dyPx - b.dyPx);
+      const localLimbLengthPx = Math.max(1,
+        (Math.hypot(proximal.centerPx.x - joint.centerPx.x, proximal.centerPx.y - joint.centerPx.y)
+        + Math.hypot(joint.centerPx.x - distal.centerPx.x, joint.centerPx.y - distal.centerPx.y)) / 2);
+      const maximumAdjacentDeltaPx = Math.max(vectorDelta(proximal, joint), vectorDelta(joint, distal));
+      const samplerAdjacentBoundPx = 2 * Math.max(proximal.searchRadiusPx, joint.searchRadiusPx, distal.searchRadiusPx);
       return [limb, {
         proximalToJointDeltaPx: vectorDelta(proximal, joint),
         jointToDistalDeltaPx: vectorDelta(joint, distal),
-        maximumAdjacentDeltaPx: Math.max(vectorDelta(proximal, joint), vectorDelta(joint, distal)),
+        maximumAdjacentDeltaPx,
+        localLimbLengthPx,
+        continuityRatio: maximumAdjacentDeltaPx / localLimbLengthPx,
+        allowedRatio: samplerAdjacentBoundPx / localLimbLengthPx,
+        samplerAdjacentBoundPx,
         status: 'measured-not-thresholded',
       }];
     }));
@@ -286,14 +298,11 @@ async function waitForStableCanvas(page, predicate, message, timeout = 90000) {
 
 async function bodyProxyFinal(page, slider) {
   await slider.scrollIntoViewIfNeeded();
-  await slider.hover();
-  const box = await slider.boundingBox();
-  assert(box && box.width > 20, 'Body strength slider is unavailable for proxy/final acceptance.');
+  await slider.focus();
+  assert(await slider.evaluate((element) => document.activeElement === element), 'Body strength slider cannot receive the product keyboard gesture.');
   const documentBefore = await canvasSample(page);
   const startedAt = Date.now();
-  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.72, box.y + box.height / 2, { steps: 6 });
+  await page.keyboard.down('PageUp');
   const proxy = await waitForCanvas(
     page,
     (sample) => sample.quality === 'preview' && sample.source === 'proxy' && sample.bufferWidth < sample.width && sample.bufferHeight < sample.height,
@@ -301,7 +310,7 @@ async function bodyProxyFinal(page, slider) {
     30000,
   );
   const proxyObservedAt = Date.now();
-  await page.mouse.up();
+  await page.keyboard.up('PageUp');
   const final = await waitForStableCanvas(
     page,
     (sample) => sample.quality === 'final' && sample.source === 'full' && sample.width === documentBefore.width && sample.height === documentBefore.height && sample.bufferWidth === sample.width && sample.bufferHeight === sample.height,
@@ -319,18 +328,17 @@ async function bodyProxyFinal(page, slider) {
 
 async function bodyStaleSupersession(page, slider) {
   await slider.scrollIntoViewIfNeeded();
-  await slider.hover();
-  const box = await slider.boundingBox();
-  assert(box, 'Body slider is unavailable for stale supersession.');
+  await slider.focus();
+  assert(await slider.evaluate((element) => document.activeElement === element), 'Body slider cannot receive the stale-supersession keyboard gesture.');
   const startedAt = Date.now();
   const requestedValues = [];
-  await page.mouse.move(box.x + box.width * 0.72, box.y + box.height / 2);
-  await page.mouse.down();
-  for (let index = 0; index < 3; index += 1) { await page.keyboard.press('ArrowLeft'); requestedValues.push(await slider.inputValue()); }
-  for (let index = 0; index < 9; index += 1) { await page.keyboard.press('ArrowRight'); requestedValues.push(await slider.inputValue()); }
+  for (let index = 0; index < 10; index += 1) {
+    await page.keyboard.down('PageUp');
+    requestedValues.push(await slider.inputValue());
+  }
   const requestedFinalValue = await slider.inputValue();
   const preview = await waitForCanvas(page, (sample) => sample.quality === 'preview' && sample.source === 'proxy', 'Rapid body slider updates never reached proxy preview.', 30000);
-  await page.mouse.up();
+  await page.keyboard.up('PageUp');
   const final = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.source === 'full', 'Rapid body slider updates did not settle to final C state.');
   await page.waitForTimeout(1200);
   const stable = await canvasSample(page);
@@ -399,11 +407,13 @@ async function strokeCanvas(page, startFraction, endFraction) {
   assert(box, 'Image Studio canvas is unavailable for a manual body gesture.');
   const start = { x: box.x + box.width * startFraction.x, y: box.y + box.height * startFraction.y };
   const end = { x: box.x + box.width * endFraction.x, y: box.y + box.height * endFraction.y };
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
+  await canvas.hover();
+  await page.mouse.move(start.x, start.y, { steps: 2 });
+  await page.mouse.down({ button: 'left' });
+  await page.waitForTimeout(120);
   await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 8 });
   await page.mouse.move(end.x, end.y, { steps: 8 });
-  await page.mouse.up();
+  await page.mouse.up({ button: 'left' });
 }
 async function rasterSourceFingerprint(page) {
   return page.evaluate(async () => {
@@ -459,6 +469,7 @@ async function main() {
     trackedTreeClean: childProcess.execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root, encoding: 'utf8' }).trim() === '',
     launch: null,
     fixture: { path: fixturePath, sha256: fs.existsSync(fixturePath) ? hashFile(fixturePath) : null },
+    aggregateFixture: { path: closureFixturePath, sha256: fs.existsSync(closureFixturePath) ? hashFile(closureFixturePath) : null },
     B0_localPose: null,
     B1_autoWaist: null,
     bodyToolMatrix: null,
@@ -470,22 +481,26 @@ async function main() {
     B7_offline: null,
     B8_proxyFinal: null,
     B9_stalePerformance: null,
+    aggregateHistory: null,
+    twoLayerIsolation: null,
+    jointContinuity: null,
+    sourceImmutability: null,
     runtimeResult: 'FAIL',
     error: null,
   };
   let browser;
   let packagedProcess;
   try {
-    fs.rmSync(progressLogPath, { force: true });
     logProgress('start');
     assert(fs.existsSync(fixturePath), `Missing full-body fixture: ${fixturePath}`);
+    assert(fs.existsSync(closureFixturePath), `Missing aggregate full-body fixture: ${closureFixturePath}`);
     assert(fs.existsSync(packagedExecutablePath), `Missing packaged Electron executable: ${packagedExecutablePath}`);
     const packagedResourcesPath = path.join(path.dirname(packagedExecutablePath), 'resources');
     const asarPath = path.join(packagedResourcesPath, 'app.asar');
     assert(fs.existsSync(asarPath), `Missing packaged application archive: ${asarPath}`);
     fs.rmSync(startupTracePath, { force: true });
     fs.rmSync(networkLogPath, { force: true });
-    fs.writeFileSync(acceptanceConfigPath, `${JSON.stringify({ openQueue: [fixturePath, projectPath], savePath: projectPath, networkLogPath }, null, 2)}\n`);
+    fs.writeFileSync(acceptanceConfigPath, `${JSON.stringify({ openQueue: [fixturePath, projectPath, closureFixturePath, projectPath], savePath: projectPath, networkLogPath }, null, 2)}\n`);
     packagedProcess = childProcess.spawn(packagedExecutablePath, [
       '--remote-debugging-port=9222',
       `--user-data-dir=${runtimeUserDataPath}`,
@@ -526,6 +541,28 @@ async function main() {
     await page.getByText('Image Studio', { exact: true }).last().click();
     await page.locator('.image-studio-view').waitFor({ state: 'visible', timeout: 30000 });
     logProgress('image-studio-visible');
+    if (process.env.RETOUCH_PHASE3B_CLOSURE_ONLY === '1') {
+      const closure = await runFinalClosureEvidence(page, {
+        canvasSample,
+        storeCanvasPixels,
+        waitForStableCanvas,
+        strokeCanvas,
+        rasterSourceFingerprint,
+        exportEvidence,
+        protectionMetrics,
+        projectPath,
+        logProgress,
+      });
+      evidence.aggregateHistory = closure.aggregateHistory;
+      evidence.twoLayerIsolation = closure.twoLayerIsolation;
+      evidence.sourceImmutability = closure.sourceImmutability;
+      evidence.jointContinuity = closure.jointContinuity;
+      evidence.aggregateSaveReopen = closure.aggregateSaveReopen;
+      evidence.aggregateExport = closure.aggregateExport;
+      evidence.runtimeResult = 'CLOSURE_ONLY_PASS';
+      logProgress('CLOSURE-ONLY-PASS');
+      return;
+    }
     await page.getByRole('button', { name: 'Import Image', exact: true }).click();
     logProgress('import-clicked');
     const baseline = await waitForCanvas(page, (sample) => sample.quality === 'final' && sample.width > 0, 'Imported body image did not render');
@@ -576,11 +613,24 @@ async function main() {
 
     await page.getByTestId('retouch-add-waist').click();
     const slider = page.locator('.retouch-operation-item.expanded input[type="range"]').first();
+    const sliderBox = await slider.boundingBox();
+    assert(sliderBox && sliderBox.width > 20, 'Waist strength slider is unavailable for B1.');
+    // B1 uses the focusable range control's native keyboard gesture. CDP mouse movement changes
+    // the OS thumb without emitting React input in packaged Electron, so it is not valid evidence.
     await slider.focus();
-    // A small non-zero adjustment proves automatic body deformation. Larger
-    // values are exercised by the real pointer gesture in B8 and rapid B9.
-    for (let index = 0; index < 8; index += 1) await page.keyboard.press('ArrowRight');
-    const autoChanged = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash !== baseline.hash, 'Waist adjustment did not stabilize to altered full-quality pixels');
+    assert(await slider.evaluate((element) => document.activeElement === element), 'Waist slider cannot receive the product keyboard gesture.');
+    await page.keyboard.press('PageUp');
+    await page.waitForTimeout(2600);
+    const b1PostRelease = await page.locator('.image-studio-view').evaluate((root) => ({
+      transactionActive: root.getAttribute('data-transaction-active'),
+      historyCount: root.getAttribute('data-history-count'),
+      historyIndex: root.getAttribute('data-history-index'),
+      sliderInput: document.documentElement.dataset.retouchSliderInput ?? null,
+      sliderIdleCommit: document.documentElement.dataset.retouchSliderIdleCommit ?? null,
+      sliderReleaseCommit: document.documentElement.dataset.retouchSliderReleaseCommit ?? null,
+    }));
+    logProgress('B1-post-release', JSON.stringify(b1PostRelease));
+    const autoChanged = await waitForStableCanvas(page, (sample) => sample.quality === 'final' && sample.hash !== baseline.hash, `Waist adjustment did not stabilize to altered full-quality pixels; transaction=${JSON.stringify(b1PostRelease)}`);
     await storeCanvasPixels(page, 'B1-waist');
     evidence.B1_autoWaist = { baselineHash: baseline.hash, hash: autoChanged.hash, changed: autoChanged.hash !== baseline.hash };
     logProgress('B1-waist-ready');
@@ -760,6 +810,26 @@ async function main() {
     };
     assert(evidence.B7_offline.pass, `Blocked-network run included an unblocked external request: ${JSON.stringify(externalRequests)}`);
     logProgress('B7-offline-ready', `requests=${externalRequests.length}`);
+    const closure = await runFinalClosureEvidence(page, {
+      canvasSample,
+      storeCanvasPixels,
+      waitForStableCanvas,
+      strokeCanvas,
+      rasterSourceFingerprint,
+      exportEvidence,
+      protectionMetrics,
+      projectPath,
+      logProgress,
+    });
+    evidence.aggregateHistory = closure.aggregateHistory;
+    evidence.twoLayerIsolation = closure.twoLayerIsolation;
+    evidence.sourceImmutability = closure.sourceImmutability;
+    evidence.jointContinuity = closure.jointContinuity;
+    evidence.aggregateSaveReopen = closure.aggregateSaveReopen;
+    evidence.aggregateExport = closure.aggregateExport;
+    assert(evidence.aggregateHistory.verified && evidence.twoLayerIsolation.verified && evidence.sourceImmutability.verified && evidence.jointContinuity.verified,
+      'Final closure helper did not verify aggregate history, two-layer isolation, source immutability, and joint continuity.');
+    logProgress('closure-aggregate-two-layer-ready');
     await page.locator('.image-studio-view').screenshot({ path: screenshotPath, timeout: 30000 }).catch(() => undefined);
     evidence.runtimeResult = 'PASS';
     logProgress('PASS');

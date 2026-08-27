@@ -117,6 +117,7 @@ interface ImageStudioActions {
   setRenderError: (error: string | null) => void;
   setLayerVisibility: (layerId: string, visible: boolean) => void;
   beginRetouchTransaction: () => void;
+  cancelRetouchTransaction: () => void;
   commitRetouchTransaction: () => void;
   addRetouchOperation: (operation: Omit<RetouchOperationRecord, 'id' | 'createdAt'> & { id?: string }) => void;
   updateRetouchOperation: (id: string, patch: Partial<RetouchOperationRecord>) => void;
@@ -322,10 +323,27 @@ export const useImageStudioStore = create<ImageStudioState & ImageStudioActions>
   }),
   setRenderError: (error) => set(() => ({ renderError: error })),
 
-  beginRetouchTransaction: () => set((state) => ({
-    transactionActive: true,
-    transactionSnapshot: structuredClone(state.currentDocument),
-  })),
+  beginRetouchTransaction: () => set((state) => {
+    if (state.transactionActive) return {};
+    return {
+      transactionActive: true,
+      transactionSnapshot: structuredClone(state.currentDocument),
+    };
+  }),
+
+  cancelRetouchTransaction: () => set((state) => {
+    if (!state.transactionActive || !state.transactionSnapshot) {
+      return { transactionActive: false, transactionSnapshot: null };
+    }
+    const restored = structuredClone(state.transactionSnapshot as ImageStudioDocument);
+    return {
+      currentDocument: restored,
+      layerTree: buildLayerTree(restored.layers),
+      transactionActive: false,
+      transactionSnapshot: null,
+      documentVersion: state.documentVersion + 1,
+    };
+  }),
 
   commitRetouchTransaction: () => set((state) => {
     if (!state.transactionActive || !state.transactionSnapshot) {

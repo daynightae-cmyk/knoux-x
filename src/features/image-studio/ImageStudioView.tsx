@@ -25,6 +25,10 @@ export const ImageStudioView: React.FC = () => {
     loadingMessage,
     errors,
     clearErrors,
+    history,
+    historyIndex,
+    transactionActive,
+    dirty,
   } = useImageStudioStore();
 
   useEffect(() => {
@@ -121,7 +125,14 @@ export const ImageStudioView: React.FC = () => {
   }, [handleKeyDown]);
 
   return (
-    <section className="image-studio-view" aria-labelledby="image-studio-title">
+    <section
+      className="image-studio-view"
+      aria-labelledby="image-studio-title"
+      data-history-count={history.length}
+      data-history-index={historyIndex}
+      data-transaction-active={transactionActive ? 'true' : 'false'}
+      data-document-dirty={dirty ? 'true' : 'false'}
+    >
       <header className="creative-header">
         <div>
           <span className="creative-eyebrow">{t('imageStudio.eyebrow')}</span>

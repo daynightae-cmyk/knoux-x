@@ -128,6 +128,66 @@ function SliderField({
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }) {
+  const idleCommitRef = useRef<number | null>(null);
+  const dragActiveRef = useRef(false);
+  const pointerDragRef = useRef(false);
+  const valueChangedRef = useRef(false);
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
+
+  const clearIdleCommit = useCallback((): void => {
+    if (idleCommitRef.current !== null) window.clearTimeout(idleCommitRef.current);
+    idleCommitRef.current = null;
+  }, []);
+  const commitNow = useCallback((): void => {
+    document.documentElement.dataset.retouchSliderReleaseCommit = String(Date.now());
+    clearIdleCommit();
+    if (!dragActiveRef.current && !valueChangedRef.current) return;
+    dragActiveRef.current = false;
+    pointerDragRef.current = false;
+    valueChangedRef.current = false;
+    onDragEndRef.current?.();
+  }, [clearIdleCommit]);
+  const commitAfterIdle = (): void => {
+    clearIdleCommit();
+    // Electron's native range control can swallow both down and release events.
+    // An actual value input is sufficient evidence that the already-armed gesture must close.
+    idleCommitRef.current = window.setTimeout(() => {
+      document.documentElement.dataset.retouchSliderIdleCommit = String(Date.now());
+      idleCommitRef.current = null;
+      dragActiveRef.current = false;
+      pointerDragRef.current = false;
+      valueChangedRef.current = false;
+      onDragEndRef.current?.();
+    }, 12000);
+  };
+  const startDrag = (): void => {
+    if (dragActiveRef.current) return;
+    dragActiveRef.current = true;
+    onDragStart?.();
+  };
+  const startPointerDrag = (): void => {
+    pointerDragRef.current = true;
+    startDrag();
+  };
+  const commitKeyboardGesture = (): void => {
+    if (!pointerDragRef.current) commitNow();
+  };
+
+  useEffect(() => {
+    const endGesture = (): void => commitNow();
+    window.addEventListener('pointerup', endGesture);
+    window.addEventListener('pointercancel', endGesture);
+    window.addEventListener('mouseup', endGesture);
+    window.addEventListener('blur', endGesture);
+    return () => {
+      clearIdleCommit();
+      window.removeEventListener('pointerup', endGesture);
+      window.removeEventListener('pointercancel', endGesture);
+      window.removeEventListener('mouseup', endGesture);
+      window.removeEventListener('blur', endGesture);
+    };
+  }, [clearIdleCommit, commitNow]);
   return (
     <div className="retouch-slider-field">
       <label className="retouch-slider-label">
@@ -140,10 +200,21 @@ function SliderField({
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(Number.parseFloat(e.target.value))}
-        onPointerDown={() => onDragStart?.()}
-        onPointerUp={() => onDragEnd?.()}
-        onPointerCancel={() => onDragEnd?.()}
+        onChange={(e) => {
+          document.documentElement.dataset.retouchSliderInput = String(Date.now());
+          valueChangedRef.current = true;
+          onChange(Number.parseFloat(e.target.value));
+          commitAfterIdle();
+        }}
+                onPointerDown={startPointerDrag}
+        onMouseDown={startPointerDrag}
+        onPointerUp={commitNow}
+        onKeyDown={startDrag}
+        onKeyUp={commitKeyboardGesture}
+        onBlur={commitNow}
+        onMouseUp={commitNow}
+        onPointerCancel={commitNow}
+
         className="retouch-slider"
       />
     </div>
@@ -509,6 +580,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
     duplicateRetouchOperation,
     clearRetouchOperations,
     beginRetouchTransaction,
+    cancelRetouchTransaction,
     commitRetouchTransaction,
     transactionActive,
     setActiveTool,
@@ -522,12 +594,33 @@ export const ImageStudioRetouchPanel: React.FC = () => {
   const [bodyAnalysisRunning, setBodyAnalysisRunning] = useState(false);
   const bodyClientRef = useRef<BodyAnalysisClient | null>(null);
   const bodyAnalysisRequestSequenceRef = useRef(0);
+  const syncedRetouchSignatureRef = useRef<string | null>(null);
 
   const activeLayer = currentDocument?.layers.find((l) => l.id === activeLayerId);
   const retouch = activeLayer?.kind === 'raster'
     ? (activeLayer as unknown as { retouche?: RetouchDocumentState }).retouche
     : undefined;
   const operations = retouch?.operations ?? [];
+
+  useEffect(() => {
+    if (!currentDocument) {
+      syncedRetouchSignatureRef.current = null;
+      return;
+    }
+    const updates = currentDocument.layers.map((layer) => ({
+      layerId: layer.id,
+      retouche: (layer as unknown as { retouche?: RetouchDocumentState | null }).retouche ?? null,
+    }));
+    const signature = JSON.stringify(updates);
+    if (syncedRetouchSignatureRef.current === signature) return;
+    syncedRetouchSignatureRef.current = signature;
+    void window.knouxImageStudioAPI.syncRetouch(updates).catch(() => {
+      // Retain local rendering; a subsequent document mutation retries synchronization.
+      syncedRetouchSignatureRef.current = null;
+    });
+  }, [currentDocument]);
+
+
   const activeRasterAsset = useMemo(() => {
     if (activeLayer?.kind !== 'raster') return null;
     return currentDocument?.embeddedAssets.find((asset) => asset.id === activeLayer.assetId) ?? null;
@@ -598,6 +691,8 @@ export const ImageStudioRetouchPanel: React.FC = () => {
   const handleAddTool = useCallback(
     (tool: ToolDef) => {
       if (!currentDocument) return;
+      if (transactionActive) cancelRetouchTransaction();
+      if (tool.type === 'body-reshape') beginRetouchTransaction();
       const opData: Omit<RetouchOperationRecord, 'id' | 'createdAt'> & { id?: string } = {
         type: tool.type,
         enabled: true,
@@ -638,7 +733,6 @@ export const ImageStudioRetouchPanel: React.FC = () => {
           strength: 0,
         });
       }
-      if (transactionActive) commitRetouchTransaction();
       const id = `retouch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       // Arming a brush is a normal document mutation. The transaction starts
       // only on the first pointer-down, so an unused brush cannot strand preview mode.
@@ -646,7 +740,7 @@ export const ImageStudioRetouchPanel: React.FC = () => {
       setExpandedOpId(id);
       setActiveTool(id);
     },
-    [activeRasterAsset, addRetouchMask, addRetouchOperation, bodyAnalysis, commitRetouchTransaction, currentDocument, retouch?.masks, selectedBody, setActiveTool, transactionActive]
+    [activeRasterAsset, addRetouchMask, addRetouchOperation, beginRetouchTransaction, bodyAnalysis, cancelRetouchTransaction, currentDocument, retouch?.masks, selectedBody, setActiveTool, transactionActive]
   );
 
   const handlePatch = useCallback(

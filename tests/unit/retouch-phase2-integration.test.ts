@@ -727,6 +727,27 @@ describe('slider transaction coalescing (acceptance 11)', () => {
     useImageStudioStore.getState().redo();
     expect(getRetouchOps()).toHaveLength(2);
   });
+
+  it('12: repeated begin preserves the original snapshot and cancellation leaves no history entry', () => {
+    loadDocWithRaster();
+    const h0 = getHistoryLength();
+    useImageStudioStore.getState().beginRetouchTransaction();
+    useImageStudioStore.getState().addRetouchOperation(makeOp({ type: 'skin-smoothing' }));
+    useImageStudioStore.getState().beginRetouchTransaction();
+    useImageStudioStore.getState().addRetouchOperation(makeOp({ type: 'teeth-whitening' }));
+    useImageStudioStore.getState().commitRetouchTransaction();
+    expect(getHistoryLength()).toBe(h0 + 1);
+    expect(getRetouchOps()).toHaveLength(2);
+    useImageStudioStore.getState().undo();
+    expect(getRetouchOps()).toHaveLength(0);
+
+    useImageStudioStore.getState().beginRetouchTransaction();
+    useImageStudioStore.getState().addRetouchOperation(makeOp({ type: 'eye-enhancement' }));
+    useImageStudioStore.getState().cancelRetouchTransaction();
+    expect(getHistoryLength()).toBe(h0 + 1);
+    expect(getRetouchOps()).toHaveLength(0);
+    expect(useImageStudioStore.getState().transactionActive).toBe(false);
+  });
 });
 
 describe('operation mask support (acceptance 12-13)', () => {

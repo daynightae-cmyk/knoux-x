@@ -15,6 +15,8 @@ export const ImageStudioLayersPanel: React.FC = () => {
     setActiveLayerId,
     setSelectedLayerIds,
     setLayerVisibility,
+    setCurrentDocument,
+    setDirty,
   } = useImageStudioStore();
 
   const handleLayerClick = useCallback((layerId: string, event: React.MouseEvent): void => {
@@ -38,9 +40,11 @@ export const ImageStudioLayersPanel: React.FC = () => {
     }
   }, [activeLayerId, selectedLayerIds, currentDocument, setActiveLayerId, setSelectedLayerIds]);
 
-  const handleDuplicate = useCallback((layerId: string): void => {
-    void window.knouxImageStudioAPI.duplicateLayer(layerId);
-  }, []);
+  const handleDuplicate = useCallback(async (layerId: string): Promise<void> => {
+    const document = await window.knouxImageStudioAPI.duplicateLayer(layerId);
+    setCurrentDocument(document);
+    setDirty(true);
+  }, [setCurrentDocument, setDirty]);
 
   const handleDelete = useCallback((layerId: string): void => {
     void window.knouxImageStudioAPI.deleteLayer(layerId);
@@ -90,6 +94,7 @@ export const ImageStudioLayersPanel: React.FC = () => {
           role="treeitem"
           aria-selected={isActive}
           aria-expanded={node.children.length > 0}
+          data-layer-id={layer.id}
           tabIndex={0}
         >
           <button

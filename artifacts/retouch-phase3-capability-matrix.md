@@ -1,58 +1,55 @@
 # مصفوفة قدرات KNOuX X Retouch — Phase 3
 
-**الحالة العامة:** `PARTIAL`
-**قاعدة الحكم:** لا تتحول أي خانة إلى `PASS` إلا بدليل مباشر من الحزمة أو اختبار وحدة محدد. تشير `PARTIAL` إلى أن جزءاً من السلوك ثبت أو قيس، لكنه لا يغلق النطاق كاملاً.
+**الحالة قبل الالتزام:** `FUNCTIONAL PASS PENDING POST-COMMIT SHA PROOF`.
 
-| المجال | القدرة | الحالة | الدليل المباشر | ما يمنع الإغلاق الكامل |
+لا تتحول حالة الإصدار إلى `PASS` قبل إعادة قبول Electron المعبأ من SHA الجديد بشجرة tracked نظيفة. جميع الحالات أدناه موصوفة من الدليل المباشر، لا من نجاح build وحده.
+
+| المجال | القدرة | الحالة قبل الالتزام | الدليل المباشر | شرط الإغلاق المتبقي |
 |---|---|---|---|---|
+| Phase 3A | Portrait Retouch | `PASS` سابق | لم تتغير ضمن الإغلاق. | لا شيء ضمن النطاق. |
 | التحليل | Pose محلي لجسم واحد | `PASS` | B0: `1 body detected locally · segmentation ready`. | لا شيء لمسار subject الواحد. |
-| التحليل | نموذج محلي مع WASM محلي | `PASS` | model SHA موثق وملفات WASM داخل `app.asar`. | لا شيء في مسار B7. |
-| التحليل | cache hit/miss وتحليل stale بالـIDs | `PASS` للمسار المقاس | ثلاث دورات UI: miss ثم hit بلا request ID جديد؛ requested/completed/pending IDs موثقة. | لا سباق UI متزامن فعلي في الدليل. |
-| أدوات الجسم | Waist | `PASS` | B1 يغير raster؛ B6 metrics. | تسلسل undo-all عام غير مثبت. |
-| أدوات الجسم | Manual Body Warp | `PASS` | B2: 16 stroke، B3 undo/redo، B6 metrics. | تثبيت قبل/بعد مستقل لكل ترتيب عمليات ما زال ناقصاً. |
-| أدوات الجسم | Body Slim | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| أدوات الجسم | Hips | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| أدوات الجسم | Shoulders | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| أدوات الجسم | Arm | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| أدوات الجسم | Leg | `PASS` | المصفوفة + B6 Leg: 1,076,057 core pixels changed، exact undo/redo/remove. | لا threshold continuity للـdistal. |
-| أدوات الجسم | Leg Length | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| أدوات الجسم | Torso Width | `PASS` | rendered control، changed، exact undo وredo ثم remove restore. | لا تسلسل undo-all مركب. |
-| rendering | proxy أثناء المعاملة | `PASS` | 672×1024 في صفوف 750×1143 و1500×2286 و3000×4572. | لا budget زمني معتمد. |
-| rendering | final كامل بعد المعاملة | `PASS` | final صادق لكل صف: 750×1143 و1500×2286 و3000×4572. | لا budget زمني معتمد. |
-| rendering | stale supersession | `PASS` | B9: قيمة C محفوظة، لا overwrite؛ request diagnostics معروضة لتحليل الجسم. | لا سباق تحليل UI متزامن فعلي في الدليل. |
-| الحماية | الخلفية البعيدة | `PASS` | Waist/Manual/Leg: 0 changed، max channel delta=0. | لا شيء ضمن fixture المقاس. |
-| الحماية | الرأس | `PASS` | Waist/Manual/Leg: 0 changed داخل head region. | لا تنويع وضعيات أو وجوه. |
-| الحماية | freeze alpha | `PASS` في وحدة المحرك | اختبار alpha يستعيد البكسلات المحمية حيث alpha>0 ولا يغير source. | يلزم ربط إضافي بمشاهد متعددة إنتاجية لإغلاق أوسع. |
-| الحماية | قياس المفاصل | `PARTIAL` | 12 guard لكل عملية؛ local RGB block-match، displacement وفروق متجهات متجاورة مسجلة. | لا threshold continuity/displacement نهائي. |
-| عدم الإتلاف | source raster immutable | `PASS` | اختبار alpha وcompositor، إضافة SHA production UI قبل التعديل وبعده وبعد reopen متطابقة. | حالة طبقتين إنتاجية مستقلة ما زالت ناقصة. |
-| عدم الإتلاف | عزل طبقتين raster | `PASS` في الوحدة | `image-studio-compositor` يثبت layer-aware override دون تغيير asset. | لا سيناريو إنتاجي مصور من UI في الدليل الحالي. |
-| حفظ | Save/Reopen | `PASS` لمسار B4 | project SHA، body+manual operation، freeze mask، final hash exact، source SHA invariant. | لا يحفظ أدوات المصفوفة السبعة في مشروع واحد. |
-| تصدير | PNG نهائي مطابق | `PASS` لمسار B5 | 3000×4572 وpixel hash exact. | لا إحصاء alpha/export متعدد الصيغ. |
-| offline | حظر HTTP(S) قبل النافذة | `PASS` | Electron session guard؛ telemetry attempt محجوب ومسجل. | لا شيء لمسار B7 الحالي. |
-| الأداء | تحليل محلي | `PASS` رصدي | 424 ms صغير، 1,544 ms متوسط، 1,983 ms كامل. | قياس واحد لكل حجم وجهاز. |
-| الأداء | latency proxy/final | `PASS` للمسارات المقاسة | small 2,322/605 ms، medium 5,453/1,347 ms، full 19,045/5,082 ms. | لا budgets زمنية معتمدة. |
-| الأداء | الذاكرة | `NOT MEASURED` | مسجل صراحةً في B9. | يلزم قياس قابل لإعادة الإنتاج. |
-| Electron | قبول exe المعبأ | `PASS` قبل الالتزام | URL داخل `file://...app.asar...` و`packaged=true`. | يجب إعادة التشغيل بعد SHA النهائي. |
-| الجودة | TypeScript | `PASS` قبل الالتزام | `npm run typecheck` نجح بعد diagnostics التحليل. | يعاد بعد الالتزام ضمن البوابة النهائية. |
-| الجودة | Lint | `PASS` قبل الالتزام | `npm run lint -- --max-warnings=0` نجح. | يعاد بعد التقارير ضمن البوابة النهائية. |
-| الجودة | Jest كامل | `PASS` سابق | 89 suites، 944 tests سابقاً؛ اختبار diagnostics الجديد نجح مركزاً. | يعاد كاملاً بعد التغييرات الحالية. |
-| الإصدار | SHA نهائي نظيف على `origin/main` | `NOT RUN` | لا التزام نهائي حتى الآن. | commit، post-commit acceptance، push والتحقق مطلوبون. |
+| التحليل | model/WASM محليان | `PASS` | Pose task وMediaPipe WASM داخل الحزمة؛ B7 حجب الشبكة. | لا شيء في المسار المقاس. |
+| التحليل | cache hit/miss والـIDs | `PASS` | miss `0/1` ثم hit `1/1`، من دون ID طلب جديد. | لا يثبت multi-user أو عتاداً آخر. |
+| أدوات الجسم | Body Slim, Waist, Hips, Shoulders, Arm, Leg, Leg Length, Torso Width | `PASS` | B1 والمصفوفة الفردية، ثم H1–H8 التراكمي. | لا شيء وظيفي؛ post-commit proof فقط. |
+| أدوات الجسم | Manual Body Warp | `PASS` | B2 وH9 سجلا 16 strokes وتغير raster. | post-commit proof فقط. |
+| التاريخ | لا history عند تسليح الأداة | `PASS` | H0–H9 يتحقق من عدم إدخال التاريخ قبل gesture الحقيقي. | post-commit proof فقط. |
+| التاريخ | gesture واحد = history entry واحد | `PASS` | H9: `history 9→10` و`transactionActive=false` بعد completion. | post-commit proof فقط. |
+| التاريخ | aggregate undo-all/redo-all | `PASS` | تسع انتقالات undo H9→H0 وتسع redo H0→H9، وكل انتقال يطابق RGBA SHA وترتيب/IDs العمليات وhistory index. | post-commit proof فقط. |
+| العرض | Before/After الحقيقي | `PASS` | `\\` يعيد H0 عند الضغط وH9 عند الإفلات من دون تغيير history/dirty/diagnostics/stack. | post-commit proof فقط. |
+| الطبقات | Raster A/B isolation عبر UI | `PASS` | A (مكرر عبر UI وID ثابت) يملك 9 عمليات؛ B يملك 0؛ hide/show وreopen يستعيدان B-only/composite hash بدقة. | post-commit proof فقط. |
+| عدم الإتلاف | source raster immutable | `PASS` | fingerprints متطابقة قبل وبعد العمليات وundo/redo والحفظ وreopen والتصدير. | post-commit proof فقط. |
+| الحماية | الخلفية البعيدة والرأس | `PASS` | B6 لعمليات Waist/Manual/Leg: background/head byte-identical داخل مناطق القياس. | تنويع fixtures خارج النطاق. |
+| الحماية | freeze alpha | `PASS` | اختبار `retouch-phase3-alpha-protection` مع B6. | لا شيء في نطاق Phase 3. |
+| الاستمرارية | joint continuity / displacement | `PASS` للـsampler invariant | Waist وShoulders وArm وLeg وLeg Length وManual؛ raw deltas 0/0/0/2/6/2 px وتطبيع محلي مشتق. | Jacobian/fold-over `NOT MEASURED` لأن raster renderer لا يعرّض mesh topology. |
+| حفظ | aggregate Save/Reopen | `PASS` | hash H9 المركب وB-only يعادان بدقة وIDs وملكية A/B ثابتة. | post-commit proof فقط. |
+| تصدير | PNG كامل مطابق | `PASS` | B5: 3000×4572، decoded pixel hash مطابق؛ aggregate export verified. | post-commit proof فقط. |
+| offline | حظر HTTP(S) قبل النافذة | `PASS` | B7: telemetry request واحد مسجل ومحجوب؛ لا ادعاء بصفر request. | post-commit proof فقط. |
+| rendering | proxy أثناء المعاملة | `PASS` وظيفياً | B8: proxy 672×1024 أثناء gesture. | لا شيء وظيفي. |
+| rendering | final كامل بعد المعاملة | `PASS` وظيفياً | B8: final 3000×4572/full بعد release. | لا شيء وظيفي. |
+| rendering | stale supersession | `PASS` | B9 يحفظ C ولا يقبل overwrite متأخراً. | post-commit proof فقط. |
+| الأداء | measurement coverage | `PASS` | 750×1143 و1500×2286 و3000×4572؛ cache وproxy/final وstale. | CPU/MEMORY ما زالا `NOT MEASURED`. |
+| الأداء | interactive performance quality | `PARTIAL` | full proxy في المصفوفة السابقة ≈19,045 ms؛ لا يوصف بأنه premium. | يلزم تحسين latency منفصل، وليس blocker وظيفياً لهذا الإغلاق. |
+| الجودة | TypeScript | `PASS` | `tsc --noEmit`. | يعاد فقط إذا تغير مصدر بعد هذه النقطة. |
+| الجودة | ESLint | `PASS` | صفر warnings مع `--max-warnings=0`. | يعاد فقط إذا تغير مصدر بعد هذه النقطة. |
+| الجودة | Jest | `PASS` | 90 suites / 946 tests، و4 suites Retouch مركزة / 66 tests. | لا شيء قبل commit. |
+| الجودة | Forge x64 | `PASS` | Electron Forge package نجح. | يعاد بعد commit. |
+| Electron | acceptance قبل الالتزام | `PASS` | B0–B9 الكامل على 3000×4572 وH0–H9 المتوسط؛ JSON `runtimeResult=PASS`. | JSON يحمل HEAD القديم و`trackedTreeClean=false` بحكم تغييرات الإغلاق. |
+| الإصدار | SHA نهائي نظيف على `origin/main` | `NOT RUN` | لا commit نهائي بعد. | commit، package، post-commit acceptance، push، ثم `HEAD==origin/main`. |
 
-## دلالة الحالات
+## منهج بوابة الاستمرارية
 
-| الرمز | المعنى |
-|---|---|
-| `PASS` | الدليل الحالي يختبر السلوك المحدد مباشرة. |
-| `PARTIAL` | يوجد دليل جزئي أو إطار اختبار، لكن البوابة المكتملة لم تتحقق. |
-| `NOT MEASURED` | لم تُجمع بيانات، ولذلك لا يقدَّم تخمين. |
-| `NOT RUN` | خطوة إصدار لازمة لم تحدث بعد. |
+> حد القبول ليس 4px عالمياً ولا حكماً جمالياً. لكل سلسلة arm/leg يحسب harness `continuityRatio = maximumAdjacentDeltaPx / localLimbLengthPx`، ويشتق `allowedRatio = 2 × searchRadiusPx / localLimbLengthPx` من search radius الفعلي 16px في block matcher المحلي.
+
+هذا يحافظ على التمييز بين **استمرارية displacement المقاسة** وبين **تجميد freeze mask**. يتحقق الدليل من finite coordinates وclamping؛ أما mesh Jacobian وfold-over فـ`NOT MEASURED` لأن منتج raster liquify لا يعرّض مثلثات أو quads للحكم عليها.
 
 ## ربط الأدلة
 
 | الملف | الغرض |
 |---|---|
-| `_temp/live-evidence/retouch-phase3b-electron-acceptance.json` | JSON الخام للـB0–B9 في Electron المعبأ. |
-| `tools/phase3b-electron-acceptance.cjs` | إجراءات UI الحقيقية، snapshots RGBA، B6 وB7 وB8 وB9. |
-| `tests/unit/retouch-phase3-alpha-protection.test.ts` | freeze alpha ومصدر raster. |
-| `artifacts/retouch-phase3b-performance.md` | القياسات والحدود المعلنة. |
-| `artifacts/retouch-phase3-final-acceptance.md` | الحكم التفصيلي وبوابات ما قبل الإغلاق. |
+| `_temp/live-evidence/retouch-phase3b-electron-acceptance.json` | JSON الخام لقبول pre-commit، B0–B9 وH0–H9. |
+| `tools/phase3b-electron-acceptance.cjs` | إجراءات Electron المعبأة، B0–B9، حارس الشبكة وproxy/final/stale. |
+| `tools/phase3b-final-closure-helper.cjs` | H0–H9 وundo/redo وBefore/After وA/B والحفظ والتصدير والاستمرارية. |
+| `tests/unit/retouch-phase2-integration.test.ts` | عدم إنشاء history عند التسليح ومعاملة retouch. |
+| `tests/unit/retouch-phase3-alpha-protection.test.ts` | حماية alpha وعدم تحور source raster. |
+| `artifacts/retouch-phase3-final-acceptance.md` | تقرير القرار والأرقام التشغيلية الكاملة. |
+| `artifacts/retouch-phase3b-performance.md` | مصفوفة الأداء والحدود المعلنة. |

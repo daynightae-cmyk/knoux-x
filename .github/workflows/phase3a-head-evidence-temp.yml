@@ -80,6 +80,7 @@ jobs:
           $source = Join-Path $dir 'retouch-portrait-albert-einstein.jpg'
           Invoke-WebRequest -Uri 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg' -OutFile $source -UseBasicParsing
           if (-not (Test-Path $source) -or (Get-Item $source).Length -lt 100000) { throw 'Portrait fixture download failed.' }
+          $helper = Join-Path $dir 'make-phase3a-fixtures.cjs'
           @'
           const sharp = require('sharp');
           const path = require('path');
@@ -90,8 +91,8 @@ jobs:
             sharp(source).resize(400, 533, { fit: 'cover', position: 'centre' }).jpeg({ quality: 95 }).toFile(path.join(dir, 'retouch-portrait-fixture.jpg')),
             sharp(source).resize(1200, 1599, { fit: 'cover', position: 'centre' }).png().toFile(path.join(dir, 'retouch-portrait-proxy-fixture.png')),
           ]).catch((error) => { console.error(error); process.exit(1); });
-          '@ | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'make-phase3a-fixtures.cjs') -Encoding utf8
-          node (Join-Path $env:RUNNER_TEMP 'make-phase3a-fixtures.cjs')
+          '@ | Set-Content -LiteralPath $helper -Encoding utf8
+          node $helper
           if ($LASTEXITCODE -ne 0) { throw 'Fixture resize failed.' }
           Get-ChildItem $dir -File | Select-Object Name,Length | Format-Table
 
@@ -140,7 +141,7 @@ jobs:
           $hashes = @()
           foreach ($key in $keys) {
             $value = [string]$e.states.$key
-            if ($value -notmatch '^[0-9a-f]{64}$') { throw "Invalid state hash for $key: $value" }
+            if ($value -notmatch '^[0-9a-f]{64}$') { throw "Invalid state hash for ${key}: $value" }
             $hashes += $value
           }
           if (($hashes | Select-Object -Unique).Count -ne $keys.Count) { throw 'D0-D6 hashes are not all distinct.' }

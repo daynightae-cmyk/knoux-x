@@ -113,7 +113,7 @@ export const usePlayerStore = create<PlayerState>()(
       muted: false,
       toggleMute: () => set((state) => ({ muted: !state.muted })),
       playbackRate: 1,
-      setPlaybackRate: (rate) => set({ playbackRate: Math.max(0.25, Math.min(4, rate)) }),
+      setPlaybackRate: (rate) => set({ playbackRate: Math.max(0.1, Math.min(4, rate)) }),
       loop: false,
       repeatMode: 'off',
       toggleLoop: () => set((state) => queuePatch(setRepeatMode(queueState(state), state.repeatMode === 'off' ? 'all' : 'off'))),

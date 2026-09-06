@@ -162,7 +162,7 @@ jobs:
           "$AAPT" dump badging "$APK" | tee android-ci-output/android-apk-badging.txt
           "$AAPT" dump badging "$APK" | grep -F "package: name='dev.knoux.playerx'"
           "$AAPT" dump badging "$APK" | grep -F "application-label:'KNOUX X'"
-          "$AAPT" dump badging "$APK" | grep -E "application-icon-[0-9]+:'res/mipmap-.*/ic_launcher\.png'"
+          "$AAPT" dump badging "$APK" | grep -E "application-icon-[0-9]+:'res/mipmap-.*/ic_launcher\.(xml|png)'"
 
           unzip -Z1 "$APK" | tee android-ci-output/android-apk-files.txt >/dev/null
           grep -E '^res/mipmap-anydpi-v26/ic_launcher\.xml$' android-ci-output/android-apk-files.txt

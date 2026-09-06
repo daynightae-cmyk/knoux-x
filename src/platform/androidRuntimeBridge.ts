@@ -7,6 +7,7 @@ import {
   createImageStudioDocument,
   type NewImageStudioDocumentOptions,
 } from '../core/image-studio/document/document';
+
 import type {
   ImageBlendMode,
   ImageLayer,
@@ -350,7 +351,7 @@ function installSlideshowBridge(): void {
     recoverBackup: async () => null,
     preflight: async () => ({ ready: true, issues: [], assets: [] }),
     relinkFile: async () => null,
-    relinkFolder: async () => ({ rootPath: null, matches: [], unresolved: [], ambiguous: [] }),
+    rellinkFolder: async () => ({ rootPath: null, matches: [], unresolved: [], ambiguous: [] }),
     recent: async () => readStored<string[]>('slideshow:recents', []),
     clearRecent: async () => writeStored('slideshow:recents', []),
     render: async () => null,

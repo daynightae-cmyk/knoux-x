@@ -16,6 +16,7 @@ import {
   Sparkles,
   Video,
   WandSparkles,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
@@ -28,7 +29,7 @@ const quickActions: Array<{
   label: string;
   subtitle: string;
   view: ViewType;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: LucideIcon;
 }> = [
   { id: 'player', label: 'Play Video', subtitle: 'Watch & enjoy', view: 'player', icon: Play },
   { id: 'editor', label: 'Video Editor', subtitle: 'Edit like a pro', view: 'editor', icon: Scissors },

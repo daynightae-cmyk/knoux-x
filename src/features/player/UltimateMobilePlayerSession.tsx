@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, RotateCcw } from 'lucide-react';
 
+import { stopAndroidMediaSession, syncAndroidMediaSession } from '../../platform/androidNativeMedia';
 import { usePlayerStore } from '../../store/playerStore';
 
 import {
@@ -13,23 +14,33 @@ import { UltimateMobilePlayer } from './UltimateMobilePlayer';
 import '../../styles/ultimate-mobile-player-session.css';
 
 const SAVE_INTERVAL_MS = 5000;
+const NATIVE_SYNC_INTERVAL_MS = 1000;
 
 function getActiveVideo(): HTMLVideoElement | null {
   return document.querySelector<HTMLVideoElement>('.ultimate-mobile-player .ump-video');
+}
+
+function mediaTitle(mediaPath: string): string {
+  return mediaPath.split(/[\\/]/).pop() || 'KNOUX X';
 }
 
 export const UltimateMobilePlayerSession: React.FC = () => {
   const currentMedia = usePlayerStore((state) => state.currentMedia);
   const seek = usePlayerStore((state) => state.seek);
   const play = usePlayerStore((state) => state.play);
+  const pause = usePlayerStore((state) => state.pause);
   const [resumeTime, setResumeTime] = useState<number | null>(null);
   const [promptVisible, setPromptVisible] = useState(false);
   const promptResolvedRef = useRef(false);
   const lastSavedAtRef = useRef(0);
+  const lastNativeSyncAtRef = useRef(0);
+  const nativeSessionStartedRef = useRef(false);
 
   useEffect(() => {
     promptResolvedRef.current = false;
     lastSavedAtRef.current = 0;
+    lastNativeSyncAtRef.current = 0;
+    nativeSessionStartedRef.current = false;
     setResumeTime(null);
     setPromptVisible(false);
 
@@ -37,6 +48,21 @@ export const UltimateMobilePlayerSession: React.FC = () => {
 
     let attachedVideo: HTMLVideoElement | null = null;
     let observer: MutationObserver | null = null;
+
+    const syncNative = (force = false): void => {
+      if (!attachedVideo) return;
+      const now = Date.now();
+      if (!force && now - lastNativeSyncAtRef.current < NATIVE_SYNC_INTERVAL_MS) return;
+      if (!nativeSessionStartedRef.current && attachedVideo.paused) return;
+      lastNativeSyncAtRef.current = now;
+      nativeSessionStartedRef.current = true;
+      void syncAndroidMediaSession({
+        title: mediaTitle(currentMedia),
+        playing: !attachedVideo.paused && !attachedVideo.ended,
+        position: attachedVideo.currentTime,
+        duration: Number.isFinite(attachedVideo.duration) ? attachedVideo.duration : 0,
+      });
+    };
 
     const saveProgress = (force = false): void => {
       if (!attachedVideo || !promptResolvedRef.current) return;
@@ -66,15 +92,60 @@ export const UltimateMobilePlayerSession: React.FC = () => {
     const handleMetadata = (): void => {
       resolveResume();
       saveProgress(true);
+      syncNative(true);
     };
-    const handleTimeUpdate = (): void => saveProgress(false);
-    const handlePause = (): void => saveProgress(true);
+    const handleTimeUpdate = (): void => {
+      saveProgress(false);
+      syncNative(false);
+    };
+    const handlePlay = (): void => syncNative(true);
+    const handlePause = (): void => {
+      saveProgress(true);
+      syncNative(true);
+    };
     const handleEnded = (): void => {
       if (!attachedVideo) return;
       persistPlaybackProgress(window.localStorage, currentMedia, attachedVideo.duration, attachedVideo.duration);
+      syncNative(true);
       setPromptVisible(false);
       setResumeTime(null);
       promptResolvedRef.current = true;
+    };
+
+    const handleNativeCommand = (event: Event): void => {
+      if (!attachedVideo) return;
+      const detail = (event as CustomEvent<{ command?: string; position?: number }>).detail;
+      switch (detail?.command) {
+        case 'play':
+          void attachedVideo.play().then(() => play()).catch(() => undefined);
+          break;
+        case 'pause':
+          attachedVideo.pause();
+          pause();
+          break;
+        case 'seek-forward': {
+          const target = Math.min(Number.isFinite(attachedVideo.duration) ? attachedVideo.duration : attachedVideo.currentTime + 10, attachedVideo.currentTime + 10);
+          attachedVideo.currentTime = target;
+          seek(target);
+          break;
+        }
+        case 'seek-back': {
+          const target = Math.max(0, attachedVideo.currentTime - 10);
+          attachedVideo.currentTime = target;
+          seek(target);
+          break;
+        }
+        case 'seek': {
+          if (!Number.isFinite(detail.position)) return;
+          const duration = Number.isFinite(attachedVideo.duration) ? attachedVideo.duration : detail.position!;
+          const target = Math.max(0, Math.min(duration, detail.position!));
+          attachedVideo.currentTime = target;
+          seek(target);
+          break;
+        }
+        default:
+          break;
+      }
     };
 
     const detach = (): void => {
@@ -82,6 +153,7 @@ export const UltimateMobilePlayerSession: React.FC = () => {
       saveProgress(true);
       attachedVideo.removeEventListener('loadedmetadata', handleMetadata);
       attachedVideo.removeEventListener('timeupdate', handleTimeUpdate);
+      attachedVideo.removeEventListener('play', handlePlay);
       attachedVideo.removeEventListener('pause', handlePause);
       attachedVideo.removeEventListener('ended', handleEnded);
       attachedVideo = null;
@@ -94,20 +166,24 @@ export const UltimateMobilePlayerSession: React.FC = () => {
       attachedVideo = candidate;
       attachedVideo.addEventListener('loadedmetadata', handleMetadata);
       attachedVideo.addEventListener('timeupdate', handleTimeUpdate);
+      attachedVideo.addEventListener('play', handlePlay);
       attachedVideo.addEventListener('pause', handlePause);
       attachedVideo.addEventListener('ended', handleEnded);
       if (attachedVideo.readyState >= attachedVideo.HAVE_METADATA) handleMetadata();
     };
 
+    window.addEventListener('knoux:native-media-command', handleNativeCommand);
     attach();
     observer = new MutationObserver(attach);
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
+      window.removeEventListener('knoux:native-media-command', handleNativeCommand);
       observer?.disconnect();
       detach();
+      if (nativeSessionStartedRef.current) void stopAndroidMediaSession();
     };
-  }, [currentMedia]);
+  }, [currentMedia, pause, play, seek]);
 
   const resumePlayback = useCallback(async (): Promise<void> => {
     if (!currentMedia || resumeTime === null) return;

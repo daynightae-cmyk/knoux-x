@@ -65,7 +65,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         if (!KnouxPlaybackService.isActive() || getBridge() == null || getBridge().getWebView() == null) return;
         WebView webView = getBridge().getWebView();
@@ -74,7 +74,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         try {
             unregisterReceiver(mediaCommandReceiver);
         } catch (IllegalArgumentException ignored) {
@@ -280,7 +280,7 @@ public class KnouxPlaybackService extends Service {
             .addAction(forwardAction)
             .setStyle(new Notification.MediaStyle()
                 .setMediaSession(mediaSession.getSessionToken())
-                .showActionsInCompactView(0, 1, 2));
+                .setShowActionsInCompactView(0, 1, 2));
         return builder.build();
     }
 

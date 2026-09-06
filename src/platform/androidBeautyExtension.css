@@ -1,0 +1,112 @@
+.android-smart-beauty {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(120, 236, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(5, 11, 22, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.android-smart-beauty__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.android-smart-beauty__head > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.android-smart-beauty__head strong {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.android-smart-beauty__head span,
+.android-smart-beauty__message {
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+.android-smart-beauty button {
+  min-height: 40px;
+  border: 1px solid rgba(120, 236, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px 11px;
+  background: rgba(15, 28, 45, 0.88);
+  color: inherit;
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.android-smart-beauty button:active:not(:disabled),
+.android-smart-beauty button.active {
+  border-color: rgba(120, 236, 255, 0.75);
+  background: rgba(23, 77, 96, 0.72);
+}
+
+.android-smart-beauty button:disabled {
+  opacity: 0.45;
+}
+
+.android-smart-beauty__faces,
+.android-smart-beauty__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.android-smart-beauty__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.android-smart-beauty__controls label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+
+.android-smart-beauty__controls input[type='range'] {
+  width: 100%;
+  min-height: 28px;
+}
+
+.android-smart-beauty__color input[type='color'] {
+  width: 46px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: transparent;
+}
+
+.android-smart-beauty__message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 700px) {
+  .android-smart-beauty__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .android-smart-beauty__head,
+  .android-smart-beauty__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .android-smart-beauty__head {
+    display: grid;
+  }
+}

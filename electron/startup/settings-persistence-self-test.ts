@@ -83,7 +83,10 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
         : binding.command === 'theater-mode' ? { ...binding, enabled: false } : binding),
       workspace: {
         ...structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace),
-        moduleOrder: ['player', 'recording', 'capture', 'editor', 'library', 'queue', 'image-editor', 'slideshow', 'audio-tools', 'export', 'settings'],
+        // Keep this a deliberately customized but complete order. Deriving it from
+        // the canonical defaults prevents the packaged persistence gate from going
+        // stale whenever a new workspace module is introduced.
+        moduleOrder: structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace.moduleOrder).reverse(),
         hiddenModules: ['queue'],
         sidebarWidth: 348,
         timelineHeight: 436,

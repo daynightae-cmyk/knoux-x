@@ -2,6 +2,24 @@ name: Android APK (Capacitor)
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'tests/**'
+      - 'tools/android-emulator-smoke.sh'
+      - 'tools/prepare-android-branding.cjs'
+      - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-screen.cjs'
+      - 'electron/**'
+      - 'index.html'
+      - 'vite.renderer.config.ts'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-apk.yml'
   push:
     branches:
       - main
@@ -38,7 +56,7 @@ jobs:
     timeout-minutes: 75
 
     steps:
-      - name: Checkout main
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Use Node.js 22

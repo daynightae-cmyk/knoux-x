@@ -87,16 +87,17 @@ jobs:
       - name: Stage APK and checksum
         shell: bash
         run: |
-          mkdir -p artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/KNOUX-X-Android-debug.apk
-          sha256sum artifacts/KNOUX-X-Android-debug.apk > artifacts/KNOUX-X-Android-debug.apk.sha256
-          test -s artifacts/KNOUX-X-Android-debug.apk
+          rm -rf .android-output
+          mkdir -p .android-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk .android-output/KNOUX-X-Android-debug.apk
+          sha256sum .android-output/KNOUX-X-Android-debug.apk > .android-output/KNOUX-X-Android-debug.apk.sha256
+          test -s .android-output/KNOUX-X-Android-debug.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
           name: KNOUX-X-Android-debug-${{ github.sha }}
-          path: artifacts/
+          path: .android-output/
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

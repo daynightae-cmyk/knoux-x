@@ -53,14 +53,24 @@ read_pid() {
   return 1
 }
 
+wait_for_rendered_screen() {
+  local destination="$1"
+  local attempts="${2:-30}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 adb wait-for-device
 adb_retry install -r "$APK"
 adb_retry logcat -c
 adb_retry shell am force-stop "$PACKAGE" || true
 
-# Launch the exact manifest activity instead of relying on monkey. The hosted
-# API 35 image can accept a monkey event without resolving/starting the target
-# package while the launcher is still finishing first-boot package updates.
 adb_retry shell am start -W \
   -a android.intent.action.MAIN \
   -c android.intent.category.LAUNCHER \
@@ -86,16 +96,15 @@ if [[ -z "$PID" ]]; then
   exit 1
 fi
 
-# Wait for React to commit two animation frames and independently require real
-# painted pixels. A static #090B10 launch surface is never accepted as success.
+# JavaScript readiness is necessary but not sufficient: only accept a frame
+# after the central WebView plane contains real rendered KNOUX pixels.
 UI_READY=false
 for attempt in $(seq 1 45); do
-  if adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt"; then
-    if grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
-      if capture_screen "$OUTPUT_DIR/android-launch.png" && node tools/verify-android-screen.cjs "$OUTPUT_DIR/android-launch.png"; then
-        UI_READY=true
-        break
-      fi
+  if adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" && \
+     grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
+    if wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
+      UI_READY=true
+      break
     fi
   fi
   sleep 2
@@ -103,7 +112,7 @@ done
 
 if [[ "$UI_READY" != true ]]; then
   capture_screen "$OUTPUT_DIR/android-launch.png" || true
-  echo 'Android did not render a nonblank KNOUX interface within 90 seconds.' >&2
+  echo 'Android did not render a real KNOUX interface within 90 seconds.' >&2
   exit 1
 fi
 
@@ -129,14 +138,16 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
   exit 1
 fi
 
-# Exercise the requested physical phone viewport sizes. Each size must retain a
-# living process and a nonblank rendered KNOUX frame.
+# Exercise the requested phone sizes. A resize can briefly expose the window
+# background while WebView relayouts, so wait independently at every size until
+# real KNOUX pixels are present; never capture a transient blank frame as proof.
 adb_retry shell wm density 160
 for SIZE in 360x800 390x844 412x915; do
   adb_retry shell wm size "$SIZE"
-  sleep 2
-  capture_screen "$OUTPUT_DIR/android-phone-$SIZE.png"
-  node tools/verify-android-screen.cjs "$OUTPUT_DIR/android-phone-$SIZE.png"
+  if ! wait_for_rendered_screen "$OUTPUT_DIR/android-phone-$SIZE.png" 30; then
+    echo "Android did not render KNOUX at viewport $SIZE within 30 seconds." >&2
+    exit 1
+  fi
   test -n "$(read_pid || true)"
 done
 

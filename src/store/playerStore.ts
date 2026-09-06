@@ -107,7 +107,7 @@ export const usePlayerStore = create<PlayerState>()(
       currentTime: 0,
       duration: 0,
       seek: (time) => set({ currentTime: Math.max(0, Number.isFinite(time) ? time : 0) }),
-      setDuration: (duration) => set({ duration: Math.max(0, Number.isFinite(duration) ? duration : 0 }),
+      setDuration: (duration) => set({ duration: Math.max(0, Number.isFinite(duration) ? duration : 0) }),
       volume: 0.8,
       setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
       muted: false,

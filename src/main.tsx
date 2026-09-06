@@ -16,17 +16,24 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
+import { AndroidBeautyExtension } from './platform/AndroidBeautyExtension';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
+import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
+import { installAndroidFileBridge } from './platform/androidFileBridge';
+import { installAndroidRetouchModels } from './platform/androidRetouchModels';
 import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 
 // Capacitor Android receives dedicated native-safe bridges. Desktop preload
 // remains authoritative in Electron, and normal browsers keep the constrained
-// preview adapter. This ordering prevents Android from being misidentified as
-// a Windows desktop runtime or an incomplete web preview.
+// preview adapter. Runtime ownership is established first, then Android-specific
+// adapters decorate that contract without overwriting Electron desktop preload.
 const androidRuntimeInstalled = installAndroidRuntimeBridge();
 if (androidRuntimeInstalled) {
+  installAndroidFileBridge();
+  installAndroidCaptureBridge();
   installAndroidAudioToolsBridge();
+  installAndroidRetouchModels();
 } else {
   installBrowserPreviewBridge();
 }
@@ -48,6 +55,7 @@ root.render(
     <ErrorBoundary>
       <App />
       <SystemOverlay />
+      {androidRuntimeInstalled && <AndroidBeautyExtension />}
     </ErrorBoundary>
   </React.StrictMode>
 );

@@ -1,0 +1,321 @@
+html[data-platform='android'] .knoux-mobile-library {
+  --kml-violet: #8b3dff;
+  --kml-lavender: #c4a6ff;
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  color: #fff;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(124, 42, 255, 0.22), transparent 31%),
+    radial-gradient(circle at 94% 48%, rgba(151, 60, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, #05030a 0%, #020205 62%, #05030a 100%);
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='android'] .knoux-mobile-library::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background: linear-gradient(125deg, transparent 18%, rgba(147, 66, 255, 0.08) 44%, transparent 65%);
+}
+
+html[data-platform='android'] .kml-header {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+html[data-platform='android'] .kml-round {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(176, 116, 255, 0.26);
+  border-radius: 50%;
+  color: #f6efff;
+  background: rgba(15, 10, 28, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.25);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-platform='android'] .kml-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+html[data-platform='android'] .kml-brand > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+html[data-platform='android'] .kml-brand strong {
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+html[data-platform='android'] .kml-brand strong span {
+  color: #b363ff;
+}
+
+html[data-platform='android'] .kml-brand small {
+  overflow: hidden;
+  color: rgba(215, 194, 244, 0.65);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kml-tabs {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid rgba(177, 119, 255, 0.22);
+  border-radius: 22px;
+  background: rgba(12, 8, 22, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 15px 40px rgba(0,0,0,0.28);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+
+html[data-platform='android'] .kml-tabs button {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 17px;
+  color: rgba(226, 211, 246, 0.68);
+  background: transparent;
+  font: inherit;
+}
+
+html[data-platform='android'] .kml-tabs button span {
+  font-size: 10px;
+  font-weight: 750;
+}
+
+html[data-platform='android'] .kml-tabs button.active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(152, 69, 255, 0.78), rgba(91, 27, 209, 0.78));
+  box-shadow: 0 0 25px rgba(127, 43, 255, 0.28), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+html[data-platform='android'] .kml-section-title {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin: 0 2px 10px;
+}
+
+html[data-platform='android'] .kml-section-title span {
+  color: #b98cff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+html[data-platform='android'] .kml-section-title :is(h1, h2) {
+  margin: 3px 0 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+html[data-platform='android'] .kml-import-hero {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 118px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(190, 134, 255, 0.37);
+  border-radius: 26px;
+  color: #fff;
+  text-align: left;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(178, 93, 255, 0.22), transparent 30%),
+    linear-gradient(145deg, rgba(72, 30, 130, 0.58), rgba(17, 10, 31, 0.8));
+  box-shadow: 0 15px 50px rgba(0,0,0,0.3), 0 0 36px rgba(125, 41, 255, 0.13), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+html[data-platform='android'] .kml-import-hero > svg {
+  color: #d5b4ff;
+}
+
+html[data-platform='android'] .kml-import-hero > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+html[data-platform='android'] .kml-import-hero strong {
+  font-size: 19px;
+}
+
+html[data-platform='android'] .kml-import-hero div span {
+  color: rgba(228, 214, 247, 0.68);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+html[data-platform='android'] .kml-import-hero > span:last-child {
+  color: #d7b7ff;
+  font-size: 30px;
+}
+
+html[data-platform='android'] .kml-card-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+html[data-platform='android'] .kml-media-card {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 9px;
+  border: 1px solid rgba(169, 106, 255, 0.2);
+  border-radius: 19px;
+  color: #fff;
+  text-align: left;
+  background: rgba(14, 9, 25, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+html[data-platform='android'] .kml-media-art {
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(179, 99, 255, 0.3), transparent 35%),
+    linear-gradient(145deg, #22123d, #090712);
+}
+
+html[data-platform='android'] .kml-media-art small {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.55);
+  font-size: 8px;
+}
+
+html[data-platform='android'] .kml-media-card > strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kml-media-card > small {
+  color: rgba(213, 196, 235, 0.61);
+  font-size: 9px;
+}
+
+html[data-platform='android'] .kml-more {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  color: rgba(226, 213, 244, 0.58);
+}
+
+html[data-platform='android'] .kml-quick-create {
+  position: relative;
+  z-index: 2;
+  margin-top: 24px;
+}
+
+html[data-platform='android'] .kml-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+html[data-platform='android'] .kml-quick-grid button {
+  min-width: 0;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid rgba(168, 107, 255, 0.22);
+  border-radius: 19px;
+  color: #fff;
+  text-align: left;
+  background: rgba(13, 8, 24, 0.72);
+}
+
+html[data-platform='android'] .kml-quick-grid button > svg {
+  color: #c9a2ff;
+}
+
+html[data-platform='android'] .kml-quick-grid button div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+html[data-platform='android'] .kml-quick-grid strong {
+  font-size: 11px;
+}
+
+html[data-platform='android'] .kml-quick-grid small {
+  color: rgba(214, 198, 236, 0.58);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+html[data-platform='android'] .kml-footer {
+  position: relative;
+  z-index: 2;
+  padding: 26px 4px 6px;
+  color: rgba(188, 151, 235, 0.6);
+  text-align: center;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+@media (max-width: 380px) {
+  html[data-platform='android'] .kml-brand small { display: none; }
+  html[data-platform='android'] .kml-quick-grid { grid-template-columns: 1fr; }
+  html[data-platform='android'] .kml-quick-grid button { min-height: 70px; flex-direction: row; align-items: center; }
+}

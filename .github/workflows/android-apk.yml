@@ -11,6 +11,8 @@ on:
       - 'tests/**'
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
+      - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -29,6 +31,8 @@ on:
       - 'tests/**'
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
+      - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -116,6 +120,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Install KNOUX native media foundations
+        shell: bash
+        run: |
+          node tools/prepare-android-native-media.cjs
+          grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' android/app/src/main/AndroidManifest.xml
+          grep -F '@CapacitorPlugin(name = "KnouxMediaSession")' android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java
+          grep -F 'class KnouxPlaybackService extends Service' android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java
+          grep -F 'registerPlugin(KnouxMediaSessionPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
+
       - name: Configure Android media permissions
         shell: bash
         run: |
@@ -141,10 +156,14 @@ jobs:
         shell: bash
         run: |
           node tools/prepare-android-branding.cjs
+          node tools/prepare-android-premium-splash.cjs
           grep -F '<string name="app_name">KNOUX X</string>' android/app/src/main/res/values/strings.xml
           grep -F 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
           grep -F 'android:roundIcon="@mipmap/ic_launcher_round"' android/app/src/main/AndroidManifest.xml
           grep -F '<monochrome android:drawable="@mipmap/ic_launcher_monochrome" />' android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml
+          grep -F '<item name="windowSplashScreenBackground">@color/knoux_splash_background</item>' android/app/src/main/res/values/styles.xml
+          grep -F '<item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>' android/app/src/main/res/values/styles.xml
+          grep -F '<color name="colorAccent">#8B39FF</color>' android/app/src/main/res/values/colors.xml
           test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
           test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
           test -s android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
@@ -168,6 +187,9 @@ jobs:
           cp android/knoux-branding-report.json android-ci-output/android-branding-report.json
           cp android/app/src/main/AndroidManifest.xml android-ci-output/android-manifest.xml
           cp android/app/src/main/res/values/strings.xml android-ci-output/android-strings.xml
+          cp android/app/src/main/res/drawable/splash.png android-ci-output/android-premium-splash.png
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java android-ci-output/KnouxMediaSessionPlugin.java
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java android-ci-output/KnouxPlaybackService.java
           sha256sum android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.sha256
           stat -c '%s' android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.size
           test -s android-ci-output/KNOUX-X-Android-debug.apk

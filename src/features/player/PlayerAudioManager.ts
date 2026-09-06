@@ -9,17 +9,32 @@ export interface RendererAudioSettings {
   volume: number;
   muted: boolean;
   balance: number;
+  delayMs: number;
   equalizer: number[];
   effects: Record<string, Record<string, number>>;
 }
 
 type Listener = (data: unknown) => void;
 
+let resolveActivePlayerAudioManager = (): PlayerAudioManager | null => null;
+
+export async function setActivePlayerAudioDelay(delayMs: number): Promise<boolean> {
+  const manager = resolveActivePlayerAudioManager();
+  if (!manager) return false;
+  await manager.setDelay(delayMs);
+  return true;
+}
+
+export async function resumeActivePlayerAudio(): Promise<void> {
+  await resolveActivePlayerAudioManager()?.resume();
+}
+
 export class PlayerAudioManager {
   private settings: RendererAudioSettings;
   private audioContext: AudioContext | null = null;
   private gainNode: GainNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
+  private delayNode: DelayNode | null = null;
   private analyser: AnalyserNode | null = null;
   private mediaElement: HTMLAudioElement | HTMLVideoElement | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
@@ -33,6 +48,7 @@ export class PlayerAudioManager {
       volume: 1.0,
       muted: false,
       balance: 0,
+      delayMs: 0,
       equalizer: new Array(10).fill(0),
       effects: {},
     };
@@ -64,6 +80,7 @@ export class PlayerAudioManager {
 
   public attachToMediaElement(element: HTMLAudioElement | HTMLVideoElement): void {
     if (this.mediaElement === element && this.isInitialized) {
+      resolveActivePlayerAudioManager = () => this;
       return;
     }
 
@@ -85,6 +102,9 @@ export class PlayerAudioManager {
       this.stereoPanner = this.audioContext.createStereoPanner();
       this.stereoPanner.pan.value = this.settings.balance;
 
+      this.delayNode = this.audioContext.createDelay(2);
+      this.delayNode.delayTime.value = this.settings.delayMs / 1000;
+
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
       this.analyser.smoothingTimeConstant = 0.8;
@@ -94,6 +114,7 @@ export class PlayerAudioManager {
       this.connectGraph();
 
       this.isInitialized = true;
+      resolveActivePlayerAudioManager = () => this;
       this.emit('attached', element);
     } catch (error) {
       console.error('Failed to attach to media element:', error);
@@ -115,7 +136,7 @@ export class PlayerAudioManager {
   }
 
   private connectGraph(): void {
-    if (!this.sourceNode || !this.gainNode || !this.stereoPanner || !this.analyser) {
+    if (!this.sourceNode || !this.gainNode || !this.stereoPanner || !this.delayNode || !this.analyser) {
       return;
     }
 
@@ -127,7 +148,8 @@ export class PlayerAudioManager {
     });
 
     lastNode.connect(this.gainNode);
-    this.gainNode.connect(this.stereoPanner);
+    this.gainNode.connect(this.delayNode);
+    this.delayNode.connect(this.stereoPanner);
 
     this.effectNodes.forEach((node) => {
       this.stereoPanner!.connect(node);
@@ -146,6 +168,7 @@ export class PlayerAudioManager {
 
     this.gainNode?.disconnect();
     this.stereoPanner?.disconnect();
+    this.delayNode?.disconnect();
     this.analyser?.disconnect();
     this.eqFilters.forEach((filter) => filter.disconnect());
     this.effectNodes.forEach((node) => node.disconnect());
@@ -154,6 +177,10 @@ export class PlayerAudioManager {
   }
 
   public detach(): void {
+    if (resolveActivePlayerAudioManager() === this) {
+      resolveActivePlayerAudioManager = () => null;
+    }
+
     if (this.sourceNode) {
       this.sourceNode.disconnect();
       this.sourceNode = null;
@@ -165,6 +192,9 @@ export class PlayerAudioManager {
     this.stereoPanner?.disconnect();
     this.stereoPanner = null;
 
+    this.delayNode?.disconnect();
+    this.delayNode = null;
+
     this.analyser?.disconnect();
     this.analyser = null;
 
@@ -175,13 +205,17 @@ export class PlayerAudioManager {
     this.effectNodes.clear();
 
     if (this.audioContext) {
-      this.audioContext.close();
+      void this.audioContext.close();
       this.audioContext = null;
     }
 
     this.mediaElement = null;
     this.isInitialized = false;
     this.emit('detached');
+  }
+
+  public async resume(): Promise<void> {
+    if (this.audioContext?.state === 'suspended') await this.audioContext.resume();
   }
 
   public async setVolume(volume: number): Promise<void> {
@@ -213,6 +247,16 @@ export class PlayerAudioManager {
     }
 
     this.emit('balance-change', this.settings.balance);
+  }
+
+  public async setDelay(delayMs: number): Promise<void> {
+    this.settings.delayMs = Math.max(0, Math.min(2000, Number.isFinite(delayMs) ? delayMs : 0));
+
+    if (this.delayNode && this.audioContext) {
+      this.delayNode.delayTime.setTargetAtTime(this.settings.delayMs / 1000, this.audioContext.currentTime, 0.01);
+    }
+
+    this.emit('delay-change', this.settings.delayMs);
   }
 
   public async setEqualizer(bands: number[]): Promise<void> {

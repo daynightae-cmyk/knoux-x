@@ -26,7 +26,8 @@ describe('KNOUX X Ultimate Mobile Player phase-one contract', () => {
   test('does not route Android media opening through the desktop ffprobe bridge', () => {
     expect(player).toContain('window.knouxCreativeAPI.media.open()');
     expect(player).not.toContain('window.knouxCreativeAPI.export.probe');
-    expect(app).toContain("if (window.knouxRuntime?.edition === 'android')");
+    expect(app).toContain("const android = window.knouxRuntime?.edition === 'android'");
+    expect(app).toContain('if (android) {');
     expect(app).toContain('usePlayerStore.getState().setCurrentMedia(firstPath)');
     expect(app).toContain("setView('player')");
   });

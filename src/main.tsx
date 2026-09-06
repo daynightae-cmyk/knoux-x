@@ -21,6 +21,7 @@ import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBrid
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
 import { installAndroidImageEditorBridge } from './platform/androidImageEditorBridge';
+import { installAndroidMultitrackExportBridge } from './platform/androidMultitrackExportBridge';
 import { installAndroidRetouchModels } from './platform/androidRetouchModels';
 import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installAndroidSafBridge } from './platform/androidSafBridge';
@@ -43,6 +44,7 @@ if (androidRuntimeInstalled) {
   installAndroidAudioToolsBridge();
   installAndroidImageEditorBridge();
   installAndroidRetouchModels();
+  installAndroidMultitrackExportBridge();
 } else {
   installBrowserPreviewBridge();
 }

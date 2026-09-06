@@ -1,4 +1,5 @@
 import type { DialogOptions, MediaInfo } from '../../electron/preload';
+
 import {
   androidVirtualBlob,
   androidVirtualObjectUrl,

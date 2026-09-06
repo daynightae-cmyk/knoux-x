@@ -29,9 +29,9 @@ env:
 
 jobs:
   build-debug-apk:
-    name: Validate and build installable debug APK
+    name: Validate, launch-test, and build installable debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout main
@@ -107,7 +107,76 @@ jobs:
           sha256sum android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.sha256
           test -s android-ci-output/KNOUX-X-Android-debug.apk
 
-      - name: Upload installable APK
+      - name: Enable KVM permissions for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            APK='android-ci-output/KNOUX-X-Android-debug.apk'
+            PACKAGE='dev.knoux.playerx'
+
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell am force-stop "$PACKAGE" || true
+            adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
+
+            PID=''
+            for attempt in $(seq 1 25); do
+              PID="$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+              if [ -n "$PID" ]; then break; fi
+              sleep 1
+            done
+            if [ -z "$PID" ]; then
+              echo 'KNOUX Android process did not start.' >&2
+              adb logcat -d -t 800 || true
+              exit 1
+            fi
+
+            sleep 10
+            PID="$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+            if [ -z "$PID" ]; then
+              echo 'KNOUX Android process exited during startup.' >&2
+              adb logcat -d -t 1200 || true
+              exit 1
+            fi
+
+            adb shell dumpsys activity activities > android-ci-output/android-activity.txt
+            adb logcat -d -t 1600 > android-ci-output/android-launch-log.txt
+            adb exec-out screencap -p > android-ci-output/android-launch.png || true
+            adb shell uiautomator dump /sdcard/knoux-ui.xml >/dev/null 2>&1 || true
+            adb pull /sdcard/knoux-ui.xml android-ci-output/android-ui.xml >/dev/null 2>&1 || true
+
+            grep -q "$PACKAGE" android-ci-output/android-activity.txt
+            if [ -s android-ci-output/android-ui.xml ]; then
+              grep -q "$PACKAGE" android-ci-output/android-ui.xml
+            fi
+
+            if grep -Eqi \
+              'FATAL EXCEPTION|Unable to start activity|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE' \
+              android-ci-output/android-launch-log.txt; then
+              echo 'Fatal KNOUX startup error detected in Android logcat.' >&2
+              grep -Ein \
+                'FATAL EXCEPTION|Unable to start activity|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE' \
+                android-ci-output/android-launch-log.txt || true
+              exit 1
+            fi
+
+            echo "KNOUX Android launch smoke passed with PID $PID"
+
+      - name: Upload installable APK and launch evidence
         uses: actions/upload-artifact@v4
         with:
           name: KNOUX-X-Android-debug-${{ github.sha }}

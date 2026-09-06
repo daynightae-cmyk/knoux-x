@@ -25,6 +25,7 @@ import { installAndroidMultitrackExportBridge } from './platform/androidMultitra
 import { installAndroidRetouchModels } from './platform/androidRetouchModels';
 import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installAndroidSafBridge } from './platform/androidSafBridge';
+import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 
 // Capacitor Android receives dedicated native-safe bridges. Desktop preload
@@ -45,6 +46,7 @@ if (androidRuntimeInstalled) {
   installAndroidImageEditorBridge();
   installAndroidRetouchModels();
   installAndroidMultitrackExportBridge();
+  installAndroidSlideshowRenderBridge();
 } else {
   installBrowserPreviewBridge();
 }

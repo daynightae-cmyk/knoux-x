@@ -16,6 +16,18 @@ export interface RendererAudioSettings {
 
 type Listener = (data: unknown) => void;
 
+let activePlayerAudioManager: PlayerAudioManager | null = null;
+
+export async function setActivePlayerAudioDelay(delayMs: number): Promise<boolean> {
+  if (!activePlayerAudioManager) return false;
+  await activePlayerAudioManager.setDelay(delayMs);
+  return true;
+}
+
+export async function resumeActivePlayerAudio(): Promise<void> {
+  await activePlayerAudioManager?.resume();
+}
+
 export class PlayerAudioManager {
   private settings: RendererAudioSettings;
   private audioContext: AudioContext | null = null;
@@ -67,6 +79,7 @@ export class PlayerAudioManager {
 
   public attachToMediaElement(element: HTMLAudioElement | HTMLVideoElement): void {
     if (this.mediaElement === element && this.isInitialized) {
+      activePlayerAudioManager = this;
       return;
     }
 
@@ -100,6 +113,7 @@ export class PlayerAudioManager {
       this.connectGraph();
 
       this.isInitialized = true;
+      activePlayerAudioManager = this;
       this.emit('attached', element);
     } catch (error) {
       console.error('Failed to attach to media element:', error);
@@ -162,6 +176,8 @@ export class PlayerAudioManager {
   }
 
   public detach(): void {
+    if (activePlayerAudioManager === this) activePlayerAudioManager = null;
+
     if (this.sourceNode) {
       this.sourceNode.disconnect();
       this.sourceNode = null;

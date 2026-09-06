@@ -8,6 +8,7 @@
 
 export interface RendererAudioSettings {
   volume: number;
+  boost: number;
   muted: boolean;
   balance: number;
   delayMs: number;
@@ -30,7 +31,7 @@ export async function setActivePlayerAudioDelay(delayMs: number): Promise<boolea
 export async function setActivePlayerAudioBoost(multiplier: number): Promise<boolean> {
   const manager = resolveActivePlayerAudioManager();
   if (!manager) return false;
-  await manager.setVolume(multiplier);
+  await manager.setBoost(multiplier);
   return true;
 }
 
@@ -50,6 +51,7 @@ export class PlayerAudioManager {
   private settings: RendererAudioSettings;
   private audioContext: AudioContext | null = null;
   private gainNode: GainNode | null = null;
+  private boostGainNode: GainNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private delayNode: DelayNode | null = null;
   private limiterNode: DynamicsCompressorNode | null = null;
@@ -68,6 +70,7 @@ export class PlayerAudioManager {
   constructor() {
     this.settings = {
       volume: 1,
+      boost: 1,
       muted: false,
       balance: 0,
       delayMs: 0,
@@ -128,6 +131,8 @@ export class PlayerAudioManager {
       this.sourceNode = this.audioContext.createMediaElementSource(this.sourceElement);
       this.gainNode = this.audioContext.createGain();
       this.gainNode.gain.value = this.settings.muted ? 0 : this.settings.volume;
+      this.boostGainNode = this.audioContext.createGain();
+      this.boostGainNode.gain.value = this.settings.boost;
       this.stereoPanner = this.audioContext.createStereoPanner();
       this.stereoPanner.pan.value = this.settings.balance;
       this.delayNode = this.audioContext.createDelay(5);
@@ -201,11 +206,12 @@ export class PlayerAudioManager {
   }
 
   private connectGraph(): void {
-    if (!this.sourceNode || !this.gainNode || !this.stereoPanner || !this.delayNode || !this.limiterNode || !this.analyser || !this.audioContext) return;
+    if (!this.sourceNode || !this.gainNode || !this.boostGainNode || !this.stereoPanner || !this.delayNode || !this.limiterNode || !this.analyser || !this.audioContext) return;
     let lastNode: AudioNode = this.sourceNode;
     this.eqFilters.forEach((filter) => { lastNode.connect(filter); lastNode = filter; });
     lastNode.connect(this.gainNode);
-    this.gainNode.connect(this.delayNode);
+    this.gainNode.connect(this.boostGainNode);
+    this.boostGainNode.connect(this.delayNode);
     this.delayNode.connect(this.stereoPanner);
     lastNode = this.stereoPanner;
     this.effectStages.forEach((stage) => {
@@ -220,6 +226,7 @@ export class PlayerAudioManager {
   private disconnectGraph(): void {
     try { this.sourceNode?.disconnect(); } catch { /* already detached */ }
     try { this.gainNode?.disconnect(); } catch { /* already detached */ }
+    try { this.boostGainNode?.disconnect(); } catch { /* already detached */ }
     try { this.stereoPanner?.disconnect(); } catch { /* already detached */ }
     try { this.delayNode?.disconnect(); } catch { /* already detached */ }
     try { this.limiterNode?.disconnect(); } catch { /* already detached */ }
@@ -252,6 +259,7 @@ export class PlayerAudioManager {
     this.disconnectGraph();
     this.sourceNode = null;
     this.gainNode = null;
+    this.boostGainNode = null;
     this.stereoPanner = null;
     this.delayNode = null;
     this.limiterNode = null;
@@ -273,13 +281,21 @@ export class PlayerAudioManager {
   }
 
   public async setVolume(volume: number): Promise<void> {
-    // 0..2 is the KNOUX 0-200% user range. The final compressor is a hard
-    // safety limiter so boost does not directly clip the destination.
-    this.settings.volume = Math.max(0, Math.min(2, Number.isFinite(volume) ? volume : 1));
+    // Primary volume remains a conventional 0..100% control. Extra gain is
+    // intentionally separate so changing normal volume never overwrites boost.
+    this.settings.volume = Math.max(0, Math.min(1, Number.isFinite(volume) ? volume : 1));
     if (this.gainNode && !this.settings.muted && this.audioContext) {
       this.gainNode.gain.setTargetAtTime(this.settings.volume, this.audioContext.currentTime, 0.01);
     }
     this.emit('volume-change', this.settings.volume);
+  }
+
+  public async setBoost(multiplier: number): Promise<void> {
+    this.settings.boost = Math.max(1, Math.min(2, Number.isFinite(multiplier) ? multiplier : 1));
+    if (this.boostGainNode && this.audioContext) {
+      this.boostGainNode.gain.setTargetAtTime(this.settings.boost, this.audioContext.currentTime, 0.01);
+    }
+    this.emit('boost-change', this.settings.boost);
   }
 
   public async setMuted(muted: boolean): Promise<void> {

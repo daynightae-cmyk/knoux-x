@@ -26,7 +26,6 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  Unlock,
   Volume2,
   VolumeX,
   Waves,
@@ -208,7 +207,6 @@ export const UltimateMobilePlayer: React.FC = () => {
     setPlaybackRate,
     toggleMute,
     next,
-    previous,
   } = usePlayerStore();
 
   const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0;

@@ -3,8 +3,12 @@ import type { Sprint02CommandRuntime } from '../core/commands/sprint02CommandSys
 declare global {
   interface Window {
     __knouxSprint02?: Sprint02CommandRuntime;
+    Capacitor?: Readonly<{
+      getPlatform?: () => string;
+      isNativePlatform?: () => boolean;
+    }>;
     knouxRuntime?: Readonly<{
-      edition: 'desktop' | 'web-preview';
+      edition: 'desktop' | 'web-preview' | 'android';
       product: 'KNOUX Player X';
       bridgeVersion: number;
     }>;

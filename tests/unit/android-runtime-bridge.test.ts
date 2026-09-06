@@ -2,6 +2,15 @@
 
 import { installAndroidRuntimeBridge } from '../../src/platform/androidRuntimeBridge';
 
+function ensureStructuredClone(): void {
+  if (typeof globalThis.structuredClone === 'function') return;
+  Object.defineProperty(globalThis, 'structuredClone', {
+    configurable: true,
+    writable: true,
+    value: <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T,
+  });
+}
+
 function clearRuntime(): void {
   for (const name of [
     'knouxRuntime',
@@ -24,6 +33,7 @@ function clearRuntime(): void {
 
 describe('Android runtime bridge', () => {
   beforeEach(() => {
+    ensureStructuredClone();
     clearRuntime();
     Object.defineProperty(window, 'Capacitor', {
       configurable: true,

@@ -40,10 +40,12 @@ describe('KNOUX X Android native media foundations', () => {
     expect(session).toContain('syncAndroidMediaSession');
   });
 
-  test('implements audio delay with a real Web Audio DelayNode', () => {
+  test('implements audio delay with a real Web Audio DelayNode without replacing the established effect-routing panner', () => {
     expect(audio).toContain('private delayNode: DelayNode | null = null');
     expect(audio).toContain('this.audioContext.createDelay(2)');
-    expect(audio).toContain('this.stereoPanner.connect(this.delayNode)');
+    expect(audio).toContain('this.gainNode.connect(this.delayNode)');
+    expect(audio).toContain('this.delayNode.connect(this.stereoPanner)');
+    expect(audio).toContain('this.stereoPanner.connect(this.analyser)');
     expect(audio).toContain('setDelay(delayMs: number)');
     expect(audio).toContain('delayTime.setTargetAtTime');
     expect(session).toContain('Audio Delay');

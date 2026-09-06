@@ -12,6 +12,7 @@ on:
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
       - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -31,6 +32,7 @@ on:
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
       - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -118,6 +120,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Install KNOUX native media foundations
+        shell: bash
+        run: |
+          node tools/prepare-android-native-media.cjs
+          grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' android/app/src/main/AndroidManifest.xml
+          grep -F '@CapacitorPlugin(name = "KnouxMediaSession")' android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java
+          grep -F 'class KnouxPlaybackService extends Service' android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java
+          grep -F 'registerPlugin(KnouxMediaSessionPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
+
       - name: Configure Android media permissions
         shell: bash
         run: |
@@ -175,6 +188,8 @@ jobs:
           cp android/app/src/main/AndroidManifest.xml android-ci-output/android-manifest.xml
           cp android/app/src/main/res/values/strings.xml android-ci-output/android-strings.xml
           cp android/app/src/main/res/drawable/splash.png android-ci-output/android-premium-splash.png
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java android-ci-output/KnouxMediaSessionPlugin.java
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java android-ci-output/KnouxPlaybackService.java
           sha256sum android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.sha256
           stat -c '%s' android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.size
           test -s android-ci-output/KNOUX-X-Android-debug.apk

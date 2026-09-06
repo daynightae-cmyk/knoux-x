@@ -11,8 +11,10 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const store = read('src/store/appStore.ts');
   const home = read('src/features/home/MobileHomeDashboard.tsx');
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
+  const mobileLibrary = read('src/features/library/MobileMediaLibraryView.tsx');
   const css = read('src/styles/mobile-premium-shell.css');
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
+  const libraryCss = read('src/styles/mobile-media-library.css');
   const mobileVideo = read('src/features/video-studio/MobileVideoStudioView.tsx');
   const mobileSlideshow = read('src/features/slideshow/MobilePhotosToVideoView.tsx');
   const mobilePhoto = read('src/features/image-editor/MobileImageEditorView.tsx');
@@ -50,6 +52,7 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   });
 
   test('routes Android creative tools through premium mobile surfaces while preserving desktop engines', () => {
+    expect(app).toContain("case 'library': return android ? <MobileMediaLibraryView /> : <LibraryView />");
     expect(app).toContain("case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />");
     expect(app).toContain("case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />");
     expect(app).toContain("case 'image-editor': return android ? <MobileImageEditorView /> : <ImageEditorView />");
@@ -59,6 +62,15 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobilePhoto).toContain('<ImageEditorView />');
     expect(mobileBeauty).toContain('<ImageEditorView />');
     expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
+  });
+
+  test('uses ordinary Android media pickers instead of project JSON as the primary library workflow', () => {
+    expect(mobileLibrary).toContain('Import from device');
+    expect(mobileLibrary).toContain('Choose ordinary media files — never project JSON.');
+    expect(mobileLibrary).toContain("extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv']");
+    expect(mobileLibrary).toContain("extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif']");
+    expect(mobileLibrary).toContain("extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'opus']");
+    expect(libraryCss).toContain('.kml-import-hero');
   });
 
   test('replaces the old unavailable Android image proxy with a real local asset bridge', () => {

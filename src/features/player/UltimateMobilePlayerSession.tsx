@@ -39,7 +39,7 @@ export const UltimateMobilePlayerSession: React.FC = () => {
     let observer: MutationObserver | null = null;
 
     const saveProgress = (force = false): void => {
-      if (!attachedVideo) return;
+      if (!attachedVideo || !promptResolvedRef.current) return;
       const now = Date.now();
       if (!force && now - lastSavedAtRef.current < SAVE_INTERVAL_MS) return;
       lastSavedAtRef.current = now;

@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import type { KnouxThemeId } from '../theme/knouxThemeCatalog';
 
 export type ViewType =
+  | 'home'
   | 'player'
   | 'library'
   | 'queue'
@@ -45,6 +46,9 @@ export interface AppState {
   setSidebarMode(mode: SidebarMode): void;
   sidebarWidth: number;
   setSidebarWidth(width: number): void;
+  isMobileMenuOpen: boolean;
+  setMobileMenuOpen(open: boolean): void;
+  toggleMobileMenu(): void;
   motionEnabled: boolean;
   setMotionEnabled(enabled: boolean): void;
   notifications: AppNotification[];
@@ -75,6 +79,9 @@ export const useAppStore = create<AppState>()(
       setSidebarMode: (sidebarMode) => set({ sidebarMode }),
       sidebarWidth: 252,
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth: Math.max(220, Math.min(360, sidebarWidth)) }),
+      isMobileMenuOpen: false,
+      setMobileMenuOpen: (isMobileMenuOpen) => set({ isMobileMenuOpen }),
+      toggleMobileMenu: () => set((state) => ({ isMobileMenuOpen: !state.isMobileMenuOpen })),
       motionEnabled: true,
       setMotionEnabled: (motionEnabled) => set({ motionEnabled }),
       notifications: [],
@@ -97,7 +104,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'knoux-app-store',
-      version: 6,
+      version: 7,
       partialize: (state) => ({
         theme: state.theme,
         accentColor: state.accentColor,
@@ -116,6 +123,7 @@ export const useAppStore = create<AppState>()(
         };
         return {
           ...state,
+          isMobileMenuOpen: false,
           theme: legacyThemes[state.theme ?? ''] ?? (state.theme as ThemeType | undefined) ?? 'deep-black',
         } as AppState;
       },

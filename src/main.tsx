@@ -30,6 +30,8 @@ import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 // adapters decorate that contract without overwriting Electron desktop preload.
 const androidRuntimeInstalled = installAndroidRuntimeBridge();
 if (androidRuntimeInstalled) {
+  document.documentElement.dataset.platform = 'android';
+  document.title = 'KNOUX X';
   installAndroidFileBridge();
   installAndroidCaptureBridge();
   installAndroidAudioToolsBridge();

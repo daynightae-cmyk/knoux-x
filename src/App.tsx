@@ -36,6 +36,7 @@ import './styles/image-studio.css';
 import './styles/slideshow-studio.css';
 import './styles/audio-tools.css';
 import './styles/video-studio.css';
+import './styles/android-mobile.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');

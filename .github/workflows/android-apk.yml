@@ -11,6 +11,7 @@ on:
       - 'tests/**'
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
+      - 'tools/verify-android-apk.cjs'
       - 'electron/**'
       - 'index.html'
       - 'vite.renderer.config.ts'
@@ -74,7 +75,7 @@ jobs:
         run: npm run typecheck
 
       - name: ESLint gate
-        run: npm run lint
+        run: npm run lint -- --max-warnings=0
 
       - name: Unit test gate
         run: npm test -- --runInBand
@@ -153,30 +154,7 @@ jobs:
           test -s android-ci-output/KNOUX-X-Android-debug.apk
 
       - name: Verify packaged APK identity and launcher branding
-        shell: bash
-        run: |
-          APK='android-ci-output/KNOUX-X-Android-debug.apk'
-          AAPT="${ANDROID_HOME}/build-tools/36.0.0/aapt"
-          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
-
-          "$AAPT" dump badging "$APK" | tee android-ci-output/android-apk-badging.txt
-          "$AAPT" dump badging "$APK" | grep -F "package: name='dev.knoux.playerx'"
-          "$AAPT" dump badging "$APK" | grep -F "application-label:'KNOUX X'"
-          "$AAPT" dump badging "$APK" | grep -E "application-icon-[0-9]+:'res/mipmap-.*/ic_launcher\.(xml|png)'"
-
-          unzip -Z1 "$APK" | tee android-ci-output/android-apk-files.txt >/dev/null
-          grep -E '^res/mipmap-anydpi-v26/ic_launcher\.xml$' android-ci-output/android-apk-files.txt
-          grep -E '^res/mipmap-anydpi-v26/ic_launcher_round\.xml$' android-ci-output/android-apk-files.txt
-          grep -E '^res/mipmap-anydpi-v33/ic_launcher\.xml$' android-ci-output/android-apk-files.txt
-          grep -E '^res/mipmap-anydpi-v33/ic_launcher_round\.xml$' android-ci-output/android-apk-files.txt
-
-          ICON_ENTRY="$(grep -E '^res/mipmap-xxxhdpi(-v4)?/ic_launcher\.png$' android-ci-output/android-apk-files.txt | head -n 1)"
-          test -n "$ICON_ENTRY"
-          unzip -p "$APK" "$ICON_ENTRY" > /tmp/knoux-packaged-launcher.png
-          cmp /tmp/knoux-packaged-launcher.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          sha256sum /tmp/knoux-packaged-launcher.png | tee android-ci-output/android-packaged-launcher.sha256
-
-          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee android-ci-output/android-apk-signing.txt
+        run: node tools/verify-android-apk.cjs
 
       - name: Enable KVM permissions for Android emulator
         shell: bash

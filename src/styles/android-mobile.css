@@ -1,0 +1,41 @@
+/* Phone adaptations are scoped to the real Android runtime. */
+html[data-platform='android'] #root {
+  height: 100dvh;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+@media (max-width: 768px) {
+  html[data-platform='android'] .app-shell { min-width: 0; min-height: 0; }
+  html[data-platform='android'] .app-body { flex-direction: column; }
+  html[data-platform='android'] .sidebar {
+    width: 100% !important; min-width: 0; max-width: 100%;
+    flex: 0 0 auto; height: auto; max-height: 72px; padding: 4px;
+    border-inline-end: 0; border-bottom: 1px solid var(--knoux-border);
+  }
+  html[data-platform='android'] .sidebar :is(.sidebar-brand-row, .sidebar-quick-section, .section-title, .ai-section, .sidebar-footer, .sidebar-resizer) { display: none; }
+  html[data-platform='android'] .sidebar-scroll-section { display: flex; overflow-x: auto; overflow-y: hidden; flex: none; }
+  html[data-platform='android'] .sidebar-nav-group { flex: 0 0 auto; padding: 0; margin: 0; }
+  html[data-platform='android'] .nav-menu { display: flex; flex-direction: row; gap: 4px; }
+  html[data-platform='android'] .nav-item { width: auto; flex: 0 0 auto; min-height: 48px; gap: 6px; padding: 8px 12px; }
+  html[data-platform='android'] .quick-access-toolbar {
+    position: relative; inset: auto !important; flex: 0 0 auto;
+    width: 100%; max-width: 100%; overflow-x: auto; border-radius: 0;
+  }
+  html[data-platform='android'] .quick-access-toolbar button { flex-shrink: 0; }
+  html[data-platform='android'] .title-bar-context { display: none; }
+  html[data-platform='android'] .creative-view { padding: 12px; }
+  html[data-platform='android'] .creative-header { gap: 12px; }
+  html[data-platform='android'] :is(button, .neon-button) { min-height: 44px; }
+  html[data-platform='android'] :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { min-height: 44px; max-width: 100%; font-size: 16px; }
+  html[data-platform='android'] :is(.creative-header-actions, .creative-toolbar, .editor-project-bar, .image-studio-confirm) { flex-wrap: wrap; min-width: 0; }
+  html[data-platform='android'] :is(.image-studio-view, .image-studio-workspace) { height: auto; min-height: 100%; }
+  html[data-platform='android'] .image-studio-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; padding: 8px; }
+  html[data-platform='android'] .image-studio-main { min-height: 300px; grid-row: 1; }
+  html[data-platform='android'] .image-studio-canvas-container { min-height: 260px; }
+  html[data-platform='android'] :is(.image-studio-sidebar, .image-studio-right-panel) { overflow: visible; }
+  html[data-platform='android'] :is(.modal, .modal-content, [role='dialog']:not(.first-run-backdrop)) { min-width: 0; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; }
+  html[data-platform='android'] .first-run-backdrop { padding: 12px; }
+  html[data-platform='android'] .first-run-card { width: 100%; max-height: calc(100dvh - 24px); overflow-y: auto; }
+  html[data-platform='android'] .first-run-actions { flex-wrap: wrap; }
+}

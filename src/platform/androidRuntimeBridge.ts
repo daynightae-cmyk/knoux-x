@@ -7,7 +7,6 @@ import {
   createImageStudioDocument,
   type NewImageStudioDocumentOptions,
 } from '../core/image-studio/document/document';
-
 import type {
   ImageBlendMode,
   ImageLayer,
@@ -16,6 +15,7 @@ import type {
   LayerMask,
   RetouchDocumentState,
 } from '../core/image-studio/document/schema';
+
 import { installBrowserPreviewBridge } from './browserPreviewBridge';
 
 const ANDROID_PREFIX = 'knoux-android:';

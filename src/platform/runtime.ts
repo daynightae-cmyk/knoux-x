@@ -16,6 +16,12 @@ export function isDesktopRuntime(): boolean {
   return hasCoreDesktopBridge() && hasCreativeDesktopBridge();
 }
 
+export function isAndroidRuntime(): boolean {
+  return typeof window !== 'undefined'
+    && window.knouxRuntime?.edition === 'android'
+    && document.documentElement.dataset.runtime === 'android';
+}
+
 export function isBrowserPreviewRuntime(): boolean {
   return typeof window !== 'undefined'
     && window.knouxRuntime?.edition === 'web-preview'

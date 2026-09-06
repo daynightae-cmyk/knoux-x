@@ -1,4 +1,5 @@
 import { androidImageAsset } from './androidFileBridge';
+import { readAndroidPersistentAsset } from './androidSafBridge';
 
 interface AndroidRetouchAsset {
   assetRef: string;
@@ -61,7 +62,9 @@ export function installAndroidImageEditorBridge(): void {
   window.knouxImageStudioAPI = {
     ...base,
     importRetouchAsset: async (filePath: string): Promise<AndroidRetouchAsset> => {
-      const source = await androidImageAsset(filePath);
+      const source = filePath.startsWith('content://')
+        ? await readAndroidPersistentAsset(filePath)
+        : await androidImageAsset(filePath);
       if (!source.mime.startsWith('image/')) throw new Error('Choose a PNG, JPEG, WebP, BMP or GIF image.');
 
       const dimensions = await imageSize(source.blob);

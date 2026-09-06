@@ -48,7 +48,8 @@
       ]
     },
     "moduleNameMapper": {
-      "^.+\\\\?worker$": "<rootDir>/tests/mocks/vite-worker.ts"
+      "^.+\\\\?worker$": "<rootDir>/tests/mocks/vite-worker.ts",
+      "\\.(css|less|scss|sass)$": "<rootDir>/tests/mocks/style-mock.js"
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/backups/",

@@ -7,6 +7,7 @@ function read(relativePath: string): string {
 
 describe('KNOUX X Android premium mobile shell contract', () => {
   const app = read('src/App.tsx');
+  const main = read('src/main.tsx');
   const store = read('src/store/appStore.ts');
   const home = read('src/features/home/MobileHomeDashboard.tsx');
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
@@ -14,7 +15,9 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
   const mobileVideo = read('src/features/video-studio/MobileVideoStudioView.tsx');
   const mobileSlideshow = read('src/features/slideshow/MobilePhotosToVideoView.tsx');
+  const mobilePhoto = read('src/features/image-editor/MobileImageEditorView.tsx');
   const mobileBeauty = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
+  const imageBridge = read('src/platform/androidImageEditorBridge.ts');
   const splash = read('tools/prepare-android-premium-splash.cjs');
   const workflow = read('.github/workflows/android-apk.yml');
 
@@ -49,12 +52,22 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   test('routes Android creative tools through premium mobile surfaces while preserving desktop engines', () => {
     expect(app).toContain("case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />");
     expect(app).toContain("case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />");
+    expect(app).toContain("case 'image-editor': return android ? <MobileImageEditorView /> : <ImageEditorView />");
     expect(app).toContain("case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />");
     expect(mobileVideo).toContain('<MultitrackEditorView />');
     expect(mobileSlideshow).toContain('<SlideshowView />');
-    expect(mobileBeauty).toContain('<ImageStudioView />');
+    expect(mobilePhoto).toContain('<ImageEditorView />');
+    expect(mobileBeauty).toContain('<ImageEditorView />');
     expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
-    expect(mobileBeauty).toContain('window.knouxImageStudioAPI.save()');
+  });
+
+  test('replaces the old unavailable Android image proxy with a real local asset bridge', () => {
+    expect(main).toContain('installAndroidImageEditorBridge();');
+    expect(imageBridge).toContain('androidImageAsset(filePath)');
+    expect(imageBridge).toContain('importRetouchAsset: async');
+    expect(imageBridge).toContain('readRetouchProxy: async');
+    expect(imageBridge).not.toContain('readRetouchProxy: async () => null');
+    expect(mobileBeauty).toContain('Open Photo');
   });
 
   test('locks the mobile visual direction to deep black glass and violet without horizontal desktop chrome', () => {
@@ -66,7 +79,6 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(creativeCss).toContain('.knoux-mobile-creative-surface');
     expect(creativeCss).toContain('.kmc-tool-dock');
     expect(creativeCss).toContain('.kmc-video-engine .multitrack-main-grid');
-    expect(creativeCss).toContain('.kmc-image-engine .image-studio-workspace');
   });
 
   test('replaces the white Android launch surface with the branded premium splash contract', () => {

@@ -3,6 +3,7 @@ import { Camera, Circle, FolderOpen, Library, Play, Share2 } from 'lucide-react'
 
 import {
   DEFAULT_QUICK_ACCESS_TOOLBAR,
+  DEFAULT_WORKSPACE_SETTINGS,
   type KnouxCommandId,
   type QuickAccessToolbarSettings,
   type WorkspaceSettings,
@@ -32,24 +33,34 @@ function icon(command: KnouxCommandId): React.ReactNode {
   }
 }
 
+function resolveWorkspaceId(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return DEFAULT_WORKSPACE_SETTINGS.selectedWorkspace;
+  }
+  const candidate = (value as Partial<WorkspaceSettings>).selectedWorkspace;
+  return typeof candidate === 'string' && candidate.length > 0
+    ? candidate
+    : DEFAULT_WORKSPACE_SETTINGS.selectedWorkspace;
+}
+
 export const QuickAccessToolbar: React.FC = () => {
   const currentView = useAppStore((state) => state.currentView);
   const [settings, setSettings] = useState<QuickAccessToolbarSettings>(structuredClone(DEFAULT_QUICK_ACCESS_TOOLBAR));
-  const [workspaceId, setWorkspaceId] = useState('player');
+  const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE_SETTINGS.selectedWorkspace);
 
   useEffect(() => {
     let active = true;
     void Promise.all([
       window.knouxAPI.settings.get('quickAccessToolbar', DEFAULT_QUICK_ACCESS_TOOLBAR),
-      window.knouxAPI.settings.get('workspace'),
+      window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS),
     ]).then(([toolbar, workspace]) => {
       if (!active) return;
       setSettings(toolbar as QuickAccessToolbarSettings);
-      setWorkspaceId((workspace as WorkspaceSettings).selectedWorkspace);
+      setWorkspaceId(resolveWorkspaceId(workspace));
     });
     const unsubscribe = window.knouxAPI.settings.onChange((key, value) => {
       if (key === 'quickAccessToolbar') setSettings(value as QuickAccessToolbarSettings);
-      if (key === 'workspace') setWorkspaceId((value as WorkspaceSettings).selectedWorkspace);
+      if (key === 'workspace') setWorkspaceId(resolveWorkspaceId(value));
     });
     return () => { active = false; unsubscribe(); };
   }, []);

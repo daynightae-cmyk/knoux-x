@@ -20,6 +20,7 @@ import { AndroidBeautyExtension } from './platform/AndroidBeautyExtension';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
+import { installAndroidImageEditorBridge } from './platform/androidImageEditorBridge';
 import { installAndroidRetouchModels } from './platform/androidRetouchModels';
 import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
@@ -35,6 +36,7 @@ if (androidRuntimeInstalled) {
   installAndroidFileBridge();
   installAndroidCaptureBridge();
   installAndroidAudioToolsBridge();
+  installAndroidImageEditorBridge();
   installAndroidRetouchModels();
 } else {
   installBrowserPreviewBridge();

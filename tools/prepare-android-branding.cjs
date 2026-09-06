@@ -206,6 +206,12 @@ function writeThemeResources() {
     <color name="knoux_splash_background">#090B10</color>
 </resources>`;
 
+  // Keep the Capacitor 8.5 launch-theme contract intact. BridgeActivity switches
+  // from AppTheme.NoActionBarLaunch to AppTheme.NoActionBar during onCreate.
+  // Adding postSplashScreenTheme/windowSplashScreen* here leaves the Android 12+
+  // launch surface above the live WebView on some emulator/device builds. The
+  // official launcher icon remains the system splash icon on Android 12+, while
+  // @drawable/splash provides the branded legacy/window background everywhere.
   const styles = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
@@ -229,10 +235,7 @@ function writeThemeResources() {
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/knoux_splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
-        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:background">@drawable/splash</item>
         <item name="android:statusBarColor">@color/knoux_system_background</item>
         <item name="android:navigationBarColor">@color/knoux_system_background</item>
         <item name="android:windowLightStatusBar">false</item>

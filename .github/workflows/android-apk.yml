@@ -12,6 +12,7 @@ on:
       - 'tools/android-emulator-smoke.sh'
       - 'tools/prepare-android-branding.cjs'
       - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-screen.cjs'
       - 'electron/**'
       - 'index.html'
       - 'vite.renderer.config.ts'

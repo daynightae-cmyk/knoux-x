@@ -2,6 +2,9 @@
   "appId": "dev.knoux.playerx",
   "appName": "KNOUX X",
   "webDir": "dist",
+  "android": {
+    "backgroundColor": "#090B10"
+  },
   "server": {
     "androidScheme": "https"
   }

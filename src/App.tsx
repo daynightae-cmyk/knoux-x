@@ -118,6 +118,14 @@ const App: React.FC = () => {
   const startupMediaHandledRef = useRef(false);
 
   useEffect(() => {
+    if (window.knouxRuntime?.edition !== 'android') return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => console.info('KNOUX_ANDROID_UI_READY'));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
     root.lang = locale;
     root.dir = locale === 'ar' ? 'rtl' : 'ltr';

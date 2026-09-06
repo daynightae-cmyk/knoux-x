@@ -32,7 +32,26 @@ if [[ -z "$PID" ]]; then
   exit 1
 fi
 
-sleep 10
+# Cold emulator/WebView initialization can continue after the process starts.
+# Require React to render, then independently reject blank compositor frames.
+UI_READY=false
+for attempt in $(seq 1 45); do
+  adb logcat -d > "$OUTPUT_DIR/android-launch-log.txt"
+  if grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
+    adb exec-out screencap -p > "$OUTPUT_DIR/android-launch.png"
+    if node tools/verify-android-screen.cjs "$OUTPUT_DIR/android-launch.png"; then
+      UI_READY=true
+      break
+    fi
+  fi
+  sleep 2
+done
+if [[ "$UI_READY" != true ]]; then
+  adb exec-out screencap -p > "$OUTPUT_DIR/android-launch.png"
+  echo 'Android did not render a nonblank KNOUX interface within 90 seconds.' >&2
+  exit 1
+fi
+
 PID="$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
 if [[ -z "$PID" ]]; then
   echo 'KNOUX Android process exited during startup.' >&2
@@ -56,7 +75,7 @@ if [[ -s "$OUTPUT_DIR/android-ui.xml" ]] && ! grep -q "$PACKAGE" "$OUTPUT_DIR/an
   exit 1
 fi
 
-FATAL_PATTERN='FATAL EXCEPTION|Unable to start activity|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE'
+FATAL_PATTERN='FATAL EXCEPTION|Unable to start activity|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|Capacitor/Console.*Uncaught|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE'
 if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
   echo 'Fatal KNOUX startup error detected in Android logcat.' >&2
   grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt" || true
@@ -65,12 +84,22 @@ fi
 
 # Capture actual Android screens at the requested phone sizes. UI Automator
 # dismisses onboarding using the accessible control, never hidden app state.
+dump_ui() {
+  local destination="$1"
+  for attempt in 1 2 3; do
+    adb shell uiautomator dump --compressed /sdcard/knoux-ui.xml >/dev/null 2>&1 || true
+    if adb pull /sdcard/knoux-ui.xml "$destination" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  echo 'UI Automator unavailable; retaining verified screenshot evidence.' >> "$OUTPUT_DIR/android-ui-warnings.txt"
+  return 1
+}
+
 adb shell wm density 160
 for SIZE in 360x800 390x844 412x915; do
   adb shell wm size "$SIZE"
   sleep 2
-  adb shell uiautomator dump /sdcard/knoux-ui.xml >/dev/null
-  adb pull /sdcard/knoux-ui.xml "$OUTPUT_DIR/android-ui-$SIZE.xml" >/dev/null
+  if dump_ui "$OUTPUT_DIR/android-ui-$SIZE.xml"; then
   python3 - "$OUTPUT_DIR/android-ui-$SIZE.xml" <<'PY'
 import re
 import subprocess
@@ -84,10 +113,11 @@ for node in root.iter('node'):
         subprocess.run(['adb', 'shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2)], check=True)
         break
 PY
+  fi
   sleep 2
   adb exec-out screencap -p > "$OUTPUT_DIR/android-phone-$SIZE.png"
-  adb shell uiautomator dump /sdcard/knoux-ui.xml >/dev/null
-  adb pull /sdcard/knoux-ui.xml "$OUTPUT_DIR/android-ui-$SIZE.xml" >/dev/null
+  node tools/verify-android-screen.cjs "$OUTPUT_DIR/android-phone-$SIZE.png"
+  dump_ui "$OUTPUT_DIR/android-ui-$SIZE.xml" || true
   test -n "$(adb shell pidof "$PACKAGE" | tr -d '\r')"
 done
 
@@ -96,8 +126,7 @@ sleep 2
 adb shell input swipe 206 820 206 250 500
 sleep 2
 adb exec-out screencap -p > "$OUTPUT_DIR/android-launcher.png"
-adb shell uiautomator dump /sdcard/knoux-launcher.xml >/dev/null
-adb pull /sdcard/knoux-launcher.xml "$OUTPUT_DIR/android-launcher.xml" >/dev/null
+dump_ui "$OUTPUT_DIR/android-launcher.xml" || true
 adb shell wm size reset
 adb shell wm density reset
 

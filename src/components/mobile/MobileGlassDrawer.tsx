@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AudioLines,
@@ -40,7 +40,7 @@ export const MobileGlassDrawer: React.FC = () => {
   const setOpen = useAppStore((state) => state.setMobileMenuOpen);
   const setView = useAppStore((state) => state.setView);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
-  const recents = useMemo(() => readRecentMedia(window.localStorage).slice(0, 3), [open]);
+  const recents = readRecentMedia(window.localStorage).slice(0, 3);
 
   const selectView = (view: ViewType): void => {
     setView(view);

@@ -12,6 +12,7 @@ import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/setti
 import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
 import { MobileHomeDashboard } from './features/home/MobileHomeDashboard';
 import { LibraryView } from './features/library/LibraryView';
+import { MobileMediaLibraryView } from './features/library/MobileMediaLibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
@@ -41,6 +42,7 @@ import './styles/video-studio.css';
 import './styles/android-mobile.css';
 import './styles/mobile-premium-shell.css';
 import './styles/mobile-creative-surfaces.css';
+import './styles/mobile-media-library.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -104,7 +106,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'home': return <MobileHomeDashboard />;
     case 'player': return <PlayerViewportBoundary />;
     case 'queue': return <QueueView />;
-    case 'library': return <LibraryView />;
+    case 'library': return android ? <MobileMediaLibraryView /> : <LibraryView />;
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
     case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />;

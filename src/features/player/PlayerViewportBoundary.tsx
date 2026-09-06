@@ -7,7 +7,7 @@ import { usePlayerStore } from '../../store/playerStore';
 
 import { PlayerDiagnosticsPanel } from './PlayerDiagnosticsPanel';
 import { PlayerView } from './PlayerView';
-import { UltimateMobilePlayer } from './UltimateMobilePlayer';
+import { UltimateMobilePlayerSession } from './UltimateMobilePlayerSession';
 
 type FitMode = 'contain' | 'cover' | 'fill' | 'original';
 type DisplayMode = 'normal' | 'theater' | 'cinema';
@@ -110,7 +110,7 @@ export const PlayerViewportBoundary: React.FC = () => {
 
   useEffect(() => () => clearHideTimer(), [clearHideTimer]);
 
-  if (android) return <UltimateMobilePlayer />;
+  if (android) return <UltimateMobilePlayerSession />;
 
   return (
     <section

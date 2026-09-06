@@ -83,7 +83,10 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
         : binding.command === 'theater-mode' ? { ...binding, enabled: false } : binding),
       workspace: {
         ...structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace),
-        moduleOrder: ['player', 'recording', 'capture', 'editor', 'library', 'queue', 'image-editor', 'slideshow', 'audio-tools', 'export', 'settings'],
+        // Keep this a deliberately customized but complete order. Deriving it from
+        // the canonical defaults prevents the packaged persistence gate from going
+        // stale whenever a new workspace module is introduced.
+        moduleOrder: structuredClone(DEFAULT_APPLICATION_SETTINGS.workspace.moduleOrder).reverse(),
         hiddenModules: ['queue'],
         sidebarWidth: 348,
         timelineHeight: 436,
@@ -171,12 +174,10 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
 export async function runSettingsPersistenceSelfTest(evidencePath: string): Promise<void> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'knoux-settings-persistence-'));
   let evidence: SettingsSelfTestEvidence;
-  let scenarioError: unknown;
   let cleanupError: unknown;
   try {
     evidence = await executeSettingsPersistenceScenario(root);
   } catch (error) {
-    scenarioError = error;
     evidence = {
       product: 'KNOUX Player X',
       success: false,
@@ -202,9 +203,10 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
     }
   }
   evidence.temporaryRootRemoved = cleanupError === undefined;
-  if (cleanupError !== undefined) evidence.error = `${evidence.error ? `${evidence.error}; ` : ''}cleanup: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`;
+  if (cleanupError !== undefined) {
+    evidence.success = false;
+    evidence.error = `${evidence.error ? `${evidence.error}; ` : ''}cleanup: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`;
+  }
   evidence.completedAt = new Date().toISOString();
   await writeEvidence(evidencePath, evidence);
-  if (scenarioError) throw scenarioError;
-  if (cleanupError) throw cleanupError;
 }

@@ -8,21 +8,27 @@ function read(relativePath: string): string {
 }
 
 describe('KNOUX X Ultimate Mobile Player phase-one contract', () => {
+  const app = read('src/App.tsx');
   const boundary = read('src/features/player/PlayerViewportBoundary.tsx');
   const player = read('src/features/player/UltimateMobilePlayer.tsx');
+  const session = read('src/features/player/UltimateMobilePlayerSession.tsx');
   const mobileCss = read('src/styles/ultimate-mobile-player.css');
   const playerStore = read('src/store/playerStore.ts');
 
-  test('routes Android to the mobile-first player while preserving the desktop player', () => {
+  test('routes Android to the mobile-first session player while preserving the desktop player', () => {
     expect(boundary).toContain("import { isAndroidRuntime }");
-    expect(boundary).toContain("import { UltimateMobilePlayer }");
-    expect(boundary).toContain('if (android) return <UltimateMobilePlayer />');
+    expect(boundary).toContain("import { UltimateMobilePlayerSession }");
+    expect(boundary).toContain('if (android) return <UltimateMobilePlayerSession />');
     expect(boundary).toContain('<PlayerView />');
+    expect(session).toContain('<UltimateMobilePlayer />');
   });
 
   test('does not route Android media opening through the desktop ffprobe bridge', () => {
     expect(player).toContain('window.knouxCreativeAPI.media.open()');
     expect(player).not.toContain('window.knouxCreativeAPI.export.probe');
+    expect(app).toContain("if (window.knouxRuntime?.edition === 'android')");
+    expect(app).toContain('usePlayerStore.getState().setCurrentMedia(firstPath)');
+    expect(app).toContain("setView('player')");
   });
 
   test('removes desktop chrome from the Android player surface', () => {
@@ -62,6 +68,13 @@ describe('KNOUX X Ultimate Mobile Player phase-one contract', () => {
     ]) {
       expect(player).toContain(token);
     }
+  });
+
+  test('adds durable Resume Watching without coupling it to the desktop player', () => {
+    expect(session).toContain('Continue from');
+    expect(session).toContain('Resume');
+    expect(session).toContain('Start over');
+    expect(session).toContain('persistPlaybackProgress');
   });
 
   test('uses user-facing decode errors rather than desktop-edition fallback language', () => {

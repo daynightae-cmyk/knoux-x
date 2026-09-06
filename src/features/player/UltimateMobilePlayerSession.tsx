@@ -52,23 +52,30 @@ export const UltimateMobilePlayerSession: React.FC = () => {
   const lastNativeSyncAtRef = useRef(0);
   const nativeSessionStartedRef = useRef(false);
   const audioDelayRef = useRef(0);
+  const audioDelayMediaRef = useRef<string | null>(null);
 
   useEffect(() => {
-    audioDelayRef.current = audioDelayMs;
-    if (currentMedia) window.localStorage.setItem(audioDelayKey(currentMedia), String(audioDelayMs));
-    void setActivePlayerAudioDelay(audioDelayMs);
-  }, [audioDelayMs, currentMedia]);
-
-  useEffect(() => {
+    audioDelayMediaRef.current = null;
     if (!currentMedia) {
+      audioDelayRef.current = 0;
       setAudioDelayMs(0);
       return;
     }
     const stored = Number(window.localStorage.getItem(audioDelayKey(currentMedia)) ?? 0);
     const delay = Number.isFinite(stored) ? Math.max(0, Math.min(2000, stored)) : 0;
     audioDelayRef.current = delay;
+    audioDelayMediaRef.current = currentMedia;
     setAudioDelayMs(delay);
+    void setActivePlayerAudioDelay(delay);
   }, [currentMedia]);
+
+  useEffect(() => {
+    audioDelayRef.current = audioDelayMs;
+    if (currentMedia && audioDelayMediaRef.current === currentMedia) {
+      window.localStorage.setItem(audioDelayKey(currentMedia), String(audioDelayMs));
+    }
+    void setActivePlayerAudioDelay(audioDelayMs);
+  }, [audioDelayMs, currentMedia]);
 
   useEffect(() => {
     promptResolvedRef.current = false;
@@ -174,8 +181,8 @@ export const UltimateMobilePlayerSession: React.FC = () => {
           break;
         }
         case 'seek': {
-          if (!Number.isFinite(detail.position)) return;
-          const position = detail.position ?? 0;
+          if (typeof detail.position !== 'number' || !Number.isFinite(detail.position)) return;
+          const position = detail.position;
           const mediaDuration = Number.isFinite(attachedVideo.duration) ? attachedVideo.duration : position;
           const target = Math.max(0, Math.min(mediaDuration, position));
           attachedVideo.currentTime = target;

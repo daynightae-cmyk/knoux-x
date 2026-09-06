@@ -3,10 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
+import { MobileGlassDrawer } from './components/mobile/MobileGlassDrawer';
 import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
 import { CommandShortcutController } from './components/system/CommandShortcutController';
 import { Sprint02CommandRuntime } from './components/system/Sprint02CommandRuntime';
 import { QuickAccessToolbar } from './components/toolbars/QuickAccessToolbar';
+import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
+import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
+import { MobileHomeDashboard } from './features/home/MobileHomeDashboard';
 import { LibraryView } from './features/library/LibraryView';
 import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
 import { SettingsView } from './features/settings/SettingsView';
@@ -14,8 +18,6 @@ import { useTranslation } from './i18n';
 import { useAppStore } from './store/appStore';
 import { usePlayerStore } from './store/playerStore';
 import type { ViewType } from './store/appStore';
-import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
-import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/creative-suite.css';
@@ -37,6 +39,7 @@ import './styles/slideshow-studio.css';
 import './styles/audio-tools.css';
 import './styles/video-studio.css';
 import './styles/android-mobile.css';
+import './styles/mobile-premium-shell.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -81,6 +84,7 @@ const AIAssistant = lazy(async () => {
 
 function viewFor(currentView: ViewType): React.ReactNode {
   switch (currentView) {
+    case 'home': return <MobileHomeDashboard />;
     case 'player': return <PlayerViewportBoundary />;
     case 'queue': return <QueueView />;
     case 'library': return <LibraryView />;
@@ -116,14 +120,15 @@ const App: React.FC = () => {
   const { t } = useTranslation();
   const workspaceLoadedRef = useRef(false);
   const startupMediaHandledRef = useRef(false);
+  const android = window.knouxRuntime?.edition === 'android';
 
   useEffect(() => {
-    if (window.knouxRuntime?.edition !== 'android') return;
+    if (!android) return;
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => console.info('KNOUX_ANDROID_UI_READY'));
     });
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [android]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -150,6 +155,13 @@ const App: React.FC = () => {
       if (!active) return;
       const workspace = value as WorkspaceSettings;
       applyWorkspace(workspace);
+
+      if (android) {
+        if (!startupMediaHandledRef.current) setView('home');
+        workspaceLoadedRef.current = true;
+        return;
+      }
+
       if (startupMediaHandledRef.current) {
         workspaceLoadedRef.current = true;
         return;
@@ -161,23 +173,23 @@ const App: React.FC = () => {
       if (key === 'workspace') applyWorkspace(value as WorkspaceSettings);
     });
     return () => { active = false; unsubscribe(); };
-  }, [setSidebarWidth, setView]);
+  }, [android, setSidebarWidth, setView]);
 
   useEffect(() => {
-    if (!workspaceLoadedRef.current) return;
+    if (!workspaceLoadedRef.current || (android && currentView === 'home')) return;
     void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
       const workspace = value as WorkspaceSettings;
       if (workspace.lastOpenedSection === currentView) return;
-      return window.knouxAPI.settings.set('workspace', { ...workspace, lastOpenedSection: currentView });
+      return window.knouxAPI.settings.set('workspace', { ...workspace, lastOpenedSection: currentView as WorkspaceSettings['lastOpenedSection'] });
     });
-  }, [currentView]);
+  }, [android, currentView]);
 
   useEffect(() => {
     const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
       const firstPath = paths[0];
       if (!firstPath) return;
 
-      if (window.knouxRuntime?.edition === 'android') {
+      if (android) {
         usePlayerStore.getState().setCurrentMedia(firstPath);
         startupMediaHandledRef.current = true;
         setView('player');
@@ -210,14 +222,14 @@ const App: React.FC = () => {
     });
     window.knouxAPI.app.ready();
     return unsubscribe;
-  }, [setView]);
+  }, [android, setView]);
 
   return (
-    <div className="app-shell" data-current-view={currentView}>
-      <TitleBar />
-      <QuickAccessToolbar />
+    <div className="app-shell" data-current-view={currentView} data-mobile-shell={android ? 'premium' : undefined}>
+      {!android && <TitleBar />}
+      {!android && <QuickAccessToolbar />}
       <div className="app-body">
-        {isSidebarOpen && <Sidebar />}
+        {!android && isSidebarOpen && <Sidebar />}
         <main className="main-content" aria-live="polite">
           <AnimatePresence mode="wait">
             <motion.div
@@ -236,6 +248,8 @@ const App: React.FC = () => {
           </AnimatePresence>
         </main>
       </div>
+
+      {android && <MobileGlassDrawer />}
 
       {isAIAssistantOpen && (
         <Suspense fallback={<div className="creative-loading floating-module">{t('app.loadingAI')}</div>}>
@@ -268,7 +282,7 @@ const App: React.FC = () => {
           <span>{loadingMessage || t('app.working')}</span>
         </div>
       )}
-      <FirstRunExperience />
+      {!android && <FirstRunExperience />}
       <CommandShortcutController />
       <Sprint02CommandRuntime />
     </div>

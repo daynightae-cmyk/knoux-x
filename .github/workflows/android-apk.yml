@@ -145,7 +145,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none -camera-front none
           script: |
-            set -euo pipefail
+            set -eu
             APK='android-ci-output/KNOUX-X-Android-debug.apk'
             PACKAGE='dev.knoux.playerx'
 
@@ -162,7 +162,7 @@ jobs:
             done
             if [ -z "$PID" ]; then
               echo 'KNOUX Android process did not start.' >&2
-              adb logcat -d -t 800 || true
+              adb logcat -d -t 800 > android-ci-output/android-launch-log.txt || true
               exit 1
             fi
 
@@ -170,7 +170,7 @@ jobs:
             PID="$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
             if [ -z "$PID" ]; then
               echo 'KNOUX Android process exited during startup.' >&2
-              adb logcat -d -t 1200 || true
+              adb logcat -d -t 1200 > android-ci-output/android-launch-log.txt || true
               exit 1
             fi
 
@@ -198,6 +198,7 @@ jobs:
             echo "KNOUX Android launch smoke passed with PID $PID"
 
       - name: Upload installable APK and launch evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: KNOUX-X-Android-debug-${{ github.sha }}

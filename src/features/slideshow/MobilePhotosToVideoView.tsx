@@ -3,6 +3,7 @@ import { ArrowLeft, FolderOpen, Images, Sparkles } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
+
 import { SlideshowView } from './SlideshowView';
 
 export const MobilePhotosToVideoView: React.FC = () => {

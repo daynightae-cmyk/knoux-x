@@ -22,6 +22,15 @@ describe('KNOUX X Android native media foundations', () => {
     expect(generator).toContain('android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK');
   });
 
+  test('generates Java compatible with Capacitor 8 BridgeActivity and Android Notification.MediaStyle', () => {
+    expect(generator).toContain('public void onStop()');
+    expect(generator).toContain('public void onDestroy()');
+    expect(generator).not.toContain('protected void onStop()');
+    expect(generator).not.toContain('protected void onDestroy()');
+    expect(generator).toContain('.setShowActionsInCompactView(0, 1, 2)');
+    expect(generator).not.toContain('.showActionsInCompactView(0, 1, 2)');
+  });
+
   test('routes lock-screen and notification commands back into the real player', () => {
     expect(generator).toContain("sendCommand(\"play\", null)");
     expect(generator).toContain("sendCommand(\"pause\", null)");

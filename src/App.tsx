@@ -87,9 +87,9 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
     case 'editor': return <VideoStudioView />;
-case 'image-editor': return <ImageEditorView />;
-case 'image-studio': return <ImageStudioView />;
-case 'slideshow': return <SlideshowView />;
+    case 'image-editor': return <ImageEditorView />;
+    case 'image-studio': return <ImageStudioView />;
+    case 'slideshow': return <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;
@@ -176,6 +176,14 @@ const App: React.FC = () => {
     const unsubscribe = window.knouxAPI.app.onOpenMedia((paths) => {
       const firstPath = paths[0];
       if (!firstPath) return;
+
+      if (window.knouxRuntime?.edition === 'android') {
+        usePlayerStore.getState().setCurrentMedia(firstPath);
+        startupMediaHandledRef.current = true;
+        setView('player');
+        return;
+      }
+
       void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
         if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
           console.warn('[KNOUX] Startup media probe found no playable streams:', firstPath, probe);

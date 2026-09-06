@@ -181,8 +181,14 @@ export async function renderMultitrackProject(
           image.src = url;
           await waitImage(image);
           element = image;
+        } else if (item.kind === 'audio') {
+          const media = document.createElement('audio');
+          media.preload = 'auto';
+          media.src = url;
+          await waitMedia(media);
+          element = media;
         } else {
-          const media = document.createElement(item.kind === 'audio' ? 'audio' : 'video');
+          const media = document.createElement('video');
           media.preload = 'auto';
           media.playsInline = true;
           media.src = url;

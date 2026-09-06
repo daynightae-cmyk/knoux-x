@@ -351,7 +351,7 @@ function installSlideshowBridge(): void {
     recoverBackup: async () => null,
     preflight: async () => ({ ready: true, issues: [], assets: [] }),
     relinkFile: async () => null,
-    rellinkFolder: async () => ({ rootPath: null, matches: [], unresolved: [], ambiguous: [] }),
+    relinkFolder: async () => ({ rootPath: null, matches: [], unresolved: [], ambiguous: [] }),
     recent: async () => readStored<string[]>('slideshow:recents', []),
     clearRecent: async () => writeStored('slideshow:recents', []),
     render: async () => null,

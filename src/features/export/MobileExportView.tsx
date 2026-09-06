@@ -317,7 +317,11 @@ export const MobileExportView: React.FC = () => {
         filters: [{ name: result.extension.toUpperCase(), extensions: [result.extension] }],
       });
       if (!destination) return;
-      await window.knouxAPI.file.writeFile(destination, await result.blob.arrayBuffer());
+      const bytes = new Uint8Array(await result.blob.arrayBuffer());
+      await window.knouxAPI.file.writeFile(
+        destination,
+        bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The export could not be saved.');
     }

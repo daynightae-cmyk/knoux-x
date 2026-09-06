@@ -148,16 +148,16 @@ export class PlayerAudioManager {
     });
 
     lastNode.connect(this.gainNode);
-    this.gainNode.connect(this.stereoPanner);
-    this.stereoPanner.connect(this.delayNode);
+    this.gainNode.connect(this.delayNode);
+    this.delayNode.connect(this.stereoPanner);
 
     this.effectNodes.forEach((node) => {
-      this.delayNode!.connect(node);
+      this.stereoPanner!.connect(node);
       node.connect(this.analyser!);
     });
 
     if (this.effectNodes.size === 0) {
-      this.delayNode.connect(this.analyser);
+      this.stereoPanner.connect(this.analyser);
     }
 
     this.analyser.connect(this.audioContext!.destination);

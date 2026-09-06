@@ -43,6 +43,7 @@ import './styles/android-mobile.css';
 import './styles/mobile-premium-shell.css';
 import './styles/mobile-creative-surfaces.css';
 import './styles/mobile-media-library.css';
+import './styles/mobile-export.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -92,6 +93,10 @@ const ExportView = lazy(async () => {
   const module = await import('./features/export/ExportView');
   return { default: module.ExportView };
 });
+const MobileExportView = lazy(async () => {
+  const module = await import('./features/export/MobileExportView');
+  return { default: module.MobileExportView };
+});
 const QueueView = lazy(async () => {
   const module = await import('./features/queue/QueueView');
   return { default: module.QueueView };
@@ -114,7 +119,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />;
     case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
-    case 'export': return <ExportView />;
+    case 'export': return android ? <MobileExportView /> : <ExportView />;
     case 'settings': return <SettingsView />;
     default: return <PlayerViewportBoundary />;
   }

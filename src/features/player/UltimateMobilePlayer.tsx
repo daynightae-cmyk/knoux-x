@@ -36,6 +36,7 @@ import type { CaptureFormat } from '../../core/creative/capture';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
+
 import { PlayerAudioManager } from './PlayerAudioManager';
 import '../../styles/ultimate-mobile-player.css';
 
@@ -288,13 +289,10 @@ export const UltimateMobilePlayer: React.FC = () => {
     if (!video || !mediaUrl || !audio) return;
     try {
       audio.attachToMediaElement(video);
-      void audio.setVolume(volume);
-      void audio.setMuted(muted);
-      void audio.setBalance(balance);
-      void audio.setEqualizer(equalizer);
     } catch {
-      video.volume = clamp(volume, 0, 1);
-      video.muted = muted;
+      const state = usePlayerStore.getState();
+      video.volume = clamp(state.volume, 0, 1);
+      video.muted = state.muted;
     }
     return () => audio.detach();
   }, [mediaUrl]);

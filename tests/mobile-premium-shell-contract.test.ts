@@ -11,6 +11,10 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const home = read('src/features/home/MobileHomeDashboard.tsx');
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
   const css = read('src/styles/mobile-premium-shell.css');
+  const creativeCss = read('src/styles/mobile-creative-surfaces.css');
+  const mobileVideo = read('src/features/video-studio/MobileVideoStudioView.tsx');
+  const mobileSlideshow = read('src/features/slideshow/MobilePhotosToVideoView.tsx');
+  const mobileBeauty = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
   const splash = read('tools/prepare-android-premium-splash.cjs');
   const workflow = read('.github/workflows/android-apk.yml');
 
@@ -37,8 +41,20 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(home).toContain("view: 'editor'");
     expect(home).toContain("view: 'slideshow'");
     expect(home).toContain("view: 'image-editor'");
+    expect(home).toContain("view: 'image-studio'");
     expect(home).toContain("view: 'recording'");
     expect(home).toContain('readRecentMedia');
+  });
+
+  test('routes Android creative tools through premium mobile surfaces while preserving desktop engines', () => {
+    expect(app).toContain("case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />");
+    expect(app).toContain("case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />");
+    expect(app).toContain("case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />");
+    expect(mobileVideo).toContain('<MultitrackEditorView />');
+    expect(mobileSlideshow).toContain('<SlideshowView />');
+    expect(mobileBeauty).toContain('<ImageStudioView />');
+    expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
+    expect(mobileBeauty).toContain('window.knouxImageStudioAPI.save()');
   });
 
   test('locks the mobile visual direction to deep black glass and violet without horizontal desktop chrome', () => {
@@ -47,6 +63,10 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('.kmh-bottom-nav');
     expect(css).toContain('.kmd-drawer');
+    expect(creativeCss).toContain('.knoux-mobile-creative-surface');
+    expect(creativeCss).toContain('.kmc-tool-dock');
+    expect(creativeCss).toContain('.kmc-video-engine .multitrack-main-grid');
+    expect(creativeCss).toContain('.kmc-image-engine .image-studio-workspace');
   });
 
   test('replaces the white Android launch surface with the branded premium splash contract', () => {

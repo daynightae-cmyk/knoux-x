@@ -40,6 +40,7 @@ import './styles/audio-tools.css';
 import './styles/video-studio.css';
 import './styles/android-mobile.css';
 import './styles/mobile-premium-shell.css';
+import './styles/mobile-creative-surfaces.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -53,6 +54,10 @@ const VideoStudioView = lazy(async () => {
   const module = await import('./features/video-studio/VideoStudioView');
   return { default: module.VideoStudioView };
 });
+const MobileVideoStudioView = lazy(async () => {
+  const module = await import('./features/video-studio/MobileVideoStudioView');
+  return { default: module.MobileVideoStudioView };
+});
 const ImageEditorView = lazy(async () => {
   const module = await import('./features/image-editor/ImageEditorView');
   return { default: module.ImageEditorView };
@@ -61,9 +66,17 @@ const ImageStudioView = lazy(async () => {
   const module = await import('./features/image-studio/ImageStudioView');
   return { default: module.ImageStudioView };
 });
+const MobileBeautyRetouchView = lazy(async () => {
+  const module = await import('./features/image-studio/MobileBeautyRetouchView');
+  return { default: module.MobileBeautyRetouchView };
+});
 const SlideshowView = lazy(async () => {
   const module = await import('./features/slideshow/SlideshowView');
   return { default: module.SlideshowView };
+});
+const MobilePhotosToVideoView = lazy(async () => {
+  const module = await import('./features/slideshow/MobilePhotosToVideoView');
+  return { default: module.MobilePhotosToVideoView };
 });
 const AudioToolsView = lazy(async () => {
   const module = await import('./features/audio-tools/AudioToolsView');
@@ -82,7 +95,7 @@ const AIAssistant = lazy(async () => {
   return { default: module.AIAssistant };
 });
 
-function viewFor(currentView: ViewType): React.ReactNode {
+function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
   switch (currentView) {
     case 'home': return <MobileHomeDashboard />;
     case 'player': return <PlayerViewportBoundary />;
@@ -90,10 +103,10 @@ function viewFor(currentView: ViewType): React.ReactNode {
     case 'library': return <LibraryView />;
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
-    case 'editor': return <VideoStudioView />;
+    case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />;
     case 'image-editor': return <ImageEditorView />;
-    case 'image-studio': return <ImageStudioView />;
-    case 'slideshow': return <SlideshowView />;
+    case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />;
+    case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
     case 'export': return <ExportView />;
     case 'settings': return <SettingsView />;
@@ -242,7 +255,7 @@ const App: React.FC = () => {
               transition={{ duration: motionEnabled ? 0.18 : 0 }}
             >
               <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
-                {viewFor(currentView)}
+                {viewFor(currentView, android)}
               </Suspense>
             </motion.div>
           </AnimatePresence>

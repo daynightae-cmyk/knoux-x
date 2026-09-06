@@ -13,6 +13,7 @@ import {
   Sparkles,
   Video,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { BrandMark } from '../brand/BrandMark';
@@ -20,7 +21,7 @@ import { useAppStore, type ViewType } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { readRecentMedia } from '../../features/player/mobilePlayerSession';
 
-const items: Array<{ view: ViewType; label: string; icon: React.ComponentType<{ size?: number }> }> = [
+const items: Array<{ view: ViewType; label: string; icon: LucideIcon }> = [
   { view: 'home', label: 'Home', icon: Home },
   { view: 'player', label: 'Player', icon: Play },
   { view: 'library', label: 'Library', icon: Folder },

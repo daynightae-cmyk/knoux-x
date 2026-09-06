@@ -5,6 +5,7 @@ import {
   Download,
   Film,
   FolderOpen,
+  Layers3,
   LoaderCircle,
   Share2,
   Sparkles,
@@ -12,12 +13,17 @@ import {
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { projectDuration } from '../../core/creative/multitrackProject';
+import { readActiveAndroidMultitrackProject } from '../../platform/androidMultitrackExportBridge';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
+
+import { renderMultitrackProject } from './mobileTimelineRenderer';
 
 type ResolutionId = '720p' | '1080p' | '1440p' | '4k';
 type FrameRate = 24 | 30 | 60;
 type BitrateMbps = 4 | 8 | 16 | 35;
+type SourceMode = 'project' | 'media';
 
 type ExportResult = {
   blob: Blob;
@@ -61,12 +67,7 @@ function outputDimensions(
   return { width: resolution.width, height: resolution.height };
 }
 
-function drawContained(
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-  width: number,
-  height: number,
-): void {
+function drawContained(context: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number): void {
   context.fillStyle = '#000000';
   context.fillRect(0, 0, width, height);
   const scale = Math.min(width / Math.max(1, video.videoWidth), height / Math.max(1, video.videoHeight));
@@ -92,6 +93,8 @@ function waitForMetadata(video: HTMLVideoElement): Promise<void> {
 export const MobileExportView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const currentMedia = usePlayerStore((state) => state.currentMedia);
+  const activeProject = useMemo(() => readActiveAndroidMultitrackProject(), []);
+  const [sourceMode, setSourceMode] = useState<SourceMode>(activeProject ? 'project' : 'media');
   const [sourcePath, setSourcePath] = useState<string | null>(currentMedia);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceSize, setSourceSize] = useState<{ width: number; height: number } | null>(null);
@@ -108,12 +111,15 @@ export const MobileExportView: React.FC = () => {
   const activeRecorderRef = useRef<MediaRecorder | null>(null);
   const activeFrameRef = useRef<number | null>(null);
 
-  const resolution = useMemo(
-    () => RESOLUTIONS.find((entry) => entry.id === resolutionId) ?? RESOLUTIONS[1],
-    [resolutionId],
-  );
-  const mimeType = useMemo(() => typeof MediaRecorder !== 'undefined' ? recorderMime() : '', []);
-  const container = mimeType.includes('mp4') ? 'MP4' : mimeType ? 'WEBM' : 'Unavailable';
+  const resolution = useMemo(() => RESOLUTIONS.find((entry) => entry.id === resolutionId) ?? RESOLUTIONS[1], [resolutionId]);
+  const directMime = useMemo(() => typeof MediaRecorder !== 'undefined' ? recorderMime() : '', []);
+  const projectDurationSeconds = activeProject ? projectDuration(activeProject) : 0;
+  const projectSize = activeProject ? { width: activeProject.settings.width, height: activeProject.settings.height } : null;
+  const effectiveSize = sourceMode === 'project' ? projectSize : sourceSize;
+  const effectiveDuration = sourceMode === 'project' ? projectDurationSeconds : sourceDuration;
+  const targetSize = effectiveSize
+    ? outputDimensions(resolution, effectiveSize.width, effectiveSize.height)
+    : { width: resolution.width, height: resolution.height };
 
   const clearResult = useCallback((): void => {
     setResult((current) => {
@@ -139,7 +145,7 @@ export const MobileExportView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!sourcePath) {
+    if (sourceMode !== 'media' || !sourcePath) {
       setSourceUrl(null);
       return undefined;
     }
@@ -148,11 +154,9 @@ export const MobileExportView: React.FC = () => {
       if (!active) return;
       setSourceUrl(url);
       inspectSource(url);
-    }).catch(() => {
-      if (active) setSourceUrl(null);
-    });
+    }).catch(() => { if (active) setSourceUrl(null); });
     return () => { active = false; };
-  }, [inspectSource, sourcePath]);
+  }, [inspectSource, sourceMode, sourcePath]);
 
   useEffect(() => () => {
     if (activeFrameRef.current !== null) cancelAnimationFrame(activeFrameRef.current);
@@ -166,6 +170,7 @@ export const MobileExportView: React.FC = () => {
     try {
       const selected = await window.knouxCreativeAPI.media.open();
       if (!selected) return;
+      setSourceMode('media');
       setSourcePath(selected.filePath);
       setSourceUrl(selected.mediaUrl);
       inspectSource(selected.mediaUrl);
@@ -182,10 +187,76 @@ export const MobileExportView: React.FC = () => {
     if (recorder && recorder.state !== 'inactive') recorder.stop();
   }, []);
 
+  const renderDirectMedia = useCallback(async (): Promise<{ blob: Blob; mimeType: string; baseName: string }> => {
+    if (!sourceUrl || !sourcePath || !directMime) throw new Error('Choose a playable video source first.');
+    const video = document.createElement('video');
+    activeVideoRef.current = video;
+    video.preload = 'auto';
+    video.playsInline = true;
+    video.src = sourceUrl;
+    await waitForMetadata(video);
+    if (video.videoWidth < 1 || video.videoHeight < 1) throw new Error('Choose a video file for mobile video export.');
+
+    const dimensions = outputDimensions(resolution, video.videoWidth, video.videoHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Canvas export is unavailable on this device.');
+    const canvasStream = canvas.captureStream(fps);
+    const outputStream = new MediaStream(canvasStream.getVideoTracks());
+    let audioContext: AudioContext | null = null;
+    try {
+      audioContext = new AudioContext({ latencyHint: 'playback' });
+      const source = audioContext.createMediaElementSource(video);
+      const destination = audioContext.createMediaStreamDestination();
+      source.connect(destination);
+      destination.stream.getAudioTracks().forEach((track) => outputStream.addTrack(track));
+      await audioContext.resume();
+    } catch {
+      await audioContext?.close().catch(() => undefined);
+      audioContext = null;
+    }
+
+    const chunks: BlobPart[] = [];
+    const recorder = new MediaRecorder(outputStream, { mimeType: directMime, videoBitsPerSecond: bitrate * 1_000_000, audioBitsPerSecond: 192_000 });
+    activeRecorderRef.current = recorder;
+    const completed = new Promise<Blob>((resolve, reject) => {
+      recorder.addEventListener('dataavailable', (event) => { if (event.data.size > 0) chunks.push(event.data); });
+      recorder.addEventListener('error', () => reject(new Error('The on-device encoder stopped unexpectedly.')), { once: true });
+      recorder.addEventListener('stop', () => resolve(new Blob(chunks, { type: directMime })), { once: true });
+    });
+    const render = (): void => {
+      drawContained(context, video, dimensions.width, dimensions.height);
+      if (Number.isFinite(video.duration) && video.duration > 0) setProgress(Math.min(100, (video.currentTime / video.duration) * 100));
+      if (!video.ended && !cancelRequestedRef.current) activeFrameRef.current = requestAnimationFrame(render);
+    };
+    video.addEventListener('ended', () => { if (recorder.state !== 'inactive') recorder.stop(); }, { once: true });
+    recorder.start(1000);
+    render();
+    await video.play();
+    const blob = await completed;
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    outputStream.getTracks().forEach((track) => track.stop());
+    await audioContext?.close().catch(() => undefined);
+    if (blob.size === 0) throw new Error('The encoder produced an empty video.');
+    return { blob, mimeType: directMime, baseName: fileName(sourcePath) };
+  }, [bitrate, directMime, fps, resolution, sourcePath, sourceUrl]);
+
   const startExport = useCallback(async (): Promise<void> => {
-    if (!sourceUrl || !sourcePath || exporting) return;
-    if (typeof MediaRecorder === 'undefined' || !mimeType) {
+    if (exporting) return;
+    if (typeof MediaRecorder === 'undefined') {
       setError('This Android WebView does not expose a supported on-device video encoder.');
+      return;
+    }
+    if (sourceMode === 'project' && !activeProject) {
+      setError('No active Video Studio project is available.');
+      return;
+    }
+    if (sourceMode === 'media' && (!sourcePath || !sourceUrl)) {
+      setError('Choose a video source first.');
       return;
     }
 
@@ -194,88 +265,37 @@ export const MobileExportView: React.FC = () => {
     setProgress(0);
     setExporting(true);
     cancelRequestedRef.current = false;
-
-    const video = document.createElement('video');
-    activeVideoRef.current = video;
-    video.preload = 'auto';
-    video.playsInline = true;
-    video.crossOrigin = 'anonymous';
-    video.src = sourceUrl;
-
-    let audioContext: AudioContext | null = null;
-    let outputStream: MediaStream | null = null;
     try {
-      await waitForMetadata(video);
-      if (video.videoWidth < 1 || video.videoHeight < 1) throw new Error('Choose a video file for mobile video export.');
-
-      const dimensions = outputDimensions(resolution, video.videoWidth, video.videoHeight);
-      const canvas = document.createElement('canvas');
-      canvas.width = dimensions.width;
-      canvas.height = dimensions.height;
-      const context = canvas.getContext('2d', { alpha: false });
-      if (!context) throw new Error('Canvas export is unavailable on this device.');
-
-      const canvasStream = canvas.captureStream(fps);
-      outputStream = new MediaStream(canvasStream.getVideoTracks());
-
-      try {
-        audioContext = new AudioContext({ latencyHint: 'playback' });
-        const source = audioContext.createMediaElementSource(video);
-        const destination = audioContext.createMediaStreamDestination();
-        source.connect(destination);
-        destination.stream.getAudioTracks().forEach((track) => outputStream?.addTrack(track));
-        await audioContext.resume();
-      } catch {
-        await audioContext?.close().catch(() => undefined);
-        audioContext = null;
-      }
-
-      const chunks: BlobPart[] = [];
-      const recorder = new MediaRecorder(outputStream, {
-        mimeType,
-        videoBitsPerSecond: bitrate * 1_000_000,
-        audioBitsPerSecond: 192_000,
-      });
-      activeRecorderRef.current = recorder;
-
-      const completed = new Promise<Blob>((resolve, reject) => {
-        recorder.addEventListener('dataavailable', (event) => {
-          if (event.data.size > 0) chunks.push(event.data);
+      let blob: Blob;
+      let mimeType: string;
+      let baseName: string;
+      if (sourceMode === 'project' && activeProject) {
+        const rendered = await renderMultitrackProject(activeProject, {
+          width: targetSize.width,
+          height: targetSize.height,
+          fps,
+          videoBitsPerSecond: bitrate * 1_000_000,
+          onProgress: setProgress,
+          cancelled: () => cancelRequestedRef.current,
         });
-        recorder.addEventListener('error', () => reject(new Error('The on-device encoder stopped unexpectedly.')), { once: true });
-        recorder.addEventListener('stop', () => resolve(new Blob(chunks, { type: mimeType })), { once: true });
-      });
-
-      const render = (): void => {
-        drawContained(context, video, dimensions.width, dimensions.height);
-        if (Number.isFinite(video.duration) && video.duration > 0) {
-          setProgress(Math.min(100, (video.currentTime / video.duration) * 100));
-        }
-        if (!video.ended && !cancelRequestedRef.current) activeFrameRef.current = requestAnimationFrame(render);
-      };
-
-      video.addEventListener('ended', () => {
-        if (recorder.state !== 'inactive') recorder.stop();
-      }, { once: true });
-      recorder.start(1000);
-      render();
-      await video.play();
-      const blob = await completed;
-
-      if (cancelRequestedRef.current) {
-        setProgress(0);
-        return;
+        blob = rendered.blob;
+        mimeType = rendered.mimeType;
+        baseName = activeProject.name.replace(/[^a-zA-Z0-9._-]+/g, '-');
+      } else {
+        const rendered = await renderDirectMedia();
+        blob = rendered.blob;
+        mimeType = rendered.mimeType;
+        baseName = rendered.baseName;
       }
-      if (blob.size === 0) throw new Error('The encoder produced an empty video.');
-
+      if (cancelRequestedRef.current) return;
       const extension: 'mp4' | 'webm' = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const name = `${fileName(sourcePath)}-${resolution.label}-${fps}fps.${extension}`;
+      const name = `${baseName}-${resolution.label}-${fps}fps.${extension}`;
       const url = URL.createObjectURL(blob);
       const file = new File([blob], name, { type: mimeType, lastModified: Date.now() });
       setResult({ blob, file, url, mimeType, extension });
       setProgress(100);
     } catch (reason) {
-      if (!cancelRequestedRef.current) {
+      if ((reason as DOMException)?.name !== 'AbortError' && !cancelRequestedRef.current) {
         setError(reason instanceof Error ? reason.message : 'Mobile export failed.');
       }
     } finally {
@@ -283,25 +303,24 @@ export const MobileExportView: React.FC = () => {
       activeFrameRef.current = null;
       activeRecorderRef.current = null;
       activeVideoRef.current = null;
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-      outputStream?.getTracks().forEach((track) => track.stop());
-      await audioContext?.close().catch(() => undefined);
       setExporting(false);
       cancelRequestedRef.current = false;
     }
-  }, [bitrate, clearResult, exporting, fps, mimeType, resolution, sourcePath, sourceUrl]);
+  }, [activeProject, bitrate, clearResult, exporting, fps, renderDirectMedia, resolution.label, sourceMode, sourcePath, sourceUrl, targetSize.height, targetSize.width]);
 
-  const saveToDevice = useCallback((): void => {
+  const saveToDevice = useCallback(async (): Promise<void> => {
     if (!result) return;
-    const link = document.createElement('a');
-    link.href = result.url;
-    link.download = result.file.name;
-    link.rel = 'noopener';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    try {
+      const destination = await window.knouxAPI.file.saveFile({
+        title: 'Save KNOUX export',
+        defaultPath: result.file.name,
+        filters: [{ name: result.extension.toUpperCase(), extensions: [result.extension] }],
+      });
+      if (!destination) return;
+      await window.knouxAPI.file.writeFile(destination, await result.blob.arrayBuffer());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The export could not be saved.');
+    }
   }, [result]);
 
   const shareResult = useCallback(async (): Promise<void> => {
@@ -311,103 +330,56 @@ export const MobileExportView: React.FC = () => {
         await navigator.share({ files: [result.file], title: 'KNOUX X Export' });
         return;
       }
-      saveToDevice();
+      await saveToDevice();
     } catch (reason) {
       if ((reason as DOMException)?.name !== 'AbortError') setError('Sharing is unavailable; save the exported file instead.');
     }
   }, [result, saveToDevice]);
 
-  const targetSize = sourceSize ? outputDimensions(resolution, sourceSize.width, sourceSize.height) : { width: resolution.width, height: resolution.height };
+  const sourceTitle = sourceMode === 'project'
+    ? activeProject?.name ?? 'No active project'
+    : sourcePath ? fileName(sourcePath) : 'No video selected';
+  const sourceLabel = sourceMode === 'project' ? 'TIMELINE PROJECT' : 'SOURCE VIDEO';
 
   return (
     <section className="knoux-mobile-export" data-component="MobileExportView">
       <div className="kme-ambient kme-ambient-one" />
       <div className="kme-ambient kme-ambient-two" />
-
       <header className="kme-topbar">
-        <button type="button" className="kme-round" aria-label="Back to home" onClick={() => setView('home')} disabled={exporting}>
-          <ArrowLeft size={21} />
-        </button>
+        <button type="button" className="kme-round" aria-label="Back" onClick={() => setView(sourceMode === 'project' ? 'editor' : 'home')} disabled={exporting}><ArrowLeft size={21} /></button>
         <div className="kme-brand"><BrandMark size={40} /><div><strong>KNOUX <span>X</span></strong><small>EXPORT & SHARE</small></div></div>
         <span className="kme-local-badge"><Sparkles size={14} /> ON DEVICE</span>
       </header>
 
-      <div className="kme-hero">
-        <span>FINAL OUTPUT</span>
-        <h1>Export in <em>your quality</em></h1>
-        <p>Render locally on this Android device. Your source media does not need to leave KNOUX X.</p>
-      </div>
+      <div className="kme-hero"><span>FINAL OUTPUT</span><h1>Export the <em>actual timeline.</em></h1><p>Video Studio projects render from their tracks, trims, transforms, text and audio. A standalone video can still be exported directly.</p></div>
+
+      {activeProject && (
+        <div className="kme-source-mode">
+          <button type="button" className={sourceMode === 'project' ? 'active' : ''} onClick={() => setSourceMode('project')} disabled={exporting}><Layers3 size={17} /> Project</button>
+          <button type="button" className={sourceMode === 'media' ? 'active' : ''} onClick={() => setSourceMode('media')} disabled={exporting}><Film size={17} /> Single video</button>
+        </div>
+      )}
 
       <div className="kme-source-card">
-        <div className="kme-source-icon"><Film size={26} /></div>
-        <div className="kme-source-copy">
-          <small>SOURCE VIDEO</small>
-          <strong>{sourcePath ? fileName(sourcePath) : 'No video selected'}</strong>
-          <span>{sourceSize ? `${sourceSize.width}×${sourceSize.height}` : '—'}{sourceDuration > 0 ? ` · ${Math.round(sourceDuration)} sec` : ''}</span>
-        </div>
-        <button type="button" onClick={() => void chooseSource()} disabled={exporting}><FolderOpen size={17} /> {sourcePath ? 'Change' : 'Choose'}</button>
+        <div className="kme-source-icon">{sourceMode === 'project' ? <Layers3 size={26} /> : <Film size={26} />}</div>
+        <div className="kme-source-copy"><small>{sourceLabel}</small><strong>{sourceTitle}</strong><span>{effectiveSize ? `${effectiveSize.width}×${effectiveSize.height}` : '—'}{effectiveDuration > 0 ? ` · ${Math.round(effectiveDuration)} sec` : ''}</span></div>
+        {sourceMode === 'media' && <button type="button" onClick={() => void chooseSource()} disabled={exporting}><FolderOpen size={17} /> {sourcePath ? 'Change' : 'Choose'}</button>}
       </div>
 
-      {sourceUrl && <video className="kme-preview" src={sourceUrl} controls playsInline preload="metadata" />}
+      {sourceMode === 'media' && sourceUrl && <video className="kme-preview" src={sourceUrl} controls playsInline preload="metadata" />}
 
       <section className="kme-panel">
         <div className="kme-section-title"><span>RESOLUTION</span><strong>{targetSize.width}×{targetSize.height}</strong></div>
-        <div className="kme-resolution-grid">
-          {RESOLUTIONS.map((entry) => (
-            <button type="button" key={entry.id} className={resolutionId === entry.id ? 'active' : ''} onClick={() => setResolutionId(entry.id)} disabled={exporting}>
-              <strong>{entry.label}</strong><span>{entry.hint}</span>
-            </button>
-          ))}
-        </div>
+        <div className="kme-resolution-grid">{RESOLUTIONS.map((entry) => <button type="button" key={entry.id} className={resolutionId === entry.id ? 'active' : ''} onClick={() => setResolutionId(entry.id)} disabled={exporting}><strong>{entry.label}</strong><span>{entry.hint}</span></button>)}</div>
       </section>
 
-      <section className="kme-panel kme-two-column">
-        <div>
-          <div className="kme-section-title"><span>FRAME RATE</span><strong>{fps} FPS</strong></div>
-          <div className="kme-chip-row">
-            {FRAME_RATES.map((value) => <button type="button" key={value} className={fps === value ? 'active' : ''} onClick={() => setFps(value)} disabled={exporting}>{value}</button>)}
-          </div>
-        </div>
-        <div>
-          <div className="kme-section-title"><span>BITRATE</span><strong>{bitrate} Mbps</strong></div>
-          <div className="kme-chip-row">
-            {BITRATES.map((value) => <button type="button" key={value} className={bitrate === value ? 'active' : ''} onClick={() => setBitrate(value)} disabled={exporting}>{value}</button>)}
-          </div>
-        </div>
-      </section>
+      <section className="kme-panel"><div className="kme-section-title"><span>FRAME RATE</span><strong>{fps} FPS</strong></div><div className="kme-chip-row">{FRAME_RATES.map((value) => <button type="button" key={value} className={fps === value ? 'active' : ''} onClick={() => setFps(value)} disabled={exporting}>{value}</button>)}</div></section>
+      <section className="kme-panel"><div className="kme-section-title"><span>VIDEO BITRATE</span><strong>{bitrate} Mbps</strong></div><div className="kme-chip-row">{BITRATES.map((value) => <button type="button" key={value} className={bitrate === value ? 'active' : ''} onClick={() => setBitrate(value)} disabled={exporting}>{value}</button>)}</div></section>
 
-      <section className="kme-summary">
-        <div><span>CONTAINER</span><strong>{container}</strong></div>
-        <div><span>AUDIO</span><strong>192 kbps</strong></div>
-        <div><span>MODE</span><strong>Real-time local</strong></div>
-      </section>
-
-      {error && <div className="kme-error"><XCircle size={18} /><span>{error}</span></div>}
-
-      {(exporting || progress > 0) && (
-        <section className="kme-progress-card">
-          <div className="kme-progress-heading">
-            <div>{exporting ? <LoaderCircle className="kme-spin" size={19} /> : <CheckCircle2 size={19} />}<strong>{exporting ? 'Rendering on device' : 'Export ready'}</strong></div>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="kme-progress-track"><span style={{ width: `${progress}%` }} /></div>
-          {exporting && <button type="button" onClick={cancelExport}>Cancel export</button>}
-        </section>
-      )}
-
-      {!result ? (
-        <button type="button" className="kme-primary" onClick={() => void startExport()} disabled={!sourceUrl || exporting || !mimeType}>
-          {exporting ? <LoaderCircle className="kme-spin" size={20} /> : <Sparkles size={20} />}
-          {exporting ? 'EXPORTING…' : `EXPORT ${resolution.label} · ${fps} FPS`}
-        </button>
-      ) : (
-        <div className="kme-result-actions">
-          <button type="button" className="kme-primary" onClick={saveToDevice}><Download size={20} /> SAVE TO DEVICE</button>
-          <button type="button" className="kme-share" onClick={() => void shareResult()}><Share2 size={20} /> SHARE</button>
-        </div>
-      )}
-
-      <footer>CREATE · PLAY · ENHANCE · EXPORT</footer>
+      {error && <div className="kme-error" role="alert"><XCircle size={18} /> {error}</div>}
+      {exporting && <div className="kme-progress"><div><span><LoaderCircle className="spin" size={17} /> Rendering locally</span><strong>{Math.round(progress)}%</strong></div><progress max="100" value={progress} /><button type="button" onClick={cancelExport}>Cancel</button></div>}
+      {!exporting && !result && <button type="button" className="kme-export-primary" onClick={() => void startExport()} disabled={sourceMode === 'project' ? !activeProject : !sourceUrl}><Download size={20} /> Export {sourceMode === 'project' ? 'Project' : 'Video'}</button>}
+      {result && <div className="kme-result"><CheckCircle2 size={28} /><div><strong>Export complete</strong><span>{result.file.name}</span></div><button type="button" onClick={() => void saveToDevice()}><Download size={17} /> Save to Device</button><button type="button" onClick={() => void shareResult()}><Share2 size={17} /> Share</button></div>}
     </section>
   );
 };

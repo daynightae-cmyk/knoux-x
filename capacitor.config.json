@@ -1,0 +1,8 @@
+{
+  "appId": "dev.knoux.playerx",
+  "appName": "KNOUX Player X",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

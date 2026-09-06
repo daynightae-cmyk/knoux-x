@@ -1,0 +1,102 @@
+name: Android APK (Capacitor)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'index.html'
+      - 'vite.renderer.config.ts'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-apk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knoux-x-android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CAPACITOR_VERSION: '8.5.0'
+
+jobs:
+  build-debug-apk:
+    name: Build installable debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Use Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Ensure Android API 36 SDK is available
+        shell: bash
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Install locked KNOUX web dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install pinned Capacitor build tooling without mutating lockfile
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
+          @capacitor/core@${CAPACITOR_VERSION}
+          @capacitor/cli@${CAPACITOR_VERSION}
+          @capacitor/android@${CAPACITOR_VERSION}
+
+      - name: Build the browser-safe KNOUX renderer
+        run: npx vite build --config vite.renderer.config.ts --outDir dist
+
+      - name: Generate and synchronize Android project
+        shell: bash
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Stage APK and checksum
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/KNOUX-X-Android-debug.apk
+          sha256sum artifacts/KNOUX-X-Android-debug.apk > artifacts/KNOUX-X-Android-debug.apk.sha256
+          test -s artifacts/KNOUX-X-Android-debug.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KNOUX-X-Android-debug-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

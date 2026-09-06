@@ -1,0 +1,462 @@
+html[data-platform='android'] .knoux-mobile-creative-surface {
+  --kmc-violet: #8b3dff;
+  --kmc-violet-2: #a855f7;
+  --kmc-lavender: #c4a6ff;
+  --kmc-canvas: #020205;
+  --kmc-surface: rgba(13, 8, 24, 0.78);
+  --kmc-border: rgba(172, 112, 255, 0.27);
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) calc(92px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  color: #fff;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(110, 35, 255, 0.18), transparent 28%),
+    radial-gradient(circle at 10% 34%, rgba(154, 70, 255, 0.11), transparent 30%),
+    linear-gradient(180deg, #05030a 0%, #020205 58%, #05030a 100%);
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='android'] .knoux-mobile-creative-surface::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.48;
+  background:
+    linear-gradient(120deg, transparent 15%, rgba(152, 74, 255, 0.08) 38%, transparent 60%),
+    radial-gradient(circle at 50% -10%, rgba(114, 33, 255, 0.2), transparent 36%);
+}
+
+html[data-platform='android'] .kmc-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  margin: 0 0 10px;
+  padding: 7px 4px 10px;
+  background: linear-gradient(180deg, rgba(3, 2, 8, 0.96), rgba(3, 2, 8, 0.76) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+}
+
+html[data-platform='android'] .kmc-round-button,
+html[data-platform='android'] .kmc-export-button,
+html[data-platform='android'] .kmc-drafts-button {
+  min-height: 44px;
+  border: 1px solid var(--kmc-border);
+  border-radius: 16px;
+  color: #f8f3ff;
+  background: rgba(19, 12, 33, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 28px rgba(0,0,0,0.24);
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-platform='android'] .kmc-round-button {
+  width: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+html[data-platform='android'] .kmc-export-button,
+html[data-platform='android'] .kmc-drafts-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+html[data-platform='android'] .kmc-export-button {
+  border-color: rgba(172, 104, 255, 0.48);
+  background: linear-gradient(135deg, rgba(141, 55, 255, 0.86), rgba(95, 29, 211, 0.86));
+  box-shadow: 0 8px 26px rgba(116, 40, 255, 0.28), inset 0 1px 0 rgba(255,255,255,0.19);
+}
+
+html[data-platform='android'] .kmc-brand-lockup {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+html[data-platform='android'] .kmc-brand-lockup > div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+html[data-platform='android'] .kmc-brand-lockup strong {
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kmc-brand-lockup strong span,
+html[data-platform='android'] .kmc-intro-card em {
+  color: #b66dff;
+  font-style: normal;
+}
+
+html[data-platform='android'] .kmc-brand-lockup small {
+  overflow: hidden;
+  color: rgba(218, 201, 245, 0.66);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kmc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+html[data-platform='android'] .kmc-quality-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(172, 120, 255, 0.22);
+  border-radius: 14px;
+  color: rgba(244, 236, 255, 0.84);
+  background: rgba(12, 8, 24, 0.64);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+html[data-platform='android'] .kmc-intro-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 4px 2px 12px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(172, 112, 255, 0.25);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(139, 61, 255, 0.22), transparent 32%),
+    linear-gradient(145deg, rgba(24, 15, 43, 0.86), rgba(7, 6, 14, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.28);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+html[data-platform='android'] .kmc-intro-card > div {
+  min-width: 0;
+}
+
+html[data-platform='android'] .kmc-intro-card span:first-child {
+  color: #c39cff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+html[data-platform='android'] .kmc-intro-card h1 {
+  margin: 7px 0 5px;
+  font-size: clamp(27px, 8vw, 40px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+html[data-platform='android'] .kmc-intro-card p {
+  margin: 0;
+  color: rgba(229, 218, 246, 0.7);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-platform='android'] .kmc-intro-icon {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(184, 122, 255, 0.34);
+  border-radius: 18px;
+  color: #d5b6ff;
+  background: rgba(125, 43, 255, 0.12);
+  box-shadow: 0 0 32px rgba(132, 47, 255, 0.17);
+}
+
+html[data-platform='android'] .kmc-engine {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+html[data-platform='android'] .kmc-engine :is(.creative-view, .image-studio-view) {
+  min-width: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+html[data-platform='android'] .kmc-engine .creative-header {
+  margin: 0 2px 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(172, 112, 255, 0.18);
+  border-radius: 20px;
+  background: rgba(12, 8, 22, 0.66);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+html[data-platform='android'] .kmc-engine .creative-header h1 {
+  font-size: 20px;
+}
+
+html[data-platform='android'] .kmc-engine .creative-header p {
+  font-size: 11px;
+  color: rgba(226, 215, 244, 0.62);
+}
+
+html[data-platform='android'] .kmc-engine :is(.runtime-mode-notice, .studio-preset-bar) {
+  margin-inline: 2px;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-start-grid,
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-start-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 2px;
+}
+
+html[data-platform='android'] .kmc-video-engine :is(.multitrack-start-card, .neon-panel),
+html[data-platform='android'] .kmc-slideshow-engine :is(.slideshow-start-card, .neon-panel) {
+  border-color: rgba(171, 111, 255, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(18, 12, 32, 0.8), rgba(7, 6, 14, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-toolbar,
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-toolbar {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 9px;
+  overflow-x: auto;
+  border: 1px solid rgba(169, 109, 255, 0.18);
+  border-radius: 19px;
+  background: rgba(11, 8, 19, 0.78);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-toolbar::-webkit-scrollbar,
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-toolbar::-webkit-scrollbar,
+html[data-platform='android'] .kmc-video-engine .multitrack-timeline-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-main-grid,
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-main-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-preview-panel,
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-preview-panel {
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-preview-stage {
+  min-height: min(55vw, 360px);
+  border-radius: 20px 20px 0 0;
+  background: #000;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-inspector {
+  display: none;
+}
+
+html[data-platform='android'] .kmc-video-editor.kmc-show-inspector .multitrack-inspector {
+  display: block;
+  border-radius: 22px;
+  animation: kmc-rise 180ms ease-out both;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-timeline-panel {
+  margin-top: 10px;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+html[data-platform='android'] .kmc-video-engine .multitrack-timeline-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html[data-platform='android'] .kmc-slideshow-engine .slideshow-preview-stage {
+  max-height: 56dvh;
+  border-radius: 20px;
+}
+
+html[data-platform='android'] .kmc-slideshow-engine :is(.slideshow-inspector, .slideshow-settings-panel) {
+  border-radius: 22px;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-view {
+  overflow: visible;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-toolbar {
+  position: sticky;
+  top: 72px;
+  z-index: 22;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 8px;
+  border: 1px solid rgba(171, 111, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(8, 6, 15, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  scrollbar-width: none;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  gap: 10px;
+  height: auto;
+  padding: 8px 0 0;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-main {
+  min-height: 48dvh;
+  grid-row: 1;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+html[data-platform='android'] .kmc-image-engine .image-studio-canvas-container {
+  min-height: 42dvh;
+  background: #050509;
+}
+
+html[data-platform='android'] .kmc-image-engine :is(.image-studio-sidebar, .image-studio-right-panel, .retouch-panel) {
+  border-radius: 22px;
+  background: rgba(11, 8, 20, 0.8);
+}
+
+html[data-platform='android'] .kmc-tool-dock {
+  position: fixed;
+  z-index: 60;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  padding: 8px 6px;
+  border: 1px solid rgba(176, 116, 255, 0.26);
+  border-radius: 24px;
+  background: rgba(7, 5, 14, 0.88);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.52), inset 0 1px 0 rgba(255,255,255,0.055);
+  backdrop-filter: blur(24px) saturate(125%);
+  -webkit-backdrop-filter: blur(24px) saturate(125%);
+}
+
+html[data-platform='android'] .kmc-tool-dock button {
+  min-width: 0;
+  min-height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 16px;
+  color: rgba(225, 211, 246, 0.74);
+  background: transparent;
+  font: inherit;
+}
+
+html[data-platform='android'] .kmc-tool-dock button.active,
+html[data-platform='android'] .kmc-tool-dock button:active {
+  color: #fff;
+  background: rgba(128, 44, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(175, 113, 255, 0.25), 0 0 20px rgba(130, 45, 255, 0.13);
+}
+
+html[data-platform='android'] .kmc-tool-dock span {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+html[data-platform='android'] .kmc-creative-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 18px 8px 2px;
+  color: rgba(202, 170, 242, 0.62);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+@media (max-width: 390px) {
+  html[data-platform='android'] .kmc-brand-lockup small,
+  html[data-platform='android'] .kmc-quality-pill {
+    display: none;
+  }
+
+  html[data-platform='android'] .kmc-export-button,
+  html[data-platform='android'] .kmc-drafts-button {
+    padding-inline: 10px;
+  }
+
+  html[data-platform='android'] .kmc-tool-dock {
+    grid-template-columns: repeat(7, minmax(38px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-platform='android'] .knoux-mobile-creative-surface *,
+  html[data-platform='android'] .knoux-mobile-creative-surface *::before,
+  html[data-platform='android'] .knoux-mobile-creative-surface *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes kmc-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

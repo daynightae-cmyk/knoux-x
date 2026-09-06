@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, FolderPlus, Gauge, Globe2, Moon, RotateCcw, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import type { StructuredValue } from '../../../electron/ipc/channel-types';
 import { useAppStore } from '../../store/appStore';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
@@ -35,7 +36,7 @@ export const MobileSettingsView: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  const persist = useCallback(async (key: string, value: unknown): Promise<void> => {
+  const persist = useCallback(async (key: string, value: StructuredValue): Promise<void> => {
     setError(null);
     setNotice(null);
     try {
@@ -95,7 +96,7 @@ export const MobileSettingsView: React.FC = () => {
 
       <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium dark or light interface.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>Light</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Applied when a video has no per-file saved speed.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Used as the preferred speed for new media.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
 
       <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>Media folder</strong><small>{libraryPath ? 'Persisted Android folder permission is active.' : 'Choose a folder through Android SAF.'}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? 'Change folder' : 'Choose folder'}</button>{libraryPath && <code>{libraryPath}</code>}</section>
 

@@ -51,29 +51,37 @@ export const MobileSettingsView: React.FC = () => {
     void persist('language', value);
   }, [persist, setLocale]);
 
-  const changeTheme = useCallback((value: 'deep-black' | 'light'): void => {
+  const changeTheme = useCallback((value: 'deep-black' | 'system-light'): void => {
     setTheme(value);
     void persist('theme', value);
   }, [persist, setTheme]);
 
   const chooseLibrary = useCallback(async (): Promise<void> => {
     setError(null);
-    const directory = await window.knouxAPI.file.openDirectory({ title: 'Choose KNOUX media folder' });
-    if (!directory) return;
-    setLibraryPath(directory);
-    await persist('mobile.libraryPath', directory);
+    try {
+      const directory = await window.knouxAPI.file.openDirectory({ title: 'Choose KNOUX media folder' });
+      if (!directory) return;
+      setLibraryPath(directory);
+      await persist('mobile.libraryPath', directory);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Media folder permission could not be persisted.');
+    }
   }, [persist]);
 
   const resetMobile = useCallback(async (): Promise<void> => {
-    await Promise.all([
-      window.knouxAPI.settings.reset('mobile.defaultPlaybackSpeed'),
-      window.knouxAPI.settings.reset('mobile.keepScreenAwake'),
-      window.knouxAPI.settings.reset('mobile.libraryPath'),
-    ]);
-    setDefaultSpeed(1);
-    setKeepAwake(true);
-    setLibraryPath(null);
-    setNotice('Mobile playback preferences reset.');
+    try {
+      await Promise.all([
+        window.knouxAPI.settings.reset('mobile.defaultPlaybackSpeed'),
+        window.knouxAPI.settings.reset('mobile.keepScreenAwake'),
+        window.knouxAPI.settings.reset('mobile.libraryPath'),
+      ]);
+      setDefaultSpeed(1);
+      setKeepAwake(true);
+      setLibraryPath(null);
+      setNotice('Mobile playback preferences reset.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Mobile settings could not be reset.');
+    }
   }, []);
 
   return (
@@ -85,9 +93,9 @@ export const MobileSettingsView: React.FC = () => {
 
       <section className="kms-card"><div className="kms-card-title"><Globe2 size={18} /><span><strong>Language</strong><small>Interface direction updates immediately.</small></span></div><div className="kms-segment"><button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => changeLocale('en')}>English</button><button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => changeLocale('ar')}>العربية</button></div></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium dark or light interface.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button><button type="button" className={theme === 'light' ? 'active' : ''} onClick={() => changeTheme('light')}>Light</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium dark or light interface.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>Light</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Used as the preferred speed for new media.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Applied when a video has no per-file saved speed.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
 
       <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>Media folder</strong><small>{libraryPath ? 'Persisted Android folder permission is active.' : 'Choose a folder through Android SAF.'}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? 'Change folder' : 'Choose folder'}</button>{libraryPath && <code>{libraryPath}</code>}</section>
 

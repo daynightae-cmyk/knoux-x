@@ -306,7 +306,11 @@ async function saveResult(jobId: string): Promise<void> {
     filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
   });
   if (!destination) return;
-  await window.knouxAPI.file.writeFile(destination, await result.blob.arrayBuffer());
+  const bytes = new Uint8Array(await result.blob.arrayBuffer());
+  await window.knouxAPI.file.writeFile(
+    destination,
+    bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
+  );
 }
 
 export function installAndroidSlideshowRenderBridge(): void {

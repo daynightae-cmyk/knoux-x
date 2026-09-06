@@ -35,7 +35,7 @@ const quickActions: Array<{
   { id: 'editor', label: 'Video Editor', subtitle: 'Edit like a pro', view: 'editor', icon: Scissors },
   { id: 'slideshow', label: 'Photos to Video', subtitle: 'Turn memories to life', view: 'slideshow', icon: Images },
   { id: 'image-editor', label: 'Photo Editor', subtitle: 'Edit & enhance', view: 'image-editor', icon: ImageIcon },
-  { id: 'beauty', label: 'Beauty Retouch', subtitle: 'Enhance naturally', view: 'image-editor', icon: WandSparkles },
+  { id: 'beauty', label: 'Beauty Retouch', subtitle: 'Enhance naturally', view: 'image-studio', icon: WandSparkles },
   { id: 'recording', label: 'Record', subtitle: 'Capture your world', view: 'recording', icon: Mic2 },
 ];
 

@@ -62,6 +62,10 @@ const ImageEditorView = lazy(async () => {
   const module = await import('./features/image-editor/ImageEditorView');
   return { default: module.ImageEditorView };
 });
+const MobileImageEditorView = lazy(async () => {
+  const module = await import('./features/image-editor/MobileImageEditorView');
+  return { default: module.MobileImageEditorView };
+});
 const ImageStudioView = lazy(async () => {
   const module = await import('./features/image-studio/ImageStudioView');
   return { default: module.ImageStudioView };
@@ -104,7 +108,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'capture': return <CaptureView />;
     case 'recording': return <RecordingView />;
     case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />;
-    case 'image-editor': return <ImageEditorView />;
+    case 'image-editor': return android ? <MobileImageEditorView /> : <ImageEditorView />;
     case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />;
     case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;

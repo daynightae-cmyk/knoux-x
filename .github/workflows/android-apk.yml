@@ -91,6 +91,27 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Configure Android media permissions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text(encoding='utf-8')
+          marker = '    <application'
+          permissions = '''    <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+          '''
+          if 'android.permission.CAMERA' not in text:
+              if marker not in text:
+                  raise SystemExit('AndroidManifest application marker not found')
+              text = text.replace(marker, permissions + marker, 1)
+          manifest.write_text(text, encoding='utf-8')
+          PY
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.RECORD_AUDIO' android/app/src/main/AndroidManifest.xml
+
       - name: Build APK
         working-directory: android
         shell: bash

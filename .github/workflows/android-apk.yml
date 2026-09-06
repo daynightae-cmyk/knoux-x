@@ -8,6 +8,8 @@ on:
     paths:
       - 'src/**'
       - 'assets/**'
+      - 'tests/**'
+      - 'electron/**'
       - 'index.html'
       - 'vite.renderer.config.ts'
       - 'capacitor.config.json'
@@ -27,9 +29,9 @@ env:
 
 jobs:
   build-debug-apk:
-    name: Build installable debug APK
+    name: Validate and build installable debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout main
@@ -57,8 +59,17 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
 
-      - name: Install locked KNOUX web dependencies
+      - name: Install locked KNOUX dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: TypeScript gate
+        run: npm run typecheck
+
+      - name: ESLint gate
+        run: npm run lint
+
+      - name: Unit test gate
+        run: npm test -- --runInBand
 
       - name: Install pinned Capacitor build tooling without mutating lockfile
         run: >-
@@ -67,7 +78,7 @@ jobs:
           @capacitor/cli@${CAPACITOR_VERSION}
           @capacitor/android@${CAPACITOR_VERSION}
 
-      - name: Build the browser-safe KNOUX renderer
+      - name: Build KNOUX Android renderer
         run: npx vite build --config vite.renderer.config.ts --outDir dist
 
       - name: Generate and synchronize Android project

@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
 
 import { useTranslation } from '../../i18n';
+import { isAndroidRuntime } from '../../platform/runtime';
 import { usePlayerStore } from '../../store/playerStore';
 
 import { PlayerDiagnosticsPanel } from './PlayerDiagnosticsPanel';
 import { PlayerView } from './PlayerView';
+import { UltimateMobilePlayer } from './UltimateMobilePlayer';
 
 type FitMode = 'contain' | 'cover' | 'fill' | 'original';
 type DisplayMode = 'normal' | 'theater' | 'cinema';
@@ -31,6 +33,7 @@ export const PlayerViewportBoundary: React.FC = () => {
   const hideTimerRef = useRef<number | null>(null);
   const isPlaying = usePlayerStore((state) => state.isPlaying);
   const { t } = useTranslation();
+  const android = isAndroidRuntime();
 
   const clearHideTimer = useCallback((): void => {
     if (hideTimerRef.current !== null) {
@@ -51,22 +54,25 @@ export const PlayerViewportBoundary: React.FC = () => {
   }, [clearHideTimer, diagnosticsVisible, isPlaying]);
 
   useEffect(() => {
+    if (android) return undefined;
     const root = document.documentElement;
     root.dataset.playerDisplayMode = displayMode;
     return () => {
       delete root.dataset.playerDisplayMode;
     };
-  }, [displayMode]);
+  }, [android, displayMode]);
 
   useEffect(() => {
+    if (android) return;
     if (isPlaying && !diagnosticsVisible) revealToolbar();
     else {
       clearHideTimer();
       setToolbarVisible(true);
     }
-  }, [clearHideTimer, diagnosticsVisible, isPlaying, revealToolbar]);
+  }, [android, clearHideTimer, diagnosticsVisible, isPlaying, revealToolbar]);
 
   useEffect(() => {
+    if (android) return undefined;
     const handleKeyDown = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
@@ -89,9 +95,10 @@ export const PlayerViewportBoundary: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [diagnosticsVisible, displayMode]);
+  }, [android, diagnosticsVisible, displayMode]);
 
   useEffect(() => {
+    if (android) return undefined;
     const handleCommand = (event: Event): void => {
       if ((event as CustomEvent<{ command?: string }>).detail?.command === 'theater-mode') {
         setDisplayMode((current) => current === 'theater' ? 'normal' : 'theater');
@@ -99,9 +106,11 @@ export const PlayerViewportBoundary: React.FC = () => {
     };
     window.addEventListener('knoux:command', handleCommand);
     return () => window.removeEventListener('knoux:command', handleCommand);
-  }, []);
+  }, [android]);
 
   useEffect(() => () => clearHideTimer(), [clearHideTimer]);
+
+  if (android) return <UltimateMobilePlayer />;
 
   return (
     <section

@@ -16,12 +16,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
+import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 
-// The desktop preload owns the real bridges. Vercel serves only the renderer,
-// so install a constrained browser adapter before React mounts to keep the
-// public preview functional without weakening Electron's isolated runtime.
-installBrowserPreviewBridge();
+// Capacitor Android receives a dedicated native-safe bridge. Desktop preload
+// remains authoritative in Electron, and normal browsers keep the constrained
+// preview adapter. This ordering prevents Android from being misidentified as
+// a Windows desktop runtime or an incomplete web preview.
+const androidRuntimeInstalled = installAndroidRuntimeBridge();
+if (!androidRuntimeInstalled) installBrowserPreviewBridge();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // تهيئة React

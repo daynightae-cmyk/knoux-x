@@ -47,8 +47,8 @@ export interface BodyAnalysisRequest {
 
 export type BodyAnalysisResult =
   | { status: 'ready'; modelId: string; bodies: DetectedBody[]; elapsedMs: number; segmentationAvailable: boolean; segmentationMask?: BodySegmentationMask }
-  | { status: 'model-unavailable'; modelId: string; reason: string }
-  | { status: 'failed'; modelId: string; reason: string };
+  | { status: 'model-unavailable'; modelId: string; reason: string; segmentationMask?: undefined }
+  | { status: 'failed'; modelId: string; reason: string; segmentationMask?: undefined };
 
 export const BODY_ANALYSIS_MODEL_ID = 'mediapipe-pose-landmarker-full';
 

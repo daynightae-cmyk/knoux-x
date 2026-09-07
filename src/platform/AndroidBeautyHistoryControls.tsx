@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useImageEditorStore } from '../store/imageEditorStore';
@@ -92,14 +92,15 @@ export const AndroidBeautyHistoryControls: React.FC = () => {
     setProject(baseline);
   };
 
-  const controls = useMemo(() => controlsHost && source ? createPortal(
+  if (window.knouxRuntime?.edition !== 'android') return null;
+
+  const controls = controlsHost && source ? createPortal(
     <section className="android-beauty-history" aria-label={arabic ? 'سجل تعديلات الجمال' : 'Beauty edit history'}>
       <button type="button" disabled={!canUndo} onClick={() => moveTo(index - 1)}>{arabic ? 'تراجع' : 'Undo'}</button>
       <button type="button" disabled={!canRedo} onClick={() => moveTo(index + 1)}>{arabic ? 'إعادة' : 'Redo'}</button>
       <button
         type="button"
         className={showBefore ? 'is-before' : ''}
-        disabled={!source}
         onPointerDown={() => setShowBefore(true)}
         onPointerUp={() => setShowBefore(false)}
         onPointerCancel={() => setShowBefore(false)}
@@ -111,13 +112,12 @@ export const AndroidBeautyHistoryControls: React.FC = () => {
       <span aria-live="polite">{operationCount}</span>
     </section>,
     controlsHost,
-  ) : null, [arabic, canRedo, canUndo, controlsHost, index, operationCount, showBefore, source]);
+  ) : null;
 
   const beforeOverlay = previewHost && source && showBefore ? createPortal(
     <img className="android-beauty-before-overlay" src={source.dataUrl} alt={arabic ? 'الصورة الأصلية قبل التعديلات' : 'Original image before beauty edits'} />,
     previewHost,
   ) : null;
 
-  if (window.knouxRuntime?.edition !== 'android') return null;
   return <>{controls}{beforeOverlay}</>;
 };

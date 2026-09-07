@@ -1,0 +1,86 @@
+name: KNOUX Closure Runtime Patches
+
+on:
+  push:
+    branches:
+      - codex/absolute-final-product-closure-20260908
+    paths:
+      - '.github/closure/apply-runtime-patches.marker'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/absolute-final-product-closure-20260908
+          fetch-depth: 0
+
+      - name: Apply exact source transformations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          audio = 'src/features/audio-tools/AudioToolsView.tsx'
+          replace_once(
+              audio,
+              "import { useTranslation } from '../../i18n';\n",
+              "import { useTranslation } from '../../i18n';\nimport { supportedAudioOutputFormats } from '../../platform/platformCapabilities';\n",
+          )
+          replace_once(
+              audio,
+              "const formats: AudioOutputFormat[] = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'];",
+              "const DESKTOP_FORMATS: AudioOutputFormat[] = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'];",
+          )
+          replace_once(
+              audio,
+              "  const [playing, setPlaying] = useState(false);\n  const [format, setFormat] = useState<AudioOutputFormat>('mp3');",
+              "  const [playing, setPlaying] = useState(false);\n  const androidRuntime = window.knouxRuntime?.edition === 'android';\n  const formats = useMemo<AudioOutputFormat[]>(() => {\n    const supported = androidRuntime ? supportedAudioOutputFormats({ platform: 'android' }) : DESKTOP_FORMATS;\n    return supported.filter((entry): entry is AudioOutputFormat => DESKTOP_FORMATS.includes(entry as AudioOutputFormat));\n  }, [androidRuntime]);\n  const [format, setFormat] = useState<AudioOutputFormat>(() => androidRuntime ? 'wav' : 'mp3');",
+          )
+          replace_once(
+              audio,
+              "              <label className=\"audio-check-row\"><input type=\"checkbox\" checked={normalize} onChange={(event) => setNormalize(event.target.checked)} /><span>{t('audioTools.normalize')}</span></label>\n              <label><span>{t('audioTools.targetLufs')} · {targetLufs}</span><input type=\"range\" min=\"-36\" max=\"-5\" step=\"0.5\" value={targetLufs} onChange={(event) => setTargetLufs(Number(event.target.value))} disabled={!normalize} /></label>\n              <label><span>{t('audioTools.truePeak')} · {truePeakDb}</span><input type=\"range\" min=\"-9\" max=\"0\" step=\"0.1\" value={truePeakDb} onChange={(event) => setTruePeakDb(Number(event.target.value))} disabled={!normalize} /></label>\n              <label><span>{t('audioTools.loudnessRange')} · {loudnessRange}</span><input type=\"range\" min=\"1\" max=\"50\" step=\"1\" value={loudnessRange} onChange={(event) => setLoudnessRange(Number(event.target.value))} disabled={!normalize} /></label>",
+              "              <label className=\"audio-check-row\"><input type=\"checkbox\" checked={normalize} onChange={(event) => setNormalize(event.target.checked)} /><span>{androidRuntime ? (locale === 'ar' ? 'تطبيع الذروة المحلي' : 'Local peak normalization') : t('audioTools.normalize')}</span></label>\n              {!androidRuntime && <label><span>{t('audioTools.targetLufs')} · {targetLufs}</span><input type=\"range\" min=\"-36\" max=\"-5\" step=\"0.5\" value={targetLufs} onChange={(event) => setTargetLufs(Number(event.target.value))} disabled={!normalize} /></label>}\n              <label><span>{androidRuntime ? (locale === 'ar' ? 'حد الذروة dB' : 'Peak ceiling dB') : t('audioTools.truePeak')} · {truePeakDb}</span><input type=\"range\" min=\"-9\" max=\"0\" step=\"0.1\" value={truePeakDb} onChange={(event) => setTruePeakDb(Number(event.target.value))} disabled={!normalize} /></label>\n              {!androidRuntime && <label><span>{t('audioTools.loudnessRange')} · {loudnessRange}</span><input type=\"range\" min=\"1\" max=\"50\" step=\"1\" value={loudnessRange} onChange={(event) => setLoudnessRange(Number(event.target.value))} disabled={!normalize} /></label>}",
+          )
+          replace_once(
+              audio,
+              "            <div className={`audio-format-badge ${lossless ? 'lossless' : 'lossy'}`}>{lossless ? t('audioTools.lossless') : t('audioTools.lossy')}</div>",
+              "            <div className={`audio-format-badge ${lossless ? 'lossless' : 'lossy'}`}>{lossless ? t('audioTools.lossless') : t('audioTools.lossy')}</div>\n            {androidRuntime && <div className=\"audio-inline-notice\">{locale === 'ar' ? 'Android المحلي: WAV PCM فقط. قياس LUFS الحقيقي متاح على Windows عبر FFmpeg.' : 'Android local: WAV PCM only. True LUFS processing remains a Windows/FFmpeg capability.'}</div>}",
+          )
+
+          editor = 'src/features/editor/MultitrackEditorView.tsx'
+          replace_once(
+              editor,
+              "  const saveProject = useCallback(async (saveAs = false): Promise<void> => {\n    if (!project || busy || !desktopRuntime) return;\n    setBusy(true);\n    try {\n      const saved = await window.knouxMultitrackAPI.save(project, projectPath, saveAs);\n      if (saved) {\n        setProjectPath(saved);\n        setDirty(false);\n        await refreshWorkspace();\n      }\n    } catch (reason) {\n      setError(reason instanceof Error ? reason.message : t('multitrack.saveFailed'));\n    } finally {\n      setBusy(false);\n    }\n  }, [busy, desktopRuntime, project, projectPath, refreshWorkspace, t]);",
+              "  const saveProject = useCallback(async (saveAs = false): Promise<{ ok: boolean; filePath?: string; projectId?: string; error?: string }> => {\n    if (!project) return { ok: false, error: t('multitrack.saveFailed') };\n    if (busy) return { ok: false, projectId: project.id, error: 'Project persistence is already in progress.' };\n    if (!desktopRuntime) return { ok: false, projectId: project.id, error: 'Project persistence is unavailable in this runtime.' };\n    setBusy(true);\n    try {\n      const snapshot = structuredClone(project);\n      const saved = await window.knouxMultitrackAPI.save(snapshot, projectPath, saveAs);\n      if (!saved) return { ok: false, projectId: snapshot.id, error: t('multitrack.saveFailed') };\n      setProjectPath(saved);\n      setDirty(false);\n      await refreshWorkspace();\n      return { ok: true, filePath: saved, projectId: snapshot.id };\n    } catch (reason) {\n      const message = reason instanceof Error ? reason.message : t('multitrack.saveFailed');\n      setError(message);\n      return { ok: false, projectId: project.id, error: message };\n    } finally {\n      setBusy(false);\n    }\n  }, [busy, desktopRuntime, project, projectPath, refreshWorkspace, t]);",
+          )
+          replace_once(
+              editor,
+              "  useEffect(() => {\n    const handleCommand = (event: Event): void => {\n      switch ((event as CustomEvent<{ command?: string }>).detail?.command) {\n        case 'split-clip': splitSelected(); break;\n        case 'trim-in': trimSelectedIn(); break;\n        case 'trim-out': trimSelectedOut(); break;\n        case 'undo': undo(); break;\n        case 'redo': redo(); break;\n        case 'save': void saveProject(false); break;\n        default: break;\n      }\n    };\n    window.addEventListener('knoux:command', handleCommand);\n    return () => window.removeEventListener('knoux:command', handleCommand);\n  }, [redo, saveProject, splitSelected, trimSelectedIn, trimSelectedOut, undo]);",
+              "  useEffect(() => {\n    const handleCommand = (event: Event): void => {\n      const detail = (event as CustomEvent<{ command?: string; requestId?: string }>).detail;\n      switch (detail?.command) {\n        case 'split-clip': splitSelected(); break;\n        case 'trim-in': trimSelectedIn(); break;\n        case 'trim-out': trimSelectedOut(); break;\n        case 'undo': undo(); break;\n        case 'redo': redo(); break;\n        case 'save':\n          void saveProject(false).then((result) => {\n            if (!detail.requestId) return;\n            window.dispatchEvent(new CustomEvent('knoux:command-result', {\n              detail: { command: 'save', requestId: detail.requestId, ...result },\n            }));\n          });\n          break;\n        default: break;\n      }\n    };\n    window.addEventListener('knoux:command', handleCommand);\n    return () => window.removeEventListener('knoux:command', handleCommand);\n  }, [redo, saveProject, splitSelected, trimSelectedIn, trimSelectedOut, undo]);",
+          )
+          PY
+
+      - name: Commit exact runtime patches and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'KNOUX Closure Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/closure-runtime-patches.yml .github/closure/apply-runtime-patches.marker
+          git add src/features/audio-tools/AudioToolsView.tsx src/features/editor/MultitrackEditorView.tsx
+          git commit -m 'fix(runtime): enforce audio capability truth and persistence acknowledgement'
+          git push origin HEAD:codex/absolute-final-product-closure-20260908

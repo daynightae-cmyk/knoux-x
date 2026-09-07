@@ -78,8 +78,8 @@ export interface ApplicationSettingsExport {
 
 export const DEFAULT_APPLICATION_SETTINGS: ApplicationSettings = {
   language: 'en',
-  theme: 'deep-black',
-  accentColor: '#8b5cf6',
+  theme: 'system-light',
+  accentColor: '#7828e8',
   motionEnabled: true,
   autoPlay: true,
   resumePlayback: true,

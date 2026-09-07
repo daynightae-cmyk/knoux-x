@@ -4,8 +4,9 @@ import {
   type TimelineItem,
   type TimelineTrack,
 } from '../../core/creative/multitrackProject';
+import { getTimelineVideoRetouch } from '../../core/creative/videoRetouchEffect';
+import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
-import '../video-studio/retouch/videoRetouchProject';
 
 export type MobileTimelineRenderOptions = {
   width: number;
@@ -86,12 +87,16 @@ function audioGain(item: TimelineItem, track: TimelineTrack, localTime: number):
   return Math.max(0, value);
 }
 
-function ensureRetouchBuffer(prepared: PreparedMedia, width: number, height: number): {
+function temporalRetouch(item: TimelineItem): VideoRetouchClipState | null {
+  return getTimelineVideoRetouch(item)?.temporal ?? null;
+}
+
+function ensureRetouchBuffer(prepared: PreparedMedia, state: VideoRetouchClipState, width: number, height: number): {
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
   processor: VideoFrameProcessor;
 } | null {
-  if (!prepared.item.retouch?.enabled || prepared.item.retouch.beforeAfter === 'before') return null;
+  if (!state.enabled || state.beforeAfter === 'before') return null;
   if (!prepared.retouchCanvas) prepared.retouchCanvas = document.createElement('canvas');
   if (prepared.retouchCanvas.width !== width) prepared.retouchCanvas.width = width;
   if (prepared.retouchCanvas.height !== height) prepared.retouchCanvas.height = height;
@@ -108,12 +113,14 @@ function retouchedVisualSource(
   sourceHeight: number,
   localTime: number,
 ): CanvasImageSource {
-  const buffer = ensureRetouchBuffer(prepared, sourceWidth, sourceHeight);
+  const state = temporalRetouch(prepared.item);
+  if (!state) return source;
+  const buffer = ensureRetouchBuffer(prepared, state, sourceWidth, sourceHeight);
   if (!buffer) return source;
   buffer.context.clearRect(0, 0, sourceWidth, sourceHeight);
   buffer.context.drawImage(source, 0, 0, sourceWidth, sourceHeight);
   const sourceFrame = buffer.context.getImageData(0, 0, sourceWidth, sourceHeight);
-  const result = buffer.processor.process(sourceFrame, prepared.item.retouch, localTime);
+  const result = buffer.processor.process(sourceFrame, state, localTime);
   buffer.context.putImageData(result.imageData, 0, 0);
   return buffer.canvas;
 }

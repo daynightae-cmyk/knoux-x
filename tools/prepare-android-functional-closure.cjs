@@ -27,7 +27,6 @@ import android.provider.OpenableColumns;
 import android.util.Base64;
 
 import androidx.activity.result.ActivityResult;
-
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -257,7 +256,6 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 
 import androidx.activity.result.ActivityResult;
-
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -522,16 +520,31 @@ for (const pluginName of ['KnouxSafPlugin', 'KnouxScreenCapturePlugin']) {
 fs.writeFileSync(mainActivityPath, mainActivity, 'utf8');
 
 let manifest = fs.readFileSync(manifestPath, 'utf8');
-const permissionBlock = [
-  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />',
-  '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
-].filter((line) => !manifest.includes(line)).join('\n    ');
-if (permissionBlock) manifest = manifest.replace('<application', `    ${permissionBlock}\n    <application`);
-const serviceEntry = `        <service android:name=".KnouxScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />`;
-if (!manifest.includes('.KnouxScreenCaptureService')) manifest = manifest.replace('</application>', `${serviceEntry}\n    </application>`);
+const marker = '    <application';
+for (const permission of [
+  'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION',
+  'android.permission.READ_MEDIA_VIDEO',
+  'android.permission.READ_MEDIA_AUDIO',
+  'android.permission.READ_MEDIA_IMAGES',
+]) {
+  if (!manifest.includes(permission)) manifest = manifest.replace(marker, `    <uses-permission android:name="${permission}" />\n${marker}`);
+}
+if (!manifest.includes('android:name=".KnouxScreenCaptureService"')) {
+  const service = `        <service\n            android:name=".KnouxScreenCaptureService"\n            android:exported="false"\n            android:foregroundServiceType="mediaProjection" />\n`;
+  manifest = manifest.replace('    </application>', `${service}    </application>`);
+}
 fs.writeFileSync(manifestPath, manifest, 'utf8');
 
-console.log('KNOUX Android functional closure generated:');
-console.log(`  ${path.relative(root, path.join(javaDir, 'KnouxSafPlugin.java'))}`);
-console.log(`  ${path.relative(root, path.join(javaDir, 'KnouxScreenCapturePlugin.java'))}`);
-console.log(`  ${path.relative(root, path.join(javaDir, 'KnouxScreenCaptureService.java'))}`);
+const checks = [
+  ['MainActivity.java', 'registerPlugin(KnouxSafPlugin.class)'],
+  ['MainActivity.java', 'registerPlugin(KnouxScreenCapturePlugin.class)'],
+  ['KnouxSafPlugin.java', '@CapacitorPlugin(name = "KnouxSaf")'],
+  ['KnouxScreenCapturePlugin.java', '@CapacitorPlugin(name = "KnouxScreenCapture")'],
+  ['KnouxScreenCaptureService.java', 'MediaProjection'],
+];
+for (const [file, token] of checks) {
+  const source = fs.readFileSync(path.join(javaDir, file), 'utf8');
+  if (!source.includes(token)) throw new Error(`Android functional closure token missing in ${file}: ${token}`);
+}
+if (!manifest.includes('android:foregroundServiceType="mediaProjection"')) throw new Error('MediaProjection service declaration missing.');
+console.log(`[PASS] KNOUX Android functional closure installed for ${appId}: persisted SAF + native MediaProjection.`);

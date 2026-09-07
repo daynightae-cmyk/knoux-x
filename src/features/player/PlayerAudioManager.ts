@@ -108,7 +108,7 @@ export class PlayerAudioManager {
     try {
       this.audioContext = new AudioContext({ sampleRate: 48_000, latencyHint: 'playback' });
 
-      if (element instanceof HTMLVideoElement) {
+      if (typeof HTMLVideoElement !== 'undefined' && element instanceof HTMLVideoElement) {
         const mirror = document.createElement('audio');
         mirror.preload = 'auto';
         mirror.src = element.currentSrc || element.src;
@@ -175,7 +175,7 @@ export class PlayerAudioManager {
   }
 
   private syncMirror(force: boolean): void {
-    const video = this.mediaElement instanceof HTMLVideoElement ? this.mediaElement : null;
+    const video = typeof HTMLVideoElement !== 'undefined' && this.mediaElement instanceof HTMLVideoElement ? this.mediaElement : null;
     const mirror = this.audioMirror;
     if (!video || !mirror) return;
     const offset = this.settings.delayMs / 1000;
@@ -254,7 +254,7 @@ export class PlayerAudioManager {
     this.audioMirror?.load();
     this.audioMirror?.remove();
     this.audioMirror = null;
-    if (this.mediaElement instanceof HTMLVideoElement) this.mediaElement.muted = this.settings.muted;
+    if (typeof HTMLVideoElement !== 'undefined' && this.mediaElement instanceof HTMLVideoElement) this.mediaElement.muted = this.settings.muted;
 
     this.disconnectGraph();
     this.sourceNode = null;

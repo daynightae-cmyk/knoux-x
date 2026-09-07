@@ -17,6 +17,7 @@ import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
 import { AndroidBeautyExtension } from './platform/AndroidBeautyExtension';
+import { AndroidBeautyHistoryControls } from './platform/AndroidBeautyHistoryControls';
 import { AndroidBodyBeautyExtension } from './platform/AndroidBodyBeautyExtension';
 import { AndroidPlaybackPreferences } from './platform/AndroidPlaybackPreferences';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
@@ -73,6 +74,7 @@ root.render(
       {androidRuntimeInstalled && <AndroidPlaybackPreferences />}
       {androidRuntimeInstalled && <AndroidBeautyExtension />}
       {androidRuntimeInstalled && <AndroidBodyBeautyExtension />}
+      {androidRuntimeInstalled && <AndroidBeautyHistoryControls />}
     </ErrorBoundary>
   </React.StrictMode>
 );

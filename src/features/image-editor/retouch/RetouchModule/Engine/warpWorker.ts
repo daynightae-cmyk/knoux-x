@@ -207,7 +207,7 @@ self.onmessage = (event: MessageEvent<WarpWorkerRequest>): void => {
   try {
     const response = warp(request);
     if (response.type === 'result') {
-      postMessage(response, [response.warpedPixels.buffer]);
+      postMessage(response, { transfer: [response.warpedPixels.buffer as ArrayBuffer] });
       return;
     }
     postMessage(response);

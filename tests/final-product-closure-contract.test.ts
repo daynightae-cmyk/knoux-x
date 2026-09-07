@@ -44,6 +44,14 @@ describe('KNOUX X absolute final product closure regressions', () => {
     ]);
   });
 
+  test('Android Audio Lab consumes capability truth and never presents local peak normalization as LUFS', () => {
+    const audioView = read('src/features/audio-tools/AudioToolsView.tsx');
+    expect(audioView).toContain('supportedAudioOutputFormats');
+    expect(audioView).toContain("androidRuntime ? 'wav' : 'mp3'");
+    expect(audioView).toContain('Local peak normalization');
+    expect(audioView).toContain('WAV PCM only');
+  });
+
   test('mobile speed and wake-lock settings have concrete runtime consumers', () => {
     const consumer = read('src/platform/AndroidPlaybackPreferences.tsx');
     expect(consumer).toContain("mobile.defaultPlaybackSpeed");
@@ -55,6 +63,24 @@ describe('KNOUX X absolute final product closure regressions', () => {
     const settings = read('src/features/settings/MobileSettingsView.tsx');
     expect(settings).toContain("announceMobileSetting('mobile.keepScreenAwake', true)");
     expect(settings).toContain("setTheme('system-light')");
+  });
+
+  test('Video Studio export is gated by a real persistence acknowledgement', () => {
+    const mobileStudio = read('src/features/video-studio/MobileVideoStudioView.tsx');
+    expect(mobileStudio).toContain('knoux:command-result');
+    expect(mobileStudio).toContain('requestId');
+    expect(mobileStudio).toContain("detail?.command !== 'save'");
+    expect(mobileStudio).not.toContain('setTimeout');
+
+    const editor = read('src/features/editor/MultitrackEditorView.tsx');
+    expect(editor).toContain("window.dispatchEvent(new CustomEvent('knoux:command-result'");
+    expect(editor).toContain('const snapshot = structuredClone(project)');
+
+    const bridge = read('src/platform/androidMultitrackExportBridge.ts');
+    const persistPosition = bridge.indexOf('await (base.save');
+    const publishPosition = bridge.indexOf('writeActiveAndroidMultitrackProject(project)', persistPosition);
+    expect(persistPosition).toBeGreaterThanOrEqual(0);
+    expect(publishPosition).toBeGreaterThan(persistPosition);
   });
 
   test('Android image runtime uses typed arrays and not Node Buffer globals', () => {

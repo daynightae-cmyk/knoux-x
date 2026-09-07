@@ -364,13 +364,14 @@ export const AndroidBeautyExtension: React.FC = () => {
   }, [analysis, selectedFaceId]);
 
   const ensureTargetFaces = useCallback(async (): Promise<DetectedFace[]> => {
-    let result = analysis;
-    if (result?.status !== 'ready' || result.faces.length === 0) result = await analyze(false);
+    if (applyAllFaces && analysis?.status === 'ready' && analysis.faces.length > 0) return analysis.faces;
+    if (selectedFace) return [selectedFace];
+    const result = await analyze(false);
     if (result?.status !== 'ready' || result.faces.length === 0) return [];
     if (applyAllFaces) return result.faces;
     const selected = result.faces.find((face) => face.id === selectedFaceId) ?? result.faces[0];
     return selected ? [selected] : [];
-  }, [analysis, analyze, applyAllFaces, selectedFaceId]);
+  }, [analysis, analyze, applyAllFaces, selectedFace, selectedFaceId]);
 
   const applyTool = useCallback(async (tool: SmartBeautyTool): Promise<void> => {
     if (!source || operationBusy) return;

@@ -338,6 +338,10 @@ export class PlayerAudioManager {
     this.settings.effects[effectId] = { ...params };
     const previous = this.effectStages.get(effectId);
     if (previous) {
+      try { previous.input.disconnect(); } catch { /* already detached */ }
+      if (previous.output !== previous.input) {
+        try { previous.output.disconnect(); } catch { /* already detached */ }
+      }
       previous.dispose?.();
       this.effectStages.delete(effectId);
     }
@@ -349,7 +353,13 @@ export class PlayerAudioManager {
 
   public async removeEffect(effectId: string): Promise<void> {
     const stage = this.effectStages.get(effectId);
-    stage?.dispose?.();
+    if (stage) {
+      try { stage.input.disconnect(); } catch { /* already detached */ }
+      if (stage.output !== stage.input) {
+        try { stage.output.disconnect(); } catch { /* already detached */ }
+      }
+      stage.dispose?.();
+    }
     this.effectStages.delete(effectId);
     delete this.settings.effects[effectId];
     this.reconnectGraph();

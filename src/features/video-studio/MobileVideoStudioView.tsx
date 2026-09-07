@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ArrowLeft,
   Crop,
@@ -23,6 +23,14 @@ export const MobileVideoStudioView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const [inspectorOpen, setInspectorOpen] = useState(false);
 
+  const openExport = useCallback((): void => {
+    // Force the Android editor bridge to persist the exact current timeline
+    // before switching surfaces. MobileExportView reads this project snapshot,
+    // not PlayerStore.currentMedia.
+    dispatchEditorCommand('save');
+    window.setTimeout(() => setView('export'), 180);
+  }, [setView]);
+
   return (
     <section
       className={`knoux-mobile-creative-surface kmc-video-editor${inspectorOpen ? ' kmc-show-inspector' : ''}`}
@@ -38,7 +46,7 @@ export const MobileVideoStudioView: React.FC = () => {
         </div>
         <div className="kmc-topbar-actions">
           <span className="kmc-quality-pill">1080P</span>
-          <button type="button" className="kmc-export-button" onClick={() => setView('export')}>
+          <button type="button" className="kmc-export-button" onClick={openExport}>
             <Download size={17} /> Export
           </button>
         </div>

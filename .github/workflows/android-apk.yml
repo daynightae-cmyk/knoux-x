@@ -13,6 +13,7 @@ on:
       - 'tools/prepare-android-branding.cjs'
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
+      - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -33,6 +34,7 @@ on:
       - 'tools/prepare-android-branding.cjs'
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
+      - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
@@ -124,12 +126,23 @@ jobs:
         shell: bash
         run: |
           node tools/prepare-android-native-media.cjs
+          node tools/prepare-android-functional-closure.cjs
           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
           grep -F 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
           grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' android/app/src/main/AndroidManifest.xml
           grep -F '@CapacitorPlugin(name = "KnouxMediaSession")' android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java
           grep -F 'class KnouxPlaybackService extends Service' android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java
           grep -F 'registerPlugin(KnouxMediaSessionPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
+          grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F 'Intent.ACTION_OPEN_DOCUMENT' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F 'takePersistableUriPermission' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F 'registerPlugin(KnouxSafPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
+          grep -F '@CapacitorPlugin(name = "KnouxScreenCapture")' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
+          grep -F 'MediaProjectionManager' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
+          grep -F 'MediaRecorder.VideoEncoder.H264' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCaptureService.java
+          grep -F 'android:foregroundServiceType="mediaProjection"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION' android/app/src/main/AndroidManifest.xml
+          grep -F 'registerPlugin(KnouxScreenCapturePlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
 
       - name: Configure Android media permissions
         shell: bash
@@ -190,6 +203,9 @@ jobs:
           cp android/app/src/main/res/drawable/splash.png android-ci-output/android-premium-splash.png
           cp android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java android-ci-output/KnouxMediaSessionPlugin.java
           cp android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java android-ci-output/KnouxPlaybackService.java
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java android-ci-output/KnouxSafPlugin.java
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java android-ci-output/KnouxScreenCapturePlugin.java
+          cp android/app/src/main/java/dev/knoux/playerx/KnouxScreenCaptureService.java android-ci-output/KnouxScreenCaptureService.java
           sha256sum android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.sha256
           stat -c '%s' android-ci-output/KNOUX-X-Android-debug.apk > android-ci-output/KNOUX-X-Android-debug.apk.size
           test -s android-ci-output/KNOUX-X-Android-debug.apk

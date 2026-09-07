@@ -44,6 +44,9 @@ import './styles/mobile-premium-shell.css';
 import './styles/mobile-creative-surfaces.css';
 import './styles/mobile-media-library.css';
 import './styles/mobile-export.css';
+import './styles/mobile-recording.css';
+import './styles/mobile-functional-closure.css';
+import './styles/mobile-settings.css';
 
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
@@ -52,6 +55,10 @@ const CaptureView = lazy(async () => {
 const RecordingView = lazy(async () => {
   const module = await import('./features/recording/RecordingView');
   return { default: module.RecordingView };
+});
+const MobileScreenRecordingView = lazy(async () => {
+  const module = await import('./features/recording/MobileScreenRecordingView');
+  return { default: module.MobileScreenRecordingView };
 });
 const VideoStudioView = lazy(async () => {
   const module = await import('./features/video-studio/VideoStudioView');
@@ -97,6 +104,10 @@ const MobileExportView = lazy(async () => {
   const module = await import('./features/export/MobileExportView');
   return { default: module.MobileExportView };
 });
+const MobileSettingsView = lazy(async () => {
+  const module = await import('./features/settings/MobileSettingsView');
+  return { default: module.MobileSettingsView };
+});
 const QueueView = lazy(async () => {
   const module = await import('./features/queue/QueueView');
   return { default: module.QueueView };
@@ -113,14 +124,14 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'queue': return <QueueView />;
     case 'library': return android ? <MobileMediaLibraryView /> : <LibraryView />;
     case 'capture': return <CaptureView />;
-    case 'recording': return <RecordingView />;
+    case 'recording': return android ? <MobileScreenRecordingView /> : <RecordingView />;
     case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />;
     case 'image-editor': return android ? <MobileImageEditorView /> : <ImageEditorView />;
     case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />;
     case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
     case 'export': return android ? <MobileExportView /> : <ExportView />;
-    case 'settings': return <SettingsView />;
+    case 'settings': return android ? <MobileSettingsView /> : <SettingsView />;
     default: return <PlayerViewportBoundary />;
   }
 }
@@ -223,12 +234,7 @@ const App: React.FC = () => {
       void window.knouxCreativeAPI.export.probe(firstPath).then((probe) => {
         if (!probe.streams?.some((stream) => stream.codec_type === 'video' || stream.codec_type === 'audio')) {
           console.warn('[KNOUX] Startup media probe found no playable streams:', firstPath, probe);
-          useAppStore.getState().addNotification({
-            type: 'error',
-            title: 'Could not open media',
-            message: 'The selected file contains no playable audio or video stream.',
-            duration: 6000,
-          });
+          useAppStore.getState().addNotification({ type: 'error', title: 'Could not open media', message: 'The selected file contains no playable audio or video stream.', duration: 6000 });
           return;
         }
         usePlayerStore.getState().setCurrentMedia(firstPath);
@@ -236,12 +242,7 @@ const App: React.FC = () => {
         setView('player');
       }).catch((error) => {
         console.error('[KNOUX] Startup media probe failed:', firstPath, error);
-        useAppStore.getState().addNotification({
-          type: 'error',
-          title: 'Could not open media',
-          message: 'The selected media file could not be opened.',
-          duration: 6000,
-        });
+        useAppStore.getState().addNotification({ type: 'error', title: 'Could not open media', message: 'The selected media file could not be opened.', duration: 6000 });
       });
     });
     window.knouxAPI.app.ready();

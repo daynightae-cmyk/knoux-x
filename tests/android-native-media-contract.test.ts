@@ -49,12 +49,15 @@ describe('KNOUX X Android native media foundations', () => {
     expect(session).toContain('syncAndroidMediaSession');
   });
 
-  test('implements audio delay with a real Web Audio DelayNode without replacing the established effect-routing panner', () => {
+  test('keeps boost and delay as dedicated manager nodes without bypassing effect routing or the limiter', () => {
+    expect(audio).toContain('private boostGainNode: GainNode | null = null');
     expect(audio).toContain('private delayNode: DelayNode | null = null');
-    expect(audio).toContain('this.audioContext.createDelay(2)');
-    expect(audio).toContain('this.gainNode.connect(this.delayNode)');
+    expect(audio).toContain('this.audioContext.createDelay(5)');
+    expect(audio).toContain('this.gainNode.connect(this.boostGainNode)');
+    expect(audio).toContain('this.boostGainNode.connect(this.delayNode)');
     expect(audio).toContain('this.delayNode.connect(this.stereoPanner)');
-    expect(audio).toContain('this.stereoPanner.connect(this.analyser)');
+    expect(audio).toContain('lastNode.connect(this.limiterNode)');
+    expect(audio).toContain('this.limiterNode.connect(this.analyser)');
     expect(audio).toContain('setDelay(delayMs: number)');
     expect(audio).toContain('delayTime.setTargetAtTime');
     expect(session).toContain('Audio Delay');

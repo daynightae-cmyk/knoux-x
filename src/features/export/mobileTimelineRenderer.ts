@@ -4,6 +4,8 @@ import {
   type TimelineItem,
   type TimelineTrack,
 } from '../../core/creative/multitrackProject';
+import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
+import '../video-studio/retouch/videoRetouchProject';
 
 export type MobileTimelineRenderOptions = {
   width: number;
@@ -20,6 +22,9 @@ type PreparedMedia = {
   element: HTMLVideoElement | HTMLAudioElement | HTMLImageElement | null;
   gain?: GainNode;
   pan?: StereoPannerNode;
+  retouchCanvas?: HTMLCanvasElement;
+  retouchContext?: CanvasRenderingContext2D;
+  retouchProcessor?: VideoFrameProcessor;
 };
 
 function recorderMime(): string {
@@ -81,6 +86,38 @@ function audioGain(item: TimelineItem, track: TimelineTrack, localTime: number):
   return Math.max(0, value);
 }
 
+function ensureRetouchBuffer(prepared: PreparedMedia, width: number, height: number): {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  processor: VideoFrameProcessor;
+} | null {
+  if (!prepared.item.retouch?.enabled || prepared.item.retouch.beforeAfter === 'before') return null;
+  if (!prepared.retouchCanvas) prepared.retouchCanvas = document.createElement('canvas');
+  if (prepared.retouchCanvas.width !== width) prepared.retouchCanvas.width = width;
+  if (prepared.retouchCanvas.height !== height) prepared.retouchCanvas.height = height;
+  if (!prepared.retouchContext) prepared.retouchContext = prepared.retouchCanvas.getContext('2d', { alpha: true, willReadFrequently: true }) ?? undefined;
+  if (!prepared.retouchProcessor) prepared.retouchProcessor = new VideoFrameProcessor();
+  if (!prepared.retouchContext) return null;
+  return { canvas: prepared.retouchCanvas, context: prepared.retouchContext, processor: prepared.retouchProcessor };
+}
+
+function retouchedVisualSource(
+  prepared: PreparedMedia,
+  source: HTMLVideoElement | HTMLImageElement,
+  sourceWidth: number,
+  sourceHeight: number,
+  localTime: number,
+): CanvasImageSource {
+  const buffer = ensureRetouchBuffer(prepared, sourceWidth, sourceHeight);
+  if (!buffer) return source;
+  buffer.context.clearRect(0, 0, sourceWidth, sourceHeight);
+  buffer.context.drawImage(source, 0, 0, sourceWidth, sourceHeight);
+  const sourceFrame = buffer.context.getImageData(0, 0, sourceWidth, sourceHeight);
+  const result = buffer.processor.process(sourceFrame, prepared.item.retouch, localTime);
+  buffer.context.putImageData(result.imageData, 0, 0);
+  return buffer.canvas;
+}
+
 function drawVisual(
   context: CanvasRenderingContext2D,
   prepared: PreparedMedia,
@@ -125,6 +162,7 @@ function drawVisual(
   const sourceWidth = element instanceof HTMLVideoElement ? element.videoWidth : element.naturalWidth;
   const sourceHeight = element instanceof HTMLVideoElement ? element.videoHeight : element.naturalHeight;
   if (sourceWidth < 1 || sourceHeight < 1) return;
+  const visualSource = retouchedVisualSource(prepared, element, sourceWidth, sourceHeight, localTime);
 
   const cropLeft = Math.max(0, Math.min(0.95, item.transform.cropLeft));
   const cropRight = Math.max(0, Math.min(0.95, item.transform.cropRight));
@@ -144,7 +182,7 @@ function drawVisual(
   context.translate(outputWidth / 2 + item.transform.positionX, outputHeight / 2 + item.transform.positionY);
   context.rotate(item.transform.rotation * Math.PI / 180);
   context.scale(item.transform.scale * (item.transform.flipHorizontal ? -1 : 1), item.transform.scale * (item.transform.flipVertical ? -1 : 1));
-  context.drawImage(element, sx, sy, sw, sh, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  context.drawImage(visualSource, sx, sy, sw, sh, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   context.restore();
 }
 
@@ -279,7 +317,8 @@ export async function renderMultitrackProject(
     options.onProgress?.(100);
     return { blob, mimeType, duration };
   } finally {
-    prepared.forEach(({ element }) => {
+    prepared.forEach(({ element, retouchProcessor }) => {
+      retouchProcessor?.clearCache();
       if (isMediaElement(element)) {
         element.pause();
         element.removeAttribute('src');

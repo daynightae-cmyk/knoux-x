@@ -26,7 +26,7 @@ describe('KNOUX X Android real mobile export contract', () => {
   });
 
   test('offers real output quality, saving and Android share flows', () => {
-    for (const token of ['720p', '1080p', '1440p', '4K', 'SAVE TO DEVICE', 'navigator.share', 'navigator.canShare']) {
+    for (const token of ['720p', '1080p', '1440p', '4K', 'Save to Device', 'navigator.share', 'navigator.canShare']) {
       expect(mobileExport).toContain(token);
     }
     expect(mobileExport).toContain("'video/mp4'");

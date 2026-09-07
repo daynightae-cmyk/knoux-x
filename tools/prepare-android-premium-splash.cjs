@@ -74,11 +74,6 @@ async function premiumSplash(width, height) {
       <text x="50%" y="${titleY}" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">KNOUX <tspan fill="${PURPLE}">X</tspan></text>
       <text x="50%" y="${titleY + titleSize * 0.72}" text-anchor="middle" fill="#d7c6f2" font-family="Arial, Helvetica, sans-serif" font-size="${subSize}" letter-spacing="${Math.max(2, subSize * 0.55)}">CREATE · PLAY · ENHANCE</text>
       <text x="50%" y="${signatureY}" text-anchor="middle" fill="#c7a6ff" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="${signatureSize}" opacity="0.92">${escapeXml('Eng. Sadek Elgazar')}</text>
-      <g transform="translate(${width * 0.22} ${baselineY})">
-        <rect width="${width * 0.56}" height="${Math.max(3, height * 0.004)}" rx="99" fill="#2f1b4f"/>
-        <rect width="${width * 0.31}" height="${Math.max(3, height * 0.004)}" rx="99" fill="${PURPLE}" filter="url(#glow)"/>
-        <text x="${width * 0.28}" y="${Math.max(20, height * 0.027)}" text-anchor="middle" fill="#a990ca" font-family="Arial, Helvetica, sans-serif" font-size="${subSize * 0.85}" letter-spacing="${Math.max(2, subSize * 0.45)}">LOADING...</text>
-      </g>
     </svg>
   `);
 

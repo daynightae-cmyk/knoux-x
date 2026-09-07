@@ -59,7 +59,7 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(app).toContain("case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />");
     expect(mobileVideo).toContain('<MultitrackEditorView />');
     expect(mobileSlideshow).toContain('<SlideshowView />');
-    expect(mobilePhoto).toContain('<ImageEditorView />');
+    expect(mobilePhoto).toContain('data-component="MobileImageEditorView"');
     expect(mobileBeauty).toContain('<ImageEditorView />');
     expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
   });

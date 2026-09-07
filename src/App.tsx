@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './components/layout/Sidebar';
 import { TitleBar } from './components/layout/TitleBar';
 import { MobileGlassDrawer } from './components/mobile/MobileGlassDrawer';
+import { MobileSplashOverlay } from './components/mobile/MobileSplashOverlay';
 import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
 import { CommandShortcutController } from './components/system/CommandShortcutController';
 import { Sprint02CommandRuntime } from './components/system/Sprint02CommandRuntime';
@@ -275,6 +276,7 @@ const App: React.FC = () => {
       </div>
 
       {android && <MobileGlassDrawer />}
+      {android && <MobileSplashOverlay />}
 
       {isAIAssistantOpen && (
         <Suspense fallback={<div className="creative-loading floating-module">{t('app.loadingAI')}</div>}>

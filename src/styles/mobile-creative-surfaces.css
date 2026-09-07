@@ -6,11 +6,17 @@ html[data-platform='android'] .knoux-mobile-creative-surface {
   --kmc-surface: rgba(13, 8, 24, 0.78);
   --kmc-border: rgba(172, 112, 255, 0.27);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   width: 100%;
-  min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) calc(92px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
   color: #fff;
   background:
     radial-gradient(circle at 88% 8%, rgba(110, 35, 255, 0.18), transparent 28%),
@@ -455,6 +461,245 @@ html[data-platform='android'] .kmc-creative-footer {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Dedicated Mobile Photo Canvas & Editor */
+.kmc-photo-canvas-container {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: rgba(4, 2, 9, 0.82);
+  border: 1px solid rgba(162, 96, 255, 0.22);
+  overflow: hidden;
+  margin: 4px 0 12px;
+}
+
+.kmc-photo-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kmc-photo-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.kmc-photo-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #d8c4ff;
+  background: rgba(18, 9, 36, 0.84);
+  border: 1px solid rgba(170, 105, 255, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.kmc-photo-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 20px;
+  max-width: 320px;
+}
+
+.kmc-empty-icon-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  color: #9b4dff;
+  background: radial-gradient(circle, rgba(155, 77, 255, 0.22), transparent 70%);
+  border: 1px solid rgba(155, 77, 255, 0.34);
+}
+
+.kmc-photo-empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #fff;
+}
+
+.kmc-photo-empty-state p {
+  margin: 0 0 20px;
+  font-size: 12px;
+  color: #bfaee6;
+  line-height: 1.4;
+}
+
+.kmc-primary-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, #9b4dff, #6b1ff5);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(155, 77, 255, 0.4);
+}
+
+.kmc-photo-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #d8c4ff;
+  font-size: 14px;
+}
+
+.kmc-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(155, 77, 255, 0.2);
+  border-top-color: #9b4dff;
+  border-radius: 50%;
+  animation: kmc-spin 0.8s linear infinite;
+}
+
+@keyframes kmc-spin { to { transform: rotate(360deg); } }
+
+/* Photo Tool Dock */
+.kmc-photo-tool-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(14, 8, 28, 0.92);
+  border: 1px solid rgba(162, 96, 255, 0.28);
+}
+
+.kmc-tool-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.kmc-tool-tabs button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbb8ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kmc-tool-tabs button.active {
+  background: linear-gradient(135deg, rgba(155, 77, 255, 0.3), rgba(107, 31, 245, 0.3));
+  border-color: rgba(162, 96, 255, 0.4);
+  color: #fff;
+}
+
+.kmc-tool-panel {
+  padding: 8px 4px 4px;
+}
+
+.kmc-adjust-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kmc-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kmc-slider-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #d8c4ff;
+  font-weight: 600;
+}
+
+.kmc-slider-group input[type='range'] {
+  width: 100%;
+  accent-color: #9b4dff;
+}
+
+.kmc-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.kmc-filter-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(162, 96, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5d8ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kmc-filter-chip.active {
+  border-color: #9b4dff;
+  background: rgba(155, 77, 255, 0.25);
+  color: #fff;
+}
+
+.kmc-transform-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.kmc-icon-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(162, 96, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5d8ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kmc-icon-action-btn.active {
+  border-color: #9b4dff;
+  background: rgba(155, 77, 255, 0.25);
+  color: #fff;
+}
+
 
 @keyframes kmc-rise {
   from { opacity: 0; transform: translateY(10px); }

@@ -1,0 +1,82 @@
+name: Codex one-shot lint source repair
+
+on:
+  push:
+    branches:
+      - codex/absolute-final-product-closure-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/absolute-final-product-closure-20260908
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Repair lint root causes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          image_processor = Path('src/features/image-editor/retouch/RetouchModule/Pipeline/ImageProcessor.ts')
+          text = image_processor.read_text(encoding='utf-8')
+          old = """function sanitizedMediaName(value: string): string {\n  const cleaned = value.normalize('NFC').replace(/[\\\\/:*?\"<>|\\u0000-\\u001f]/g, '-').trim();\n  return (cleaned || 'KNOUX-Retouch').slice(0, 120);\n}"""
+          new = """function sanitizedMediaName(value: string): string {\n  const filesystemSafe = value.normalize('NFC').replace(/[\\\\/:*?\"<>|]/g, '-');\n  const printable = Array.from(filesystemSafe, (character) => (\n    character.charCodeAt(0) < 32 ? '-' : character\n  )).join('');\n  const cleaned = printable.trim();\n  return (cleaned || 'KNOUX-Retouch').slice(0, 120);\n}"""
+          if old not in text:
+              raise SystemExit('ImageProcessor sanitizedMediaName source no longer matches expected HEAD')
+          image_processor.write_text(text.replace(old, new), encoding='utf-8')
+
+          color_picker = Path('src/features/image-editor/retouch/RetouchModule/UI/ColorPicker.tsx')
+          text = color_picker.read_text(encoding='utf-8')
+          old = """  const [draft, setDraft] = useState<MakeupSelection>({ ...value });\n\n  useEffect(() => {\n    setDraft({ ...value });\n  }, [value.blendMode, value.color, value.intensity]);"""
+          new = """  const [draft, setDraft] = useState<MakeupSelection>({ ...value });\n  const { blendMode, color, intensity } = value;\n\n  useEffect(() => {\n    setDraft({ blendMode, color, intensity });\n  }, [blendMode, color, intensity]);"""
+          if old not in text:
+              raise SystemExit('ColorPicker synchronization source no longer matches expected HEAD')
+          color_picker.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+
+          npx eslint --fix \
+            src/features/image-editor/retouch/RetouchModule/Engine/BodyDetector.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/LayerManager.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/LayerWarpExecutor.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/MeshWarper.ts \
+            src/features/image-editor/retouch/RetouchModule/Pipeline/HistoryStack.ts \
+            src/features/image-editor/retouch/RetouchModule/Pipeline/ImageProcessor.ts \
+            src/features/image-editor/retouch/RetouchModule/UI/ColorPicker.tsx \
+            src/features/image-editor/retouch/RetouchModule/UI/RetouchCanvas.tsx \
+            src/features/image-editor/retouch/RetouchModule/UI/RetouchWorkspace.tsx \
+            src/features/video-studio/retouch/RetouchToolAdapter.ts \
+            src/features/video-studio/retouch/VideoRetouchAnalyzer.ts \
+            src/features/video-studio/retouch/VideoRetouchInspector.tsx \
+            src/features/video-studio/retouch/videoRetouchTimeline.ts
+
+      - name: Verify TypeScript and full ESLint gate
+        run: |
+          npm run typecheck
+          npm run lint -- --max-warnings=0
+
+      - name: Commit repaired sources and remove one-shot workflow
+        shell: bash
+        run: |
+          rm .github/workflows/codex-lint-repair.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(ci): close retouch lint gate"
+          git push origin HEAD:codex/absolute-final-product-closure-20260908

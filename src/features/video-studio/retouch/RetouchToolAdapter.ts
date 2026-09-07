@@ -1,15 +1,22 @@
 import type { TimelineItem } from '../../../core/creative/multitrackProject';
+import {
+  createTimelineVideoRetouchEffect,
+  getTimelineVideoRetouch,
+  normalizeTimelineVideoRetouch,
+  type RetouchTimelineItem,
+} from '../../../core/creative/videoRetouchEffect';
 import type { EditingToolAdapter } from '../../editor/tools/EditingToolAdapter';
 import { EditingToolError } from '../../editor/tools/EditingToolAdapter';
 import { retouchTemplateRegistry } from '../../image-editor/retouch/RetouchModule/Templates/TemplateRegistry';
 import type { RetouchTemplate } from '../../image-editor/retouch/RetouchModule/Templates/TemplateTypes';
 import {
   addVideoRetouchLayer,
-  cloneVideoRetouchState,
   createVideoRetouchState,
+  ensureVideoRetouchState,
   resetVideoRetouch,
   type VideoRetouchApplyScope,
   type VideoRetouchCategory,
+  type VideoRetouchClipState,
   type VideoRetouchLayerRange,
   type VideoRetouchRegion,
 } from './videoRetouchProject';
@@ -44,19 +51,28 @@ function categoryForTemplate(template: RetouchTemplate): VideoRetouchCategory {
 }
 
 function regionForTemplate(template: RetouchTemplate): VideoRetouchRegion {
-  const region = template.targetRegion as VideoRetouchRegion;
-  return region;
+  return template.targetRegion as VideoRetouchRegion;
 }
 
 function dispatchOpen(detail: RetouchToolOpenDetail): void {
   window.dispatchEvent(new CustomEvent<RetouchToolOpenDetail>(RETOUCH_TOOL_OPEN_EVENT, { detail }));
 }
 
+function withTemporalState(item: TimelineItem, state: VideoRetouchClipState): TimelineItem {
+  const effect = getTimelineVideoRetouch(item) ?? createTimelineVideoRetouchEffect();
+  effect.temporal = state;
+  effect.enabled = state.enabled;
+  effect.selectedFaceId = state.selectedFaceId;
+  effect.subjectMode = state.applyAllFaces ? 'all-faces' : state.selectedFaceId ? 'selected-face' : 'primary';
+  effect.updatedAt = new Date().toISOString();
+  const output: RetouchTimelineItem = { ...item, retouch: normalizeTimelineVideoRetouch(effect) };
+  return output;
+}
+
 /**
- * Adapter over the existing Retouch template system. It does not duplicate
- * FaceDetector, BodyDetector, TemplateRegistry or any pixel-processing engine.
- * Its only responsibility is mapping accepted Retouch template choices onto
- * timeline clip state and exposing an event for the existing Retouch UI.
+ * Adapter over the existing Retouch system. It never duplicates detection,
+ * templates or pixel engines; it maps stable template selections into the
+ * canonical timeline Retouch payload and exposes the existing editor surface.
  */
 export class RetouchToolAdapter implements EditingToolAdapter<VideoRetouchToolInput, TimelineItem>, ExistingRetouchAdapter {
   readonly id = 'retouch';
@@ -91,7 +107,7 @@ export class RetouchToolAdapter implements EditingToolAdapter<VideoRetouchToolIn
       });
     }
 
-    let state = input.item.retouch ? cloneVideoRetouchState(input.item.retouch) : createVideoRetouchState();
+    let state = ensureVideoRetouchState(input.item);
     state.selectedFaceId = input.faceId ?? state.selectedFaceId;
     state = addVideoRetouchLayer(state, {
       templateId: template.id,
@@ -106,14 +122,14 @@ export class RetouchToolAdapter implements EditingToolAdapter<VideoRetouchToolIn
       maskStrategy: template.maskStrategy,
       blendMode: template.blendMode,
     });
-
-    return { ...input.item, retouch: state };
+    return withTemporalState(input.item, state);
   }
 
   async reset(input: VideoRetouchToolInput): Promise<TimelineItem> {
     if (!this.canHandle(input)) return input.item;
-    const state = input.item.retouch ? resetVideoRetouch(input.item.retouch) : createVideoRetouchState();
-    return { ...input.item, retouch: state };
+    const current = getTimelineVideoRetouch(input.item)?.temporal;
+    const state = current ? resetVideoRetouch(current) : createVideoRetouchState();
+    return withTemporalState(input.item, state);
   }
 
   openForImage(assetId: string): void {
@@ -125,7 +141,7 @@ export class RetouchToolAdapter implements EditingToolAdapter<VideoRetouchToolIn
   }
 
   getLayerReferences(item?: TimelineItem): string[] {
-    return item?.retouch?.layers.map((layer) => layer.id) ?? [];
+    return item ? ensureVideoRetouchState(item).layers.map((layer) => layer.id) : [];
   }
 }
 

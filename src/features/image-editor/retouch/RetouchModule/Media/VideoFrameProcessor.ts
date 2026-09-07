@@ -11,6 +11,11 @@ export interface VideoFrameRetouchResult {
   skippedLayerIds: string[];
 }
 
+export interface VideoFrameProcessOptions {
+  /** Before/After is an editor preview concern and is ignored by export unless explicitly requested. */
+  respectBeforeAfter?: boolean;
+}
+
 const FACE_REGIONS = new Set<VideoRetouchRegion>([
   'face', 'lips', 'upperLip', 'lowerLip', 'cheeks', 'leftCheek', 'rightCheek', 'eyes', 'leftEye', 'rightEye',
   'eyelinerLeft', 'eyelinerRight', 'eyebrows', 'leftEyebrow', 'rightEyebrow', 'nose', 'jawline', 'skin', 'forehead', 'underEyes',
@@ -96,9 +101,14 @@ function blendModeOf(layer: VideoRetouchLayer): MakeupBlendMode {
 export class VideoFrameProcessor {
   private readonly masks = new MaskCache();
 
-  process(imageData: ImageData, state: VideoRetouchClipState | undefined, localTime: number): VideoFrameRetouchResult {
+  process(
+    imageData: ImageData,
+    state: VideoRetouchClipState | undefined,
+    localTime: number,
+    options: VideoFrameProcessOptions = {},
+  ): VideoFrameRetouchResult {
     const untouched = cloneImageData(imageData);
-    if (!state || !state.enabled || state.beforeAfter === 'before') {
+    if (!state || !state.enabled || (options.respectBeforeAfter === true && state.beforeAfter === 'before')) {
       return { imageData: untouched, appliedLayerIds: [], skippedLayerIds: [] };
     }
     let output = untouched;

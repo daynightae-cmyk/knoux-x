@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { TimelineItem } from '../../../core/creative/multitrackProject';
+import { getTimelineVideoRetouch } from '../../../core/creative/videoRetouchEffect';
 import { VideoFrameProcessor } from '../../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 import './videoRetouch.css';
 
@@ -29,9 +30,10 @@ export const VideoRetouchPreviewOverlay: React.FC<VideoRetouchPreviewOverlayProp
   const processorRef = useRef(new VideoFrameProcessor());
   const animationRef = useRef<number | null>(null);
   const renderingRef = useRef(false);
+  const temporal = getTimelineVideoRetouch(item)?.temporal ?? null;
 
   const renderFrame = useCallback((): void => {
-    if (renderingRef.current) return;
+    if (renderingRef.current || !temporal) return;
     const media = mediaRef.current;
     const canvas = canvasRef.current;
     if (!(media instanceof HTMLVideoElement) || !canvas || media.readyState < media.HAVE_CURRENT_DATA || media.videoWidth < 1 || media.videoHeight < 1) return;
@@ -47,7 +49,7 @@ export const VideoRetouchPreviewOverlay: React.FC<VideoRetouchPreviewOverlayProp
       context.drawImage(media, 0, 0, dimensions.width, dimensions.height);
       const frame = context.getImageData(0, 0, dimensions.width, dimensions.height);
       const localTime = Math.max(0, Math.min(item.duration, playhead - item.timelineStart));
-      const result = processorRef.current.process(frame, item.retouch, localTime, { respectBeforeAfter: true });
+      const result = processorRef.current.process(frame, temporal, localTime, { respectBeforeAfter: true });
       context.putImageData(result.imageData, 0, 0);
       if (canvas.width !== dimensions.width) canvas.width = dimensions.width;
       if (canvas.height !== dimensions.height) canvas.height = dimensions.height;
@@ -58,7 +60,7 @@ export const VideoRetouchPreviewOverlay: React.FC<VideoRetouchPreviewOverlayProp
     } finally {
       renderingRef.current = false;
     }
-  }, [item, mediaRef, playhead]);
+  }, [item.duration, item.timelineStart, mediaRef, playhead, temporal]);
 
   useEffect(() => {
     const media = mediaRef.current;
@@ -87,10 +89,10 @@ export const VideoRetouchPreviewOverlay: React.FC<VideoRetouchPreviewOverlayProp
 
   useEffect(() => {
     renderFrame();
-  }, [item.retouch, playhead, renderFrame]);
+  }, [playhead, renderFrame, temporal]);
 
   useEffect(() => () => processorRef.current.clearCache(), []);
 
-  if (!item.retouch?.enabled || item.kind !== 'video') return null;
+  if (!temporal?.enabled || item.kind !== 'video') return null;
   return <canvas ref={canvasRef} className="video-retouch-preview-overlay" aria-label="Video Retouch preview" />;
 };

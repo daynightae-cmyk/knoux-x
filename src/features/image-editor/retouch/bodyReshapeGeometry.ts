@@ -101,12 +101,11 @@ export function createBodyFreezeMask(
   const jointRadius = 0.010;
   for (const limb of [geometry.arms.left, geometry.arms.right, geometry.legs.left, geometry.legs.right]) {
     if (!limb) continue;
-    // Protect the end joints from discontinuities without freezing whole limbs.
     protect(limb[0], jointRadius);
     protect(limb[2], jointRadius);
   }
 
-  return { width: segmentation.width, height: segmentation.height, data } as ImageData;
+  return new ImageData(data, segmentation.width, segmentation.height);
 }
 
 /**

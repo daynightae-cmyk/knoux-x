@@ -1,5 +1,11 @@
 import type { TimelineItem } from '../../../core/creative/multitrackProject';
 import {
+  createTimelineVideoRetouchEffect,
+  getTimelineVideoRetouch,
+  normalizeTimelineVideoRetouch,
+  type RetouchTimelineItem,
+} from '../../../core/creative/videoRetouchEffect';
+import {
   cloneVideoRetouchState,
   splitVideoRetouchState,
   type VideoRetouchClipState,
@@ -8,6 +14,21 @@ import {
 
 function normalizeOrders(layers: VideoRetouchLayer[]): VideoRetouchLayer[] {
   return layers.map((layer, order) => ({ ...layer, order }));
+}
+
+function withTemporalState(item: TimelineItem, state: VideoRetouchClipState | undefined): TimelineItem {
+  const existing = getTimelineVideoRetouch(item);
+  if (!existing && !state) return item;
+  const effect = existing ?? createTimelineVideoRetouchEffect();
+  effect.temporal = state ?? null;
+  if (state) {
+    effect.enabled = state.enabled;
+    effect.selectedFaceId = state.selectedFaceId;
+    effect.subjectMode = state.applyAllFaces ? 'all-faces' : state.selectedFaceId ? 'selected-face' : 'primary';
+  }
+  effect.updatedAt = new Date().toISOString();
+  const extended: RetouchTimelineItem = { ...item, retouch: normalizeTimelineVideoRetouch(effect) };
+  return extended;
 }
 
 /** Rebase clip-local Retouch timestamps after trimming media from the clip head. */
@@ -62,16 +83,30 @@ export function retouchAfterTrimOut(
   return next;
 }
 
-/** Apply the canonical Retouch split rebasing to the two TimelineItem results. */
+/** Apply canonical Retouch split rebasing to the two TimelineItem results. */
 export function attachRetouchToSplit(
   source: TimelineItem,
   left: TimelineItem,
   right: TimelineItem,
   splitLocalTime: number,
 ): [TimelineItem, TimelineItem] {
-  const split = splitVideoRetouchState(source.retouch, splitLocalTime, source.duration);
-  return [
-    { ...left, ...(split.left ? { retouch: split.left } : {}) },
-    { ...right, ...(split.right ? { retouch: split.right } : {}) },
-  ];
+  const temporal = getTimelineVideoRetouch(source)?.temporal ?? undefined;
+  const split = splitVideoRetouchState(temporal, splitLocalTime, source.duration);
+  return [withTemporalState(left, split.left), withTemporalState(right, split.right)];
+}
+
+/** Persist rebased Retouch after a head trim without changing the Retouch engine. */
+export function attachRetouchAfterTrimIn(
+  item: TimelineItem,
+  removedDuration: number,
+  newDuration: number,
+): TimelineItem {
+  const temporal = getTimelineVideoRetouch(item)?.temporal ?? undefined;
+  return withTemporalState(item, retouchAfterTrimIn(temporal, removedDuration, newDuration));
+}
+
+/** Persist rebased Retouch after a tail trim without changing the Retouch engine. */
+export function attachRetouchAfterTrimOut(item: TimelineItem, newDuration: number): TimelineItem {
+  const temporal = getTimelineVideoRetouch(item)?.temporal ?? undefined;
+  return withTemporalState(item, retouchAfterTrimOut(temporal, newDuration));
 }

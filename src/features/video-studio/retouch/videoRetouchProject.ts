@@ -1,145 +1,34 @@
 import type { TimelineItem } from '../../../core/creative/multitrackProject';
-import type { Point } from '../../image-editor/retouch/RetouchModule/Engine/FaceDetector';
+import { getTimelineVideoRetouch } from '../../../core/creative/videoRetouchEffect';
+import type {
+  VideoRetouchAnalysisState,
+  VideoRetouchApplyScope,
+  VideoRetouchCategory,
+  VideoRetouchClipState,
+  VideoRetouchFaceTrack,
+  VideoRetouchLayer,
+  VideoRetouchLayerRange,
+  VideoRetouchParameter,
+  VideoRetouchRegion,
+  VideoRetouchTrackingKeyframe,
+  VideoRetouchTrackingSettings,
+  VideoTrackingPoint,
+} from '../../../core/creative/videoRetouchTemporal';
 
-export type VideoRetouchRegion =
-  | 'face'
-  | 'lips'
-  | 'upperLip'
-  | 'lowerLip'
-  | 'cheeks'
-  | 'leftCheek'
-  | 'rightCheek'
-  | 'eyes'
-  | 'leftEye'
-  | 'rightEye'
-  | 'eyelinerLeft'
-  | 'eyelinerRight'
-  | 'eyebrows'
-  | 'leftEyebrow'
-  | 'rightEyebrow'
-  | 'nose'
-  | 'jawline'
-  | 'skin'
-  | 'forehead'
-  | 'underEyes'
-  | 'chest'
-  | 'waist'
-  | 'hips'
-  | 'leftThigh'
-  | 'rightThigh'
-  | 'thighs'
-  | 'arms'
-  | 'leftArm'
-  | 'rightArm'
-  | 'legs'
-  | 'shoulders';
-
-export type VideoRetouchCategory =
-  | 'skin'
-  | 'lipstick'
-  | 'lip-shape'
-  | 'blush'
-  | 'eye-makeup'
-  | 'eyeliner'
-  | 'eyebrows'
-  | 'face-shape'
-  | 'nose-shape'
-  | 'jawline-shape'
-  | 'body-shape'
-  | 'makeup-look';
-
-export type VideoRetouchParameter = number | string | boolean;
-export type VideoRetouchApplyScope = 'frame' | 'range' | 'clip';
-
-/** Normalized image-space point stored in timeline projects. */
-export interface VideoTrackingPoint extends Point {
-  z?: number;
-}
-
-export interface VideoRetouchBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** One temporally stable observation of a face/region. Timestamps are clip-local seconds. */
-export interface VideoRetouchTrackingKeyframe {
-  timestamp: number;
-  points: VideoTrackingPoint[];
-  bounds: VideoRetouchBounds;
-  confidence: number;
-  opacity: number;
-  source: 'detected' | 'tracked' | 'interpolated' | 'reacquired';
-}
-
-export interface VideoRetouchLayerRange {
-  start: number;
-  end: number;
-}
-
-export interface VideoRetouchLayer {
-  id: string;
-  templateId: string;
-  category: VideoRetouchCategory;
-  targetRegion: VideoRetouchRegion;
-  parameters: Record<string, VideoRetouchParameter>;
-  strength: number;
-  active: boolean;
-  order: number;
-  trackingRequired: boolean;
-  faceId: string | null;
-  applyScope: VideoRetouchApplyScope;
-  range: VideoRetouchLayerRange | null;
-  maskStrategy: 'tracked-region' | 'tracked-silhouette' | 'skin-exclusion';
-  blendMode: 'normal' | 'multiply' | 'screen' | 'soft-light';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface VideoRetouchFaceTrack {
-  faceId: string;
-  keyframes: VideoRetouchTrackingKeyframe[];
-  lastConfidence: number;
-  lostFrames: number;
-}
-
-export interface VideoRetouchAnalysisState {
-  status: 'idle' | 'detecting' | 'tracking' | 'ready' | 'partial' | 'no-face' | 'failed' | 'cancelled';
-  progress: number;
-  processedFrames: number;
-  sampledFrames: number;
-  message: string | null;
-  updatedAt: string;
-}
-
-export interface VideoRetouchTrackingSettings {
-  fullDetectionIntervalFrames: number;
-  smoothingFactor: number;
-  maximumLostFrames: number;
-  reacquireFrames: number;
-  minimumConfidence: number;
-}
-
-export interface VideoRetouchClipState {
-  version: 1;
-  enabled: boolean;
-  selectedFaceId: string | null;
-  applyAllFaces: boolean;
-  beforeAfter: 'after' | 'before';
-  layers: VideoRetouchLayer[];
-  faceTracks: VideoRetouchFaceTrack[];
-  analysis: VideoRetouchAnalysisState;
-  tracking: VideoRetouchTrackingSettings;
-  updatedAt: string;
-}
-
-/** TimelineItem augmentation keeps the existing v1 project container backwards compatible. */
-declare module '../../../core/creative/multitrackProject' {
-  interface TimelineItem {
-    retouch?: VideoRetouchClipState;
-  }
-}
+export type {
+  VideoRetouchAnalysisState,
+  VideoRetouchApplyScope,
+  VideoRetouchCategory,
+  VideoRetouchClipState,
+  VideoRetouchFaceTrack,
+  VideoRetouchLayer,
+  VideoRetouchLayerRange,
+  VideoRetouchParameter,
+  VideoRetouchRegion,
+  VideoRetouchTrackingKeyframe,
+  VideoRetouchTrackingSettings,
+  VideoTrackingPoint,
+} from '../../../core/creative/videoRetouchTemporal';
 
 const DEFAULT_TRACKING: Readonly<VideoRetouchTrackingSettings> = Object.freeze({
   fullDetectionIntervalFrames: 8,
@@ -428,11 +317,7 @@ export function orderedVideoRetouchLayers(state: VideoRetouchClipState, localTim
     .sort((left, right) => priority[left.category] - priority[right.category] || left.order - right.order);
 }
 
-/**
- * Rebases Retouch state when a timeline clip is split. Tracking timestamps and
- * range-scoped effects are clipped/rebased so the right item never reuses the
- * left clip's timeline coordinates.
- */
+/** Rebase tracking and range-scoped layers when one clip is split. */
 export function splitVideoRetouchState(
   state: VideoRetouchClipState | undefined,
   splitLocalTime: number,
@@ -472,11 +357,15 @@ export function splitVideoRetouchState(
 
   left.layers = left.layers.map((layer) => splitLayer(layer, 'left')).filter((layer): layer is VideoRetouchLayer => Boolean(layer));
   right.layers = right.layers.map((layer) => splitLayer(layer, 'right')).filter((layer): layer is VideoRetouchLayer => Boolean(layer));
+  left.layers = left.layers.map((layer, order) => ({ ...layer, order }));
+  right.layers = right.layers.map((layer, order) => ({ ...layer, order }));
   left.updatedAt = now();
   right.updatedAt = now();
   return { left, right };
 }
 
+/** Reads tracked/layer state from the single canonical timeline Retouch payload. */
 export function ensureVideoRetouchState(item: TimelineItem): VideoRetouchClipState {
-  return item.retouch ? cloneVideoRetouchState(item.retouch) : createVideoRetouchState();
+  const temporal = getTimelineVideoRetouch(item)?.temporal;
+  return temporal ? cloneVideoRetouchState(temporal) : createVideoRetouchState();
 }

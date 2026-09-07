@@ -1,4 +1,5 @@
 import type { EasingMode, MultitrackProject, TimelineItem } from './multitrackProject';
+import type { VideoRetouchClipState } from './videoRetouchTemporal';
 
 /** Numeric controls persisted by video Retouch. */
 export type VideoRetouchControl =
@@ -69,9 +70,9 @@ export interface VideoRetouchKeyframe {
 }
 
 /**
- * Versioned, serializable Retouch payload persisted on a video/image timeline
- * item. Only effect parameters are stored; biometric landmarks and masks are
- * intentionally recomputed locally and are never persisted in project JSON.
+ * Canonical, versioned Retouch payload persisted on one timeline item.
+ * `temporal` carries tracked-region/layer metadata while the established
+ * numeric controls remain backward compatible with existing projects.
  */
 export interface TimelineVideoRetouchEffect {
   schema: 'knoux-video-retouch';
@@ -85,11 +86,13 @@ export interface TimelineVideoRetouchEffect {
   colors: VideoRetouchMakeupColors;
   makeupBlendMode: VideoRetouchMakeupBlendMode;
   keyframes: VideoRetouchKeyframe[];
+  /** Optional richer tracked-layer state. Null keeps legacy projects valid. */
+  temporal: VideoRetouchClipState | null;
   updatedAt: string;
 }
 
-/** Backward-compatible TimelineItem extension; old project files need no migration. */
-export type RetouchTimelineItem = TimelineItem & { retouch?: TimelineVideoRetouchEffect | null };
+/** Backward-compatible view over timeline items that may carry Retouch. */
+export type RetouchTimelineItem = Omit<TimelineItem, 'retouch'> & { retouch?: TimelineVideoRetouchEffect | null };
 
 const POSITIVE: VideoRetouchControlRange = Object.freeze({ min: 0, max: 1, defaultValue: 0 });
 const BIPOLAR: VideoRetouchControlRange = Object.freeze({ min: -1, max: 1, defaultValue: 0 });
@@ -152,12 +155,17 @@ function stableId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function cloneTemporal(state: VideoRetouchClipState | null): VideoRetouchClipState | null {
+  return state ? structuredClone(state) : null;
+}
+
 function cloneEffect(effect: TimelineVideoRetouchEffect): TimelineVideoRetouchEffect {
   return {
     ...effect,
     controls: { ...effect.controls },
     colors: { ...effect.colors },
     keyframes: effect.keyframes.map((keyframe) => ({ ...keyframe, values: { ...keyframe.values } })),
+    temporal: cloneTemporal(effect.temporal),
   };
 }
 
@@ -191,6 +199,7 @@ export function createTimelineVideoRetouchEffect(now = new Date().toISOString())
     colors: { ...DEFAULT_COLORS },
     makeupBlendMode: 'soft-light',
     keyframes: [],
+    temporal: null,
     updatedAt: now,
   };
 }
@@ -236,6 +245,7 @@ export function normalizeTimelineVideoRetouch(effect: TimelineVideoRetouchEffect
       ) as Partial<VideoRetouchControls>,
     }))
     .sort((left, right) => left.time - right.time || left.id.localeCompare(right.id));
+  normalized.temporal = cloneTemporal(effect.temporal);
   return normalized;
 }
 
@@ -254,7 +264,7 @@ export function setTimelineVideoRetouch(
       matched = true;
       const extended = item as RetouchTimelineItem;
       extended.retouch = effect ? normalizeTimelineVideoRetouch({ ...cloneEffect(effect), updatedAt: new Date().toISOString() }) : null;
-      return extended;
+      return extended as TimelineItem;
     }),
   }));
   if (!matched) throw new Error(`Timeline item "${itemId}" does not exist.`);
@@ -272,6 +282,23 @@ export function setTimelineVideoRetouchControl(
   if (!item) throw new Error(`Timeline item "${itemId}" does not exist.`);
   const effect = getTimelineVideoRetouch(item) ?? createTimelineVideoRetouchEffect();
   effect.controls[key] = normalizedControl(key, value);
+  effect.updatedAt = new Date().toISOString();
+  return setTimelineVideoRetouch(project, itemId, effect);
+}
+
+/** Replaces the richer tracked-layer state inside the canonical clip effect. */
+export function setTimelineVideoRetouchTemporal(
+  project: MultitrackProject,
+  itemId: string,
+  temporal: VideoRetouchClipState | null,
+): MultitrackProject {
+  const item = project.tracks.flatMap((track) => track.items).find((candidate) => candidate.id === itemId);
+  if (!item) throw new Error(`Timeline item "${itemId}" does not exist.`);
+  const effect = getTimelineVideoRetouch(item) ?? createTimelineVideoRetouchEffect();
+  effect.temporal = cloneTemporal(temporal);
+  effect.enabled = temporal?.enabled ?? effect.enabled;
+  effect.selectedFaceId = temporal?.selectedFaceId ?? effect.selectedFaceId;
+  effect.subjectMode = temporal?.applyAllFaces ? 'all-faces' : temporal?.selectedFaceId ? 'selected-face' : effect.subjectMode;
   effect.updatedAt = new Date().toISOString();
   return setTimelineVideoRetouch(project, itemId, effect);
 }

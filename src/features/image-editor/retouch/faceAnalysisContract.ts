@@ -4,8 +4,36 @@ export interface FacePoint {
   z: number;
 }
 
+export type FaceSemanticRegion =
+  | 'skin'
+  | 'eyes'
+  | 'leftEye'
+  | 'rightEye'
+  | 'upperEyelids'
+  | 'lowerEyelids'
+  | 'irisArea'
+  | 'lips'
+  | 'upperLip'
+  | 'lowerLip'
+  | 'mouth'
+  | 'teeth'
+  | 'brows'
+  | 'leftEyebrow'
+  | 'rightEyebrow'
+  | 'cheeks'
+  | 'leftCheek'
+  | 'rightCheek'
+  | 'jaw'
+  | 'chin'
+  | 'forehead'
+  | 'temples'
+  | 'hairline'
+  | 'nose'
+  | 'noseBridge'
+  | 'noseTip';
+
 export interface FaceRegionMask {
-  region: 'skin' | 'eyes' | 'lips' | 'teeth' | 'brows' | 'cheeks' | 'jaw';
+  region: FaceSemanticRegion;
   polygon: FacePoint[];
 }
 

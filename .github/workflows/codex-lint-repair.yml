@@ -64,7 +64,40 @@ jobs:
             src/features/video-studio/retouch/RetouchToolAdapter.ts \
             src/features/video-studio/retouch/VideoRetouchAnalyzer.ts \
             src/features/video-studio/retouch/VideoRetouchInspector.tsx \
-            src/features/video-studio/retouch/videoRetouchTimeline.ts
+            src/features/video-studio/retouch/videoRetouchTimeline.ts || true
+
+          python - <<'PY'
+          from pathlib import Path
+
+          for raw in (
+              'src/features/image-editor/retouch/RetouchModule/Engine/LayerWarpExecutor.ts',
+              'src/features/image-editor/retouch/RetouchModule/Engine/MeshWarper.ts',
+          ):
+              path = Path(raw)
+              text = path.read_text(encoding='utf-8')
+              text = text.replace('// eslint-disable-next-line import/default\n', '')
+              worker_import = "import WarpWorker from './warpWorker?worker';"
+              if worker_import not in text:
+                  raise SystemExit(f'{raw}: Vite worker import is missing')
+              text = text.replace(worker_import, '// eslint-disable-next-line import/default\n' + worker_import, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
+          npx eslint \
+            src/features/image-editor/retouch/RetouchModule/Engine/BodyDetector.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/LayerManager.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/LayerWarpExecutor.ts \
+            src/features/image-editor/retouch/RetouchModule/Engine/MeshWarper.ts \
+            src/features/image-editor/retouch/RetouchModule/Pipeline/HistoryStack.ts \
+            src/features/image-editor/retouch/RetouchModule/Pipeline/ImageProcessor.ts \
+            src/features/image-editor/retouch/RetouchModule/UI/ColorPicker.tsx \
+            src/features/image-editor/retouch/RetouchModule/UI/RetouchCanvas.tsx \
+            src/features/image-editor/retouch/RetouchModule/UI/RetouchWorkspace.tsx \
+            src/features/video-studio/retouch/RetouchToolAdapter.ts \
+            src/features/video-studio/retouch/VideoRetouchAnalyzer.ts \
+            src/features/video-studio/retouch/VideoRetouchInspector.tsx \
+            src/features/video-studio/retouch/videoRetouchTimeline.ts \
+            --max-warnings=0
 
       - name: Verify TypeScript and full ESLint gate
         run: |

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useImageEditorStore } from '../store/imageEditorStore';
+import { useImageEditorStore, type ImageEditorSource } from '../store/imageEditorStore';
 import { BodyAnalysisClient } from '../features/image-editor/retouch/bodyAnalysisClient';
 import type { BodyAnalysisResult, DetectedBody, DerivedBodyGeometry } from '../features/image-editor/retouch/bodyAnalysisContract';
 import {
@@ -93,7 +93,7 @@ function imageDataToDataUrl(imageData: ImageData): string {
   return canvas.toDataURL('image/png');
 }
 
-function projectFor(source: NonNullable<ReturnType<typeof useImageEditorStore.getState>['source']>, current: RetouchProjectV2 | null, width: number, height: number): RetouchProjectV2 {
+function projectFor(source: ImageEditorSource, current: RetouchProjectV2 | null, width: number, height: number): RetouchProjectV2 {
   return current ?? createRetouchProject({ name: source.name, width, height, dataUrl: source.dataUrl });
 }
 
@@ -108,7 +108,6 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
   const [protectBackground, setProtectBackground] = useState(true);
   const [values, setValues] = useState<Record<BodyControl, number>>(() => Object.fromEntries(BODY_CONTROLS.map((entry) => [entry.id, 0])) as Record<BodyControl, number>);
-  const [busyControl, setBusyControl] = useState<BodyControl | null>(null);
   const clientRef = useRef<BodyAnalysisClient | null>(null);
   const inFlightRef = useRef<Promise<BodyAnalysisResult | null> | null>(null);
   const arabic = isArabic();
@@ -138,6 +137,7 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
     setAnalysis(null);
     setState('IDLE');
     setSelectedBodyId(null);
+    setProtectBackground(true);
     setValues(Object.fromEntries(BODY_CONTROLS.map((entry) => [entry.id, 0])) as Record<BodyControl, number>);
     inFlightRef.current = null;
   }, [sourceKey]);
@@ -211,13 +211,15 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
     return analysis.bodies.find((body) => body.id === selectedBodyId) ?? analysis.bodies[0] ?? null;
   }, [analysis, selectedBodyId]);
 
-  const createFreezeMask = useCallback((project: RetouchProjectV2, body: DetectedBody, control: BodyControl): { project: RetouchProjectV2; maskId: string | null } => {
-    if (!protectBackground || analysis?.status !== 'ready' || !analysis.segmentationMask) return { project, maskId: null };
-    const tag = control === 'headSize' ? 'body-freeze-head' : 'body-freeze-background';
-    const existing = project.masks.find((mask) => mask.type === 'subject' && mask.protectedRegions.includes(tag as never));
+  const createFreezeMask = useCallback((project: RetouchProjectV2, body: DetectedBody, control: BodyControl, enabled = protectBackground): { project: RetouchProjectV2; maskId: string | null } => {
+    if (!enabled || analysis?.status !== 'ready' || !analysis.segmentationMask) return { project, maskId: null };
+    const headMask = control === 'headSize';
+    const existing = project.masks.find((mask) => mask.type === 'subject'
+      && mask.source === 'local-analysis'
+      && (headMask ? mask.protectedRegions.length === 0 : mask.protectedRegions.includes('hairline')));
     if (existing) return { project, maskId: existing.id };
 
-    const freeze = createBodyFreezeMask(analysis.segmentationMask, body.geometry, { protectHead: control !== 'headSize' });
+    const freeze = createBodyFreezeMask(analysis.segmentationMask, body.geometry, { protectHead: !headMask });
     const mask = createRetouchMask({
       type: 'subject',
       source: 'local-analysis',
@@ -226,69 +228,99 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
       alphaDataUrl: imageDataToDataUrl(freeze),
       featherPx: 0,
       inverted: false,
-      // The project contract has a fixed semantic list. Background protection
-      // is encoded by the alpha mask itself; this list remains informational.
-      protectedRegions: control === 'headSize' ? [] : ['hairline'],
+      protectedRegions: headMask ? [] : ['hairline'],
     });
     return { project: addRetouchMask(project, mask), maskId: mask.id };
   }, [analysis, protectBackground]);
 
   const applyControl = useCallback(async (control: BodyControl, value: number): Promise<void> => {
-    if (!source || busyControl) return;
+    if (!source) return;
+    setValues((current) => ({ ...current, [control]: value }));
     const canvas = document.querySelector<HTMLCanvasElement>('.image-editor-canvas');
     if (!canvas || canvas.width < 2 || canvas.height < 2) return;
-    setValues((current) => ({ ...current, [control]: value }));
-    setBusyControl(control);
-    try {
-      let result = analysis;
-      if (result?.status !== 'ready') result = await analyze();
-      if (result?.status !== 'ready') return;
-      const body = result.bodies.find((entry) => entry.id === selectedBodyId) ?? result.bodies[0];
-      if (!body) { setState('NO_BODY'); return; }
 
-      let project = projectFor(source, retouchProject, canvas.width, canvas.height);
-      const existing = project.operations.find((operation) => operation.tool === 'body-sculpt' && operation.params.bodyControl === control);
-      if (Math.abs(value) < 0.001) {
-        if (existing) project = removeRetouchOperation(project, existing.id);
-        setRetouchProject(project);
-        return;
-      }
+    let result = analysis;
+    if (result?.status !== 'ready') result = await analyze();
+    if (result?.status !== 'ready') return;
+    const body = result.bodies.find((entry) => entry.id === selectedBodyId) ?? result.bodies[0];
+    if (!body) { setState('NO_BODY'); return; }
 
-      const controlValues: BodyReshapeControls = { ...EMPTY_BODY_RESHAPE_CONTROLS, [control]: value };
-      const strokes = bodyReshapeStrokes(body.geometry, canvas.width, canvas.height, controlValues);
-      if (strokes.length === 0) return;
-      const masked = createFreezeMask(project, body, control);
-      project = masked.project;
-      const label = BODY_CONTROLS.find((entry) => entry.id === control);
-      const params = {
-        strength: Math.abs(value),
-        brushSize: 96,
-        color: '#000000',
-        liquifyMode: value < 0 ? 'pinch' : 'expand',
-        bodyControl: control,
-        strokes,
-        protectBackground,
-      } as const;
+    let project = projectFor(source, useImageEditorStore.getState().retouchProject, canvas.width, canvas.height);
+    const existing = project.operations.find((operation) => operation.tool === 'body-sculpt' && operation.params.bodyControl === control);
+    if (Math.abs(value) < 0.001) {
+      if (existing) project = removeRetouchOperation(project, existing.id);
+      setRetouchProject(project);
+      return;
+    }
 
-      if (existing) {
-        project = updateRetouchOperation(project, existing.id, { params: { ...params }, maskId: masked.maskId, name: arabic ? label?.ar ?? control : label?.en ?? control });
-      } else {
-        project = addRetouchOperation(project, createRetouchOperation({
-          tool: 'body-sculpt',
-          name: arabic ? label?.ar ?? control : label?.en ?? control,
-          enabled: true,
-          opacity: 1,
-          blendMode: 'normal',
-          maskId: masked.maskId,
-          params: { ...params },
-          engine: 'mesh-local',
-        }));
+    const controlValues: BodyReshapeControls = { ...EMPTY_BODY_RESHAPE_CONTROLS, [control]: value };
+    const strokes = bodyReshapeStrokes(body.geometry, canvas.width, canvas.height, controlValues);
+    if (strokes.length === 0) return;
+    const masked = createFreezeMask(project, body, control);
+    project = masked.project;
+    const label = BODY_CONTROLS.find((entry) => entry.id === control);
+    const params = {
+      strength: Math.abs(value),
+      brushSize: 96,
+      color: '#000000',
+      liquifyMode: value < 0 ? 'pinch' : 'expand',
+      bodyControl: control,
+      strokes,
+      protectBackground,
+    };
+
+    if (existing) {
+      project = updateRetouchOperation(project, existing.id, { params, maskId: masked.maskId, name: arabic ? label?.ar ?? control : label?.en ?? control });
+    } else {
+      project = addRetouchOperation(project, createRetouchOperation({
+        tool: 'body-sculpt',
+        name: arabic ? label?.ar ?? control : label?.en ?? control,
+        enabled: true,
+        opacity: 1,
+        blendMode: 'normal',
+        maskId: masked.maskId,
+        params,
+        engine: 'mesh-local',
+      }));
+    }
+    setRetouchProject(project);
+  }, [analysis, analyze, arabic, createFreezeMask, protectBackground, selectedBodyId, setRetouchProject, source]);
+
+  const changeProtection = useCallback(async (enabled: boolean): Promise<void> => {
+    setProtectBackground(enabled);
+    if (!source) return;
+    const canvas = document.querySelector<HTMLCanvasElement>('.image-editor-canvas');
+    if (!canvas || canvas.width < 2 || canvas.height < 2) return;
+    let project = useImageEditorStore.getState().retouchProject;
+    if (!project) return;
+    if (!enabled) {
+      for (const operation of project.operations.filter((entry) => entry.tool === 'body-sculpt')) {
+        project = updateRetouchOperation(project, operation.id, {
+          maskId: null,
+          params: { ...operation.params, protectBackground: false },
+        });
       }
       setRetouchProject(project);
-    } finally {
-      setBusyControl(null);
+      return;
     }
-  }, [analysis, analyze, arabic, busyControl, createFreezeMask, protectBackground, retouchProject, selectedBodyId, setRetouchProject, source]);
+
+    let result = analysis;
+    if (result?.status !== 'ready') result = await analyze();
+    if (result?.status !== 'ready') return;
+    const body = result.bodies.find((entry) => entry.id === selectedBodyId) ?? result.bodies[0];
+    if (!body) return;
+    for (const operation of project.operations.filter((entry) => entry.tool === 'body-sculpt')) {
+      const control = String(operation.params.bodyControl ?? '') as BodyControl;
+      if (!BODY_CONTROLS.some((definition) => definition.id === control)) continue;
+      const masked = createFreezeMask(project, body, control, true);
+      project = masked.project;
+      project = updateRetouchOperation(project, operation.id, {
+        maskId: masked.maskId,
+        params: { ...operation.params, protectBackground: true },
+      });
+    }
+    setRetouchProject(project);
+  }, [analysis, analyze, createFreezeMask, selectedBodyId, setRetouchProject, source]);
 
   if (window.knouxRuntime?.edition !== 'android' || !host) return null;
 
@@ -315,7 +347,7 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
           </div>
 
           <label className="android-body-beauty__protect">
-            <input type="checkbox" checked={protectBackground} onChange={(event) => setProtectBackground(event.target.checked)} />
+            <input type="checkbox" checked={protectBackground} onChange={(event) => void changeProtection(event.target.checked)} />
             <span>{arabic ? 'حماية الخلفية' : 'Protect Background'}</span>
           </label>
 
@@ -333,7 +365,7 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
                       max={max}
                       step={0.05}
                       value={values[definition.id]}
-                      disabled={!available || busyControl !== null}
+                      disabled={!available || state === 'ANALYZING' || state === 'QUEUED'}
                       aria-label={arabic ? definition.ar : definition.en}
                       onChange={(event) => void applyControl(definition.id, Number(event.target.value))}
                     />

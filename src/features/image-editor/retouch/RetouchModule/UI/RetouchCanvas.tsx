@@ -1,4 +1,4 @@
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -238,7 +238,7 @@ export const RetouchCanvas = forwardRef<RetouchCanvasHandle, RetouchCanvasProps>
         setBodyZones(nextBodyZones);
         const firstZone = nextFaceZones[0] ?? nextBodyZones[0] ?? null;
         setActiveZoneId(firstZone?.id ?? null);
-        const faceDiagnostic = faceDetector.getDiagnostic();
+        const faceDiagnostic = faceDetector.getLastDiagnostic();
         const bodyDiagnostic = bodyDetector.getDiagnostic();
         if (nextFaceZones.length > 0 || nextBodyZones.length > 0) {
           const partial = nextFaceZones.length === 0 || nextBodyZones.length === 0;

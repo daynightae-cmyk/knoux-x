@@ -39,14 +39,14 @@ export async function createWindow(): Promise<BrowserWindow> {
     });
   }
 
-  // Load the renderer
-  const isDev = process.env.VITE_DEV_SERVER_URL;
-  if (isDev) {
-    await mainWindow.loadURL(isDev);
+  // Forge Vite injects these globals into the Electron main bundle.
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
   } else {
-    // The Forge Vite renderer is emitted beside build/ under renderer/main_window.
-    await mainWindow.loadFile(join(__dirname, '..', 'renderer', 'main_window', 'index.html'));
+    await mainWindow.loadFile(
+      join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME, 'index.html'),
+    );
   }
 
   mainWindow.on('closed', () => {

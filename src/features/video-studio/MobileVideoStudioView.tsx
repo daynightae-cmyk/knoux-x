@@ -15,21 +15,54 @@ import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 import { MultitrackEditorView } from '../editor/MultitrackEditorView';
 
-function dispatchEditorCommand(command: string): void {
-  window.dispatchEvent(new CustomEvent('knoux:command', { detail: { command } }));
+interface EditorCommandResultDetail {
+  command?: string;
+  requestId?: string;
+  ok?: boolean;
+  error?: string;
+}
+
+function dispatchEditorCommand(command: string, requestId?: string): void {
+  window.dispatchEvent(new CustomEvent('knoux:command', { detail: { command, requestId } }));
+}
+
+function createRequestId(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export const MobileVideoStudioView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [exportPending, setExportPending] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const openExport = useCallback((): void => {
-    // Force the Android editor bridge to persist the exact current timeline
-    // before switching surfaces. MobileExportView reads this project snapshot,
-    // not PlayerStore.currentMedia.
-    dispatchEditorCommand('save');
-    window.setTimeout(() => setView('export'), 180);
-  }, [setView]);
+    if (exportPending) return;
+
+    const requestId = createRequestId();
+    setExportPending(true);
+    setExportError(null);
+
+    const handleResult = (event: Event): void => {
+      const detail = (event as CustomEvent<EditorCommandResultDetail>).detail;
+      if (detail?.command !== 'save' || detail.requestId !== requestId) return;
+      window.removeEventListener('knoux:command-result', handleResult);
+      setExportPending(false);
+      if (!detail.ok) {
+        setExportError(detail.error || 'The project could not be saved. Export was not started.');
+        return;
+      }
+      // AndroidMultitrackExportBridge publishes its exact export snapshot only
+      // after the same persistence operation succeeds, so this navigation reads
+      // the acknowledged revision rather than a timer-dependent stale project.
+      setView('export');
+    };
+
+    window.addEventListener('knoux:command-result', handleResult);
+    dispatchEditorCommand('save', requestId);
+  }, [exportPending, setView]);
 
   return (
     <section
@@ -46,11 +79,13 @@ export const MobileVideoStudioView: React.FC = () => {
         </div>
         <div className="kmc-topbar-actions">
           <span className="kmc-quality-pill">1080P</span>
-          <button type="button" className="kmc-export-button" onClick={openExport}>
-            <Download size={17} /> Export
+          <button type="button" className="kmc-export-button" disabled={exportPending} aria-busy={exportPending} onClick={openExport}>
+            <Download size={17} /> {exportPending ? 'Saving…' : 'Export'}
           </button>
         </div>
       </header>
+
+      {exportError && <div className="kmc-inline-error" role="alert">{exportError}</div>}
 
       <div className="kmc-engine kmc-video-engine">
         <MultitrackEditorView />

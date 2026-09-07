@@ -321,18 +321,23 @@ export const MultitrackEditorView: React.FC = () => {
     }
   }, [activate, t]);
 
-  const saveProject = useCallback(async (saveAs = false): Promise<void> => {
-    if (!project || busy || !desktopRuntime) return;
+  const saveProject = useCallback(async (saveAs = false): Promise<{ ok: boolean; filePath?: string; projectId?: string; error?: string }> => {
+    if (!project) return { ok: false, error: t('multitrack.saveFailed') };
+    if (busy) return { ok: false, projectId: project.id, error: 'Project persistence is already in progress.' };
+    if (!desktopRuntime) return { ok: false, projectId: project.id, error: 'Project persistence is unavailable in this runtime.' };
     setBusy(true);
     try {
-      const saved = await window.knouxMultitrackAPI.save(project, projectPath, saveAs);
-      if (saved) {
-        setProjectPath(saved);
-        setDirty(false);
-        await refreshWorkspace();
-      }
+      const snapshot = structuredClone(project);
+      const saved = await window.knouxMultitrackAPI.save(snapshot, projectPath, saveAs);
+      if (!saved) return { ok: false, projectId: snapshot.id, error: t('multitrack.saveFailed') };
+      setProjectPath(saved);
+      setDirty(false);
+      await refreshWorkspace();
+      return { ok: true, filePath: saved, projectId: snapshot.id };
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('multitrack.saveFailed'));
+      const message = reason instanceof Error ? reason.message : t('multitrack.saveFailed');
+      setError(message);
+      return { ok: false, projectId: project.id, error: message };
     } finally {
       setBusy(false);
     }
@@ -648,13 +653,21 @@ export const MultitrackEditorView: React.FC = () => {
 
   useEffect(() => {
     const handleCommand = (event: Event): void => {
-      switch ((event as CustomEvent<{ command?: string }>).detail?.command) {
+      const detail = (event as CustomEvent<{ command?: string; requestId?: string }>).detail;
+      switch (detail?.command) {
         case 'split-clip': splitSelected(); break;
         case 'trim-in': trimSelectedIn(); break;
         case 'trim-out': trimSelectedOut(); break;
         case 'undo': undo(); break;
         case 'redo': redo(); break;
-        case 'save': void saveProject(false); break;
+        case 'save':
+          void saveProject(false).then((result) => {
+            if (!detail.requestId) return;
+            window.dispatchEvent(new CustomEvent('knoux:command-result', {
+              detail: { command: 'save', requestId: detail.requestId, ...result },
+            }));
+          });
+          break;
         default: break;
       }
     };

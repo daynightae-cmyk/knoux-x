@@ -1,37 +1,59 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { BrandMark } from '../brand/BrandMark';
+import { useAppStore } from '../../store/appStore';
 
 interface MobileSplashOverlayProps {
   onComplete?: () => void;
 }
 
 export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComplete }) => {
+  const isHomeReady = useAppStore((state) => state.isHomeReady);
   const [phase, setPhase] = useState<'entering' | 'holding' | 'exiting' | 'hidden'>('entering');
+  const minDurationPassedRef = useRef(false);
 
   useEffect(() => {
-    // Phase 1: Entry animation (150ms)
+    // Entry animation phase
     const enterTimer = setTimeout(() => {
       setPhase('holding');
     }, 200);
 
-    // Phase 2: Hold while dashboard initializes underneath (850ms total)
-    const exitTimer = setTimeout(() => {
-      setPhase('exiting');
-    }, 850);
+    // Minimum visual duration threshold (750ms)
+    const minTimer = setTimeout(() => {
+      minDurationPassedRef.current = true;
+      if (useAppStore.getState().isHomeReady) {
+        setPhase('exiting');
+      }
+    }, 750);
 
-    // Phase 3: Smooth cross-fade complete (1150ms total)
-    const hiddenTimer = setTimeout(() => {
-      setPhase('hidden');
-      onComplete?.();
-    }, 1150);
+    // Maximum safety fallback timeout (1800ms)
+    const safetyTimer = setTimeout(() => {
+      setPhase((prev) => (prev === 'holding' || prev === 'entering' ? 'exiting' : prev));
+    }, 1800);
 
     return () => {
       clearTimeout(enterTimer);
-      clearTimeout(exitTimer);
-      clearTimeout(hiddenTimer);
+      clearTimeout(minTimer);
+      clearTimeout(safetyTimer);
     };
-  }, [onComplete]);
+  }, []);
+
+  // Exit trigger when readiness signal fires after min duration
+  useEffect(() => {
+    if (isHomeReady && minDurationPassedRef.current && phase === 'holding') {
+      setPhase('exiting');
+    }
+  }, [isHomeReady, phase]);
+
+  // Complete unmount after 300ms exit transition
+  useEffect(() => {
+    if (phase !== 'exiting') return;
+    const exitTimer = setTimeout(() => {
+      setPhase('hidden');
+      onComplete?.();
+    }, 300);
+    return () => clearTimeout(exitTimer);
+  }, [onComplete, phase]);
 
   if (phase === 'hidden') return null;
 
@@ -39,10 +61,11 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
     <div
       className={`knoux-mobile-splash-overlay phase-${phase}`}
       data-component="MobileSplashOverlay"
+      data-home-ready={isHomeReady ? 'true' : 'false'}
       role="presentation"
     >
       <div className="km-splash-ambient-glow" />
-      
+
       <div className="km-splash-content">
         <div className="km-splash-logo-wrapper">
           <BrandMark size={84} />

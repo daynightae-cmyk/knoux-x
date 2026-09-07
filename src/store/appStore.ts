@@ -58,6 +58,8 @@ export interface AppState {
   setLoading(loading: boolean): void;
   loadingMessage: string;
   setLoadingMessage(message: string): void;
+  isHomeReady: boolean;
+  setHomeReady(ready: boolean): void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -101,6 +103,8 @@ export const useAppStore = create<AppState>()(
       setLoading: (loading) => set({ isLoading: loading }),
       loadingMessage: '',
       setLoadingMessage: (message) => set({ loadingMessage: message }),
+      isHomeReady: false,
+      setHomeReady: (isHomeReady) => set({ isHomeReady }),
     }),
     {
       name: 'knoux-app-store',

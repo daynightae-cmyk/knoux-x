@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   ChevronRight,
@@ -54,6 +54,7 @@ function formatTime(seconds: number): string {
 
 export const MobileHomeDashboard: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
+  const setHomeReady = useAppStore((state) => state.setHomeReady);
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen);
   const notifications = useAppStore((state) => state.notifications);
   const removeNotification = useAppStore((state) => state.removeNotification);
@@ -61,6 +62,13 @@ export const MobileHomeDashboard: React.FC = () => {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectCounts, setProjectCounts] = useState({ video: 0, slideshow: 0 });
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setHomeReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [setHomeReady]);
 
   const recents = useMemo(() => readRecentMedia(window.localStorage).slice(0, 8), []);
   const continueWatching = recents.find((entry) => entry.duration > 0 && entry.progress > 0 && entry.progress < 0.98) ?? null;

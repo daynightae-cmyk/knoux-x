@@ -53,7 +53,15 @@ const FILTERS = [
   { id: 'cyber', label: 'Cyber' },
 ];
 
-let globalActivePhotoUri: string | null = null;
+interface ActivePhotoState {
+  sourceUri: string;
+  sourceName: string;
+  mime: string;
+  naturalWidth: number;
+  naturalHeight: number;
+}
+
+let persistentPhotoState: ActivePhotoState | null = null;
 
 export const MobileImageEditorView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
@@ -63,7 +71,7 @@ export const MobileImageEditorView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ToolTab>('adjust');
   const [adjustments, setAdjustments] = useState<ImageAdjustments>(DEFAULT_ADJUSTMENTS);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [imageDetails, setImageDetails] = useState<{ name: string; width: number; height: number } | null>(null);
+  const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(persistentPhotoState);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -80,9 +88,13 @@ export const MobileImageEditorView: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const rect = container.getBoundingClientRect();
+    const containerWidth = rect.width || container.clientWidth || 360;
+    const containerHeight = rect.height || container.clientHeight || 480;
+
+    if (containerWidth <= 0 || containerHeight <= 0) return;
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const containerWidth = container.clientWidth || 360;
-    const containerHeight = container.clientHeight || 480;
 
     canvas.width = containerWidth * dpr;
     canvas.height = containerHeight * dpr;
@@ -96,6 +108,8 @@ export const MobileImageEditorView: React.FC = () => {
     const imgW = isRotated90 ? img.naturalHeight : img.naturalWidth;
     const imgH = isRotated90 ? img.naturalWidth : img.naturalHeight;
 
+    if (imgW <= 0 || imgH <= 0) return;
+
     const scale = Math.min((containerWidth - 24) / imgW, (containerHeight - 24) / imgH, 1);
     const renderW = img.naturalWidth * scale;
     const renderH = img.naturalHeight * scale;
@@ -107,14 +121,13 @@ export const MobileImageEditorView: React.FC = () => {
     ctx.rotate((adjustments.rotation * Math.PI) / 180);
     ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
 
-    // CSS filter pipeline on canvas context
     const b = 100 + adjustments.brightness;
     const c = 100 + adjustments.contrast;
     const s = 100 + adjustments.saturation;
 
     let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
     if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
-    else if (adjustments.filter === 'sepia' || adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
+    else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
     else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
     else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
     else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
@@ -126,28 +139,94 @@ export const MobileImageEditorView: React.FC = () => {
     ctx.restore();
   }, [adjustments]);
 
-  const loadPhotoFromSource = useCallback((src: string, filename: string) => {
-    setEditorState('DECODING');
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      loadedImageRef.current = img;
-      globalActivePhotoUri = src;
-      setImageDetails({ name: filename, width: img.naturalWidth, height: img.naturalHeight });
-      setEditorState('READY');
-    };
-    img.onerror = () => {
-      setErrorMessage('Could not decode selected image file.');
-      setEditorState('ERROR');
-    };
-    img.src = src;
-  }, []);
+  // Decode Uint8Array / Blob bytes into HTMLImageElement
+  const decodeAndRenderBytes = useCallback(
+    (bytes: Uint8Array, mime: string, sourceUri: string, name: string) => {
+      setEditorState('DECODING');
+
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+      }
+
+      const blob = new Blob([bytes.slice().buffer], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+      activeBlobUrlRef.current = blobUrl;
+
+      const img = new Image();
+      img.onload = () => {
+        loadedImageRef.current = img;
+        const info: ActivePhotoState = {
+          sourceUri,
+          sourceName: name,
+          mime,
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+        };
+        persistentPhotoState = info;
+        setPhotoInfo(info);
+        setEditorState('READY');
+      };
+      img.onerror = () => {
+        setErrorMessage('Failed to decode image bytes.');
+        setEditorState('ERROR');
+      };
+      img.src = blobUrl;
+    },
+    []
+  );
+
+  const loadPhotoFromUri = useCallback(
+    async (uri: string) => {
+      setEditorState('DECODING');
+      try {
+        const rawData = await window.knouxAPI.file.readFile(uri);
+
+        let bytes: Uint8Array;
+        if (rawData instanceof Uint8Array) {
+          bytes = rawData;
+        } else if (typeof rawData === 'string') {
+          bytes = new TextEncoder().encode(rawData);
+        } else {
+          const buffer = (rawData as { buffer?: ArrayBuffer }).buffer ?? (rawData as ArrayBuffer);
+          bytes = new Uint8Array(buffer);
+        }
+
+        const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
+        let mime = 'image/jpeg';
+        if (ext === 'png') mime = 'image/png';
+        else if (ext === 'webp') mime = 'image/webp';
+        else if (ext === 'gif') mime = 'image/gif';
+        else if (ext === 'bmp') mime = 'image/bmp';
+
+        const name = uri.split(/[/\\]/).pop() || 'photo.jpg';
+        decodeAndRenderBytes(bytes, mime, uri, name);
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : 'Could not read file payload.');
+        setEditorState('ERROR');
+      }
+    },
+    [decodeAndRenderBytes]
+  );
 
   useEffect(() => {
-    if (globalActivePhotoUri && editorState === 'EMPTY') {
-      loadPhotoFromSource(globalActivePhotoUri, 'Active Photo');
+    if (persistentPhotoState && editorState === 'EMPTY') {
+      void loadPhotoFromUri(persistentPhotoState.sourceUri);
     }
-  }, [editorState, loadPhotoFromSource]);
+  }, [editorState, loadPhotoFromUri]);
+
+  // Use ResizeObserver for viewport layout
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      if (editorState === 'READY' || editorState === 'EDITING') {
+        renderCanvas();
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [editorState, renderCanvas]);
 
   useEffect(() => {
     if (editorState === 'READY' || editorState === 'EDITING') {
@@ -155,51 +234,38 @@ export const MobileImageEditorView: React.FC = () => {
     }
   }, [editorState, renderCanvas]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (editorState === 'READY' || editorState === 'EDITING') {
-        renderCanvas();
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [editorState, renderCanvas]);
-
   const pickImageFile = async () => {
     setEditorState('PICKING');
     try {
-      const selection = await window.knouxCreativeAPI.media.open({
+      const uri = await window.knouxAPI.file.openFile({
         filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'] }],
       });
-      if (selection?.filePath) {
-        let src = selection.filePath;
-        if (!src.startsWith('data:') && !src.startsWith('blob:') && !src.startsWith('http')) {
-          if (window.knouxRuntime?.edition === 'android') {
-            src = window.knouxNativeBridge?.saf?.androidImageAsset?.(src) ?? `file://${src}`;
-          }
-        }
-        loadPhotoFromSource(src, selection.filePath.split(/[/\\]/).pop() || 'photo.jpg');
+
+      if (uri) {
+        await loadPhotoFromUri(uri);
         return;
       }
+      setEditorState(loadedImageRef.current ? 'READY' : 'EMPTY');
     } catch {
-      // Fall back to input element
+      fileInputRef.current?.click();
     }
-    fileInputRef.current?.click();
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       if (editorState === 'PICKING') setEditorState(loadedImageRef.current ? 'READY' : 'EMPTY');
       return;
     }
 
-    if (activeBlobUrlRef.current) {
-      URL.revokeObjectURL(activeBlobUrlRef.current);
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      decodeAndRenderBytes(bytes, file.type || 'image/jpeg', file.name, file.name);
+    } catch {
+      setErrorMessage('Could not read file from file input.');
+      setEditorState('ERROR');
     }
-    const blobUrl = URL.createObjectURL(file);
-    activeBlobUrlRef.current = blobUrl;
-    loadPhotoFromSource(blobUrl, file.name);
   };
 
   const handleExport = async () => {
@@ -228,7 +294,7 @@ export const MobileImageEditorView: React.FC = () => {
 
         let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
         if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
-        else if (adjustments.filter === 'sepia' || adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
+        else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
         else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
         else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
         else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
@@ -239,27 +305,55 @@ export const MobileImageEditorView: React.FC = () => {
         ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
       }
 
-      const dataUrl = offscreen.toDataURL('image/jpeg', 0.92);
-      const defaultFilename = `KNOUX_Photo_${Date.now()}.jpg`;
+      offscreen.toBlob(async (blob) => {
+        if (!blob) {
+          addNotification({ type: 'error', title: 'Export Error', message: 'Could not create blob from canvas.' });
+          setEditorState('READY');
+          return;
+        }
 
-      const result = await window.knouxCreativeAPI.export.save({
-        defaultPath: defaultFilename,
-        filters: [{ name: 'JPEG Image', extensions: ['jpg'] }],
-        dataUrl,
-      });
+        try {
+          const buffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
 
-      addNotification({
-        type: 'success',
-        title: 'Photo Exported',
-        message: result ? `Saved to ${result.filePath}` : 'Edited photo saved successfully.',
-        duration: 5000,
-      });
-      setEditorState('READY');
+          const defaultPath = `KNOUX_Photo_${Date.now()}.jpg`;
+          const targetUri = await window.knouxAPI.file.saveFile({
+            defaultPath,
+            filters: [{ name: 'JPEG Image', extensions: ['jpg'] }],
+          });
+
+          if (!targetUri) {
+            setEditorState('READY');
+            return;
+          }
+
+          await window.knouxAPI.file.writeFile(targetUri, Buffer.from(bytes.buffer) as unknown as Buffer);
+          const exists = await window.knouxAPI.file.exists(targetUri);
+
+          if (exists) {
+            addNotification({
+              type: 'success',
+              title: 'Photo Exported',
+              message: `Saved & verified at ${targetUri}`,
+              duration: 5000,
+            });
+          }
+        } catch (err) {
+          addNotification({
+            type: 'error',
+            title: 'Export Failed',
+            message: err instanceof Error ? err.message : 'Write operation failed.',
+            duration: 5000,
+          });
+        } finally {
+          setEditorState('READY');
+        }
+      }, 'image/jpeg', 0.92);
     } catch (err) {
       addNotification({
         type: 'error',
-        title: 'Export Failed',
-        message: err instanceof Error ? err.message : 'Could not export photo.',
+        title: 'Export Error',
+        message: err instanceof Error ? err.message : 'Canvas export failed.',
         duration: 5000,
       });
       setEditorState('READY');
@@ -285,7 +379,7 @@ export const MobileImageEditorView: React.FC = () => {
           <BrandMark size={32} />
           <div>
             <strong>KNOUX <span>X</span></strong>
-            <small>{imageDetails ? imageDetails.name : 'PHOTO EDITOR'}</small>
+            <small>{photoInfo ? photoInfo.sourceName : 'PHOTO EDITOR'}</small>
           </div>
         </div>
 
@@ -337,9 +431,9 @@ export const MobileImageEditorView: React.FC = () => {
         {(editorState === 'READY' || editorState === 'EDITING' || editorState === 'EXPORTING') && (
           <div className="kmc-photo-viewport">
             <canvas ref={canvasRef} className="kmc-photo-canvas" />
-            {imageDetails && (
+            {photoInfo && (
               <span className="kmc-photo-badge">
-                {imageDetails.width} × {imageDetails.height}
+                {photoInfo.naturalWidth} × {photoInfo.naturalHeight}
               </span>
             )}
           </div>

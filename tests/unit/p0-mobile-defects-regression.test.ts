@@ -12,6 +12,8 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
   const mobilePhotoView = read('src/features/image-editor/MobileImageEditorView.tsx');
   const premiumCss = read('src/styles/mobile-premium-shell.css');
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
+  const appStore = read('src/store/appStore.ts');
+  const homeDashboard = read('src/features/home/MobileHomeDashboard.tsx');
 
   describe('P0-1 — Splash Experience', () => {
     test('renders MobileSplashOverlay in App.tsx on Android startup', () => {
@@ -25,6 +27,15 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(splashOverlay).toContain('Eng. Sadek Elgazar');
       expect(splashOverlay).not.toContain('splash-progress-bar');
       expect(splashOverlay).not.toContain('LOADING...');
+    });
+
+    test('implements homeReady signal handshake with minimum visual duration and max safety fallback', () => {
+      expect(appStore).toContain('isHomeReady: boolean;');
+      expect(appStore).toContain('setHomeReady(ready: boolean): void;');
+      expect(homeDashboard).toContain('setHomeReady(true)');
+      expect(splashOverlay).toContain('isHomeReady');
+      expect(splashOverlay).toContain('750');
+      expect(splashOverlay).toContain('1800');
     });
 
     test('tools/prepare-android-premium-splash.cjs generates clean splash PNG without static loading track', () => {
@@ -59,17 +70,27 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
     });
   });
 
-  describe('P0-3 — Mobile Photo Editor Surface', () => {
+  describe('P0-3 — Mobile Photo Editor Surface & Canonical File API', () => {
     test('MobileImageEditorView is a dedicated surface and does NOT wrap desktop ImageEditorView', () => {
       expect(mobilePhotoView).not.toContain('<ImageEditorView />');
       expect(mobilePhotoView).toContain('data-component="MobileImageEditorView"');
     });
 
-    test('defines explicit editor states and photo canvas viewport', () => {
+    test('uses canonical window.knouxAPI.file API for openFile, readFile, saveFile, and writeFile', () => {
+      expect(mobilePhotoView).toContain('window.knouxAPI.file.openFile');
+      expect(mobilePhotoView).toContain('window.knouxAPI.file.readFile');
+      expect(mobilePhotoView).toContain('window.knouxAPI.file.saveFile');
+      expect(mobilePhotoView).toContain('window.knouxAPI.file.writeFile');
+      expect(mobilePhotoView).toContain('window.knouxAPI.file.exists');
+      expect(mobilePhotoView).not.toContain('knouxCreativeAPI.media.open');
+      expect(mobilePhotoView).not.toContain('knouxNativeBridge');
+    });
+
+    test('defines explicit editor states and photo canvas viewport with ResizeObserver', () => {
       expect(mobilePhotoView).toContain("'EMPTY' | 'PICKING' | 'DECODING' | 'READY' | 'EDITING' | 'EXPORTING' | 'ERROR'");
       expect(mobilePhotoView).toContain('kmc-photo-canvas');
       expect(mobilePhotoView).toContain('canvasRef');
-      expect(mobilePhotoView).toContain('knouxCreativeAPI.media.open');
+      expect(mobilePhotoView).toContain('ResizeObserver');
     });
 
     test('provides touch dock tools for brightness, contrast, saturation, filters, and rotation', () => {

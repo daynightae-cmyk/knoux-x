@@ -1,0 +1,108 @@
+.knoux-retouch-workspace {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.knoux-retouch-workspace-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid var(--knoux-border, #e7e0f4);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--knoux-surface, #ffffff) 96%, transparent);
+  box-shadow: 0 10px 28px rgba(45, 29, 71, 0.07);
+}
+
+.knoux-retouch-workspace-actions > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.knoux-retouch-workspace-actions small {
+  color: var(--knoux-text-secondary, #625b70);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.knoux-retouch-workspace-actions strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.knoux-retouch-workspace-actions button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--knoux-border, #e7e0f4);
+  border-radius: 11px;
+  background: var(--knoux-surface, #ffffff);
+  color: var(--knoux-text-primary, #15121c);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.knoux-retouch-workspace-actions button.primary {
+  border-color: var(--knoux-accent, #7828e8);
+  background: var(--knoux-accent, #7828e8);
+  color: #ffffff;
+}
+
+.knoux-retouch-workspace-actions button:disabled { opacity: 0.52; }
+
+.knoux-retouch-export-error,
+.knoux-retouch-export-success {
+  padding: 9px 11px;
+  border-radius: 12px;
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.knoux-retouch-export-error {
+  border: 1px solid rgba(190, 42, 52, 0.2);
+  background: rgba(190, 42, 52, 0.07);
+  color: #a42a35;
+}
+
+.knoux-retouch-export-success {
+  border: 1px solid rgba(32, 145, 91, 0.2);
+  background: rgba(32, 145, 91, 0.07);
+  color: #217a50;
+}
+
+@media (max-width: 380px) {
+  .knoux-retouch-workspace-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .knoux-retouch-workspace-actions > div {
+    grid-column: 1 / -1;
+  }
+}
+
+[data-theme*='dark'] .knoux-retouch-workspace-actions,
+.dark .knoux-retouch-workspace-actions {
+  background: rgba(15, 11, 22, 0.96);
+  border-color: rgba(196, 166, 255, 0.14);
+}
+
+[data-theme*='dark'] .knoux-retouch-workspace-actions button,
+.dark .knoux-retouch-workspace-actions button {
+  background: #171120;
+  border-color: rgba(196, 166, 255, 0.14);
+  color: #f7f2ff;
+}
+
+[data-theme*='dark'] .knoux-retouch-workspace-actions button.primary,
+.dark .knoux-retouch-workspace-actions button.primary {
+  background: var(--knoux-accent, #8b3dff);
+  border-color: var(--knoux-accent, #8b3dff);
+  color: #ffffff;
+}

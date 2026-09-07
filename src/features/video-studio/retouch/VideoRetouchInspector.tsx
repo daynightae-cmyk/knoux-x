@@ -7,8 +7,7 @@ import type { RetouchTemplate } from '../../image-editor/retouch/RetouchModule/T
 import { VideoRetouchAnalyzer } from './VideoRetouchAnalyzer';
 import {
   addVideoRetouchLayer,
-  cloneVideoRetouchState,
-  createVideoRetouchState,
+  ensureVideoRetouchState,
   removeVideoRetouchLayer,
   resetVideoRetouch,
   updateVideoRetouchLayer,
@@ -38,7 +37,7 @@ function displayName(template: RetouchTemplate): string {
 }
 
 function stateOf(item: TimelineItem): VideoRetouchClipState {
-  return item.retouch ? cloneVideoRetouchState(item.retouch) : createVideoRetouchState();
+  return ensureVideoRetouchState(item);
 }
 
 function supportedTemplate(template: RetouchTemplate): template is RetouchTemplate & { category: SupportedCategory } {

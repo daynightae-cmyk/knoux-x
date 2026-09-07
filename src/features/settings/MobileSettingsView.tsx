@@ -7,6 +7,10 @@ import { useAppStore } from '../../store/appStore';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
+function announceMobileSetting(key: string, value: unknown): void {
+  window.dispatchEvent(new CustomEvent('knoux:mobile-setting-changed', { detail: { key, value } }));
+}
+
 export const MobileSettingsView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const locale = useAppStore((state) => state.locale);
@@ -41,6 +45,7 @@ export const MobileSettingsView: React.FC = () => {
     setNotice(null);
     try {
       await window.knouxAPI.settings.set(key, value);
+      announceMobileSetting(key, value);
       setNotice('Saved on this device.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Setting could not be saved.');
@@ -75,15 +80,21 @@ export const MobileSettingsView: React.FC = () => {
         window.knouxAPI.settings.reset('mobile.defaultPlaybackSpeed'),
         window.knouxAPI.settings.reset('mobile.keepScreenAwake'),
         window.knouxAPI.settings.reset('mobile.libraryPath'),
+        window.knouxAPI.settings.reset('theme'),
       ]);
       setDefaultSpeed(1);
       setKeepAwake(true);
       setLibraryPath(null);
-      setNotice('Mobile playback preferences reset.');
+      setTheme('system-light');
+      announceMobileSetting('mobile.defaultPlaybackSpeed', 1);
+      announceMobileSetting('mobile.keepScreenAwake', true);
+      announceMobileSetting('mobile.libraryPath', null);
+      announceMobileSetting('theme', 'system-light');
+      setNotice('Mobile settings reset. KNOUX Daylight is restored.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Mobile settings could not be reset.');
     }
-  }, []);
+  }, [setTheme]);
 
   return (
     <section className="knoux-mobile-settings" data-component="MobileSettingsView">
@@ -94,15 +105,15 @@ export const MobileSettingsView: React.FC = () => {
 
       <section className="kms-card"><div className="kms-card-title"><Globe2 size={18} /><span><strong>Language</strong><small>Interface direction updates immediately.</small></span></div><div className="kms-segment"><button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => changeLocale('en')}>English</button><button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => changeLocale('ar')}>العربية</button></div></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium dark or light interface.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>Light</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium Daylight by default, with optional Deep Black.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>Daylight</button><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Used as the preferred speed for new media.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Applied once when new media opens; manual speed changes remain yours.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>Media folder</strong><small>{libraryPath ? 'Persisted Android folder permission is active.' : 'Choose a folder through Android SAF.'}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? 'Change folder' : 'Choose folder'}</button>{libraryPath && <code>{libraryPath}</code>}</section>
+      <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>Media folder</strong><small>{libraryPath ? 'Persisted Android SAF folder permission is active.' : 'Choose a folder through Android SAF.'}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? 'Change folder' : 'Choose folder'}</button>{libraryPath && <code>{libraryPath}</code>}</section>
 
       <section className="kms-card"><div className="kms-card-title"><ShieldCheck size={18} /><span><strong>Privacy</strong><small>Playback, editing and local rendering do not upload your media by themselves.</small></span></div><p className="kms-copy">Any future AI action that sends selected data off-device must request explicit consent at that action.</p></section>
 
-      <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> Reset mobile playback settings</button>
+      <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> Reset mobile settings</button>
     </section>
   );
 };

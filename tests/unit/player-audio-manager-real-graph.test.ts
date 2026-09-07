@@ -349,7 +349,6 @@ describe('PlayerAudioManager — effect enable/disable', () => {
     const internal = getInternal(mgr);
     const effectStages = internal.effectStages as Map<string, { input: FakeNode, output: FakeNode }>;
     const panner = internal.stereoPanner as FakeNode;
-    const analyser = internal.analyser as FakeNode;
 
     // OFF (initial)
     expect(effectStages.has('bass-boost')).toBe(false);

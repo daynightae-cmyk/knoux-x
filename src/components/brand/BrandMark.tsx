@@ -1,10 +1,6 @@
 import React from 'react';
 
-import { useAppStore } from '../../store/appStore';
-import { isLightKnouxTheme } from '../../theme/knouxThemeCatalog';
-
-const dayLogo = new URL('../../../assets/branding/knoux-logo-day.png', import.meta.url).href;
-const nightLogo = new URL('../../../assets/branding/knoux-logo-night.png', import.meta.url).href;
+const officialLogo = new URL('../../../assets/branding/knoux-logo-master.png', import.meta.url).href;
 
 interface BrandMarkProps {
   className?: string;
@@ -12,24 +8,21 @@ interface BrandMarkProps {
   withWordmark?: boolean;
 }
 
+/** Canonical KNOUX X identity. Never swaps to legacy theme-specific marks. */
 export const BrandMark: React.FC<BrandMarkProps> = ({
   className = '',
   size = 30,
   withWordmark = false,
-}) => {
-  const theme = useAppStore((state) => state.theme);
-  const dark = !isLightKnouxTheme(theme);
-
-  return (
-    <span className={`brand-mark ${className}`.trim()}>
-      <img
-        src={dark ? nightLogo : dayLogo}
-        width={size}
-        height={size}
-        alt=""
-        aria-hidden="true"
-      />
-      {withWordmark && <span>KNOUX Player X</span>}
-    </span>
-  );
-};
+}) => (
+  <span className={`brand-mark ${className}`.trim()}>
+    <img
+      src={officialLogo}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+    />
+    {withWordmark && <span>KNOUX X</span>}
+  </span>
+);

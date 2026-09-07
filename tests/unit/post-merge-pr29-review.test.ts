@@ -81,40 +81,44 @@ function getInternal(m: PlayerAudioManager): any { return m as any; }
 
 // 1. EFFECT OFF uses removeEffect - behavioral
 describe('post-merge PR29: effect OFF uses removeEffect', () => {
-  it('OFF removes node and graph returns to direct path (not recreating with defaults)', async () => {
+  it('OFF removes node and graph returns to limiter/analyser path without an orphan', async () => {
     const mgr = new PlayerAudioManager();
     mgr.attachToMediaElement(makeEl('v'));
     const internal = getInternal(mgr);
     const panner = internal.stereoPanner as FakeNode;
+    const limiter = internal.limiterNode as FakeNode;
     const analyser = internal.analyser as FakeNode;
 
     // ON
     await mgr.setEffect('bass-boost', { amount: 50, frequency: 100 });
     expect(internal.effectStages.has('bass-boost')).toBe(true);
     const node = (internal.effectStages.get('bass-boost') as any).input as FakeNode;
-    expect(panner.connectedTo.length).toBeGreaterThan(0);
-    expect(node.connectedTo.length).toBeGreaterThan(0);
+    expect(panner.connectedTo).toContain(node);
+    expect(node.connectedTo).toContain(limiter);
 
     // OFF
     await mgr.removeEffect('bass-boost');
     expect(internal.effectStages.has('bass-boost')).toBe(false);
     expect(internal.effectStages.size).toBe(0);
-    // graph must be direct: panner -> analyser, no orphan
-    expect(panner.connectedTo).toContain(analyser);
+    expect(panner.connectedTo).toContain(limiter);
+    expect(limiter.connectedTo).toContain(analyser);
     expect(panner.connectedTo).not.toContain(node);
-    expect(node.connectedTo).not.toContain(analyser);
+    expect(node.connectedTo).toHaveLength(0);
   });
 
-  it('setEffect with {} would incorrectly keep effect, removeEffect correctly removes (behavioral)', async () => {
+  it('setEffect with {} keeps the effect active; removeEffect actually removes it', async () => {
     const mgr = new PlayerAudioManager();
     mgr.attachToMediaElement(makeEl('v'));
     await mgr.setEffect('bass-boost', { amount: 50, frequency: 100 });
     expect(getInternal(mgr).effectStages.has('bass-boost')).toBe(true);
 
-    // Simulate old buggy OFF: setEffect with empty object recreates with defaults
+    // Simulate the old buggy OFF path: an empty params object still creates defaults.
     await mgr.setEffect('bass-boost', {});
-    expect(getInternal(mgr).effectNodes.has('bass-boost')).toBe(false);
-    expect(getInternal(mgr).effectNodes.size).toBe(0);
+    expect(getInternal(mgr).effectStages.has('bass-boost')).toBe(true);
+
+    await mgr.removeEffect('bass-boost');
+    expect(getInternal(mgr).effectStages.has('bass-boost')).toBe(false);
+    expect(getInternal(mgr).effectStages.size).toBe(0);
   });
 });
 

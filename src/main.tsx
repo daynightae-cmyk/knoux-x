@@ -17,6 +17,7 @@ import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
 import { AndroidBeautyExtension } from './platform/AndroidBeautyExtension';
+import { AndroidBodyBeautyExtension } from './platform/AndroidBodyBeautyExtension';
 import { AndroidPlaybackPreferences } from './platform/AndroidPlaybackPreferences';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
@@ -71,6 +72,7 @@ root.render(
       <SystemOverlay />
       {androidRuntimeInstalled && <AndroidPlaybackPreferences />}
       {androidRuntimeInstalled && <AndroidBeautyExtension />}
+      {androidRuntimeInstalled && <AndroidBodyBeautyExtension />}
     </ErrorBoundary>
   </React.StrictMode>
 );

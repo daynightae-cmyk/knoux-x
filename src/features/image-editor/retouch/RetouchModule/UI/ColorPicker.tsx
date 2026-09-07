@@ -33,10 +33,11 @@ const clampPercent = (value: number): number => Math.max(0, Math.min(100, Number
  */
 export const ColorPicker: React.FC<ColorPickerProps> = ({ value, disabled = false, onPreview, onConfirm, onCancel }) => {
   const [draft, setDraft] = useState<MakeupSelection>({ ...value });
+  const { blendMode, color, intensity } = value;
 
   useEffect(() => {
-    setDraft({ ...value });
-  }, [value.blendMode, value.color, value.intensity]);
+    setDraft({ blendMode, color, intensity });
+  }, [blendMode, color, intensity]);
 
   const modeLabels = useMemo<Record<MakeupBlendMode, string>>(() => ({
     multiply: 'Multiply',

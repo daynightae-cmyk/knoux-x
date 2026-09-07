@@ -1,5 +1,6 @@
 import { FaceAnalysisClient } from '../../image-editor/retouch/faceAnalysisClient';
 import { FaceTracker, type FaceObservation } from '../../image-editor/retouch/RetouchModule/Detection/FaceTracker';
+
 import {
   cloneVideoRetouchState,
   setVideoRetouchAnalysis,

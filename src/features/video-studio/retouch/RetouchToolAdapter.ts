@@ -9,6 +9,7 @@ import type { EditingToolAdapter } from '../../editor/tools/EditingToolAdapter';
 import { EditingToolError } from '../../editor/tools/EditingToolAdapter';
 import { retouchTemplateRegistry } from '../../image-editor/retouch/RetouchModule/Templates/TemplateRegistry';
 import type { RetouchTemplate } from '../../image-editor/retouch/RetouchModule/Templates/TemplateTypes';
+
 import {
   addVideoRetouchLayer,
   createVideoRetouchState,

@@ -1,6 +1,5 @@
 // eslint-disable-next-line import/default
 import WarpWorker from './warpWorker?worker';
-
 import type { BodyControlPoint, BodyZone, BodyZoneType } from './BodyDetector';
 import type { Point } from './FaceDetector';
 import type { WarpWorkerRequest, WarpWorkerResponse } from './warpProtocol';

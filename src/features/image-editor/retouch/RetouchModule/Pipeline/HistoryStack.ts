@@ -1,5 +1,6 @@
 import type { BodyControlPoint, BodyZoneType } from '../Engine/BodyDetector';
 import type { FaceZoneType, ZoneMask } from '../Engine/FaceDetector';
+
 import type { MakeupBlendMode, RgbColor } from './BlendModes';
 
 /** History parameters for a committed body mesh warp. */

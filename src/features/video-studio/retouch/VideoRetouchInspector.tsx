@@ -4,6 +4,7 @@ import { Eye, EyeOff, RefreshCw, ScanFace, Sparkles, X } from 'lucide-react';
 import type { TimelineItem } from '../../../core/creative/multitrackProject';
 import { retouchTemplateRegistry } from '../../image-editor/retouch/RetouchModule/Templates/TemplateRegistry';
 import type { RetouchTemplate } from '../../image-editor/retouch/RetouchModule/Templates/TemplateTypes';
+
 import { VideoRetouchAnalyzer } from './VideoRetouchAnalyzer';
 import {
   addVideoRetouchLayer,

@@ -1,4 +1,5 @@
 import type { BodyWarpLayer, FaceWarpLayer, MakeupLayer, RetouchLayer } from '../Engine/LayerManager';
+
 import { applyMakeupBlend } from './BlendModes';
 
 /** Export pipeline stages exposed to the mobile UI. */
@@ -75,7 +76,11 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 function sanitizedMediaName(value: string): string {
-  const cleaned = value.normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim();
+  const filesystemSafe = value.normalize('NFC').replace(/[\\/:*?"<>|]/g, '-');
+  const printable = Array.from(filesystemSafe, (character) => (
+    character.charCodeAt(0) < 32 ? '-' : character
+  )).join('');
+  const cleaned = printable.trim();
   return (cleaned || 'KNOUX-Retouch').slice(0, 120);
 }
 

@@ -1,10 +1,10 @@
+import type { RetouchWarpExecutor } from '../Pipeline/ImageProcessor';
+
 // eslint-disable-next-line import/default
 import WarpWorker from './warpWorker?worker';
-
 import type { BodyControlPoint } from './BodyDetector';
 import type { BoundingBox } from './FaceDetector';
 import type { BodyWarpLayer, FaceWarpLayer } from './LayerManager';
-import type { RetouchWarpExecutor } from '../Pipeline/ImageProcessor';
 import type { WarpWorkerRequest, WarpWorkerResponse } from './warpProtocol';
 
 interface PendingWarp {

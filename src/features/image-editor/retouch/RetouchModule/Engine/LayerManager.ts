@@ -1,6 +1,7 @@
+import type { MakeupBlendMode, RgbColor } from '../Pipeline/BlendModes';
+
 import type { BodyControlPoint, BodyZoneType } from './BodyDetector';
 import type { FaceZoneType, ZoneMask } from './FaceDetector';
-import type { MakeupBlendMode, RgbColor } from '../Pipeline/BlendModes';
 
 interface RetouchLayerBase {
   id: string;

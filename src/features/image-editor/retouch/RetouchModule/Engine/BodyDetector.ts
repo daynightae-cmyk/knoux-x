@@ -6,6 +6,7 @@ import type {
   BodySegmentationMask,
   DetectedBody,
 } from '../../bodyAnalysisContract';
+
 import type { BoundingBox, MaskSpan, Point, ZoneMask } from './FaceDetector';
 
 /** Editable body zones exposed to KNOUX Retouch and reusable by video retouch. */

@@ -16,6 +16,7 @@ import { LayerManager, type RetouchLayer } from '../Engine/LayerManager';
 import { MeshWarper } from '../Engine/MeshWarper';
 import { applyMakeupBlend, parseHexColor } from '../Pipeline/BlendModes';
 import { captureZoneSnapshot, HistoryStack, type HistoryEntry } from '../Pipeline/HistoryStack';
+
 import { ColorPicker, type MakeupSelection } from './ColorPicker';
 import { ToolPanel, type ActiveRetouchZone } from './ToolPanel';
 import { ZoneHandles } from './ZoneHandles';

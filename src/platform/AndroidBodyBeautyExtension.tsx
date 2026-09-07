@@ -99,7 +99,6 @@ function projectFor(source: ImageEditorSource, current: RetouchProjectV2 | null,
 
 export const AndroidBodyBeautyExtension: React.FC = () => {
   const source = useImageEditorStore((state) => state.source);
-  const retouchProject = useImageEditorStore((state) => state.retouchProject);
   const setRetouchProject = useImageEditorStore((state) => state.setRetouchProject);
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [active, setActive] = useState(false);
@@ -365,7 +364,7 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
                       max={max}
                       step={0.05}
                       value={values[definition.id]}
-                      disabled={!available || state === 'ANALYZING' || state === 'QUEUED'}
+                      disabled={!available}
                       aria-label={arabic ? definition.ar : definition.en}
                       onChange={(event) => void applyControl(definition.id, Number(event.target.value))}
                     />

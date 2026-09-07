@@ -17,7 +17,7 @@ export const IPC_SOURCE_INVENTORY = {
   'ai:generate-playlist': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'ai:recommendations': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'ai:stream': { sourceRoots: ['electron/preload.ts'], lifecycle: 'reserved', reservedReason: 'Reserved renderer subscription for ai:stream; Sprint 01 has no production main-process emitter.' },
-  'app:open-media': { sourceRoots: ['electron/main.ts', 'electron/menu/app-menu.ts', 'electron/preload.ts'], lifecycle: 'active' },
+  'app:open-media': { sourceRoots: ['electron/main.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'app:renderer-ready': { sourceRoots: ['electron/main.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'audio-tools:analyze': { sourceRoots: ['electron/ipc/audio-tools-runtime.ts', 'electron/preload-audio-tools.ts'], lifecycle: 'active' },
   'audio-tools:cancel': { sourceRoots: ['electron/ipc/audio-tools-runtime.ts', 'electron/preload-audio-tools.ts'], lifecycle: 'active' },

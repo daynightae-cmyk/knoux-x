@@ -89,7 +89,10 @@ describe('complete IPC schema and basic boundary', () => {
       'electron/preload-creative.ts',
       'electron/preload.ts',
     ]);
-    expect(actualRoots['app:open-media']).toContain('electron/menu/app-menu.ts');
+    expect(actualRoots['app:open-media']).toEqual([
+      'electron/main.ts',
+      'electron/preload.ts',
+    ]);
   });
 
   test('every no-emitter outbound declaration is explicitly reserved with a concrete reason', () => {

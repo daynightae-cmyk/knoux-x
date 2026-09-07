@@ -1,5 +1,5 @@
 import type { BodyControlPoint, BodyZoneType } from './BodyDetector';
-import type { BoundingBox, MaskSpan } from './FaceDetector';
+import type { BoundingBox, FaceZoneType, MaskSpan } from './FaceDetector';
 
 /** Serializable zone mask used across the warp worker boundary. */
 export interface WarpZoneMaskPayload {
@@ -8,12 +8,12 @@ export interface WarpZoneMaskPayload {
   spans: readonly MaskSpan[];
 }
 
-/** Worker request for deterministic bilinear body-zone deformation. */
+/** Worker request for deterministic bilinear face/body-zone deformation. */
 export interface WarpWorkerRequest {
   type: 'warp';
   requestId: string;
   zoneId: string;
-  zoneType: BodyZoneType;
+  zoneType: BodyZoneType | FaceZoneType;
   pixels: Uint8ClampedArray;
   width: number;
   height: number;

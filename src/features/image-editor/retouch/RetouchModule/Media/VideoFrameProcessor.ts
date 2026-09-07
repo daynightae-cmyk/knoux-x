@@ -1,7 +1,7 @@
 import type { FacePoint, FaceSemanticRegion } from '../../faceAnalysisContract';
 import { buildSemanticFaceRegions } from '../../faceSemanticRegions';
-import type { VideoRetouchClipState, VideoRetouchLayer, VideoRetouchRegion, VideoRetouchTrackingKeyframe } from '../../../video-studio/retouch/videoRetouchProject';
-import { orderedVideoRetouchLayers, resolveTrackingKeyframe } from '../../../video-studio/retouch/videoRetouchProject';
+import type { VideoRetouchClipState, VideoRetouchLayer, VideoRetouchRegion, VideoRetouchTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
+import { orderedVideoRetouchLayers, resolveTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
 import { applyMakeupBlend, parseHexColor, type MakeupBlendMode } from '../Pipeline/BlendModes';
 import { MaskCache } from '../Pipeline/MaskCache';
 

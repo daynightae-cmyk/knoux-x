@@ -17,8 +17,25 @@ const reportPath = path.join(androidRoot, 'knoux-branding-report.json');
 
 const APP_NAME = 'KNOUX X';
 const APPLICATION_ID = 'dev.knoux.playerx';
-const VERSION_NAME = '2.0.0';
-const VERSION_CODE = 20000;
+// Single version contract: package.json is authoritative; the release pipeline
+// may pin both through KNOUX_RELEASE_VERSION / KNOUX_RELEASE_VERSION_CODE.
+function releaseVersionContract() {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const version = String(manifest.version || '').trim();
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version);
+  if (!match) throw new Error(`Invalid package.json version for Android stamping: ${version}`);
+  const derivedCode = Number(match[1]) * 10000 + Number(match[2]) * 100 + Number(match[3]);
+  const overrideVersion = (process.env.KNOUX_RELEASE_VERSION || '').trim();
+  const overrideCode = (process.env.KNOUX_RELEASE_VERSION_CODE || '').trim();
+  if (overrideVersion && overrideVersion !== version) {
+    throw new Error(`KNOUX_RELEASE_VERSION (${overrideVersion}) does not match package.json (${version}).`);
+  }
+  if (overrideCode && Number(overrideCode) !== derivedCode) {
+    throw new Error(`KNOUX_RELEASE_VERSION_CODE (${overrideCode}) does not match derived code (${derivedCode}).`);
+  }
+  return { version, code: derivedCode };
+}
+const { version: VERSION_NAME, code: VERSION_CODE } = releaseVersionContract();
 const BRAND_BACKGROUND = '#F8F7FC';
 const BRAND_ACCENT = '#7828E8';
 const BRAND_BACKGROUND_RGBA = { r: 248, g: 247, b: 252, alpha: 1 };

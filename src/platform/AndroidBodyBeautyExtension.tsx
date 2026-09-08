@@ -2,11 +2,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 
 import { useImageEditorStore, type ImageEditorSource } from '../store/imageEditorStore';
+import {
+  BODY_SHAPE_RECIPES,
+  STUDIO_BODY_TOOLS,
+  templatesForCategory,
+  type StudioToolDef,
+} from '../features/retouch-studio/retouchStudioModel';
+import { RetouchStudioPanel } from '../features/retouch-studio/RetouchStudioPanel';
+import '../features/retouch-studio/retouchStudioPanel.css';
 import { BodyAnalysisClient } from '../features/image-editor/retouch/bodyAnalysisClient';
 import type { BodyAnalysisResult, DetectedBody, DerivedBodyGeometry } from '../features/image-editor/retouch/bodyAnalysisContract';
 import {
   bodyReshapeStrokes,
   createBodyFreezeMask,
+  deriveChestRegion,
   EMPTY_BODY_RESHAPE_CONTROLS,
   type BodyReshapeControls,
 } from '../features/image-editor/retouch/bodyReshapeGeometry';
@@ -29,6 +38,7 @@ type BodyControl = keyof Pick<BodyReshapeControls,
   | 'abdomenWidth'
   | 'hips'
   | 'hipVolume'
+  | 'chest'
   | 'shoulders'
   | 'upperArmSize'
   | 'forearmSize'
@@ -52,6 +62,7 @@ const BODY_CONTROLS: BodyControlDefinition[] = [
   { id: 'abdomenWidth', en: 'Abdomen', ar: 'البطن', geometry: (g) => Boolean(g.waist && g.hips) },
   { id: 'hips', en: 'Hip Width', ar: 'عرض الورك', geometry: (g) => Boolean(g.hips) },
   { id: 'hipVolume', en: 'Hip Volume', ar: 'حجم الورك', geometry: (g) => Boolean(g.hips) },
+  { id: 'chest', en: 'Chest', ar: 'الصدر', geometry: (g) => deriveChestRegion(g) !== null },
   { id: 'shoulders', en: 'Shoulders', ar: 'الكتفان', geometry: (g) => Boolean(g.shoulders) },
   { id: 'upperArmSize', en: 'Upper Arms', ar: 'الذراع العلوي', geometry: (g) => Boolean(g.arms.left || g.arms.right) },
   { id: 'forearmSize', en: 'Forearms', ar: 'الساعد', geometry: (g) => Boolean(g.arms.left || g.arms.right) },
@@ -107,6 +118,15 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
   const [protectBackground, setProtectBackground] = useState(true);
   const [values, setValues] = useState<Record<BodyControl, number>>(() => Object.fromEntries(BODY_CONTROLS.map((entry) => [entry.id, 0])) as Record<BodyControl, number>);
+  const [focusedControl, setFocusedControl] = useState<BodyControl>('waist');
+  const [activeBodyTemplateId, setActiveBodyTemplateId] = useState<string | null>(null);
+  const [comparingBody, setComparingBody] = useState(false);
+  const [bodyMessage, setBodyMessage] = useState<string | null>(null);
+  const [bodyUndoDepth, setBodyUndoDepth] = useState(0);
+  const [bodyRedoDepth, setBodyRedoDepth] = useState(0);
+  const bodyUndoRef = useRef<Array<Record<BodyControl, number>>>([]);
+  const bodyRedoRef = useRef<Array<Record<BodyControl, number>>>([]);
+  const compareRestoreRef = useRef<Array<{ id: string; enabled: boolean }> | null>(null);
   const clientRef = useRef<BodyAnalysisClient | null>(null);
   const inFlightRef = useRef<Promise<BodyAnalysisResult | null> | null>(null);
   const arabic = isArabic();
@@ -138,6 +158,15 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
     setSelectedBodyId(null);
     setProtectBackground(true);
     setValues(Object.fromEntries(BODY_CONTROLS.map((entry) => [entry.id, 0])) as Record<BodyControl, number>);
+    setFocusedControl('waist');
+    setActiveBodyTemplateId(null);
+    setComparingBody(false);
+    setBodyMessage(null);
+    bodyUndoRef.current = [];
+    bodyRedoRef.current = [];
+    compareRestoreRef.current = null;
+    setBodyUndoDepth(0);
+    setBodyRedoDepth(0);
     inFlightRef.current = null;
   }, [sourceKey]);
 
@@ -232,8 +261,23 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
     return { project: addRetouchMask(project, mask), maskId: mask.id };
   }, [analysis, protectBackground]);
 
-  const applyControl = useCallback(async (control: BodyControl, value: number): Promise<void> => {
+  const pushBodyHistory = useCallback((snapshot: Record<BodyControl, number>): void => {
+    const stack = bodyUndoRef.current;
+    const top = stack[stack.length - 1];
+    if (top && BODY_CONTROLS.every((entry) => top[entry.id] === snapshot[entry.id])) return;
+    stack.push({ ...snapshot });
+    if (stack.length > 50) stack.shift();
+    bodyRedoRef.current = [];
+    setBodyUndoDepth(stack.length);
+    setBodyRedoDepth(0);
+  }, []);
+
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  const applyControl = useCallback(async (control: BodyControl, value: number, recordHistory = true): Promise<void> => {
     if (!source) return;
+    if (recordHistory) pushBodyHistory({ ...valuesRef.current });
     setValues((current) => ({ ...current, [control]: value }));
     const canvas = document.querySelector<HTMLCanvasElement>('.image-editor-canvas');
     if (!canvas || canvas.width < 2 || canvas.height < 2) return;
@@ -283,7 +327,88 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
       }));
     }
     setRetouchProject(project);
-  }, [analysis, analyze, arabic, createFreezeMask, protectBackground, selectedBodyId, setRetouchProject, source]);
+  }, [analysis, analyze, arabic, createFreezeMask, protectBackground, pushBodyHistory, selectedBodyId, setRetouchProject, source]);
+
+  const applyBodySnapshot = useCallback(async (snapshot: Record<BodyControl, number>): Promise<void> => {
+    for (const entry of BODY_CONTROLS) {
+      const next = snapshot[entry.id] ?? 0;
+      if (Math.abs((valuesRef.current[entry.id] ?? 0) - next) > 0.0005) {
+        await applyControl(entry.id, next, false);
+      }
+    }
+  }, [applyControl]);
+
+  const undoBody = useCallback((): void => {
+    const snapshot = bodyUndoRef.current.pop();
+    if (!snapshot) return;
+    bodyRedoRef.current.push({ ...valuesRef.current });
+    setBodyUndoDepth(bodyUndoRef.current.length);
+    setBodyRedoDepth(bodyRedoRef.current.length);
+    void applyBodySnapshot(snapshot);
+  }, [applyBodySnapshot]);
+
+  const redoBody = useCallback((): void => {
+    const snapshot = bodyRedoRef.current.pop();
+    if (!snapshot) return;
+    bodyUndoRef.current.push({ ...valuesRef.current });
+    setBodyUndoDepth(bodyUndoRef.current.length);
+    setBodyRedoDepth(bodyRedoRef.current.length);
+    void applyBodySnapshot(snapshot);
+  }, [applyBodySnapshot]);
+
+  const resetBodyControl = useCallback((control: BodyControl): void => {
+    void applyControl(control, 0);
+  }, [applyControl]);
+
+  /** CapCut-style one-tap body shapes: one undo checkpoint, honest recipes. */
+  const applyBodyTemplate = useCallback(async (templateId: string): Promise<void> => {
+    const recipe = BODY_SHAPE_RECIPES.find((entry) => entry.id === templateId);
+    if (!recipe) return;
+    const prev: Record<BodyControl, number> = { ...valuesRef.current };
+    pushBodyHistory(prev);
+    setActiveBodyTemplateId(templateId);
+    const next: Record<BodyControl, number> = { ...prev };
+    for (const entry of BODY_CONTROLS) next[entry.id] = recipe.values[entry.id] ?? 0;
+    setValues(next);
+    for (const entry of BODY_CONTROLS) {
+      const value = next[entry.id] ?? 0;
+      if (Math.abs((prev[entry.id] ?? 0) - value) > 0.0005) {
+        await applyControl(entry.id, value, false);
+      }
+    }
+    setBodyMessage(arabic ? 'تم تطبيق قالب الجسم. يمكنك التراجع في أي وقت.' : 'Body template applied. You can undo at any time.');
+  }, [applyControl, arabic, pushBodyHistory]);
+
+  const resetBodySection = useCallback((): void => {
+    pushBodyHistory({ ...valuesRef.current });
+    for (const entry of BODY_CONTROLS) {
+      if (Math.abs(valuesRef.current[entry.id] ?? 0) > 0.0005) void applyControl(entry.id, 0, false);
+    }
+    setBodyMessage(arabic ? 'تم تصفير أدوات الجسم.' : 'Body tools reset.');
+  }, [applyControl, arabic, pushBodyHistory]);
+
+  const setBodyCompare = useCallback((enabled: boolean): void => {
+    const current = useImageEditorStore.getState().retouchProject;
+    setComparingBody(enabled);
+    if (!current) return;
+    const isBodyOp = (tool: string): boolean => tool === 'body-sculpt';
+    if (enabled) {
+      compareRestoreRef.current = current.operations
+        .filter((op) => isBodyOp(op.tool))
+        .map((op) => ({ id: op.id, enabled: op.enabled }));
+      setRetouchProject({
+        ...current,
+        operations: current.operations.map((op) => isBodyOp(op.tool) ? { ...op, enabled: false } : op),
+      });
+    } else if (compareRestoreRef.current) {
+      const restore = new Map(compareRestoreRef.current.map((entry) => [entry.id, entry.enabled]));
+      compareRestoreRef.current = null;
+      setRetouchProject({
+        ...current,
+        operations: current.operations.map((op) => restore.has(op.id) ? { ...op, enabled: restore.get(op.id) ?? true } : op),
+      });
+    }
+  }, [setRetouchProject]);
 
   const changeProtection = useCallback(async (enabled: boolean): Promise<void> => {
     setProtectBackground(enabled);
@@ -351,27 +476,86 @@ export const AndroidBodyBeautyExtension: React.FC = () => {
           </label>
 
           {(state === 'READY' || state === 'PARTIAL') && selectedBody && (
-            <div className="android-body-beauty__sliders">
-              {BODY_CONTROLS.map((definition) => {
-                const available = definition.geometry(selectedBody.geometry);
-                const max = definition.max ?? 0.75;
-                return (
-                  <label key={definition.id} className={!available ? 'is-disabled' : ''}>
-                    <span><strong>{arabic ? definition.ar : definition.en}</strong><output>{Math.round(values[definition.id] * 100)}</output></span>
-                    <input
-                      type="range"
-                      min={-max}
-                      max={max}
-                      step={0.05}
-                      value={values[definition.id]}
-                      disabled={!available}
-                      aria-label={arabic ? definition.ar : definition.en}
-                      onChange={(event) => void applyControl(definition.id, Number(event.target.value))}
-                    />
-                  </label>
-                );
-              })}
-            </div>
+            <RetouchStudioPanel
+              categories={['body']}
+              tools={STUDIO_BODY_TOOLS.map((entry): StudioToolDef => ({
+                id: entry.id,
+                category: 'body',
+                en: entry.en,
+                ar: entry.ar,
+                a11yEn: entry.a11yEn,
+                a11yAr: entry.a11yAr,
+                control: 'bipolar',
+                min: -entry.max,
+                max: entry.max,
+                step: 0.05,
+                def: 0,
+                capability: 'requires-analysis',
+              }))}
+              disabledToolIds={BODY_CONTROLS.filter((definition) => !definition.geometry(selectedBody.geometry)).map((definition) => definition.id)}
+              activeCategory="body"
+              onCategoryChange={() => undefined}
+              activeTool={{
+                id: focusedControl,
+                category: 'body',
+                en: BODY_CONTROLS.find((entry) => entry.id === focusedControl)?.en ?? focusedControl,
+                ar: BODY_CONTROLS.find((entry) => entry.id === focusedControl)?.ar ?? focusedControl,
+                a11yEn: STUDIO_BODY_TOOLS.find((entry) => entry.id === focusedControl)?.a11yEn ?? focusedControl,
+                a11yAr: STUDIO_BODY_TOOLS.find((entry) => entry.id === focusedControl)?.a11yAr ?? focusedControl,
+                control: 'bipolar',
+                min: -(BODY_CONTROLS.find((entry) => entry.id === focusedControl)?.max ?? 0.75),
+                max: BODY_CONTROLS.find((entry) => entry.id === focusedControl)?.max ?? 0.75,
+                step: 0.05,
+                def: 0,
+                capability: 'requires-analysis',
+              }}
+              onToolChange={(toolId) => { setFocusedControl(toolId as BodyControl); setActiveBodyTemplateId(null); }}
+              value={values[focusedControl] ?? 0}
+              onValueChange={(next) => { setActiveBodyTemplateId(null); void applyControl(focusedControl, next); }}
+              templates={templatesForCategory('body')}
+              activeTemplateId={activeBodyTemplateId}
+              onTemplateSelect={(templateId) => void applyBodyTemplate(templateId)}
+              color="#000000"
+              onColorChange={() => undefined}
+              showColor={false}
+              colorLabel=""
+              faces={(analysis?.status === 'ready' ? analysis.bodies : []).map((body, index) => ({
+                id: body.id,
+                label: arabic ? `جسم ${index + 1}` : `Body ${index + 1}`,
+              }))}
+              showFaces={analysis?.status === 'ready'}
+              showApplyAll={false}
+              applyAllFaces={false}
+              onToggleApplyAll={() => undefined}
+              allFacesLabel=""
+              selectedFaceId={selectedBodyId}
+              onSelectFace={(bodyId) => { setSelectedBodyId(bodyId); setState(classifyBody(analysis?.status === 'ready' ? analysis.bodies.find((entry) => entry.id === bodyId) ?? null : null)); }}
+              canApply
+              applying={false}
+              onApply={() => {
+                pushBodyHistory({ ...valuesRef.current });
+                setBodyMessage(arabic ? 'تم تأكيد نحت الجسم. يمكنك التراجع في أي وقت.' : 'Body sculpt confirmed. You can undo at any time.');
+              }}
+              applyLabel={arabic ? 'تطبيق' : 'Apply'}
+              onResetTool={() => resetBodyControl(focusedControl)}
+              onResetCategory={resetBodySection}
+              onResetAll={resetBodySection}
+              resetToolLabel={arabic ? 'تصفير الأداة' : 'Reset tool'}
+              resetCategoryLabel={arabic ? 'تصفير الجسم' : 'Reset body'}
+              resetAllLabel={arabic ? 'تصفير الكل' : 'Reset all'}
+              canUndo={bodyUndoDepth > 0}
+              canRedo={bodyRedoDepth > 0}
+              onUndo={undoBody}
+              onRedo={redoBody}
+              undoLabel={arabic ? 'تراجع' : 'Undo'}
+              redoLabel={arabic ? 'إعادة' : 'Redo'}
+              comparing={comparingBody}
+              onCompareHold={setBodyCompare}
+              compareLabel={arabic ? 'مقارنة' : 'Compare'}
+              statusText={bodyMessage ?? bodyStateMessage(state, arabic)}
+              busy={false}
+              arabic={arabic}
+            />
           )}
 
           {(state === 'NO_BODY' || state === 'MODEL_UNAVAILABLE' || state === 'ERROR') && (

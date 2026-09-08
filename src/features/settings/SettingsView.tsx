@@ -40,6 +40,8 @@ import type { ThemeType } from '../../store/appStore';
 import { KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
 
 import { CustomizationSettingsPanel } from './CustomizationSettingsPanel';
+import { getReleaseInfo } from '../../releaseInfo';
+import { ReleaseUpdatePanel } from './ReleaseUpdatePanel';
 
 type SettingsCategory =
   | 'general'
@@ -568,12 +570,14 @@ export const SettingsView: React.FC = () => {
               <h2>{t('settings.about')}</h2>
               <div className="about-brand-card"><BrandMark size={72} /><div><strong>Knoux X</strong><p>A Knoux Product · Crafted by {KNOUX_BRAND.developer}</p></div></div>
               <dl className="about-grid">
-                <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? '2.0.0'}</dd></div>
+                <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? getReleaseInfo().version}</dd></div>
+                <div><dt>SHA</dt><dd dir="ltr">{runtimeInfo?.sha ?? getReleaseInfo().shortSha ?? '—'}</dd></div>
                 <div><dt>Electron</dt><dd>{runtimeInfo?.electronVersion ?? '—'}</dd></div>
                 <div><dt>Chromium</dt><dd>{runtimeInfo?.chromeVersion ?? '—'}</dd></div>
                 <div><dt>Node.js</dt><dd>{runtimeInfo?.nodeVersion ?? '—'}</dd></div>
                 <div><dt>{t('settings.runtime')}</dt><dd>{runtimeInfo ? `${runtimeInfo.platform} · ${runtimeInfo.arch}` : '—'}</dd></div>
               </dl>
+              <ReleaseUpdatePanel />
               <div className="developer-actions">
                 <NeonButton variant="secondary" leftIcon={<Copy size={16} />} onClick={() => void copyDiagnostics()} disabled={!runtimeInfo}>{t('settings.copyDiagnostics')}</NeonButton>
                 <NeonButton variant="secondary" onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}>{t('settings.productTour')}</NeonButton>

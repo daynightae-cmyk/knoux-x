@@ -20,6 +20,7 @@ import { getBuildIdentity } from '../build-identity';
 import { authorizedMediaPaths } from '../security/path-registry';
 import { validateExternalUrl } from '../security/validation';
 import { getPhase3bAcceptanceSavePath, takePhase3bAcceptanceOpenPath } from '../retouch/phase3b-acceptance-runtime';
+import { registerUpdateHandlers } from '../startup/app-updater';
 
 import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
 import type { StructuredValue } from './channel-types';
@@ -542,6 +543,10 @@ function setupSystemHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrato
   ipc.handle(IPC_INVOKE.SYSTEM_GET_IPC_HEALTH, async () => registry.getHealthReport());
 }
 
+function setupUpdateHandlers(ipc: IpcRegistrar): void {
+  registerUpdateHandlers(ipc);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // معالجات الذكاء الاصطناعي
 // ═══════════════════════════════════════════════════════════════════════════
@@ -578,6 +583,7 @@ export function setupIPCHandlers(registry: AuthoritativeIpcRegistry, orchestrato
   registerSettingsHandlers(registry.forOwner('core-settings'), orchestrator);
   setupWindowHandlers(registry.forOwner('core-window'), orchestrator);
   setupSystemHandlers(registry.forOwner('core-system'), orchestrator, registry);
+  setupUpdateHandlers(registry.forOwner('core-update'));
   setupAIHandlers(registry.forOwner('core-ai'), orchestrator);
 
   console.log('IPC handlers registered successfully');

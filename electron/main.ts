@@ -17,6 +17,7 @@ import { IPC_INBOUND, IPC_OUTBOUND } from './ipc/contract';
 import { authoritativeIpc } from './ipc/runtime';
 import { authorizeMediaPaths } from './ipc/setup';
 import { createWindow, getMainWindow } from './window';
+import { startAppUpdater } from './startup/app-updater';
 import { registerApplicationLifecycle } from './startup/application-lifecycle';
 import { installPhase3bAcceptanceNetworkGuard } from './retouch/phase3b-acceptance-runtime';
 import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
@@ -48,7 +49,7 @@ function applicationConfiguration(): SystemConfiguration {
       analyticsEnabled: false,
       liveStreamingEnabled: false,
       immersiveModeEnabled: false,
-      autoUpdatesEnabled: false,
+      autoUpdatesEnabled: true,
       crashRecoveryEnabled: true,
       developerMode: environment === 'development',
     },
@@ -215,6 +216,8 @@ function initializePrimaryApplication(): Promise<void> {
     createApplicationMenu();
     wireWindowRuntimeEvents(window);
     wireSystemRuntimeEvents();
+    // Throttled silent update check; failures never block startup.
+    void startAppUpdater().catch((error) => console.warn('KNOUX_UPDATER_STARTUP_FAILED', error));
   })().catch(async (error) => {
     await cleanupApplication('startup-failure');
     app.exit(1);

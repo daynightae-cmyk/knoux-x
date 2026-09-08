@@ -17,8 +17,43 @@ describe('Android mobile Beauty Studio contracts', () => {
     expect(source).toContain('void analyze(false)');
     expect(source).toContain("requestAnimationFrame(startWhenCanvasReady)");
     expect(source).toContain('Apply all faces');
-    expect(source).toContain("['auto-beautify', 'auto'");
     expect(source).not.toContain("'Analyze Face'");
+  });
+
+  it('drives beauty through the shared studio panel with draft/commit semantics', () => {
+    const source = read('src/platform/AndroidBeautyExtension.tsx');
+    const panel = read('src/features/retouch-studio/RetouchStudioPanel.tsx');
+    const model = read('src/features/retouch-studio/retouchStudioModel.ts');
+
+    // Reference UX: category bar, tool carousel, one focused slider, apply.
+    expect(source).toContain('<RetouchStudioPanel');
+    expect(source).toContain('rebuildDraft');
+    expect(source).toContain('commitDraft');
+    expect(source).toContain('undoStudio');
+    expect(source).toContain('redoStudio');
+    expect(source).toContain('setCompareEnabled');
+    expect(source).toContain('removeTagged');
+    // Live slider preview replaces stale drafts instead of stacking operations.
+    expect(source).toContain('draftIdsRef');
+    expect(source).toContain('draftRunRef');
+    expect(source).toContain('scheduleDraft');
+    // Landmark-driven face geometry ships through real mesh strokes.
+    expect(source).toContain('faceGeometryStrokes');
+    expect(source).toContain('facetpl:');
+    // CapCut-style pre-made templates preview as one undoable group.
+    expect(source).toContain('applyStudioTemplate');
+    expect(source).toContain('FACE_SHAPE_RECIPES');
+    expect(source).toContain('SKIN_RECIPES');
+    expect(source).toContain('look:');
+    // Panel contract: hold-to-compare, undo/redo, reset granularity, faces.
+    expect(panel).toContain('onCompareHold');
+    expect(panel).toContain('onResetTool');
+    expect(panel).toContain('onResetCategory');
+    expect(panel).toContain('onResetAll');
+    expect(panel).toContain('data-studio-template');
+    expect(panel).toContain('aria-pressed');
+    // No fake hair tooling.
+    expect(model).toContain("status: 'hidden'");
   });
 
   it('uses a purpose-built mobile Beauty canvas instead of mounting the desktop ImageEditorView', () => {
@@ -74,12 +109,28 @@ describe('Android mobile Beauty Studio contracts', () => {
 
   it('offers independent positive/negative body-part controls without exposing unavailable geometry', () => {
     const source = read('src/platform/AndroidBodyBeautyExtension.tsx');
+    const geometry = read('src/features/image-editor/retouch/bodyReshapeGeometry.ts');
 
-    for (const control of ['bodySize', 'waist', 'abdomenWidth', 'hips', 'hipVolume', 'shoulders', 'upperArmSize', 'forearmSize', 'thighWidth', 'calfWidth', 'legLength', 'headSize']) {
+    for (const control of ['bodySize', 'waist', 'abdomenWidth', 'hips', 'hipVolume', 'chest', 'shoulders', 'upperArmSize', 'forearmSize', 'thighWidth', 'calfWidth', 'legLength', 'headSize']) {
       expect(source).toContain(`'${control}'`);
     }
-    expect(source).toContain('min={-max}');
-    expect(source).toContain('disabled={!available');
-    expect(source).toContain("value < 0 ? 'pinch' : 'expand'");
+    // One focused slider through the shared panel — never a wall of sliders.
+    expect(source).toContain('<RetouchStudioPanel');
+    expect(source).toContain('focusedControl');
+    expect(source).toContain('disabledToolIds');
+    expect(source).not.toContain('android-body-beauty__sliders');
+    // Chest derives honestly from shoulder + waist landmarks.
+    expect(source).toContain('deriveChestRegion');
+    expect(geometry).toContain('deriveChestRegion');
+    expect(geometry).toContain('chest');
+    // Bipolar reshape keeps pinch/expand polarity in the geometry engine.
+    expect(geometry).toContain("amount < 0 ? 'pinch' : 'expand'");
+    // CapCut-style body templates apply as one undo checkpoint.
+    expect(source).toContain('applyBodyTemplate');
+    expect(source).toContain('BODY_SHAPE_RECIPES');
+    expect(source).toContain('pushBodyHistory');
+    expect(source).toContain('undoBody');
+    expect(source).toContain('redoBody');
+    expect(source).toContain('setBodyCompare');
   });
 });

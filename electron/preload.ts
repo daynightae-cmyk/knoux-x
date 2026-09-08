@@ -473,6 +473,24 @@ const appAPI = {
 // واجهة API للذكاء الاصطناعي
 // ═══════════════════════════════════════════════════════════════════════════
 
+export interface AppUpdateStatus {
+  phase: 'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'downloaded' | 'error' | 'unsupported';
+  version: string | null;
+  percent: number | null;
+  detail: string | null;
+}
+
+const updateAPI = {
+  check: (): Promise<AppUpdateStatus> => invokeDesktop(IPC_INVOKE.UPDATE_CHECK),
+  download: (): Promise<{ started: boolean; reason?: string }> => invokeDesktop(IPC_INVOKE.UPDATE_DOWNLOAD),
+  install: (): Promise<{ relaunching: boolean; reason?: string }> => invokeDesktop(IPC_INVOKE.UPDATE_INSTALL),
+  onStatus: (callback: (status: AppUpdateStatus) => void): () => void => {
+    const handler = (_: unknown, status: object) => callback(status as AppUpdateStatus);
+    onDesktopEvent(IPC_OUTBOUND.UPDATE_STATUS, handler);
+    return () => offDesktopEvent(IPC_OUTBOUND.UPDATE_STATUS, handler);
+  },
+};
+
 const aiAPI = {
   chat: (message: string, context?: ChatContext): Promise<string> =>
     invokeDesktop(IPC_INVOKE.AI_CHAT, message, context),
@@ -513,6 +531,7 @@ contextBridge.exposeInMainWorld('knouxAPI', {
   system: systemAPI,
   app: appAPI,
   ai: aiAPI,
+  update: updateAPI,
 });
 
 // Export types for TypeScript
@@ -530,6 +549,7 @@ declare global {
       system: typeof systemAPI;
       app: typeof appAPI;
       ai: typeof aiAPI;
+      update: typeof updateAPI;
     };
   }
 }

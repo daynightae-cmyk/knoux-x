@@ -193,6 +193,9 @@ export interface InvokeArgumentMap {
   'subtitle:translate-ai': [targetLanguage: string];
   'system:get-build-info': [];
   'system:get-ipc-health': [];
+  'update:check': [];
+  'update:download': [];
+  'update:install': [];
   'system:info': [];
   'system:memory': [];
   'system:open-external': [url: string];
@@ -329,6 +332,7 @@ export interface InvokeResultMap {
   'slideshow:autosave': string; 'slideshow:cancel-render': boolean; 'slideshow:clear-recent': VoidResult; 'slideshow:create': object; 'slideshow:import-files': object; 'slideshow:import-folder': object; 'slideshow:open': object | null; 'slideshow:open-output': VoidResult; 'slideshow:open-recent': object; 'slideshow:preflight': object[]; 'slideshow:recent': string[]; 'slideshow:recover-backup': object; 'slideshow:recoveries': object[]; 'slideshow:relink-file': object | null; 'slideshow:relink-folder': object; 'slideshow:render': object | null; 'slideshow:render-jobs': object[]; 'slideshow:reveal-output': VoidResult; 'slideshow:save': string | null;
   'subtitle:delay': VoidResult; 'subtitle:download': string; 'subtitle:enabled': VoidResult; 'subtitle:load': VoidResult; 'subtitle:reload': object; 'subtitle:search': object[]; 'subtitle:select': object | null; 'subtitle:settings': object; 'subtitle:style': VoidResult; 'subtitle:sync-ai': VoidResult; 'subtitle:translate-ai': VoidResult;
   'system:get-build-info': object; 'system:get-ipc-health': object; 'system:info': object; 'system:memory': object; 'system:open-external': VoidResult; 'system:show-item': VoidResult;
+  'update:check': object; 'update:download': object; 'update:install': object;
   'video:brightness': VoidResult; 'video:contrast': VoidResult; 'video:crop': VoidResult; 'video:gamma': VoidResult; 'video:hue': VoidResult; 'video:saturation': VoidResult; 'video:screenshot': string; 'video:settings': object; 'video:zoom': VoidResult;
   'window:always-on-top': VoidResult; 'window:close': VoidResult; 'window:fullscreen': VoidResult; 'window:is-fullscreen': boolean; 'window:is-maximized': boolean; 'window:maximize': VoidResult; 'window:minimize': VoidResult;
   // Image Studio
@@ -380,6 +384,7 @@ export interface OutboundPayloadMap {
   'slideshow:render-progress': [snapshot: SlideshowRenderSnapshot];
   'system:resume': [];
   'system:suspend': [];
+  'update:status': [status: object];
   'window:fullscreen-change': [fullscreen: boolean];
   'window:resize': [size: { width: number; height: number }];
   // Image Studio

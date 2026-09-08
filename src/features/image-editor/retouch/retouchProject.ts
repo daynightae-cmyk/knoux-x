@@ -109,3 +109,8 @@ export function reorderRetouchOperations(project: RetouchProjectV2, operationIds
 export function addRetouchMask(project: RetouchProjectV2, mask: RetouchMaskDescriptor): RetouchProjectV2 {
   return { ...project, masks: [...project.masks, mask], updatedAt: now() };
 }
+
+export function removeRetouchMask(project: RetouchProjectV2, maskId: string): RetouchProjectV2 {
+  if (!project.masks.some((mask) => mask.id === maskId)) return project;
+  return { ...project, masks: project.masks.filter((mask) => mask.id !== maskId), updatedAt: now() };
+}

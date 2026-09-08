@@ -15,6 +15,7 @@ import type {
   LayerMask,
   RetouchDocumentState,
 } from '../core/image-studio/document/schema';
+import { getReleaseInfo } from '../releaseInfo';
 
 import { installBrowserPreviewBridge } from './browserPreviewBridge';
 
@@ -251,28 +252,36 @@ function installCoreOverrides(): void {
   };
   const system = {
     ...base.system,
-    getInfo: async () => ({
-      product: 'Knoux X' as const,
-      version: '2.0.0-android',
-      platform: 'android',
-      arch: 'mobile',
-      sha: 'runtime',
-      branch: 'main',
-      builtAt: new Date().toISOString(),
-      packaged: true,
-      electronVersion: 'not-applicable',
-      chromeVersion: navigator.userAgent,
-      nodeVersion: 'not-applicable',
-    }),
-    getBuildInfo: async () => ({
-      product: 'Knoux X' as const,
-      version: '2.0.0-android',
-      sha: 'runtime',
-      branch: 'main',
-      builtAt: new Date().toISOString(),
-      packaged: true,
-      electronVersion: 'not-applicable',
-    }),
+    getInfo: async () => {
+      const release = getReleaseInfo();
+      return {
+        product: 'Knoux X' as const,
+        version: release.version,
+        platform: 'android',
+        arch: 'mobile',
+        sha: release.sha ?? 'unrecorded',
+        branch: 'main',
+        builtAt: release.builtAt ?? 'unrecorded',
+        packaged: true,
+        electronVersion: 'not-applicable',
+        chromeVersion: navigator.userAgent,
+        nodeVersion: 'not-applicable',
+      };
+    },
+    getBuildInfo: async () => {
+      const release = getReleaseInfo();
+      return {
+        product: 'Knoux X' as const,
+        version: release.version,
+        sha: release.sha ?? 'unrecorded',
+        branch: 'main',
+        builtAt: release.builtAt ?? 'unrecorded',
+        packaged: true,
+        electronVersion: 'not-applicable',
+        chromeVersion: navigator.userAgent,
+        nodeVersion: 'not-applicable',
+      };
+    },
   };
   window.knouxAPI = { ...base, settings, system } as Window['knouxAPI'];
 }

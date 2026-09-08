@@ -31,7 +31,14 @@ async function main() {
 
   const badging = dump('badging', apk);
   save('android-apk-badging.txt', badging);
-  assert.match(badging, /package: name='dev\.knoux\.playerx' versionCode='20000' versionName='2\.0\.0'/);
+  // Single version contract: expected identity derives from package.json.
+  const releaseManifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const releaseVersion = String(releaseManifest.version || '').trim();
+  const releaseMatch = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(releaseVersion);
+  if (!releaseMatch) throw new Error(`Invalid package.json version for APK verification: ${releaseVersion}`);
+  const releaseCode = Number(releaseMatch[1]) * 10000 + Number(releaseMatch[2]) * 100 + Number(releaseMatch[3]);
+  save('android-release-identity.json', JSON.stringify({ product: 'Knoux X', version: releaseVersion, versionCode: releaseCode }, null, 2));
+  assert.match(badging, new RegExp(`package: name='dev\\.knoux\\.playerx' versionCode='${releaseCode}' versionName='${releaseVersion.replace(/\./g, '\\.')}'`));
   assert.match(badging, /^application-label:'KNOUX X'$/m);
   assert.match(badging, /launchable-activity: name='dev\.knoux\.playerx\.MainActivity'/);
   assert.match(badging, /application: label='KNOUX X' icon='res\/[^']+'/);

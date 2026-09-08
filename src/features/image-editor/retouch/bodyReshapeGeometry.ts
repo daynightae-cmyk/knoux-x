@@ -21,6 +21,9 @@ export interface BodyReshapeControls {
   abdomenWidth?: number;
   hipVolume?: number;
   waistCurve?: number;
+  /** Chest/bust width: negative reduces, positive enlarges. Derived honestly
+   * from shoulder + waist landmarks; null when either is missing. */
+  chest?: number;
 }
 
 export const EMPTY_BODY_RESHAPE_CONTROLS: BodyReshapeControls = Object.freeze({
@@ -41,6 +44,7 @@ export const EMPTY_BODY_RESHAPE_CONTROLS: BodyReshapeControls = Object.freeze({
   abdomenWidth: 0,
   hipVolume: 0,
   waistCurve: 0,
+  chest: 0,
 });
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
@@ -58,6 +62,28 @@ function midpoint(a: BodyPoint, b: BodyPoint): BodyPoint {
     visibility: Math.min(a.visibility, b.visibility),
     presence: Math.min(a.presence, b.presence),
   };
+}
+
+/**
+ * Derive the chest/bust region honestly from real landmarks: the thorax sits
+ * between the shoulder line and the waist line. Returns null unless both
+ * anchors exist with usable visibility — never hallucinated.
+ */
+export function deriveChestRegion(geometry: DerivedBodyGeometry): { center: BodyPoint; width: number } | null {
+  const shoulders = geometry.shoulders;
+  const waist = geometry.waist;
+  if (!shoulders || !waist) return null;
+  if (shoulders.center.visibility < 0.3 || waist.center.visibility < 0.3) return null;
+  const thorax: BodyPoint = {
+    x: shoulders.center.x + (waist.center.x - shoulders.center.x) * 0.42,
+    y: shoulders.center.y + (waist.center.y - shoulders.center.y) * 0.42,
+    z: (shoulders.center.z + waist.center.z) / 2,
+    visibility: Math.min(shoulders.center.visibility, waist.center.visibility),
+    presence: Math.min(shoulders.center.presence, waist.center.presence),
+  };
+  const width = (shoulders.width + waist.width) / 2;
+  if (!(width > 0)) return null;
+  return { center: thorax, width };
 }
 
 /**
@@ -203,6 +229,11 @@ export function bodyReshapeStrokes(
   if (geometry.waist && geometry.hips) {
     const center = midpoint(geometry.waist.center, geometry.hips.center);
     addWidthRegion('abdomen', { center, width: (geometry.waist.width + geometry.hips.width) / 2 }, valueOf(controls.abdomenWidth) + overallWidth * 0.65);
+  }
+
+  const chest = deriveChestRegion(geometry);
+  if (chest) {
+    addWidthRegion('chest', chest, valueOf(controls.chest) + overallWidth * 0.5);
   }
 
   addLimb('left-arm', geometry.arms.left, controls.arms + overallWidth * 0.30);

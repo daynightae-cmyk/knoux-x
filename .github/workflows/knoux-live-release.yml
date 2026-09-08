@@ -1,0 +1,600 @@
+name: Knoux X — Release All Platforms
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Draft validates everything without publishing; publish creates the public release.'
+        required: true
+        default: 'draft'
+        type: choice
+        options:
+          - draft
+          - publish
+      release_notes:
+        description: 'Optional extra release notes (appended to generated notes).'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: knoux-x-production-release
+  cancel-in-progress: false
+
+env:
+  CAPACITOR_VERSION: '8.5.0'
+
+jobs:
+  preflight:
+    name: Pre-flight and release identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      version_code: ${{ steps.identity.outputs.version_code }}
+      tag: ${{ steps.identity.outputs.tag }}
+      sha: ${{ steps.sha.outputs.sha }}
+      built_at: ${{ steps.sha.outputs.built_at }}
+      publish: ${{ steps.mode.outputs.publish }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify canonical repository
+        shell: bash
+        run: |
+          test "$(git config --get remote.origin.url)" = "https://github.com/daynightae-cmyk/knoux-x.git"
+          test "${{ github.repository }}" = "daynightae-cmyk/knoux-x"
+
+      - name: Record source SHA
+        id: sha
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - name: Resolve release identity
+        id: identity
+        shell: bash
+        run: |
+          eval "$(node tools/knoux-release-version.cjs)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version_code=$versionCode" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release_title=$releaseTitle" >> "$GITHUB_OUTPUT"
+          echo "windows_setup=$windowsSetupName" >> "$GITHUB_OUTPUT"
+          echo "android_apk=$androidApkName" >> "$GITHUB_OUTPUT"
+          echo "android_aab=$androidAabName" >> "$GITHUB_OUTPUT"
+          echo "checksums=$checksumsName" >> "$GITHUB_OUTPUT"
+          echo "manifest=$manifestName" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce tag and version agreement
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            test "${{ github.ref_name }}" = "${{ steps.identity.outputs.tag }}"
+          fi
+
+      - name: Resolve publish mode
+        id: mode
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ inputs.mode }}" == "publish" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require committed deterministic lockfile
+        shell: bash
+        run: test -s package-lock.json
+
+  quality:
+    name: Shared quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [preflight]
+    env:
+      KNOUX_RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+      KNOUX_RELEASE_BUILT_AT: ${{ needs.preflight.outputs.built_at }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Restore test/runtime binaries
+        run: npm rebuild electron ffmpeg-static @derhuerst/ffprobe-static sharp --foreground-scripts
+
+      - name: Verify official brand sources
+        run: npm run brand:verify
+
+      - name: TypeScript gate
+        run: npm run typecheck
+
+      - name: ESLint gate
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit test gate
+        run: npm test -- --runInBand
+
+      - name: Build web renderer from release SHA
+        run: npx vite build --config vite.renderer.config.ts --outDir dist
+
+      - name: Stamp release identity into web bundle
+        shell: bash
+        run: |
+          grep -o '"version":"[0-9]*\.[0-9]*\.[0-9]*"' dist/assets/*.js | head -2
+          grep -o '[0-9a-f]\{40\}' dist/assets/*.js | grep -i '${{ needs.preflight.outputs.sha }}' | head -1
+
+      - name: Upload web bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-web-dist-${{ needs.preflight.outputs.sha }}
+          path: dist/
+          retention-days: 30
+
+  windows:
+    name: Windows production build
+    runs-on: windows-2022
+    timeout-minutes: 120
+    needs: [preflight, quality]
+    outputs:
+      signing: ${{ steps.signing.outputs.status }}
+      setup_sha256: ${{ steps.hashes.outputs.setup_sha256 }}
+    env:
+      KNOUX_RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+      KNOUX_RELEASE_BUILT_AT: ${{ needs.preflight.outputs.built_at }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure native toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+
+      - name: Install deterministic dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Rebuild Electron native modules
+        shell: pwsh
+        run: npm exec electron-rebuild -- -f --only better-sqlite3,sharp
+
+      - name: Package and make Squirrel installer
+        shell: pwsh
+        run: |
+          npm run package -- --arch=x64
+          npm run make -- --arch=x64
+
+      - name: Collect installer and update files
+        id: collect
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release-windows -Force | Out-Null
+          $squirrel = Get-ChildItem 'out\make\squirrel.windows\x64' -File -Filter '*Setup.exe'
+          if ($squirrel.Count -ne 1) { throw "Expected one Setup.exe, found $($squirrel.Count)." }
+          $setup = $squirrel[0]
+          if ($setup.Length -le 1MB) { throw 'Setup.exe payload unexpectedly small.' }
+          Copy-Item -LiteralPath $setup.FullName -Destination "release-windows\${{ needs.preflight.outputs.windows_setup }}" -Force
+          Copy-Item -LiteralPath $setup.FullName -Destination 'release-windows\' -Force
+          Copy-Item -LiteralPath 'out\make\squirrel.windows\x64\*.nupkg' -Destination 'release-windows\' -Force
+          Copy-Item -LiteralPath 'out\make\squirrel.windows\x64\RELEASES' -Destination 'release-windows\' -Force
+          Get-ChildItem release-windows | Format-Table Name, Length
+
+      - name: Verify packaged resources
+        shell: pwsh
+        run: |
+          $exe = Get-Item -LiteralPath 'out\Knoux X-win32-x64\knoux-player-x.exe'
+          if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable missing.' }
+          $resources = Join-Path $exe.Directory.FullName 'resources'
+          $ffmpeg = Get-ChildItem $resources -Recurse -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          $ffprobe = Get-ChildItem $resources -Recurse -Filter 'ffprobe.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw 'Packaged media tools missing.' }
+          & $ffmpeg.FullName -version | Select-Object -First 1
+          & $ffprobe.FullName -version | Select-Object -First 1
+
+      - name: Packaged launch and settings smoke
+        shell: pwsh
+        run: |
+          $exe = Get-Item -LiteralPath 'out\Knoux X-win32-x64\knoux-player-x.exe'
+          $evidence = Join-Path $PWD 'release-windows\packaged-settings-persistence.json'
+          $test = Start-Process -FilePath $exe.FullName -ArgumentList @('--settings-self-test', "--settings-evidence=$evidence") -Wait -PassThru -WindowStyle Hidden
+          if ($test.ExitCode -ne 0 -or -not (Test-Path $evidence)) { throw "Settings self-test failed: $($test.ExitCode)." }
+          Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: Report Authenticode signing truth
+        id: signing
+        shell: pwsh
+        run: |
+          $setup = Get-Item -LiteralPath "release-windows\${{ needs.preflight.outputs.windows_setup }}"
+          $signature = Get-AuthenticodeSignature -FilePath $setup.FullName
+          $status = if ($signature.Status -eq 'Valid') { 'configured' } else { 'not-configured' }
+          "status=$status" >> $env:GITHUB_OUTPUT
+          "signature=$($signature.Status)" >> $env:GITHUB_OUTPUT
+          Write-Host "WINDOWS PRODUCTION CODE SIGNING: $status ($($signature.Status))"
+
+      - name: Hash release files
+        id: hashes
+        shell: pwsh
+        run: |
+          $setup = Get-Item -LiteralPath "release-windows\${{ needs.preflight.outputs.windows_setup }}"
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          "setup_sha256=$hash" >> $env:GITHUB_OUTPUT
+          Get-ChildItem release-windows -File | Get-FileHash -Algorithm SHA256 | Format-Table Path, Hash
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-windows-${{ needs.preflight.outputs.sha }}
+          path: release-windows/
+          retention-days: 30
+
+  android:
+    name: Android production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    needs: [preflight, quality]
+    outputs:
+      signing: ${{ steps.signing.outputs.status }}
+      apk_sha256: ${{ steps.hashes.outputs.apk_sha256 }}
+    env:
+      KNOUX_RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+      KNOUX_RELEASE_BUILT_AT: ${{ needs.preflight.outputs.built_at }}
+      KNOUX_RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Use Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Ensure Android API 36 SDK
+        shell: bash
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install pinned Capacitor tooling
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
+          @capacitor/core@${CAPACITOR_VERSION}
+          @capacitor/cli@${CAPACITOR_VERSION}
+          @capacitor/android@${CAPACITOR_VERSION}
+
+      - name: Build renderer and generate Android project
+        shell: bash
+        run: |
+          npx vite build --config vite.renderer.config.ts --outDir dist
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Install native foundations, permissions, branding
+        shell: bash
+        run: |
+          node tools/prepare-android-native-media.cjs
+          node tools/prepare-android-functional-closure.cjs
+          node tools/prepare-android-branding.cjs
+          node tools/prepare-android-premium-splash.cjs
+
+      - name: Build release APK and AAB
+        shell: bash
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+
+      - name: Sign with production key or labeled CI key
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KNOUX_ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KNOUX_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p ../release-android
+          APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
+          UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          UNSIGNED_AAB="app/build/outputs/bundle/release/app-release.aab"
+          test -s "$UNSIGNED_APK"
+          test -s "$UNSIGNED_AAB"
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/knoux-prod.jks"
+            STORE="$RUNNER_TEMP/knoux-prod.jks"; SPASS="$KEYSTORE_PASSWORD"; ALIAS="$KEY_ALIAS"; KPASS="$KEY_PASSWORD"
+            echo "status=production" >> "$GITHUB_OUTPUT"
+          else
+            STORE="$RUNNER_TEMP/knoux-release-ci.jks"; SPASS="knoux-ci-release-2026"; ALIAS="knoux-ci-release"; KPASS="knoux-ci-release-2026"
+            rm -f "$STORE"
+            keytool -genkeypair -keystore "$STORE" -storepass "$SPASS" -keypass "$KPASS" -alias "$ALIAS" \
+              -keyalg RSA -keysize 3072 -validity 3650 \
+              -dname 'CN=Knoux X Release, OU=CI, O=Knoux X, C=AE'
+            echo "status=ci" >> "$GITHUB_OUTPUT"
+          fi
+          "$APKSIGNER" sign --ks "$STORE" --ks-key-alias "$ALIAS" --ks-pass "pass:$SPASS" --key-pass "pass:$KPASS" \
+            --out "../release-android/${{ needs.preflight.outputs.android_apk }}" "$UNSIGNED_APK"
+          jarsigner -keystore "$STORE" -storepass "$SPASS" -keypass "$KPASS" \
+            -signedjar "../release-android/${{ needs.preflight.outputs.android_aab }}" "$UNSIGNED_AAB" "$ALIAS"
+          "$APKSIGNER" verify --verbose --print-certs "../release-android/${{ needs.preflight.outputs.android_apk }}" | tee ../release-android/android-signing.txt
+          jarsigner -verify "../release-android/${{ needs.preflight.outputs.android_aab }}" | tee -a ../release-android/android-signing.txt
+
+      - name: Verify packaged identity
+        shell: bash
+        run: |
+          cp android/knoux-branding-report.json release-android/android-branding-report.json
+          node tools/verify-android-apk.cjs "release-android/${{ needs.preflight.outputs.android_apk }}" release-android
+
+      - name: Hash release files
+        id: hashes
+        shell: bash
+        run: |
+          sha256sum "release-android/${{ needs.preflight.outputs.android_apk }}" | tee "release-android/${{ needs.preflight.outputs.android_apk }}.sha256"
+          sha256sum "release-android/${{ needs.preflight.outputs.android_aab }}" | tee "release-android/${{ needs.preflight.outputs.android_aab }}.sha256"
+          echo "apk_sha256=$(cut -d' ' -f1 "release-android/${{ needs.preflight.outputs.android_apk }}.sha256")" >> "$GITHUB_OUTPUT"
+
+      - name: Enable KVM for emulator smoke
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch release APK on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          force-avd-creation: true
+          emulator-boot-timeout: 300
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          script: bash tools/android-emulator-smoke.sh release-android/${{ needs.preflight.outputs.android_apk }} dev.knoux.playerx release-android
+
+      - name: Upload Android artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-android-${{ needs.preflight.outputs.sha }}
+          path: release-android/
+          retention-days: 30
+
+  web:
+    name: Web production verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [preflight, quality]
+    outputs:
+      production: ${{ steps.smoke.outputs.verdict }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - name: Download web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: knoux-web-dist-${{ needs.preflight.outputs.sha }}
+          path: dist/
+
+      - name: Production smoke test
+        id: smoke
+        shell: bash
+        env:
+          PRODUCTION_URL: ${{ vars.KNOUX_WEB_PRODUCTION_URL }}
+        run: |
+          if [ -z "$PRODUCTION_URL" ]; then
+            echo "verdict=unverified-no-production-url" >> "$GITHUB_OUTPUT"
+            echo "KNOUX_WEB_PRODUCTION_URL is not configured; web production is EXTERNAL-CONFIG-BLOCKED."
+            exit 0
+          fi
+          set +e
+          node tools/verify-web-production.cjs --url "$PRODUCTION_URL" --sha "${{ needs.preflight.outputs.sha }}" --version "${{ needs.preflight.outputs.version }}" | tee web-production-smoke.json
+          code=$?
+          set -e
+          if [ $code -eq 2 ]; then
+            echo "Production serves a stale SHA." >&2
+            echo "verdict=stale" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          test $code -eq 0
+          echo "verdict=pass" >> "$GITHUB_OUTPUT"
+
+      - name: Upload web evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-web-${{ needs.preflight.outputs.sha }}
+          path: |
+            dist/
+            web-production-smoke.json
+          retention-days: 30
+
+  publish:
+    name: Publish unified release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [preflight, quality, windows, android, web]
+    outputs:
+      release_url: ${{ steps.release.outputs.url }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Remove stale draft release for reruns
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ needs.preflight.outputs.tag }}" --json isDraft -q .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "${{ needs.preflight.outputs.tag }}" --cleanup-tag -y
+          fi
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: knoux-windows-${{ needs.preflight.outputs.sha }}
+          path: release-windows/
+
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: knoux-android-${{ needs.preflight.outputs.sha }}
+          path: release-android/
+
+      - name: Enforce same-SHA contract
+        shell: bash
+        run: |
+          test "${{ needs.preflight.outputs.sha }}" = "${{ github.sha }}" || test "${{ github.ref_type }}" = "tag"
+          node tools/knoux-release-version.cjs
+          echo "RELEASE_SHA=${{ needs.preflight.outputs.sha }}"
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          PREVIOUS="$(git describe --tags --abbrev=0 HEAD 2>/dev/null || git rev-list --max-parents=0 HEAD)"
+          if git rev-parse "$PREVIOUS" >/dev/null 2>&1 && [ "$PREVIOUS" != "$(git rev-parse HEAD)" ]; then
+            RANGE="$PREVIOUS..${{ needs.preflight.outputs.sha }}"
+          else
+            RANGE="${{ needs.preflight.outputs.sha }}"
+          fi
+          git log "$RANGE" --pretty=format:'%s' > release-subjects.txt
+          node -e "
+          const fs = require('fs');
+          const subjects = fs.readFileSync('release-subjects.txt', 'utf8').split('\n').filter(Boolean);
+          const groups = { Features: [], Fixes: [], Android: [], Windows: [], Media: [], AI: [], UI: [], Internal: [] };
+          for (const subject of subjects) {
+            const lower = subject.toLowerCase();
+            if (/android|capacitor|apk|aab|mobile/.test(lower)) groups.Android.push(subject);
+            else if (/windows|electron|installer|squirrel/.test(lower)) groups.Windows.push(subject);
+            else if (/video|audio|slideshow|retouch|beauty|ffmpeg|media|player/.test(lower)) groups.Media.push(subject);
+            else if (/\bai\b|gemini|hugging|replicate|provider|model/.test(lower)) groups.AI.push(subject);
+            else if (/^feat/.test(lower) || /glass|theme|splash|brand|viewport|layout/.test(lower)) groups.Features.push(subject);
+            else if (/^fix/.test(lower)) groups.Fixes.push(subject);
+            else if (/^test|ci\(|chore|docs/.test(lower)) groups.Internal.push(subject);
+            else groups.UI.push(subject);
+          }
+          let notes = '## Knoux X ${{ needs.preflight.outputs.version }}\n\nOne release SHA for Web, Windows and Android: \`${{ needs.preflight.outputs.sha }}\`.\n';
+          for (const [name, items] of Object.entries(groups)) {
+            if (items.length === 0) continue;
+            notes += '\n### ' + name + '\n' + items.slice(0, 40).map((item) => '- ' + item).join('\n') + '\n';
+          }
+          const extra = process.env.RELEASE_NOTES_EXTRA;
+          if (extra) notes += '\n' + extra + '\n';
+          fs.writeFileSync('release-notes.md', notes);
+          "
+        env:
+          RELEASE_NOTES_EXTRA: ${{ inputs.release_notes }}
+
+      - name: Build manifest and checksums
+        shell: bash
+        run: |
+          SETUP="release-windows/${{ needs.preflight.outputs.windows_setup }}"
+          NUPKG="$(ls release-windows/*.nupkg 2>/dev/null | head -1 || true)"
+          RELEASES_FILE="$(ls release-windows/RELEASES 2>/dev/null || true)"
+          APK="release-android/${{ needs.preflight.outputs.android_apk }}"
+          AAB="release-android/${{ needs.preflight.outputs.android_aab }}"
+          ARGS=(--sha "${{ needs.preflight.outputs.sha }}" --built-at "${{ needs.preflight.outputs.built_at }}" --windows-setup "$SETUP" --android-apk "$APK" --windows-signing "${{ needs.windows.outputs.signing }}" --android-signing "${{ needs.android.outputs.signing }}" --web-sha "${{ needs.preflight.outputs.sha }}" --out "release-assets/${{ needs.preflight.outputs.manifest }}")
+          if [ -n "$NUPKG" ]; then ARGS+=(--windows-nupkg "$NUPKG"); fi
+          if [ -n "$RELEASES_FILE" ]; then ARGS+=(--windows-releases "$RELEASES_FILE"); fi
+          if [ -f "$AAB" ]; then ARGS+=(--android-aab "$AAB"); fi
+          if [ -n "${{ vars.KNOUX_WEB_PRODUCTION_URL }}" ]; then ARGS+=(--web-url "${{ vars.KNOUX_WEB_PRODUCTION_URL }}"); fi
+          mkdir -p release-assets
+          node tools/knoux-release-manifest.cjs "${ARGS[@]}"
+          (cd release-windows && sha256sum * > "../release-assets/${{ needs.preflight.outputs.checksums }}")
+          (cd release-android && sha256sum "${{ needs.preflight.outputs.android_apk }}" "${{ needs.preflight.outputs.android_aab }}" >> "../release-assets/${{ needs.preflight.outputs.checksums }}")
+
+      - name: Create GitHub Release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FLAGS=(--title "Knoux X ${{ needs.preflight.outputs.version }}" --notes-file release-notes.md)
+          if [ "${{ needs.preflight.outputs.publish }}" != "true" ]; then FLAGS+=(--draft); fi
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            gh release create "${{ needs.preflight.outputs.tag }}" "${FLAGS[@]}" --target "${{ needs.preflight.outputs.sha }}"
+          else
+            gh release create "${{ needs.preflight.outputs.tag }}" "${FLAGS[@]}" --target "${{ needs.preflight.outputs.sha }}" --draft
+          fi
+          gh release upload "${{ needs.preflight.outputs.tag }}" \
+            "release-assets/${{ needs.preflight.outputs.manifest }}" \
+            "release-assets/${{ needs.preflight.outputs.checksums }}" \
+            "release-windows/${{ needs.preflight.outputs.windows_setup }}" \
+            "release-android/${{ needs.preflight.outputs.android_apk }}" \
+            "release-android/${{ needs.preflight.outputs.android_aab }}"
+          for extra in release-windows/*.nupkg release-windows/RELEASES; do
+            [ -f "$extra" ] && gh release upload "${{ needs.preflight.outputs.tag }}" "$extra"
+          done
+          echo "url=$(gh release view "${{ needs.preflight.outputs.tag }}" --json url -q .url)" >> "$GITHUB_OUTPUT"
+
+      - name: Release summary
+        shell: bash
+        run: |
+          echo "PRODUCT=Knoux X ${{ needs.preflight.outputs.version }}"
+          echo "SHA=${{ needs.preflight.outputs.sha }}"
+          echo "WINDOWS_SIGNING=${{ needs.windows.outputs.signing }}"
+          echo "ANDROID_SIGNING=${{ needs.android.outputs.signing }}"
+          echo "WEB=${{ needs.web.outputs.production }}"
+          echo "RELEASE=${{ steps.release.outputs.url }}"

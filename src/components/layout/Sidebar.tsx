@@ -26,6 +26,7 @@ import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from '../../core/s
 import { usePlayerStore } from '../../store/playerStore';
 import { BrandMark } from '../brand/BrandMark';
 import { NeonButton } from '../neon/NeonButton';
+import { getReleaseInfo } from '../../releaseInfo';
 
 interface NavItem {
   id: ViewType;
@@ -254,7 +255,7 @@ export const Sidebar: React.FC = () => {
       {!compact && (
         <div className="sidebar-footer">
           <strong>A Knoux Product</strong>
-          <span className="version">Knoux X · 2.0.0</span>
+          <span className="version">Knoux X · {getReleaseInfo().version}</span>
         </div>
       )}
       {!compact && <div className="sidebar-resizer" role="separator" aria-orientation="vertical" onPointerDown={beginResize} />}

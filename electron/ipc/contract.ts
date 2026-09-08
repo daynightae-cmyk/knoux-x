@@ -189,6 +189,9 @@ export const IPC_INVOKE = {
   WINDOW_MINIMIZE: 'window:minimize',
   SYSTEM_GET_BUILD_INFO: 'system:get-build-info',
   SYSTEM_GET_IPC_HEALTH: 'system:get-ipc-health',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_DOWNLOAD: 'update:download',
+  UPDATE_INSTALL: 'update:install',
   // Image Studio
   IMAGE_STUDIO_CREATE: 'image-studio:create',
   IMAGE_STUDIO_OPEN: 'image-studio:open',
@@ -312,6 +315,7 @@ export const IPC_OUTBOUND = {
   SLIDESHOW_RENDER_PROGRESS: 'slideshow:render-progress',
   SYSTEM_RESUME: 'system:resume',
   SYSTEM_SUSPEND: 'system:suspend',
+  UPDATE_STATUS: 'update:status',
   WINDOW_FULLSCREEN_CHANGE: 'window:fullscreen-change',
   WINDOW_RESIZE: 'window:resize',
   // Image Studio
@@ -514,6 +518,10 @@ const RAW_IPC_CHANNEL_DEFINITIONS: readonly RawIpcChannelDefinition[] = [
   { channel: 'window:minimize', direction: 'invoke', owner: 'core-window', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: false },
   { channel: 'system:get-build-info', direction: 'invoke', owner: 'core-system', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: true },
   { channel: 'system:get-ipc-health', direction: 'invoke', owner: 'core-system', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: true },
+  { channel: 'update:check', direction: 'invoke', owner: 'core-update', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: true },
+  { channel: 'update:download', direction: 'invoke', owner: 'core-update', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: true },
+  { channel: 'update:install', direction: 'invoke', owner: 'core-update', exposedBy: 'preload', arguments: 'typed preload API tuple', result: 'typed preload API result', basic: true },
+  { channel: 'update:status', direction: 'outbound-event', owner: 'core-update', exposedBy: 'preload subscription', arguments: 'typed event payload', result: 'void', basic: false },
   { channel: 'app:renderer-ready', direction: 'inbound-listener', owner: 'core-app', exposedBy: 'preload', arguments: 'typed event payload', result: 'void', basic: true, dynamic: false },
   { channel: 'capture:selector-cancel', direction: 'inbound-listener', owner: 'capture-selector', exposedBy: 'preload-creative', arguments: 'typed event payload', result: 'void', basic: false, dynamic: true },
   { channel: 'capture:selector-complete', direction: 'inbound-listener', owner: 'capture-selector', exposedBy: 'preload-creative', arguments: 'typed event payload', result: 'void', basic: false, dynamic: true },

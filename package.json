@@ -1,6 +1,6 @@
 {
   "name": "knoux-player-x",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Knoux X — premium next-generation desktop media player and creative suite.",
   "main": ".vite/build/main-entry.js",
   "author": "Eng. Sadek Elgazar (Knoux)",
@@ -35,7 +35,9 @@
     "brand:verify": "node tools/validate-brand-assets.cjs",
     "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package",
     "verify:video-gate": "node scripts/real-video-execution-gate.cjs",
-    "verify:local-media": "jest tests/unit/real-local-media-workflow.test.ts"
+    "verify:local-media": "jest tests/unit/real-local-media-workflow.test.ts",
+    "release:version": "node tools/knoux-release-version.cjs --json",
+    "release:prepare": "node tools/knoux-release-prepare.cjs"
   },
   "jest": {
     "testEnvironment": "node",

@@ -17,6 +17,8 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
   const libraryCss = read('src/styles/mobile-media-library.css');
   const mobileVideo = read('src/features/video-studio/MobileVideoStudioView.tsx');
+  const mobileVideoTimeline = read('src/features/video-studio/MobileVideoTimelineEditor.tsx');
+  const mobileVideoCss = read('src/features/video-studio/mobileVideoTimeline.css');
   const mobileSlideshow = read('src/features/slideshow/MobilePhotosToVideoView.tsx');
   const mobilePhoto = read('src/features/image-editor/MobileImageEditorView.tsx');
   const mobileBeauty = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
@@ -52,18 +54,24 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(home).toContain('readRecentMedia');
   });
 
-  test('routes Android creative tools through premium mobile surfaces while preserving desktop engines', () => {
+  test('routes Android creative tools through purpose-built mobile surfaces while preserving desktop engines', () => {
     expect(app).toContain("case 'library': return android ? <MobileMediaLibraryView /> : <LibraryView />");
     expect(app).toContain("case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />");
     expect(app).toContain("case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />");
     expect(app).toContain("case 'image-editor': return android ? <MobileImageEditorView /> : <ImageEditorView />");
     expect(app).toContain("case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />");
-    expect(mobileVideo).toContain('<MultitrackEditorView />');
+    expect(mobileVideo).toContain('<MobileVideoTimelineEditor ref={editorRef}');
+    expect(mobileVideo).not.toContain('<MultitrackEditorView />');
+    expect(mobileVideoTimeline).toContain('data-component="MobileVideoTimelineEditor"');
+    expect(mobileVideoTimeline).toContain('splitTimelineItem');
+    expect(mobileVideoTimeline).toContain('window.knouxCreativeAPI.media.open()');
+    expect(mobileVideoTimeline).toContain('window.knouxMultitrackAPI.save(snapshot, projectPath)');
+    expect(mobileVideoTimeline).toContain('<VideoRetouchInspector');
     expect(mobileSlideshow).toContain('<SlideshowView />');
     expect(mobilePhoto).toContain('data-component="MobileImageEditorView"');
     expect(mobileBeauty).toContain('<MobileBeautyCanvas />');
     expect(mobileBeauty).not.toContain('<ImageEditorView />');
-    expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
+    expect(mobileVideo).toContain('editorRef.current?.splitSelected()');
   });
 
   test('uses ordinary Android media pickers instead of project JSON as the primary library workflow', () => {
@@ -84,7 +92,7 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileBeauty).toContain('Open Photo');
   });
 
-  test('keeps the premium glass language while daylight overrides the legacy dark-first fresh-install surface', () => {
+  test('keeps the premium glass language and a dedicated mobile timeline layout', () => {
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('.kmh-bottom-nav');
     expect(css).toContain('.kmd-drawer');
@@ -95,7 +103,9 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(finalUiCss).toContain(".kmd-drawer");
     expect(creativeCss).toContain('.knoux-mobile-creative-surface');
     expect(creativeCss).toContain('.kmc-tool-dock');
-    expect(creativeCss).toContain('.kmc-video-engine .multitrack-main-grid');
+    expect(mobileVideoCss).toContain('.kmc-mobile-timeline-scroll');
+    expect(mobileVideoCss).toContain('.kmc-mobile-track-lane');
+    expect(mobileVideoCss).toContain('.kmc-mobile-inspector');
   });
 
   test('uses the official daylight asset for the native Android launch surface', () => {

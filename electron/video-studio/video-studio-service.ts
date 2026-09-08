@@ -21,6 +21,7 @@ import { createHttpClient, type HttpClient } from '../ai-gateway/http-client';
 import { HfVideoAdapter } from '../ai-gateway/hf-video-adapter';
 import { FalVideoAdapter } from '../ai-gateway/fal-video-adapter';
 import { KnouxCloudVideoAdapter } from '../ai-gateway/knoux-cloud-video-adapter';
+import { ReplicateVideoAdapter } from '../ai-gateway/replicate-video-adapter';
 import type { VideoProviderAdapter } from '../ai-gateway/video-provider-adapter';
 import {
   REMOTE_VIDEO_MIME_TYPES,
@@ -37,6 +38,7 @@ import {
   type VideoTask,
   VIDEO_MODELS,
   VIDEO_PROVIDERS,
+  isExecutableVideoModel,
 } from '../../src/core/video-studio/ai/video-catalog';
 import {
   type VideoProviderAvailability,
@@ -227,6 +229,11 @@ export class VideoStudioService extends EventEmitter {
       http: this.http,
     }));
 
+    this.adapters.set('replicate', new ReplicateVideoAdapter({
+      apiKey: async () => this.replicateKey,
+      http: this.http,
+    }));
+
     this.adapters.set('knoux-cloud', new KnouxCloudVideoAdapter({
       sessionToken: async () => this.sessionToken,
       http: this.http,
@@ -296,7 +303,7 @@ export class VideoStudioService extends EventEmitter {
   // ═══════════════════════════════════════════════════════════════════════
 
   listModels(): VideoModelDefinition[] {
-    return VIDEO_MODELS.filter((m) => m.provider !== 'mock');
+    return VIDEO_MODELS.filter((model) => model.provider !== 'mock' && isExecutableVideoModel(model));
   }
 
   listProviders(): Array<{ id: VideoProviderId; name: string; wired: boolean; configured: boolean }> {

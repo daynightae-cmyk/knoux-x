@@ -117,11 +117,12 @@ describe('Video Router', () => {
     true,
   );
 
-  it('routes text-to-video to a free model first', () => {
+  it('does not execute static-documentation models as a free route', () => {
     const result = routeVideoTask('text-to-video', allAvailable, false);
-    expect(result.blocked).toBe(false);
-    expect(result.model).not.toBeNull();
-    expect(result.model!.costBucket === 'free' || result.model!.costBucket === 'free-tier').toBe(true);
+    expect(result.blocked).toBe(true);
+    expect(result.model).toBeNull();
+    expect(result.requiresPaymentConfirmation).toBe(true);
+    expect(result.cheapestPaidCandidate?.id).toBe('minimax/video-01');
   });
 
   it('blocks when no provider is available', () => {
@@ -145,10 +146,21 @@ describe('Video Router', () => {
     expect(result.model).not.toBeNull();
   });
 
-  it('routes explicit model id', () => {
+  it('blocks an explicit static-documentation model even when its provider is configured', () => {
     const result = routeVideoTask('text-to-video', allAvailable, false, 'tencent/HunyuanVideo');
-    expect(result.blocked).toBe(false);
-    expect(result.model!.id).toBe('tencent/HunyuanVideo');
+    expect(result.blocked).toBe(true);
+    expect(result.blockedReason).toMatch(/not verified as executable/);
+  });
+
+  it('routes the discovered Replicate model only after paid confirmation', () => {
+    const replicateOnly = { ...VIDEO_AVAILABILITY_NONE, replicate: true };
+    const blocked = routeVideoTask('text-to-video', replicateOnly, false);
+    expect(blocked.requiresPaymentConfirmation).toBe(true);
+    expect(blocked.cheapestPaidCandidate?.id).toBe('minimax/video-01');
+    const allowed = routeVideoTask('text-to-video', replicateOnly, true);
+    expect(allowed.blocked).toBe(false);
+    expect(allowed.model?.id).toBe('minimax/video-01');
+    expect(allowed.model?.liveVerification).toBe('discovered');
   });
 
   it('blocks explicit model if provider unavailable', () => {

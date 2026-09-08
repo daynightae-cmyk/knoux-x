@@ -299,20 +299,23 @@ export const VIDEO_MODELS: VideoModelDefinition[] = [
     }),
   },
   // ── Replicate video models ──
+  // Official provider API/schema re-verified 2026-09-08. This remains
+  // discovered, not live-verified, until this build completes a credentialed run.
   {
-    id: 'replicate/stability-ai/stable-video-diffusion',
+    id: 'minimax/video-01',
     provider: 'replicate',
-    name: 'Stable Video Diffusion (Replicate)',
+    name: 'MiniMax Video-01 (Replicate)',
     costBucket: 'paid',
-    estimatedCostUsd: 0.05,
-    endpoint: 'stability-ai/stable-video-diffusion',
-    liveVerification: 'static-documentation',
+    estimatedCostUsd: 0.50,
+    endpoint: 'minimax/video-01',
+    liveVerification: 'discovered',
     lastVerified: null,
     capabilities: baseVideoCapabilities({
-      tasks: ['image-to-video'],
-      maxDurationSeconds: 4,
-      maxFPS: 30,
-      maxResolution: 1024,
+      tasks: ['text-to-video', 'image-to-video'],
+      maxDurationSeconds: 6,
+      maxFPS: 25,
+      maxResolution: 1280,
+      supportsTextToVideo: true,
       supportsImageToVideo: true,
       outputFormats: ['mp4'],
     }),
@@ -378,6 +381,13 @@ export function videoModelsForProvider(provider: VideoProviderId): VideoModelDef
 
 export function videoModelsForTask(task: VideoTask): VideoModelDefinition[] {
   return VIDEO_MODELS.filter((model) => model.capabilities.tasks.includes(task));
+}
+
+/** Runtime truth boundary for actual generation. */
+export function isExecutableVideoModel(model: VideoModelDefinition): boolean {
+  return model.provider === 'mock'
+    || model.liveVerification === 'live-verified'
+    || model.liveVerification === 'discovered';
 }
 
 export function freeVideoModelsForTask(task: VideoTask): VideoModelDefinition[] {

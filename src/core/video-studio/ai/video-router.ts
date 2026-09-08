@@ -12,6 +12,7 @@ import {
   type VideoTask,
   VIDEO_MODELS,
   VIDEO_PROVIDERS,
+  isExecutableVideoModel,
   videoModelsForTask,
 } from './video-catalog';
 
@@ -81,6 +82,9 @@ export function routeVideoTask(
   if (explicitModelId) {
     const model = VIDEO_MODELS.find((m) => m.id === explicitModelId) ?? null;
     if (!model) return { model: null, blocked: true, blockedReason: 'Model not found', requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [] };
+    if (!isExecutableVideoModel(model)) {
+      return { model: null, blocked: true, blockedReason: `Model \"${model.name}\" is cataloged but not verified as executable.`, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [model] };
+    }
     if (!availability[model.provider]) return { model: null, blocked: true, blockedReason: `Provider ${model.provider} unavailable`, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [model] };
     if (model.costBucket === 'paid' && !allowPaidFallback) {
       return { model: null, blocked: true, blockedReason: 'Paid model requires confirmation', requiresPaymentConfirmation: true, cheapestPaidCandidate: model, candidates: [model] };
@@ -90,8 +94,9 @@ export function routeVideoTask(
 
   // Auto-route: free-first, then paid if allowed
   const candidates = videoModelsForTask(task)
-    .filter((m) => m.provider !== 'mock')
-    .filter((m) => availability[m.provider]);
+    .filter((model) => model.provider !== 'mock')
+    .filter(isExecutableVideoModel)
+    .filter((model) => availability[model.provider]);
 
   if (candidates.length === 0) {
     return { model: null, blocked: true, blockedReason: 'No available provider for this task', requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [] };
@@ -103,14 +108,13 @@ export function routeVideoTask(
   );
 
   if (freeCandidates.length > 0) {
-    // Prefer wired providers with live-verified status
-    const best = freeCandidates[0];
+    const best = [...freeCandidates].sort(compareVerificationThenCost)[0];
     return { model: best, blocked: false, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: freeCandidates };
   }
 
   // Paid candidates
   const paidCandidates = candidates.filter((m) => m.costBucket === 'paid');
-  const cheapest = paidCandidates.sort((a, b) => a.estimatedCostUsd - b.estimatedCostUsd)[0] ?? null;
+  const cheapest = [...paidCandidates].sort(compareVerificationThenCost)[0] ?? null;
 
   if (!allowPaidFallback) {
     return {
@@ -131,8 +135,15 @@ export function routeVideoTask(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function videoTaskCostEstimate(task: VideoTask): VideoModelDefinition | null {
-  const paid = videoModelsForTask(task).filter((m) => m.costBucket === 'paid');
-  return paid.sort((a, b) => a.estimatedCostUsd - b.estimatedCostUsd)[0] ?? null;
+  const paid = videoModelsForTask(task)
+    .filter(isExecutableVideoModel)
+    .filter((model) => model.costBucket === 'paid');
+  return [...paid].sort(compareVerificationThenCost)[0] ?? null;
+}
+
+function compareVerificationThenCost(left: VideoModelDefinition, right: VideoModelDefinition): number {
+  const rank = (model: VideoModelDefinition): number => model.liveVerification === 'live-verified' ? 0 : 1;
+  return rank(left) - rank(right) || left.estimatedCostUsd - right.estimatedCostUsd;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

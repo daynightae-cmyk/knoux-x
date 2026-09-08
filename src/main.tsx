@@ -30,6 +30,7 @@ import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installAndroidSafBridge } from './platform/androidSafBridge';
 import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
+import './styles/premium-daylight-rebrand.css';
 
 // Capacitor Android receives dedicated native-safe bridges. Desktop preload
 // remains authoritative in Electron, and normal browsers keep the constrained

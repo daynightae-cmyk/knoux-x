@@ -71,7 +71,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
           <BrandMark size={84} />
         </div>
         <h1 className="km-splash-title">
-          KNOUX <span>X</span>
+          Knoux <span>X</span>
         </h1>
         <p className="km-splash-subtitle">CREATE · PLAY · ENHANCE</p>
         <span className="km-splash-signature">Eng. Sadek Elgazar</span>

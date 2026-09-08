@@ -30,6 +30,7 @@ import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installAndroidSafBridge } from './platform/androidSafBridge';
 import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
+import './styles/premium-daylight-rebrand.css';
 
 // Capacitor Android receives dedicated native-safe bridges. Desktop preload
 // remains authoritative in Electron, and normal browsers keep the constrained
@@ -38,7 +39,7 @@ import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 const androidRuntimeInstalled = installAndroidRuntimeBridge();
 if (androidRuntimeInstalled) {
   document.documentElement.dataset.platform = 'android';
-  document.title = 'KNOUX X';
+  document.title = 'Knoux X';
   // Keep the virtual bridge as a compatibility fallback for transient browser
   // assets, then let SAF own user-selected documents so content:// permissions
   // survive activity/process restarts.

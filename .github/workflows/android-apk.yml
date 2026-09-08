@@ -176,7 +176,10 @@ jobs:
           grep -F '<monochrome android:drawable="@mipmap/ic_launcher_monochrome" />' android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml
           grep -F '<item name="windowSplashScreenBackground">@color/knoux_splash_background</item>' android/app/src/main/res/values/styles.xml
           grep -F '<item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>' android/app/src/main/res/values/styles.xml
-          grep -F '<color name="colorAccent">#8B39FF</color>' android/app/src/main/res/values/colors.xml
+          grep -F '<item name="android:windowLightStatusBar">true</item>' android/app/src/main/res/values/styles.xml
+          grep -F '<item name="android:windowLightNavigationBar">true</item>' android/app/src/main/res/values/styles.xml
+          grep -F '<color name="knoux_splash_background">#F8F7FC</color>' android/app/src/main/res/values/colors.xml
+          grep -F '<color name="colorAccent">#7828E8</color>' android/app/src/main/res/values/colors.xml
           test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
           test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
           test -s android/app/src/main/res/mipmap-xhdpi/ic_launcher.png

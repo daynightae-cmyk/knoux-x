@@ -43,8 +43,8 @@ export class VideoRetouchFrameResolver {
   private readonly sceneCutGap: number;
 
   constructor(options: FrameResolverOptions = {}) {
-    this.maxGapSeconds = Math.max(0.1, Number.isFinite(options.maxGapSeconds) ? options.maxGapSeconds : 1.5);
-    this.sceneCutGap = Math.max(0.05, Number.isFinite(options.sceneCutGap) ? options.sceneCutGap : 0.5);
+    this.maxGapSeconds = Math.max(0.1, Number.isFinite(options.maxGapSeconds ?? 1.5) ? (options.maxGapSeconds ?? 1.5) : 1.5);
+    this.sceneCutGap = Math.max(0.05, Number.isFinite(options.sceneCutGap ?? 0.5) ? (options.sceneCutGap ?? 0.5) : 0.5);
   }
 
   resolve(state: VideoRetouchClipState, localTime: number): FrameResolutionResult {
@@ -94,9 +94,9 @@ export class VideoRetouchFrameResolver {
     const resolveBodyKeyframe = (track: VideoRetouchBodyTrack): VideoRetouchBodyKeyframe | null => {
       const keyframes = track.keyframes;
       if (keyframes.length === 0) return null;
-      if (time <= keyframes[0].timestamp) return { ...keyframes[0], anchors: keyframes[0].anchors ? { ...keyframes[0].anchors } : undefined };
+      if (time <= keyframes[0].timestamp) return { ...keyframes[0], anchors: keyframes[0].anchors };
       const last = keyframes[keyframes.length - 1];
-      if (time >= last.timestamp) return { ...last, anchors: last.anchors ? { ...last.anchors } : undefined };
+      if (time >= last.timestamp) return { ...last, anchors: last.anchors };
       for (let index = 1; index < keyframes.length; index += 1) {
         const right = keyframes[index];
         if (time > right.timestamp) continue;
@@ -105,14 +105,14 @@ export class VideoRetouchFrameResolver {
         const amount = span <= 0 ? 1 : (time - left.timestamp) / span;
         return {
           timestamp: time,
-          anchors: left.anchors && right.anchors ? { ...left.anchors } : undefined,
+          anchors: amount < 0.5 ? left.anchors : right.anchors,
           confidence: left.confidence + (right.confidence - left.confidence) * amount,
           opacity: left.opacity + (right.opacity - left.opacity) * amount,
           source: 'interpolated',
           activeRegions: left.activeRegions ?? right.activeRegions ?? [],
         };
       }
-      return { ...last, anchors: last.anchors ? { ...last.anchors } : undefined };
+      return { ...last, anchors: last.anchors };
     };
 
     const faceTracks = state.faceTracks.map((track) => {

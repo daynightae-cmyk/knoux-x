@@ -4,7 +4,6 @@ import type { VideoRetouchClipState, VideoRetouchLayer, VideoRetouchRegion, Vide
 import { orderedVideoRetouchLayers, resolveTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
 import { applyMakeupBlend, parseHexColor, type MakeupBlendMode } from '../Pipeline/BlendModes';
 import { MaskCache } from '../Pipeline/MaskCache';
-import { bodyReshapeStrokes, createBodyFreezeMask } from '../../bodyReshapeGeometry';
 import { liquifyMeshWarp } from '../../liquify/liquifyMesh';
 import * as VideoRetouchBodyGeometry from '../../../../video-studio/retouch/VideoRetouchBodyGeometry';
 
@@ -122,7 +121,7 @@ export class VideoFrameProcessor {
     for (const layer of layers) {
       if (layer.category === 'body-shape') {
         try {
-          const controls = VideoRetouchBodyGeometry.aggregateBodyControls([layer], localTime);
+          const controls = VideoRetouchBodyGeometry.aggregateBodyControls([layer]);
           const result = VideoRetouchBodyGeometry.resolveBodyGeometryForFrame(state, localTime, output.width, output.height, controls);
           if (result.strokes && result.strokes.length > 0) {
             const freezeMaskData = result.bounds ? new ImageData(new Uint8ClampedArray(result.bounds.width * result.bounds.height * 4).fill(255), result.bounds.width, result.bounds.height) : undefined;

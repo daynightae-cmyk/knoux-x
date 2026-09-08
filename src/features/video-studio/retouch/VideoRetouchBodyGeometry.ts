@@ -1,7 +1,7 @@
 import type { DerivedBodyGeometry } from '../../image-editor/retouch/bodyAnalysisContract';
-import { VideoRetouchBodyKeyframe } from '../../../core/creative/videoRetouchTemporal';
 import { bodyReshapeStrokes, type BodyReshapeControls } from '../../image-editor/retouch/bodyReshapeGeometry';
 import type { LiquifyStroke } from '../../image-editor/retouch/liquify/liquifyMesh';
+import type { VideoRetouchBodyAnchorSet } from '../../../core/creative/videoRetouchTemporal';
 import type { VideoRetouchClipState, VideoRetouchLayer } from './videoRetouchProject';
 
 export interface BodyGeometryFrame {
@@ -18,7 +18,7 @@ export function resolveBodyGeometryForFrame(
 ): BodyGeometryFrame {
   const time = Math.max(0, Number.isFinite(localTime) ? localTime : 0);
   const bodyTracks = state.bodyTracks ?? [];
-  let bodyFrame: { timestamp: number; anchors?: any; opacity: number } | null = null;
+  let bodyFrame: { timestamp: number; anchors?: VideoRetouchBodyAnchorSet; opacity: number } | null = null;
   if (bodyTracks.length > 0) {
     const selectedBody = bodyTracks.length > 0 ? (bodyTracks[0] ?? null) : null;
     if (selectedBody) {
@@ -46,15 +46,16 @@ export function resolveBodyGeometryForFrame(
   if (!bodyFrame || bodyFrame.opacity <= 0) return { strokes: [], bounds: null };
   let geometry: DerivedBodyGeometry;
   try {
-    geometry = bodyFrame.anchors ? {
+    if (!bodyFrame.anchors) return { strokes: [], bounds: null };
+    geometry = {
       head: bodyFrame.anchors.head ? { center: { x: bodyFrame.anchors.head.center.x, y: bodyFrame.anchors.head.center.y, z: 0, visibility: 1, presence: 1 }, radius: bodyFrame.anchors.head.radius } : null,
       shoulders: bodyFrame.anchors.shoulders ? { left: { x: bodyFrame.anchors.shoulders.left.x, y: bodyFrame.anchors.shoulders.left.y, z: 0, visibility: 1, presence: 1 }, right: { x: bodyFrame.anchors.shoulders.right.x, y: bodyFrame.anchors.shoulders.right.y, z: 0, visibility: 1, presence: 1 }, center: { x: bodyFrame.anchors.shoulders.center.x, y: bodyFrame.anchors.shoulders.center.y, z: 0, visibility: 1, presence: 1 }, width: bodyFrame.anchors.shoulders.width } : null,
       waist: bodyFrame.anchors.waist ? { left: { x: bodyFrame.anchors.waist.left.x, y: bodyFrame.anchors.waist.left.y, z: 0, visibility: 1, presence: 1 }, right: { x: bodyFrame.anchors.waist.right.x, y: bodyFrame.anchors.waist.right.y, z: 0, visibility: 1, presence: 1 }, center: { x: bodyFrame.anchors.waist.center.x, y: bodyFrame.anchors.waist.center.y, z: 0, visibility: 1, presence: 1 }, width: bodyFrame.anchors.waist.width } : null,
       hips: bodyFrame.anchors.hips ? { left: { x: bodyFrame.anchors.hips.left.x, y: bodyFrame.anchors.hips.left.y, z: 0, visibility: 1, presence: 1 }, right: { x: bodyFrame.anchors.hips.right.x, y: bodyFrame.anchors.hips.right.y, z: 0, visibility: 1, presence: 1 }, center: { x: bodyFrame.anchors.hips.center.x, y: bodyFrame.anchors.hips.center.y, z: 0, visibility: 1, presence: 1 }, width: bodyFrame.anchors.hips.width } : null,
       arms: { left: bodyFrame.anchors.arms.left ? [{ x: bodyFrame.anchors.arms.left[0].x, y: bodyFrame.anchors.arms.left[0].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.arms.left[1].x, y: bodyFrame.anchors.arms.left[1].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.arms.left[2].x, y: bodyFrame.anchors.arms.left[2].y, z: 0, visibility: 1, presence: 1 }] : null, right: bodyFrame.anchors.arms.right ? [{ x: bodyFrame.anchors.arms.right[0].x, y: bodyFrame.anchors.arms.right[0].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.arms.right[1].x, y: bodyFrame.anchors.arms.right[1].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.arms.right[2].x, y: bodyFrame.anchors.arms.right[2].y, z: 0, visibility: 1, presence: 1 }] : null },
       legs: { left: bodyFrame.anchors.legs.left ? [{ x: bodyFrame.anchors.legs.left[0].x, y: bodyFrame.anchors.legs.left[0].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.legs.left[1].x, y: bodyFrame.anchors.legs.left[1].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.legs.left[2].x, y: bodyFrame.anchors.legs.left[2].y, z: 0, visibility: 1, presence: 1 }] : null, right: bodyFrame.anchors.legs.right ? [{ x: bodyFrame.anchors.legs.right[0].x, y: bodyFrame.anchors.legs.right[0].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.legs.right[1].x, y: bodyFrame.anchors.legs.right[1].y, z: 0, visibility: 1, presence: 1 }, { x: bodyFrame.anchors.legs.right[2].x, y: bodyFrame.anchors.legs.right[2].y, z: 0, visibility: 1, presence: 1 }] : null },
-      subjectBounds: bodyFrame.anchors ? { x: 0, y: 0, width: imageWidth, height: imageHeight } : null,
-    } : JSON.parse((bodyFrame as any)?.geometrySnapshot ?? '{}');
+      subjectBounds: { x: 0, y: 0, width: imageWidth, height: imageHeight },
+    };
   } catch {
     return { strokes: [], bounds: null };
   }
@@ -62,7 +63,7 @@ export function resolveBodyGeometryForFrame(
   return { strokes, bounds: bodyFrame?.anchors ? { x: 0, y: 0, width: imageWidth, height: imageHeight } : null };
 }
 
-export function aggregateBodyControls(layers: VideoRetouchLayer[], localTime: number): BodyReshapeControls {
+export function aggregateBodyControls(layers: VideoRetouchLayer[]): BodyReshapeControls {
   const controls: BodyReshapeControls = {
     overallSlim: 0, waist: 0, hips: 0, shoulders: 0, arms: 0, legs: 0, legLength: 0, torsoWidth: 0,
     bodySize: 0, headSize: 0, upperArmSize: 0, forearmSize: 0, thighWidth: 0, calfWidth: 0, abdomenWidth: 0, hipVolume: 0, waistCurve: 0,

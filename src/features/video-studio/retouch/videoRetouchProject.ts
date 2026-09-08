@@ -6,13 +6,10 @@ import type {
   VideoRetouchCategory,
   VideoRetouchClipState,
   VideoRetouchFaceTrack,
-  VideoRetouchBodyTrack,
-  VideoRetouchDiscontinuity,
   VideoRetouchLayer,
   VideoRetouchLayerRange,
   VideoRetouchParameter,
   VideoRetouchParameterKeyframe,
-  VideoRetouchQualityReport,
   VideoRetouchRegion,
   VideoRetouchTrackingKeyframe,
   VideoRetouchTrackingSettings,
@@ -25,7 +22,6 @@ export type {
   VideoRetouchCategory,
   VideoRetouchClipState,
   VideoRetouchFaceTrack,
-  VideoRetouchBodyTrack,
   VideoRetouchLayer,
   VideoRetouchLayerRange,
   VideoRetouchParameter,
@@ -60,10 +56,6 @@ function copyKeyframe(keyframe: VideoRetouchTrackingKeyframe): VideoRetouchTrack
     points: keyframe.points.map(copyPoint),
     bounds: { ...keyframe.bounds },
   };
-}
-
-function copyBodyTrack(track: VideoRetouchBodyTrack): VideoRetouchBodyTrack {
-  return { ...track, keyframes: track.keyframes.map((kf) => ({ ...kf, anchors: kf.anchors ? { ...kf.anchors } : undefined })) };
 }
 
 function copyLayer(layer: VideoRetouchLayer): VideoRetouchLayer {
@@ -404,15 +396,6 @@ export function splitVideoRetouchState(
   right.layers = right.layers.map((layer, order) => ({ ...layer, order }));
 
   // Rebase layer-level parameter keyframes on split
-  const splitParameterKeyframes = (keyframes?: Record<string, VideoRetouchParameterKeyframe[]>): Record<string, VideoRetouchParameterKeyframe[]> | undefined => {
-    if (!keyframes) return undefined;
-    const result: Record<string, VideoRetouchParameterKeyframe[]> = {};
-    for (const [paramKey, frames] of Object.entries(keyframes)) {
-      const rebased = frames.map((kf) => ({ ...kf, time: kf.time - split })).filter((kf) => kf.time >= 0);
-      if (rebased.length > 0) result[paramKey] = rebased;
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
-  };
   const splitParamLeft = (keyframes?: Record<string, VideoRetouchParameterKeyframe[]>): Record<string, VideoRetouchParameterKeyframe[]> | undefined => {
     if (!keyframes) return undefined;
     const result: Record<string, VideoRetouchParameterKeyframe[]> = {};

@@ -161,4 +161,46 @@ describe('video retouch render proof', () => {
     expect(result.skippedLayerIds.length).toBeGreaterThan(0);
     expect(frameDelta(portraitFrame(), result.imageData)).toBe(0);
   });
+
+  test('body-shape layer applies real mesh warp pixels (not CSS-only)', () => {
+    jest.setTimeout(30000);
+    const processor = new VideoFrameProcessor();
+    const base = createVideoRetouchState();
+    const bodyState = addVideoRetouchLayer(base, {
+      templateId: 'body-shape-legacy',
+      category: 'body-shape',
+      targetRegion: 'waist',
+      parameters: { waist: -0.35, hips: 0.25, overallSlim: -0.15 },
+      strength: 80,
+      trackingRequired: false,
+      faceId: null,
+      applyScope: 'clip',
+    });
+    bodyState.bodyTracks = [{
+      bodyId: 'body-1',
+      keyframes: [{
+        timestamp: 0,
+        anchors: {
+          head: { center: { x: 0.5, y: 0.22, z: 0, visibility: 1, presence: 1 }, radius: 0.12 },
+          shoulders: { left: { x: 0.38, y: 0.28, z: 0, visibility: 1, presence: 1 }, right: { x: 0.62, y: 0.28, z: 0, visibility: 1, presence: 1 }, center: { x: 0.5, y: 0.28, z: 0, visibility: 1, presence: 1 }, width: 0.24 },
+          waist: { left: { x: 0.42, y: 0.52, z: 0, visibility: 1, presence: 1 }, right: { x: 0.58, y: 0.52, z: 0, visibility: 1, presence: 1 }, center: { x: 0.5, y: 0.52, z: 0, visibility: 1, presence: 1 }, width: 0.18 },
+          hips: { left: { x: 0.4, y: 0.68, z: 0, visibility: 1, presence: 1 }, right: { x: 0.6, y: 0.68, z: 0, visibility: 1, presence: 1 }, center: { x: 0.5, y: 0.68, z: 0, visibility: 1, presence: 1 }, width: 0.22 },
+          arms: { left: [{ x: 0.32, y: 0.36, z: 0, visibility: 1, presence: 1 }, { x: 0.28, y: 0.42, z: 0, visibility: 1, presence: 1 }, { x: 0.24, y: 0.48, z: 0, visibility: 1, presence: 1 }], right: [{ x: 0.68, y: 0.36, z: 0, visibility: 1, presence: 1 }, { x: 0.72, y: 0.42, z: 0, visibility: 1, presence: 1 }, { x: 0.76, y: 0.48, z: 0, visibility: 1, presence: 1 }] },
+          legs: { left: [{ x: 0.44, y: 0.72, z: 0, visibility: 1, presence: 1 }, { x: 0.42, y: 0.82, z: 0, visibility: 1, presence: 1 }, { x: 0.4, y: 0.9, z: 0, visibility: 1, presence: 1 }], right: [{ x: 0.56, y: 0.72, z: 0, visibility: 1, presence: 1 }, { x: 0.58, y: 0.82, z: 0, visibility: 1, presence: 1 }, { x: 0.6, y: 0.9, z: 0, visibility: 1, presence: 1 }] },
+        },
+        confidence: 0.91,
+        opacity: 1,
+        activeRegions: ['waist', 'hips'],
+        source: 'tracked',
+      }],
+      lastConfidence: 0.91,
+      lostFrames: 0,
+    }];
+    const frameIn = portraitFrame();
+    const result = processor.process(frameIn, bodyState, 0.05, { respectBeforeAfter: true });
+    expect(result.appliedLayerIds).toContain(bodyState.layers[0].id);
+    expect(result.appliedLayerIds.length).toBeGreaterThan(0);
+    const delta = frameDelta(frameIn, result.imageData);
+    expect(delta).toBeGreaterThan(0);
+  });
 });

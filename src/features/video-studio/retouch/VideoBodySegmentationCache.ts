@@ -56,7 +56,7 @@ export class VideoBodySegmentationCache {
     }
   }
 
-  clearSource(sourceId?: string): void {
+  clearSource(): void {
     this.entries.clear();
     this.currentBytes = 0;
   }

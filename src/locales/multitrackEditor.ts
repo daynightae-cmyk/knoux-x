@@ -90,6 +90,17 @@ export const multitrackEditorEnglish = {
   branchDeltaNone: 'No change',
   branchOf: 'Snapshot of',
   currentProject: 'Current project',
+  monitorBar: 'Program monitor display',
+  monitorFit: 'Fit',
+  monitorFill: 'Fill',
+  monitorActual: '100%',
+  monitorZoom: 'Preview zoom',
+  monitorFocus: 'Focus preview',
+  monitorExitFocus: 'Exit focus preview',
+  monitorCollapseInspector: 'Collapse inspector',
+  monitorExpandInspector: 'Expand inspector',
+  monitorTimelineHeight: 'Timeline height',
+  monitorNaturalUnknown: 'Media dimensions are not available yet.',
 } as const;
 
 export const multitrackEditorArabic = {
@@ -184,4 +195,15 @@ export const multitrackEditorArabic = {
   branchDeltaNone: 'لا تغيير',
   branchOf: 'لقطة من',
   currentProject: 'المشروع الحالي',
+  monitorBar: 'عرض شاشة البرنامج',
+  monitorFit: 'ملاءمة',
+  monitorFill: 'ملء',
+  monitorActual: '100%',
+  monitorZoom: 'تكبير المعاينة',
+  monitorFocus: 'تركيز المعاينة',
+  monitorExitFocus: 'الخروج من تركيز المعاينة',
+  monitorCollapseInspector: 'طيّ الخصائص',
+  monitorExpandInspector: 'فتح الخصائص',
+  monitorTimelineHeight: 'ارتفاع الخط الزمني',
+  monitorNaturalUnknown: 'أبعاد الوسائط غير متوفرة بعد.',
 } as const;

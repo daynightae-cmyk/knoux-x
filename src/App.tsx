@@ -22,6 +22,7 @@ import { usePlayerStore } from './store/playerStore';
 import type { ViewType } from './store/appStore';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
+import './styles/media-viewport-fit.css';
 import './styles/creative-suite.css';
 import './styles/library-creative.css';
 import './styles/settings-creative.css';

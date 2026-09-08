@@ -28,6 +28,7 @@ import {
   reorderSlide,
   slideTimelineRanges,
   slideshowDuration,
+  slideshowOutputSize,
   type KenBurnsMode,
   type SlideshowAudioTrack,
   type SlideshowProject,
@@ -465,7 +466,14 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
       {notice && <div className="kms-notice" role="status">{notice}</div>}
 
       <div className="kms-preview-card">
-        <div className={`kms-preview-stage kms-motion-${activeSlide?.kenBurns ?? 'none'}`}>
+        <div
+          className={`kms-preview-stage kms-motion-${activeSlide?.kenBurns ?? 'none'}`}
+          style={(() => {
+            const size = project ? slideshowOutputSize(project) : { width: 16, height: 9 };
+            const ratio = size.height > 0 ? size.width / size.height : 16 / 9;
+            return { aspectRatio: `${size.width}/${size.height}`, ['--knoux-slide-ar' as string]: ratio };
+          })()}
+        >
           {!activeSlide && <span className="kms-empty-preview">Add photos or videos to begin.</span>}
           {activeSlide?.kind === 'image' && activeMediaUrl && (
             <img src={activeMediaUrl} alt={activeSlide.title || 'Slideshow preview'} style={{ objectFit: activeSlide.fit === 'fit' ? 'contain' : 'cover' }} />

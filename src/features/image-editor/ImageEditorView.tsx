@@ -382,6 +382,20 @@ export const ImageEditorView: React.FC = () => {
   const [resizeWidth, setResizeWidth] = useState(1920);
   const [resizeHeight, setResizeHeight] = useState(1080);
   const [lockAspect, setLockAspect] = useState(true);
+  // Preview-only display zoom (Fit = 1). Never mutates the document transform;
+  // pointer math in pointerPosition() compensates via bounding-rect ratios.
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const previewZoomRef = useRef(1);
+  const applyPreviewZoom = useCallback((value: number): void => {
+    const next = Math.max(0.1, Math.min(8, value));
+    previewZoomRef.current = next;
+    setPreviewZoom(next);
+  }, []);
+  const zoomToActualPixels = useCallback((): void => {
+    const canvas = baseCanvasRef.current;
+    if (!canvas || canvas.clientWidth < 1 || documentWidth < 1) return;
+    applyPreviewZoom((documentWidth * previewZoomRef.current) / canvas.clientWidth);
+  }, [applyPreviewZoom, documentWidth]);
   const [exportFormat, setExportFormat] = useState<CaptureFormat>('png');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -432,6 +446,12 @@ export const ImageEditorView: React.FC = () => {
       if (faceAnalysisClientRef.current === client) faceAnalysisClientRef.current = null;
     };
   }, [desktopRuntime]);
+
+  // A new document always opens at Fit; zoom is display-only.
+  useEffect(() => {
+    previewZoomRef.current = 1;
+    setPreviewZoom(1);
+  }, [documentWidth, documentHeight]);
 
   const handleFaceAnalysis = useCallback(async (): Promise<void> => {
     if (!source || !hasDocument) return;
@@ -1666,7 +1686,16 @@ export const ImageEditorView: React.FC = () => {
           <NeonPanel variant="dark" padding="none" className="image-editor-stage-panel">
             <div className="image-editor-stage" data-tool={tool} onDragOver={(event) => event.preventDefault()} onDrop={handleImageDrop}>
               <input ref={browserImageInputRef} className="image-editor-browser-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif" onChange={handleBrowserImageInput} />
-              <div className={`image-editor-canvas-stack ${hasDocument ? 'has-document' : 'is-empty'}`}>
+              {hasDocument && (
+                <div className="image-editor-zoom-bar" role="toolbar" aria-label={t('imageEditor.previewZoom')}>
+                  <button type="button" aria-pressed={previewZoom === 1} title={t('imageEditor.fitToView')} onClick={() => applyPreviewZoom(1)}>{t('imageEditor.fitToView')}</button>
+                  <button type="button" title={t('imageEditor.zoomOut')} aria-label={t('imageEditor.zoomOut')} onClick={() => applyPreviewZoom(previewZoom / 1.25)} disabled={previewZoom <= 0.1}>−</button>
+                  <strong dir="ltr">{Math.round(previewZoom * 100)}%</strong>
+                  <button type="button" title={t('imageEditor.zoomIn')} aria-label={t('imageEditor.zoomIn')} onClick={() => applyPreviewZoom(previewZoom * 1.25)} disabled={previewZoom >= 8}>+</button>
+                  <button type="button" title={t('imageEditor.actualPixels')} onClick={zoomToActualPixels} disabled={documentWidth < 1}>1:1</button>
+                </div>
+              )}
+              <div className={`image-editor-canvas-stack ${hasDocument ? 'has-document' : 'is-empty'}`} style={hasDocument && previewZoom !== 1 ? { zoom: previewZoom } : undefined}>
                 <canvas ref={baseCanvasRef} className="image-editor-canvas" width={1} height={1} />
                 {hasDocument && showOriginal && source && <img className="image-editor-original-preview" src={source.dataUrl} alt={t('imageEditor.viewOriginal')} />}
                 <canvas

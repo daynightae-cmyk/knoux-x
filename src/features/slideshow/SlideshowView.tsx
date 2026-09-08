@@ -1282,6 +1282,7 @@ export const SlideshowView: React.FC = () => {
             className="slideshow-preview-stage"
             style={{
               aspectRatio: `${outputSize.width}/${outputSize.height}`,
+              ['--knoux-slide-ar' as string]: outputSize.height > 0 ? outputSize.width / outputSize.height : 16 / 9,
               background: project.backgroundColor,
             }}
           >

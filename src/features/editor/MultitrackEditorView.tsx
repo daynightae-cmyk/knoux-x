@@ -14,8 +14,12 @@ import {
   KeyRound,
   Lock,
   LockOpen,
+  Maximize,
   MessageSquareText,
+  Minimize,
   Music,
+  PanelRightClose,
+  PanelRightOpen,
   Pause,
   Play,
   Redo2,
@@ -65,6 +69,7 @@ import {
 } from '../../core/video-studio/ai/branch-metrics';
 import type { BranchMetrics, BranchMetricsDelta } from '../../core/video-studio/ai/branch-metrics';
 import { useTranslation } from '../../i18n';
+import { useMediaViewportFit, type MediaViewportMode } from '../../hooks/useMediaViewportFit';
 import { VideoRetouchInspector } from '../video-studio/retouch/VideoRetouchInspector';
 import { VideoRetouchPreviewOverlay } from '../video-studio/retouch/VideoRetouchPreviewOverlay';
 import {
@@ -181,6 +186,39 @@ function branchAPI(): Window['knouxVideoStudioAPI'] | null {
     : null;
 }
 
+const MONITOR_MODE_KEY = 'knoux.multitrack.monitorMode';
+const TIMELINE_HEIGHT_KEY = 'knoux.multitrack.timelineHeight';
+const MONITOR_ZOOM_PRESETS = [25, 50, 75, 100, 150, 200];
+
+function readMonitorMode(): MediaViewportMode {
+  try {
+    const raw = window.localStorage.getItem(MONITOR_MODE_KEY);
+    if (raw === 'fit' || raw === 'fill' || raw === 'actual') return raw;
+    const percent = Number(raw);
+    if (Number.isFinite(percent) && MONITOR_ZOOM_PRESETS.includes(percent)) return percent;
+  } catch {
+    // Storage is unavailable; fall back to Fit.
+  }
+  return 'fit';
+}
+
+function readTimelineHeight(): number {
+  try {
+    const raw = Number(window.localStorage.getItem(TIMELINE_HEIGHT_KEY));
+    if (Number.isFinite(raw)) return Math.max(220, Math.min(480, raw));
+  } catch {
+    // Storage is unavailable; fall back to the default.
+  }
+  return 280;
+}
+
+function monitorModeLabel(mode: MediaViewportMode): string {
+  if (mode === 'fit') return 'Fit';
+  if (mode === 'fill') return 'Fill';
+  if (mode === 'actual') return '100%';
+  return `${mode}%`;
+}
+
 export const MultitrackEditorView: React.FC = () => {
   const [project, setProject] = useState<MultitrackProject | null>(null);
   const [projectPath, setProjectPath] = useState<string | undefined>();
@@ -205,6 +243,14 @@ export const MultitrackEditorView: React.FC = () => {
   const historyRef = useRef<ProjectHistory>({ past: [], future: [] });
   const previewRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { locale, t } = useTranslation();
+  // Program-monitor display state only; never mutates the project transform.
+  const [monitorMode, setMonitorMode] = useState<MediaViewportMode>(() => readMonitorMode());
+  const [monitorNatural, setMonitorNatural] = useState<{ width: number; height: number } | null>(null);
+  const [focusPreview, setFocusPreview] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [timelineHeight, setTimelineHeight] = useState(() => readTimelineHeight());
+  const splitterRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const monitorFit = useMediaViewportFit(monitorNatural, monitorMode);
 
   const desktopRuntime = document.documentElement.dataset.runtime !== 'web-preview'
     && typeof window.knouxMultitrackAPI?.create === 'function';
@@ -671,6 +717,59 @@ export const MultitrackEditorView: React.FC = () => {
     }
   }, [playhead, selectedItem]);
 
+  // Persist preview-only display preferences without touching the project.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MONITOR_MODE_KEY, String(monitorMode));
+    } catch {
+      // Storage is unavailable; the preference simply does not persist.
+    }
+  }, [monitorMode]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TIMELINE_HEIGHT_KEY, String(timelineHeight));
+    } catch {
+      // Storage is unavailable; the preference simply does not persist.
+    }
+  }, [timelineHeight]);
+
+  // Focus preview is display-only; Escape always returns to the editor.
+  useEffect(() => {
+    if (!focusPreview) return undefined;
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setFocusPreview(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [focusPreview]);
+
+  // Reset the fitted frame whenever a different item is previewed.
+  useEffect(() => {
+    setMonitorNatural(null);
+  }, [selectedItemId, previewUrl]);
+
+  const beginTimelineResize = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    splitterRef.current = { startY: event.clientY, startHeight: timelineHeight };
+    const handleMove = (moveEvent: PointerEvent): void => {
+      const origin = splitterRef.current;
+      if (!origin) return;
+      setTimelineHeight(Math.max(220, Math.min(480, origin.startHeight + (moveEvent.clientY - origin.startY))));
+    };
+    const handleUp = (): void => {
+      splitterRef.current = null;
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp, { once: true });
+  }, [timelineHeight]);
+
+  const handleMonitorMode = useCallback((mode: MediaViewportMode): void => {
+    setMonitorMode(mode);
+  }, []);
+
   useEffect(() => {
     const handleCommand = (event: Event): void => {
       const detail = (event as CustomEvent<{ command?: string; requestId?: string }>).detail;
@@ -737,8 +836,8 @@ export const MultitrackEditorView: React.FC = () => {
   }
 
   return (
-    <section className="creative-view multitrack-editor-view" aria-labelledby="multitrack-title">
-      <header className="creative-header multitrack-header">
+    <section className={`creative-view multitrack-editor-view${focusPreview ? ' knoux-workspace-focus' : ''}`} aria-labelledby="multitrack-title">
+      <header className="creative-header multitrack-header knoux-focus-collapsible">
         <div>
           <span className="creative-eyebrow">{t('multitrack.eyebrow')}</span>
           <h1 id="multitrack-title"><Video size={30} /> {project.name}</h1>
@@ -786,19 +885,74 @@ export const MultitrackEditorView: React.FC = () => {
         <button type="button" onClick={deleteSelected} disabled={!selectedItem} title={t('common.cancel')}><Trash2 size={16} /></button>
       </div>
 
-      <div className="multitrack-main-grid">
+      <div className={`multitrack-main-grid knoux-workspace-grid${inspectorCollapsed ? ' knoux-inspector-hidden' : ''}`}>
         <NeonPanel variant="dark" padding="none" className="multitrack-preview-panel">
-          <div className="multitrack-preview-stage">
+          <div className="knoux-monitor-bar" role="toolbar" aria-label={t('multitrack.monitorBar')}>
+            <div className="knoux-monitor-group" role="group" aria-label={t('multitrack.monitorZoom')}>
+              <button type="button" aria-pressed={monitorMode === 'fit'} title={t('multitrack.monitorFit')} onClick={() => handleMonitorMode('fit')}>{t('multitrack.monitorFit')}</button>
+              <button type="button" aria-pressed={monitorMode === 'fill'} title={t('multitrack.monitorFill')} onClick={() => handleMonitorMode('fill')}>{t('multitrack.monitorFill')}</button>
+              <button type="button" aria-pressed={monitorMode === 'actual'} title={t('multitrack.monitorActual')} onClick={() => handleMonitorMode('actual')}>{t('multitrack.monitorActual')}</button>
+              <NeonSelect
+                value={typeof monitorMode === 'number' ? String(monitorMode) : 'fit'}
+                onChange={(value) => handleMonitorMode(value === 'fit' ? 'fit' : Number(value) as MediaViewportMode)}
+                options={[{ value: 'fit', label: monitorModeLabel(monitorMode) }, ...MONITOR_ZOOM_PRESETS.map((preset) => ({ value: String(preset), label: `${preset}%` }))]}
+                label={t('multitrack.monitorZoom')}
+              />
+            </div>
+            <span className="knoux-monitor-separator" />
+            <div className="knoux-monitor-group">
+              <button
+                type="button"
+                aria-pressed={focusPreview}
+                title={focusPreview ? t('multitrack.monitorExitFocus') : t('multitrack.monitorFocus')}
+                onClick={() => setFocusPreview((value) => !value)}
+              >
+                {focusPreview ? <Minimize size={15} /> : <Maximize size={15} />}
+              </button>
+              <button
+                type="button"
+                aria-pressed={inspectorCollapsed}
+                title={inspectorCollapsed ? t('multitrack.monitorExpandInspector') : t('multitrack.monitorCollapseInspector')}
+                onClick={() => setInspectorCollapsed((value) => !value)}
+              >
+                {inspectorCollapsed ? <PanelRightOpen size={15} /> : <PanelRightClose size={15} />}
+              </button>
+            </div>
+          </div>
+          <div ref={monitorFit.stageRef} className={`multitrack-preview-stage knoux-media-stage${monitorFit.overflows ? ' knoux-media-stage--overflow' : ''}`}>
             {selectedItem?.sourcePath && previewUrl ? (
               selectedItem.kind === 'audio' ? (
                 <div className="multitrack-audio-preview"><AudioLines size={58} /><strong>{selectedItem.name}</strong><audio ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} /></div>
               ) : selectedItem.kind === 'image' ? (
-                <img src={previewUrl} alt={selectedItem.name} />
+                <div className="knoux-media-frame" style={{ width: monitorFit.frame.width || undefined, height: monitorFit.frame.height || undefined }}>
+                  <img
+                    src={previewUrl}
+                    alt={selectedItem.name}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit }}
+                    onLoad={(event) => {
+                      const target = event.currentTarget;
+                      if (target.naturalWidth > 0 && target.naturalHeight > 0) {
+                        setMonitorNatural({ width: target.naturalWidth, height: target.naturalHeight });
+                      }
+                    }}
+                  />
+                </div>
               ) : (
-                <>
-                  <video ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} />
+                <div className="knoux-media-frame" style={{ width: monitorFit.frame.width || undefined, height: monitorFit.frame.height || undefined }}>
+                  <video
+                    ref={(node) => { previewRef.current = node; }}
+                    src={previewUrl}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit }}
+                    onEnded={() => setPreviewPlaying(false)}
+                    onLoadedMetadata={(event) => {
+                      const target = event.currentTarget;
+                      if (target.videoWidth > 0 && target.videoHeight > 0) {
+                        setMonitorNatural({ width: target.videoWidth, height: target.videoHeight });
+                      }
+                    }}
+                  />
                   <VideoRetouchPreviewOverlay item={selectedItem} mediaRef={previewRef} playhead={playhead} />
-                </>
+                </div>
               )
             ) : selectedItem?.text ? (
               <div className="multitrack-text-preview" dir={selectedItem.text.direction} style={{
@@ -823,7 +977,7 @@ export const MultitrackEditorView: React.FC = () => {
           </div>
         </NeonPanel>
 
-        <NeonPanel variant="dark" padding="md" className="multitrack-inspector">
+        <NeonPanel variant="dark" padding="md" className={`multitrack-inspector knoux-inspector-collapsible${inspectorCollapsed ? ' knoux-inspector-hidden' : ''}`}>
           <h2>{t('multitrack.inspector')}</h2>
           {!selectedItem ? <div className="creative-empty">{t('multitrack.selectItem')}</div> : (
             <div className="multitrack-inspector-fields">
@@ -880,7 +1034,7 @@ export const MultitrackEditorView: React.FC = () => {
         </NeonPanel>
       </div>
 
-      <NeonPanel variant="dark" padding="md" className="multitrack-branches">
+      <NeonPanel variant="dark" padding="md" className="multitrack-branches knoux-focus-collapsible">
         <h2><GitBranch size={16} /> {t('multitrack.branchStudio')}</h2>
         <p className="creative-muted">{t('multitrack.branchStudioDescription')}</p>
         {branchError && <div className="creative-error" role="alert">{branchError}</div>}
@@ -935,7 +1089,15 @@ export const MultitrackEditorView: React.FC = () => {
         )}
       </NeonPanel>
 
-      <NeonPanel variant="dark" padding="none" className="multitrack-timeline-panel">
+      <NeonPanel variant="dark" padding="none" className="multitrack-timeline-panel knoux-focus-collapsible" style={{ height: timelineHeight }}>
+        <div
+          className="knoux-timeline-splitter"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('multitrack.monitorTimelineHeight')}
+          title={t('multitrack.monitorTimelineHeight')}
+          onPointerDown={beginTimelineResize}
+        />
         <div className="multitrack-timeline-header">
           <div className="multitrack-track-add">
             <NeonSelect value={newTrackKind} onChange={(value) => setNewTrackKind(value as TrackKind)} options={trackKinds.map((kind) => ({ value: kind, label: t(`multitrack.track_${kind}`) }))} />

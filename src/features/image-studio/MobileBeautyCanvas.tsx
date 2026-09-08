@@ -16,12 +16,13 @@ import {
   teethWhitening,
 } from '../image-editor/beauty/beautyOperations';
 import { liquifyMeshWarp } from '../image-editor/retouch/liquify/liquifyMesh';
+import { LatestRenderScheduler } from './retouch/latestRenderScheduler';
+
 import type {
   RetouchMaskDescriptor,
   RetouchOperation,
   RetouchProjectV2,
 } from '../image-editor/retouch/retouchProject';
-import { LatestRenderScheduler } from './retouch/latestRenderScheduler';
 
 type RenderState = 'idle' | 'loading' | 'ready' | 'error';
 

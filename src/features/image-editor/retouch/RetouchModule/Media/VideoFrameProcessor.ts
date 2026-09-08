@@ -4,6 +4,9 @@ import type { VideoRetouchClipState, VideoRetouchLayer, VideoRetouchRegion, Vide
 import { orderedVideoRetouchLayers, resolveTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
 import { applyMakeupBlend, parseHexColor, type MakeupBlendMode } from '../Pipeline/BlendModes';
 import { MaskCache } from '../Pipeline/MaskCache';
+import { bodyReshapeStrokes, createBodyFreezeMask } from '../../bodyReshapeGeometry';
+import { liquifyMeshWarp } from '../../liquify/liquifyMesh';
+import * as VideoRetouchBodyGeometry from '../../../../video-studio/retouch/VideoRetouchBodyGeometry';
 
 export interface VideoFrameRetouchResult {
   imageData: ImageData;
@@ -117,6 +120,23 @@ export class VideoFrameProcessor {
     const layers = orderedVideoRetouchLayers(state, localTime);
 
     for (const layer of layers) {
+      if (layer.category === 'body-shape') {
+        try {
+          const controls = VideoRetouchBodyGeometry.aggregateBodyControls([layer], localTime);
+          const result = VideoRetouchBodyGeometry.resolveBodyGeometryForFrame(state, localTime, output.width, output.height, controls);
+          if (result.strokes && result.strokes.length > 0) {
+            const freezeMaskData = result.bounds ? new ImageData(new Uint8ClampedArray(result.bounds.width * result.bounds.height * 4).fill(255), result.bounds.width, result.bounds.height) : undefined;
+            output = liquifyMeshWarp(output, result.strokes, freezeMaskData ? freezeMaskData : undefined);
+            appliedLayerIds.push(layer.id);
+          } else {
+            skippedLayerIds.push(layer.id);
+          }
+        } catch {
+          skippedLayerIds.push(layer.id);
+        }
+        continue;
+      }
+
       if (!FACE_REGIONS.has(layer.targetRegion) || !COLOR_CATEGORIES.has(layer.category)) {
         skippedLayerIds.push(layer.id);
         continue;

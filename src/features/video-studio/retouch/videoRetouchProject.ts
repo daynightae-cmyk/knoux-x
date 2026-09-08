@@ -6,9 +6,13 @@ import type {
   VideoRetouchCategory,
   VideoRetouchClipState,
   VideoRetouchFaceTrack,
+  VideoRetouchBodyTrack,
+  VideoRetouchDiscontinuity,
   VideoRetouchLayer,
   VideoRetouchLayerRange,
   VideoRetouchParameter,
+  VideoRetouchParameterKeyframe,
+  VideoRetouchQualityReport,
   VideoRetouchRegion,
   VideoRetouchTrackingKeyframe,
   VideoRetouchTrackingSettings,
@@ -21,6 +25,7 @@ export type {
   VideoRetouchCategory,
   VideoRetouchClipState,
   VideoRetouchFaceTrack,
+  VideoRetouchBodyTrack,
   VideoRetouchLayer,
   VideoRetouchLayerRange,
   VideoRetouchParameter,
@@ -57,10 +62,17 @@ function copyKeyframe(keyframe: VideoRetouchTrackingKeyframe): VideoRetouchTrack
   };
 }
 
+function copyBodyTrack(track: VideoRetouchBodyTrack): VideoRetouchBodyTrack {
+  return { ...track, keyframes: track.keyframes.map((kf) => ({ ...kf, anchors: kf.anchors ? { ...kf.anchors } : undefined })) };
+}
+
 function copyLayer(layer: VideoRetouchLayer): VideoRetouchLayer {
   return {
     ...layer,
     parameters: { ...layer.parameters },
+    parameterKeyframes: layer.parameterKeyframes ? Object.fromEntries(
+      Object.entries(layer.parameterKeyframes).map(([k, arr]) => [k, arr.map((item) => ({ ...item }))])
+    ) : undefined,
     range: layer.range ? { ...layer.range } : null,
   };
 }
@@ -74,6 +86,9 @@ export function cloneVideoRetouchState(state: VideoRetouchClipState): VideoRetou
     ...state,
     layers: state.layers.map(copyLayer),
     faceTracks: state.faceTracks.map(copyTrack),
+    bodyTracks: state.bodyTracks ? state.bodyTracks.map((t) => ({ ...t, keyframes: t.keyframes.map((k) => ({ ...k })) })) : undefined,
+    discontinuities: state.discontinuities ? state.discontinuities.map((d) => ({ ...d })) : undefined,
+    quality: state.quality ? { ...state.quality, reasons: [...state.quality.reasons], updatedAt: state.quality.updatedAt } : null,
     analysis: { ...state.analysis },
     tracking: { ...state.tracking },
   };
@@ -89,6 +104,10 @@ export function createVideoRetouchState(): VideoRetouchClipState {
     beforeAfter: 'after',
     layers: [],
     faceTracks: [],
+    bodyTracks: [],
+    discontinuities: [],
+    quality: null,
+    analysisMode: 'balanced',
     analysis: {
       status: 'idle',
       progress: 0,
@@ -339,6 +358,30 @@ export function splitVideoRetouchState(
       .map((frame) => ({ ...copyKeyframe(frame), timestamp: frame.timestamp - split })),
   }));
 
+  if (left.bodyTracks) {
+    left.bodyTracks = left.bodyTracks.map((track) => ({
+      ...track,
+      keyframes: track.keyframes.filter((k) => k.timestamp <= split).map((k) => ({ ...k, timestamp: k.timestamp })),
+    }));
+  }
+  if (right.bodyTracks) {
+    right.bodyTracks = right.bodyTracks.map((track) => ({
+      ...track,
+      keyframes: track.keyframes
+        .filter((k) => k.timestamp >= split)
+        .map((k) => ({ ...k, timestamp: k.timestamp - split })),
+    }));
+  }
+
+  if (left.discontinuities) {
+    left.discontinuities = left.discontinuities.filter((d) => d.timestamp <= split);
+  }
+  if (right.discontinuities) {
+    right.discontinuities = right.discontinuities
+      .filter((d) => d.timestamp >= split)
+      .map((d) => ({ ...d, timestamp: d.timestamp - split }));
+  }
+
   const splitLayer = (layer: VideoRetouchLayer, side: 'left' | 'right'): VideoRetouchLayer | null => {
     const copied = copyLayer(layer);
     if (copied.applyScope === 'clip' || !copied.range) return copied;
@@ -359,6 +402,37 @@ export function splitVideoRetouchState(
   right.layers = right.layers.map((layer) => splitLayer(layer, 'right')).filter((layer): layer is VideoRetouchLayer => Boolean(layer));
   left.layers = left.layers.map((layer, order) => ({ ...layer, order }));
   right.layers = right.layers.map((layer, order) => ({ ...layer, order }));
+
+  // Rebase layer-level parameter keyframes on split
+  const splitParameterKeyframes = (keyframes?: Record<string, VideoRetouchParameterKeyframe[]>): Record<string, VideoRetouchParameterKeyframe[]> | undefined => {
+    if (!keyframes) return undefined;
+    const result: Record<string, VideoRetouchParameterKeyframe[]> = {};
+    for (const [paramKey, frames] of Object.entries(keyframes)) {
+      const rebased = frames.map((kf) => ({ ...kf, time: kf.time - split })).filter((kf) => kf.time >= 0);
+      if (rebased.length > 0) result[paramKey] = rebased;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  };
+  const splitParamLeft = (keyframes?: Record<string, VideoRetouchParameterKeyframe[]>): Record<string, VideoRetouchParameterKeyframe[]> | undefined => {
+    if (!keyframes) return undefined;
+    const result: Record<string, VideoRetouchParameterKeyframe[]> = {};
+    for (const [paramKey, frames] of Object.entries(keyframes)) {
+      const kept = frames.filter((kf) => kf.time <= split).map((kf) => ({ ...kf }));
+      if (kept.length > 0) result[paramKey] = kept;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  };
+  const splitParamRight = (keyframes?: Record<string, VideoRetouchParameterKeyframe[]>): Record<string, VideoRetouchParameterKeyframe[]> | undefined => {
+    if (!keyframes) return undefined;
+    const result: Record<string, VideoRetouchParameterKeyframe[]> = {};
+    for (const [paramKey, frames] of Object.entries(keyframes)) {
+      const rebased = frames.filter((kf) => kf.time >= split).map((kf) => ({ ...kf, time: kf.time - split }));
+      if (rebased.length > 0) result[paramKey] = rebased;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  };
+  left.layers = left.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.range ? splitParamLeft(layer.parameterKeyframes) : layer.applyScope === 'clip' ? layer.parameterKeyframes : splitParamLeft(layer.parameterKeyframes) }));
+  right.layers = right.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.range ? splitParamRight(layer.parameterKeyframes) : layer.applyScope === 'clip' ? splitParamRight(layer.parameterKeyframes) : splitParamRight(layer.parameterKeyframes) }));
   left.updatedAt = now();
   right.updatedAt = now();
   return { left, right };

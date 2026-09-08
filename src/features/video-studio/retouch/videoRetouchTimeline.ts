@@ -13,15 +13,26 @@ import {
   type VideoRetouchLayer,
 } from './videoRetouchProject';
 
+type RetouchKeyframes = ReturnType<typeof createTimelineVideoRetouchEffect>['keyframes'];
+
 function normalizeOrders(layers: VideoRetouchLayer[]): VideoRetouchLayer[] {
   return layers.map((layer, order) => ({ ...layer, order }));
 }
 
-function withTemporalState(item: TimelineItem, state: VideoRetouchClipState | undefined): TimelineItem {
+function cloneKeyframes(keyframes: RetouchKeyframes): RetouchKeyframes {
+  return keyframes.map((keyframe) => ({ ...keyframe, values: { ...keyframe.values } }));
+}
+
+function withRetouchState(
+  item: TimelineItem,
+  state: VideoRetouchClipState | undefined,
+  keyframes?: RetouchKeyframes,
+): TimelineItem {
   const existing = getTimelineVideoRetouch(item);
-  if (!existing && !state) return item;
+  if (!existing && !state && keyframes === undefined) return item;
   const effect = existing ?? createTimelineVideoRetouchEffect();
   effect.temporal = state ?? null;
+  if (keyframes !== undefined) effect.keyframes = cloneKeyframes(keyframes);
   if (state) {
     effect.enabled = state.enabled;
     effect.selectedFaceId = state.selectedFaceId;
@@ -30,6 +41,47 @@ function withTemporalState(item: TimelineItem, state: VideoRetouchClipState | un
   effect.updatedAt = new Date().toISOString();
   const extended: RetouchTimelineItem = { ...item, retouch: normalizeTimelineVideoRetouch(effect) };
   return extended;
+}
+
+function splitNumericRetouchKeyframes(
+  keyframes: RetouchKeyframes,
+  splitLocalTime: number,
+  originalDuration: number,
+): { left: RetouchKeyframes; right: RetouchKeyframes } {
+  const duration = Math.max(0, Number.isFinite(originalDuration) ? originalDuration : 0);
+  const split = Math.max(0, Math.min(duration, Number.isFinite(splitLocalTime) ? splitLocalTime : 0));
+  return {
+    left: cloneKeyframes(keyframes.filter((keyframe) => keyframe.time <= split)),
+    right: keyframes
+      .filter((keyframe) => keyframe.time >= split)
+      .map((keyframe) => ({
+        ...keyframe,
+        time: Math.max(0, keyframe.time - split),
+        values: { ...keyframe.values },
+      })),
+  };
+}
+
+function numericRetouchAfterTrimIn(
+  keyframes: RetouchKeyframes,
+  removedDuration: number,
+  newDuration: number,
+): RetouchKeyframes {
+  const removed = Math.max(0, Number.isFinite(removedDuration) ? removedDuration : 0);
+  const duration = Math.max(0, Number.isFinite(newDuration) ? newDuration : 0);
+  const end = removed + duration;
+  return keyframes
+    .filter((keyframe) => keyframe.time >= removed && keyframe.time <= end)
+    .map((keyframe) => ({
+      ...keyframe,
+      time: Math.max(0, keyframe.time - removed),
+      values: { ...keyframe.values },
+    }));
+}
+
+function numericRetouchAfterTrimOut(keyframes: RetouchKeyframes, newDuration: number): RetouchKeyframes {
+  const duration = Math.max(0, Number.isFinite(newDuration) ? newDuration : 0);
+  return cloneKeyframes(keyframes.filter((keyframe) => keyframe.time <= duration));
 }
 
 /** Rebase clip-local Retouch timestamps after trimming media from the clip head. */
@@ -91,9 +143,15 @@ export function attachRetouchToSplit(
   right: TimelineItem,
   splitLocalTime: number,
 ): [TimelineItem, TimelineItem] {
-  const temporal = getTimelineVideoRetouch(source)?.temporal ?? undefined;
-  const split = splitVideoRetouchState(temporal, splitLocalTime, source.duration);
-  return [withTemporalState(left, split.left), withTemporalState(right, split.right)];
+  const effect = getTimelineVideoRetouch(source);
+  const split = splitVideoRetouchState(effect?.temporal ?? undefined, splitLocalTime, source.duration);
+  const numeric = effect
+    ? splitNumericRetouchKeyframes(effect.keyframes, splitLocalTime, source.duration)
+    : undefined;
+  return [
+    withRetouchState(left, split.left, numeric?.left),
+    withRetouchState(right, split.right, numeric?.right),
+  ];
 }
 
 /** Persist rebased Retouch after a head trim without changing the Retouch engine. */
@@ -102,12 +160,20 @@ export function attachRetouchAfterTrimIn(
   removedDuration: number,
   newDuration: number,
 ): TimelineItem {
-  const temporal = getTimelineVideoRetouch(item)?.temporal ?? undefined;
-  return withTemporalState(item, retouchAfterTrimIn(temporal, removedDuration, newDuration));
+  const effect = getTimelineVideoRetouch(item);
+  const keyframes = effect
+    ? numericRetouchAfterTrimIn(effect.keyframes, removedDuration, newDuration)
+    : undefined;
+  return withRetouchState(
+    item,
+    retouchAfterTrimIn(effect?.temporal ?? undefined, removedDuration, newDuration),
+    keyframes,
+  );
 }
 
 /** Persist rebased Retouch after a tail trim without changing the Retouch engine. */
 export function attachRetouchAfterTrimOut(item: TimelineItem, newDuration: number): TimelineItem {
-  const temporal = getTimelineVideoRetouch(item)?.temporal ?? undefined;
-  return withTemporalState(item, retouchAfterTrimOut(temporal, newDuration));
+  const effect = getTimelineVideoRetouch(item);
+  const keyframes = effect ? numericRetouchAfterTrimOut(effect.keyframes, newDuration) : undefined;
+  return withRetouchState(item, retouchAfterTrimOut(effect?.temporal ?? undefined, newDuration), keyframes);
 }

@@ -77,7 +77,7 @@ function applyStoredRetouchOperation(imageData: ImageData, operation: RetouchOpe
     case 'red-eye': effect = redEyeRemoval(imageData, mask); break;
     case 'skin-tone': effect = skinToneAdjustment(imageData, strength * 2 - 1, strength * 0.16, mask); break;
     case 'sharpen': effect = sharpen(imageData, strength, mask); break;
-    case 'color-adjust': effect = colorAdjust(imageData, strength * 0.5, beautyStrength * 0.3, strength * 0.2, mask); break;
+    case 'color-adjust': effect = colorAdjust(imageData, strength * 0.5, strength * 0.3, strength * 0.2, mask); break;
     case 'eye-enhance': effect = eyeEnhancement(imageData, strength, mask); break;
     case 'lip-tint':
     case 'blush':

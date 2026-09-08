@@ -135,7 +135,6 @@ export const MobileBeautyCanvas: React.FC = () => {
   const retouchProject = useImageEditorStore((state) => state.retouchProject);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const schedulerRef = useRef<LatestRenderScheduler | null>(null);
-  if (schedulerRef.current === null) schedulerRef.current = new LatestRenderScheduler();
   const [renderState, setRenderState] = useState<RenderState>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -153,8 +152,8 @@ export const MobileBeautyCanvas: React.FC = () => {
         type: 'knoux-retouch-project',
         source: {
           name: source.name,
-          width: source.originalWidth ?? 0,
-          height: source.originalHeight ?? 0,
+          width: 0,
+          height: 0,
           dataUrl: source.dataUrl,
         },
         operations: [],
@@ -171,18 +170,21 @@ export const MobileBeautyCanvas: React.FC = () => {
   }, [retouchProject, source]);
 
   useEffect(() => {
+    const scheduler = new LatestRenderScheduler();
+    schedulerRef.current = scheduler;
+    if (source) scheduler.request(render);
+    return () => {
+      scheduler.dispose();
+      if (schedulerRef.current === scheduler) schedulerRef.current = null;
+    };
+  }, [render, source]);
+
+  useEffect(() => {
     if (!source) {
       setRenderState('idle');
       setError(null);
-      return;
     }
-    schedulerRef.current?.request(render);
-  }, [render, source]);
-
-  useEffect(() => () => {
-    schedulerRef.current?.dispose();
-    schedulerRef.current = null;
-  }, []);
+  }, [source]);
 
   return (
     <div className="image-editor-stage kmc-beauty-stage" data-render-state={renderState}>

@@ -1,0 +1,386 @@
+html[data-platform='android'] .kmc-mobile-timeline {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 2px 2px 10px;
+}
+
+html[data-platform='android'] .kmc-mobile-timeline button,
+html[data-platform='android'] .kmc-mobile-timeline input {
+  font: inherit;
+}
+
+html[data-platform='android'] .kmc-mobile-start-card,
+html[data-platform='android'] .kmc-mobile-projectbar,
+html[data-platform='android'] .kmc-mobile-media-row,
+html[data-platform='android'] .kmc-mobile-preview,
+html[data-platform='android'] .kmc-mobile-playhead,
+html[data-platform='android'] .kmc-mobile-timeline-scroll,
+html[data-platform='android'] .kmc-mobile-inspector {
+  border: 1px solid rgba(172, 112, 255, 0.21);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(18, 12, 32, 0.84), rgba(7, 6, 14, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 16px 42px rgba(0, 0, 0, 0.22);
+}
+
+html[data-platform='android'] .kmc-mobile-timeline--empty {
+  min-height: min(70dvh, 680px);
+  place-items: center;
+}
+
+html[data-platform='android'] .kmc-mobile-start-card {
+  width: min(100%, 560px);
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+}
+
+html[data-platform='android'] .kmc-mobile-start-card > strong {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+html[data-platform='android'] .kmc-mobile-start-card > span,
+html[data-platform='android'] .kmc-mobile-projectbar span {
+  color: rgba(224, 211, 245, 0.7);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+html[data-platform='android'] .kmc-mobile-start-actions,
+html[data-platform='android'] .kmc-mobile-project-actions,
+html[data-platform='android'] .kmc-mobile-media-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+html[data-platform='android'] .kmc-mobile-start-actions::-webkit-scrollbar,
+html[data-platform='android'] .kmc-mobile-project-actions::-webkit-scrollbar,
+html[data-platform='android'] .kmc-mobile-media-row::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform='android'] .kmc-mobile-start-card button,
+html[data-platform='android'] .kmc-mobile-project-actions button,
+html[data-platform='android'] .kmc-mobile-media-row button {
+  min-height: 42px;
+  flex: 0 0 auto;
+  padding: 0 13px;
+  border: 1px solid rgba(171, 111, 255, 0.26);
+  border-radius: 14px;
+  color: #f7f1ff;
+  background: rgba(28, 17, 48, 0.88);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+html[data-platform='android'] .kmc-mobile-start-actions button:first-child,
+html[data-platform='android'] .kmc-mobile-project-actions button:last-child {
+  border-color: rgba(184, 122, 255, 0.5);
+  background: linear-gradient(135deg, rgba(139, 61, 255, 0.9), rgba(91, 30, 204, 0.9));
+}
+
+html[data-platform='android'] .kmc-mobile-recent {
+  min-height: 42px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+html[data-platform='android'] .kmc-mobile-projectbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+}
+
+html[data-platform='android'] .kmc-mobile-projectbar > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+html[data-platform='android'] .kmc-mobile-projectbar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+html[data-platform='android'] .kmc-mobile-project-actions {
+  flex: 0 0 auto;
+  max-width: 56%;
+}
+
+html[data-platform='android'] .kmc-mobile-project-actions button {
+  min-height: 36px;
+  padding-inline: 10px;
+}
+
+html[data-platform='android'] .kmc-mobile-media-row {
+  padding: 8px;
+}
+
+html[data-platform='android'] .kmc-mobile-preview {
+  position: relative;
+  min-height: clamp(230px, 54vw, 480px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #020205;
+}
+
+html[data-platform='android'] .kmc-mobile-preview-media {
+  position: relative;
+  width: 100%;
+  min-height: inherit;
+  display: grid;
+  place-items: center;
+}
+
+html[data-platform='android'] .kmc-mobile-preview video,
+html[data-platform='android'] .kmc-mobile-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: min(58dvh, 520px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+html[data-platform='android'] .kmc-mobile-preview audio {
+  width: calc(100% - 28px);
+}
+
+html[data-platform='android'] .kmc-mobile-preview .video-retouch-preview-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+html[data-platform='android'] .kmc-mobile-title-preview {
+  max-width: 90%;
+  padding: 18px 22px;
+  color: #fff;
+  font-size: clamp(30px, 9vw, 64px);
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+  text-shadow: 0 4px 22px rgba(0, 0, 0, 0.8);
+}
+
+html[data-platform='android'] .kmc-mobile-preview-empty {
+  color: rgba(224, 211, 245, 0.58);
+  font-size: 12px;
+}
+
+html[data-platform='android'] .kmc-mobile-playhead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+}
+
+html[data-platform='android'] .kmc-mobile-playhead span {
+  color: #c9a8ff;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-platform='android'] .kmc-mobile-playhead input,
+html[data-platform='android'] .kmc-mobile-inspector input {
+  accent-color: #8b3dff;
+}
+
+html[data-platform='android'] .kmc-mobile-timeline-scroll {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-height: 170px;
+  padding: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+html[data-platform='android'] .kmc-mobile-timeline-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform='android'] .kmc-mobile-ruler {
+  height: 18px;
+  min-width: 100%;
+  border-bottom: 1px solid rgba(196, 166, 255, 0.18);
+  background: repeating-linear-gradient(90deg, rgba(196, 166, 255, 0.2) 0 1px, transparent 1px 12.5%);
+}
+
+html[data-platform='android'] .kmc-mobile-track {
+  min-width: 100%;
+  display: grid;
+  grid-template-columns: 72px minmax(420px, 1fr);
+  gap: 7px;
+  min-height: 56px;
+}
+
+html[data-platform='android'] .kmc-mobile-track-label {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 7px;
+  border-radius: 12px;
+  background: rgba(16, 10, 29, 0.92);
+}
+
+html[data-platform='android'] .kmc-mobile-track-label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+html[data-platform='android'] .kmc-mobile-track-label span {
+  color: rgba(210, 191, 238, 0.54);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+html[data-platform='android'] .kmc-mobile-track-lane {
+  position: relative;
+  min-height: 56px;
+  border: 1px solid rgba(172, 112, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(4, 3, 9, 0.72);
+}
+
+html[data-platform='android'] .kmc-mobile-clip {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  min-width: 58px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 5px 7px;
+  border: 1px solid rgba(171, 111, 255, 0.36);
+  border-radius: 10px;
+  color: #f8f3ff;
+  background: linear-gradient(135deg, rgba(126, 48, 232, 0.72), rgba(55, 24, 96, 0.78));
+  text-align: start;
+}
+
+html[data-platform='android'] .kmc-mobile-track[data-kind='audio'] .kmc-mobile-clip {
+  background: linear-gradient(135deg, rgba(69, 95, 222, 0.72), rgba(27, 38, 95, 0.82));
+}
+
+html[data-platform='android'] .kmc-mobile-track[data-kind='text'] .kmc-mobile-clip {
+  background: linear-gradient(135deg, rgba(193, 73, 179, 0.7), rgba(88, 29, 89, 0.82));
+}
+
+html[data-platform='android'] .kmc-mobile-clip.is-selected {
+  border-color: #d8baff;
+  box-shadow: 0 0 0 2px rgba(184, 122, 255, 0.26), 0 0 24px rgba(139, 61, 255, 0.28);
+}
+
+html[data-platform='android'] .kmc-mobile-clip strong,
+html[data-platform='android'] .kmc-mobile-clip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kmc-mobile-clip strong {
+  font-size: 9px;
+}
+
+html[data-platform='android'] .kmc-mobile-clip span {
+  color: rgba(241, 231, 255, 0.72);
+  font-size: 8px;
+}
+
+html[data-platform='android'] .kmc-mobile-playhead-line {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  margin-left: 88px;
+  pointer-events: none;
+  background: #f2e8ff;
+  box-shadow: 0 0 14px rgba(184, 122, 255, 0.8);
+}
+
+html[data-platform='android'] .kmc-mobile-inspector {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  animation: kmc-rise 180ms ease-out both;
+}
+
+html[data-platform='android'] .kmc-mobile-inspector-grid {
+  display: grid;
+  gap: 10px;
+}
+
+html[data-platform='android'] .kmc-mobile-inspector-grid label {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+  color: rgba(231, 220, 248, 0.82);
+  font-size: 10px;
+}
+
+html[data-platform='android'] .kmc-mobile-inspector-grid label span {
+  color: #c9a8ff;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-platform='android'] .kmc-mobile-inspector .video-retouch-inspector {
+  max-height: 48dvh;
+  overflow-y: auto;
+  border-radius: 18px;
+}
+
+html[data-platform='android'] .kmc-mobile-video-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 118, 158, 0.28);
+  border-radius: 14px;
+  color: #ffd5e1;
+  background: rgba(87, 16, 44, 0.42);
+  font-size: 11px;
+}
+
+@media (orientation: landscape) and (max-height: 620px) {
+  html[data-platform='android'] .kmc-mobile-timeline {
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+    align-items: start;
+  }
+
+  html[data-platform='android'] .kmc-mobile-projectbar,
+  html[data-platform='android'] .kmc-mobile-media-row,
+  html[data-platform='android'] .kmc-mobile-playhead,
+  html[data-platform='android'] .kmc-mobile-timeline-scroll,
+  html[data-platform='android'] .kmc-mobile-video-error {
+    grid-column: 1 / -1;
+  }
+
+  html[data-platform='android'] .kmc-mobile-preview {
+    min-height: calc(100dvh - 250px);
+  }
+
+  html[data-platform='android'] .kmc-mobile-inspector {
+    max-height: calc(100dvh - 125px);
+    overflow-y: auto;
+  }
+}

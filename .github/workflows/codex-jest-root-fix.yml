@@ -36,37 +36,40 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('src/features/library/MobileMediaLibraryView.tsx')
           text = path.read_text(encoding='utf-8')
 
           import_anchor = "import { BrandMark } from '../../components/brand/BrandMark';\n"
-          import_replacement = import_anchor + "import { NeonSelect } from '../../components/neon/NeonSelect';\n"
           if "../../components/neon/NeonSelect" not in text:
               if import_anchor not in text:
                   raise SystemExit('BrandMark import anchor changed; refusing stale patch')
-              text = text.replace(import_anchor, import_replacement, 1)
+              text = text.replace(import_anchor, import_anchor + "import { NeonSelect } from '../../components/neon/NeonSelect';\n", 1)
 
-          old = '''          <select aria-label={ar ? 'ترتيب' : 'Sort'} value={sort} onChange={(event) => setSort(event.currentTarget.value as SortMode)}>
-            <option value="name">{ar ? 'الاسم' : 'Name'}</option>
-            <option value="size">{ar ? 'الحجم' : 'Size'}</option>
-            <option value="duration">{ar ? 'المدة' : 'Duration'}</option>
-          </select>'''
-          new = '''          <NeonSelect
-            aria-label={ar ? 'ترتيب' : 'Sort'}
-            className="kml-sort-select"
-            dir={ar ? 'rtl' : 'ltr'}
-            value={sort}
-            onChange={(value) => setSort(value as SortMode)}
-            options={[
-              { value: 'name', label: ar ? 'الاسم' : 'Name' },
-              { value: 'size', label: ar ? 'الحجم' : 'Size' },
-              { value: 'duration', label: ar ? 'المدة' : 'Duration' },
-            ]}
-          />'''
-          if old not in text:
-              raise SystemExit('Native sort select no longer matches inspected HEAD; refusing stale patch')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          pattern = re.compile(r"(?m)^(?P<indent>\s*)<select aria-label=\{ar \? 'ترتيب' : 'Sort'\} value=\{sort\} onChange=\{\(event\) => setSort\(event\.currentTarget\.value as SortMode\)\}>\n(?:(?P=indent)  <option[^\n]+\n){3}(?P=indent)</select>$")
+          match = pattern.search(text)
+          if match is None:
+              raise SystemExit('Native sort select no longer matches inspected structure; refusing stale patch')
+          indent = match.group('indent')
+          replacement = "\n".join([
+              f"{indent}<NeonSelect",
+              f"{indent}  aria-label={{ar ? 'ترتيب' : 'Sort'}}",
+              f"{indent}  className=\"kml-sort-select\"",
+              f"{indent}  dir={{ar ? 'rtl' : 'ltr'}}",
+              f"{indent}  value={{sort}}",
+              f"{indent}  onChange={{(value) => setSort(value as SortMode)}}",
+              f"{indent}  options={{[",
+              f"{indent}    {{ value: 'name', label: ar ? 'الاسم' : 'Name' }},",
+              f"{indent}    {{ value: 'size', label: ar ? 'الحجم' : 'Size' }},",
+              f"{indent}    {{ value: 'duration', label: ar ? 'المدة' : 'Duration' }},",
+              f"{indent}  ]}}",
+              f"{indent}/>",
+          ])
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected one native sort select, replaced {count}')
+          path.write_text(text, encoding='utf-8')
           PY
 
           rm -f .github/codex-jest-diagnostic.txt .github/codex-jest-trigger.txt

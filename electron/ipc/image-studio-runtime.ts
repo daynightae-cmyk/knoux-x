@@ -78,6 +78,40 @@ function assertJobId(jobId: string): string {
   return jobId;
 }
 
+function isMockProviderEntry(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return record.id === 'mock' || record.provider === 'mock' || record.id === 'knoux-mock-image';
+}
+
+function productionEntries<T>(entries: T[]): T[] {
+  return app.isPackaged === true ? entries.filter((entry) => !isMockProviderEntry(entry)) : entries;
+}
+
+function productionProviderStatus(status: object): object {
+  if (app.isPackaged !== true) return status;
+  return Object.fromEntries(
+    Object.entries(status as Record<string, unknown>).filter(
+      ([providerId, value]) => providerId !== 'mock' && !isMockProviderEntry(value)
+    )
+  );
+}
+
+function assertProductionProvider(provider: string): string {
+  if (app.isPackaged === true && provider === 'mock') {
+    throw new Error('The development-only mock AI provider is unavailable in packaged Knoux X builds.');
+  }
+  return provider;
+}
+
+function assertProductionJob(
+  job: Omit<DeferredAiJob, 'jobId' | 'enqueuedAt' | 'attempt' | 'reason'> & { jobId?: string }
+): void {
+  if (app.isPackaged === true && (job.provider === 'mock' || job.modelId === 'knoux-mock-image')) {
+    throw new Error('The development-only mock AI provider cannot execute in packaged Knoux X builds.');
+  }
+}
+
 const SENSITIVE_CHANNELS = new Set<string>([
   IPC_INVOKE.IMAGE_STUDIO_VALIDATE_CREDENTIAL,
   IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL,
@@ -450,26 +484,26 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_LIST_PROVIDERS,
-    trusted(IPC_INVOKE.IMAGE_STUDIO_LIST_PROVIDERS, async () => service.listProviders())
+    trusted(IPC_INVOKE.IMAGE_STUDIO_LIST_PROVIDERS, async () => productionEntries(service.listProviders()))
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS,
-    trusted(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS, async () => service.providerStatus())
+    trusted(IPC_INVOKE.IMAGE_STUDIO_PROVIDER_STATUS, async () => productionProviderStatus(await service.providerStatus()))
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_LIST_MODELS,
     trusted(IPC_INVOKE.IMAGE_STUDIO_LIST_MODELS, async (_event, task?: ImageTask) =>
-      service.listModels(task)
+      productionEntries(service.listModels(task))
     )
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_REFRESH_MODELS,
-    trusted(IPC_INVOKE.IMAGE_STUDIO_REFRESH_MODELS, async () => service.refreshModels())
+    trusted(IPC_INVOKE.IMAGE_STUDIO_REFRESH_MODELS, async () => productionEntries(await service.refreshModels()))
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_VALIDATE_CREDENTIAL,
     trusted(IPC_INVOKE.IMAGE_STUDIO_VALIDATE_CREDENTIAL, async (_event, provider: string, apiKey: string) =>
-      service.validateCredential(provider, apiKey)
+      service.validateCredential(assertProductionProvider(provider), apiKey)
     )
   );
   ipc.handle(
@@ -477,21 +511,23 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
     trusted(
       IPC_INVOKE.IMAGE_STUDIO_SET_CREDENTIAL,
       async (_event, provider: string, apiKey: string, scopes?: string[]) =>
-        service.setCredential(provider, apiKey, scopes)
+        service.setCredential(assertProductionProvider(provider), apiKey, scopes)
     )
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_REMOVE_CREDENTIAL,
     trusted(IPC_INVOKE.IMAGE_STUDIO_REMOVE_CREDENTIAL, async (_event, provider: string) =>
-      service.removeCredential(provider)
+      service.removeCredential(assertProductionProvider(provider))
     )
   );
   ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_CREATE_JOB,
     trusted(
       IPC_INVOKE.IMAGE_STUDIO_CREATE_JOB,
-      async (_event, job: Omit<DeferredAiJob, 'jobId' | 'enqueuedAt' | 'attempt' | 'reason'> & { jobId?: string }) =>
-        service.createJob(job)
+      async (_event, job: Omit<DeferredAiJob, 'jobId' | 'enqueuedAt' | 'attempt' | 'reason'> & { jobId?: string }) => {
+        assertProductionJob(job);
+        return service.createJob(job);
+      }
     )
   );
   ipc.handle(
@@ -522,7 +558,7 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
       service.removeJob(assertJobId(jobId))
     )
   );
-    ipc.handle(
+  ipc.handle(
     IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT,
     trusted(IPC_INVOKE.IMAGE_STUDIO_IMPORT_RESULT, async (_event, jobId: string, accept: boolean) =>
       service.importResult(assertJobId(jobId), Boolean(accept))
@@ -583,7 +619,6 @@ export function setupImageStudioRuntime(ipc: IpcRegistrar): ImageStudioRuntimeCo
     })
   );
   return {
-
     service,
     close(): void {
       service.close();

@@ -131,19 +131,22 @@ describe('Video Router', () => {
     expect(result.blockedReason).toBeDefined();
   });
 
-  it('requires payment confirmation for paid models when not allowed', () => {
-    // Only fal is available (all paid models)
+  it('blocks static-documentation Fal models instead of prompting for payment', () => {
     const falOnly = { ...VIDEO_AVAILABILITY_NONE, fal: true };
     const result = routeVideoTask('text-to-video', falOnly, false);
-    expect(result.requiresPaymentConfirmation).toBe(true);
-    expect(result.cheapestPaidCandidate).not.toBeNull();
+    expect(result.blocked).toBe(true);
+    expect(result.model).toBeNull();
+    expect(result.requiresPaymentConfirmation).toBe(false);
+    expect(result.cheapestPaidCandidate).toBeNull();
   });
 
-  it('allows paid when fallback is approved', () => {
+  it('does not make static-documentation Fal executable after paid approval', () => {
     const falOnly = { ...VIDEO_AVAILABILITY_NONE, fal: true };
     const result = routeVideoTask('text-to-video', falOnly, true);
-    expect(result.blocked).toBe(false);
-    expect(result.model).not.toBeNull();
+    expect(result.blocked).toBe(true);
+    expect(result.model).toBeNull();
+    expect(result.requiresPaymentConfirmation).toBe(false);
+    expect(result.cheapestPaidCandidate).toBeNull();
   });
 
   it('blocks an explicit static-documentation model even when its provider is configured', () => {

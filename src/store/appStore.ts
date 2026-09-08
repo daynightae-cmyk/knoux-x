@@ -21,6 +21,15 @@ export type ThemeType = KnouxThemeId;
 export type LocaleType = 'en' | 'ar';
 export type SidebarMode = 'expanded' | 'compact';
 
+export const PLATFORM_INITIAL_VIEWS = {
+  desktop: { currentView: 'player' as ViewType },
+  android: { currentView: 'home' as ViewType },
+} as const;
+
+export function initialViewForPlatform(platform: keyof typeof PLATFORM_INITIAL_VIEWS): ViewType {
+  return PLATFORM_INITIAL_VIEWS[platform].currentView;
+}
+
 export interface AppNotification {
   id: string;
   type: 'info' | 'success' | 'warning' | 'error';
@@ -65,7 +74,7 @@ export interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentView: 'player',
+      currentView: initialViewForPlatform('desktop'),
       setView: (view) => set({ currentView: view }),
       theme: 'system-light',
       setTheme: (theme) => set({ theme }),

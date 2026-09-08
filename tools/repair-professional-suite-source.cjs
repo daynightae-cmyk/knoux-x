@@ -36,7 +36,10 @@ validateRepair(
 validateRepair(
   'src/features/editor/MultitrackEditorView.tsx',
   ['<video ref={(node) => { previewRef.current = node; }} src={previewUrl} muted={selectedItem.kind === \'image\'}'],
-  ['<img src={previewUrl} alt={selectedItem.name} />'],
+  // The image preview branch lives inside the fitted knoux-media-frame; tokens
+  // are checked separately so display props (object-fit, natural-size capture)
+  // can evolve without tripping the historical gate.
+  ['<img', 'src={previewUrl}', 'alt={selectedItem.name}', 'knoux-media-frame'],
 );
 
 validateRepair(

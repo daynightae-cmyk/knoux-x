@@ -77,7 +77,7 @@ async function premiumSplash(width, height) {
       </g>
       <circle cx="${width / 2}" cy="${logoY}" r="${ringRadius}" fill="#ffffff" fill-opacity="0.34" stroke="#8B3DFF" stroke-opacity="0.16" stroke-width="${Math.max(1, width * 0.002)}"/>
       <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.12)}" fill="none" stroke="#C4A6FF" stroke-opacity="0.16" stroke-width="${Math.max(1, width * 0.0015)}"/>
-      <text x="50%" y="${titleY}" text-anchor="middle" fill="${GRAPHITE}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">KNOUX <tspan fill="${PURPLE}">X</tspan></text>
+      <text x="50%" y="${titleY}" text-anchor="middle" fill="${GRAPHITE}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">Knoux <tspan fill="${PURPLE}">X</tspan></text>
       <text x="50%" y="${titleY + titleSize * 0.72}" text-anchor="middle" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="${subSize}" letter-spacing="${Math.max(2, subSize * 0.55)}">CREATE · PLAY · ENHANCE</text>
       <text x="50%" y="${signatureY}" text-anchor="middle" fill="${PURPLE_STRONG}" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="${signatureSize}" opacity="0.82">${escapeXml('Eng. Sadek Elgazar')}</text>
     </svg>
@@ -108,7 +108,7 @@ async function writeSplashes() {
 function replaceColorResource(colors, name, value) {
   const expression = new RegExp(`(<color name="${name}">)[^<]+(</color>)`);
   if (!expression.test(colors)) {
-    throw new Error(`KNOUX Android color resource is missing: ${name}`);
+    throw new Error(`Knoux X Android color resource is missing: ${name}`);
   }
   return colors.replace(expression, `$1${value}$2`);
 }
@@ -127,7 +127,7 @@ function patchLaunchTheme() {
   let styles = fs.readFileSync(stylesPath, 'utf8');
   const start = styles.indexOf('    <style name="AppTheme.NoActionBarLaunch"');
   const end = styles.indexOf('    </style>', start);
-  if (start < 0 || end < 0) throw new Error('KNOUX launch theme was not found.');
+  if (start < 0 || end < 0) throw new Error('Knoux X launch theme was not found.');
   const replacement = `    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n        <item name="windowSplashScreenBackground">@color/knoux_splash_background</item>\n        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>\n        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>\n        <item name="android:background">@drawable/splash</item>\n        <item name="android:statusBarColor">@color/knoux_system_background</item>\n        <item name="android:navigationBarColor">@color/knoux_system_background</item>\n        <item name="android:windowLightStatusBar">true</item>\n        <item name="android:windowLightNavigationBar">true</item>\n    </style>`;
   styles = `${styles.slice(0, start)}${replacement}${styles.slice(end + '    </style>'.length)}`;
   fs.writeFileSync(stylesPath, styles, 'utf8');
@@ -135,7 +135,7 @@ function patchLaunchTheme() {
 
 async function main() {
   if (!fs.existsSync(resRoot)) throw new Error('Generated Android resources not found. Run Capacitor sync first.');
-  if (!fs.existsSync(logoPath)) throw new Error('Official KNOUX daylight logo is missing.');
+  if (!fs.existsSync(logoPath)) throw new Error('Official Knoux X daylight logo is missing.');
   await writeSplashes();
   patchColors();
   patchLaunchTheme();

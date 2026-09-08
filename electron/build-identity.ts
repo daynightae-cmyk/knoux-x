@@ -14,7 +14,7 @@ export function getBuildIdentity(): BuildIdentity {
     timestamp: typeof __KNOUX_BUILD_TIMESTAMP__ === 'string' ? __KNOUX_BUILD_TIMESTAMP__ : process.env.KNOUX_BUILD_TIMESTAMP,
   });
   return Object.freeze({
-    product: 'Knoux X',
+    product: 'KNOUX Player X',
     version: app.getVersion(),
     sha: metadata.sha,
     branch: metadata.branch,

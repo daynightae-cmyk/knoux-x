@@ -116,6 +116,7 @@ describe('ReplicateVideoAdapter', () => {
       url: 'https://replicate.delivery/output.mp4',
     });
     expect(http.calls[2].options?.binary).toBe(true);
+    expect(http.calls[2].options?.headers).toBeUndefined();
     expect(probeVideo).toHaveBeenCalledWith(expect.any(Uint8Array), 'video/mp4');
     expect(result).toMatchObject({
       providerJobId: 'pred-1',
@@ -189,7 +190,7 @@ describe('ReplicateVideoAdapter', () => {
     expect(http.calls).toHaveLength(0);
   });
 
-  it('rejects a non-HTTPS provider output before download', async () => {
+  it('rejects an untrusted or non-HTTPS provider output before download', async () => {
     const http = new StubHttp();
     http.respond({
       status: 201,
@@ -199,7 +200,7 @@ describe('ReplicateVideoAdapter', () => {
     });
     const adapter = new ReplicateVideoAdapter({ apiKey: async () => 'test-key', http, pollIntervalMs: 0 });
 
-    await expect(adapter.generate(request(), () => undefined, probe())).rejects.toThrow(/must use HTTPS/);
+    await expect(adapter.generate(request(), () => undefined, probe())).rejects.toThrow(/trusted HTTPS Replicate host/);
     expect(http.calls).toHaveLength(1);
   });
 });

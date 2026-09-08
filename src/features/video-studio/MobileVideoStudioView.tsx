@@ -18,6 +18,7 @@ import {
   MobileVideoTimelineEditor,
   type MobileVideoTimelineEditorHandle,
 } from './MobileVideoTimelineEditor';
+import './mobileVideoTimeline.css';
 
 export const MobileVideoStudioView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);

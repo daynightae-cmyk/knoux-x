@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -285,11 +286,18 @@ export const MobileMediaLibraryView: React.FC = () => {
       {tab !== 'recents' && window.knouxRuntime?.edition === 'android' && (
         <div className="kml-library-toolbar">
           <label className="kml-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={ar ? 'بحث في المجلد…' : 'Search folder…'} /></label>
-          <select aria-label={ar ? 'ترتيب' : 'Sort'} value={sort} onChange={(event) => setSort(event.currentTarget.value as SortMode)}>
-            <option value="name">{ar ? 'الاسم' : 'Name'}</option>
-            <option value="size">{ar ? 'الحجم' : 'Size'}</option>
-            <option value="duration">{ar ? 'المدة' : 'Duration'}</option>
-          </select>
+          <NeonSelect
+            aria-label={ar ? 'ترتيب' : 'Sort'}
+            className="kml-sort-select"
+            dir={ar ? 'rtl' : 'ltr'}
+            value={sort}
+            onChange={(value) => setSort(value as SortMode)}
+            options={[
+              { value: 'name', label: ar ? 'الاسم' : 'Name' },
+              { value: 'size', label: ar ? 'الحجم' : 'Size' },
+              { value: 'duration', label: ar ? 'المدة' : 'Duration' },
+            ]}
+          />
           <button type="button" className="kml-round" aria-label={ar ? 'تحديث' : 'Refresh'} disabled={busy || !libraryPath} onClick={() => void loadLibrary()}><RefreshCw size={18} /></button>
         </div>
       )}

@@ -13,6 +13,7 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
   const mobileLibrary = read('src/features/library/MobileMediaLibraryView.tsx');
   const css = read('src/styles/mobile-premium-shell.css');
+  const finalUiCss = read('src/styles/premium-daylight-rebrand.css');
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
   const libraryCss = read('src/styles/mobile-media-library.css');
   const mobileVideo = read('src/features/video-studio/MobileVideoStudioView.tsx');
@@ -82,24 +83,29 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileBeauty).toContain('Open Photo');
   });
 
-  test('locks the mobile visual direction to deep black glass and violet without horizontal desktop chrome', () => {
-    expect(css).toContain('--km-bg: #030306');
-    expect(css).toContain('--km-purple: #9b4dff');
+  test('keeps the premium glass language while daylight overrides the legacy dark-first fresh-install surface', () => {
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('.kmh-bottom-nav');
     expect(css).toContain('.kmd-drawer');
+    expect(finalUiCss).toContain(":root[data-runtime='android'][data-theme='system-light']");
+    expect(finalUiCss).toContain('--km-bg: #f8f7fc');
+    expect(finalUiCss).toContain('--km-purple: #7828e8');
+    expect(finalUiCss).toContain(".kmh-bottom-nav");
+    expect(finalUiCss).toContain(".kmd-drawer");
     expect(creativeCss).toContain('.knoux-mobile-creative-surface');
     expect(creativeCss).toContain('.kmc-tool-dock');
     expect(creativeCss).toContain('.kmc-video-engine .multitrack-main-grid');
   });
 
-  test('replaces the white Android launch surface with the branded premium splash contract', () => {
-    expect(splash).toContain("const DEEP_BLACK = '#030306'");
-    expect(splash).toContain("const PURPLE = '#8B39FF'");
+  test('uses the official daylight asset for the native Android launch surface', () => {
+    expect(splash).toContain("knoux-logo-day.png");
+    expect(splash).toContain("const PEARL = '#F8F7FC'");
+    expect(splash).toContain("const PURPLE = '#7828E8'");
     expect(splash).toContain('CREATE · PLAY · ENHANCE');
     expect(splash).toContain('Eng. Sadek Elgazar');
     expect(splash).toContain('windowSplashScreenBackground');
     expect(splash).toContain('postSplashScreenTheme');
+    expect(splash).toContain('android:windowLightStatusBar">true');
     expect(workflow).toContain('node tools/prepare-android-premium-splash.cjs');
     expect(workflow).toContain('android-premium-splash.png');
   });

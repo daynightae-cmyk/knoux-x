@@ -83,7 +83,7 @@ export function routeVideoTask(
     const model = VIDEO_MODELS.find((m) => m.id === explicitModelId) ?? null;
     if (!model) return { model: null, blocked: true, blockedReason: 'Model not found', requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [] };
     if (!isExecutableVideoModel(model)) {
-      return { model: null, blocked: true, blockedReason: `Model \"${model.name}\" is cataloged but not verified as executable.`, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [model] };
+      return { model: null, blocked: true, blockedReason: `Model "${model.name}" is cataloged but not verified as executable.`, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [model] };
     }
     if (!availability[model.provider]) return { model: null, blocked: true, blockedReason: `Provider ${model.provider} unavailable`, requiresPaymentConfirmation: false, cheapestPaidCandidate: null, candidates: [model] };
     if (model.costBucket === 'paid' && !allowPaidFallback) {

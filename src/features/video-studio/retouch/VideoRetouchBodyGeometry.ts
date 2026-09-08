@@ -2,6 +2,7 @@ import type { DerivedBodyGeometry } from '../../image-editor/retouch/bodyAnalysi
 import { bodyReshapeStrokes, type BodyReshapeControls } from '../../image-editor/retouch/bodyReshapeGeometry';
 import type { LiquifyStroke } from '../../image-editor/retouch/liquify/liquifyMesh';
 import type { VideoRetouchBodyAnchorSet } from '../../../core/creative/videoRetouchTemporal';
+
 import type { VideoRetouchClipState, VideoRetouchLayer } from './videoRetouchProject';
 
 export interface BodyGeometryFrame {

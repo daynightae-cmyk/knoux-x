@@ -106,7 +106,7 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
       onChange(result);
     }
     if (!automatic || !controller.signal.aborted) setAnalysisBusy(false);
-  }, [analysisBusy, fps, item.duration, item.kind, item.playbackRate, item.sourceIn, onChange, persisted, sourceUrl]);
+  }, [analysisBusy, fps, item.duration, item.kind, item.playbackRate, item.sourceIn, onChange, persisted, sourceUrl, bodyModelReader, sharedCache, mode, playheadTime, priorityWindowSeconds, maxAnalysisSamples, enableBodyTracking]);
 
   useEffect(() => {
     if (!sourceUrl || item.kind !== 'video') return;

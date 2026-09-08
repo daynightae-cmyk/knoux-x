@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 
 import { NeonButton } from '../../components/neon/NeonButton';
-
 import { useTranslation } from '../../i18n';
 import { getReleaseInfo } from '../../releaseInfo';
 import {

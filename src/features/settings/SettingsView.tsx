@@ -38,9 +38,9 @@ import { localeCoverage, useTranslation } from '../../i18n';
 import { useAppStore } from '../../store/appStore';
 import type { ThemeType } from '../../store/appStore';
 import { KNOUX_THEME_CATALOG } from '../../theme/knouxThemeCatalog';
+import { getReleaseInfo } from '../../releaseInfo';
 
 import { CustomizationSettingsPanel } from './CustomizationSettingsPanel';
-import { getReleaseInfo } from '../../releaseInfo';
 import { ReleaseUpdatePanel } from './ReleaseUpdatePanel';
 
 type SettingsCategory =

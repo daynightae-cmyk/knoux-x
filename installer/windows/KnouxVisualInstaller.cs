@@ -237,7 +237,7 @@ namespace Knoux.VisualInstaller
                 Process.Start(new ProcessStartInfo(installedApplication) { UseShellExecute = true });
                 return;
             }
-            throw new InvalidOperationException("Installed KNOUX Player X executable was not found.");
+            throw new InvalidOperationException("Installed Knoux X executable was not found.");
         }
 
         internal static int Uninstall()
@@ -297,7 +297,7 @@ namespace Knoux.VisualInstaller
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destination)));
             StringBuilder json = new StringBuilder();
             json.AppendLine("{");
-            json.AppendLine("  \"product\": \"KNOUX Player X\",");
+            json.AppendLine("  \"product\": \"Knoux X\",");
             json.AppendLine("  \"mode\": \"" + Escape(mode) + "\",");
             json.AppendLine("  \"success\": " + (success ? "true" : "false") + ",");
             json.AppendLine("  \"timestamp\": \"" + DateTime.UtcNow.ToString("O") + "\",");
@@ -423,7 +423,7 @@ namespace Knoux.VisualInstaller
 
         internal InstallerForm()
         {
-            Text = "KNOUX Player X — Visual Installer";
+            Text = "Knoux X — Visual Installer";
             ClientSize = new Size(1120, 720);
             MinimumSize = new Size(980, 640);
             StartPosition = FormStartPosition.CenterScreen;
@@ -615,11 +615,11 @@ namespace Knoux.VisualInstaller
             RightToLeft = arabic ? RightToLeft.Yes : RightToLeft.No;
             productLabel.Text = "A KNOUX PRODUCT";
             languageButton.Text = arabic ? "English" : "العربية";
-            titleLabel.Text = arabic ? "ثبّت KNOUX Player X" : "Install KNOUX Player X";
+            titleLabel.Text = arabic ? "ثبّت Knoux X" : "Install Knoux X";
             descriptionLabel.Text = arabic
                 ? "مشغل وسائط احترافي ومجموعة إبداعية محلية. يعرض هذا المثبت الصور الرسمية التسع أثناء التثبيت، ويدعم التثبيت والترقية والإصلاح والإزالة."
                 : "A professional offline media player and creative suite. This installer displays all nine official product slides and supports install, upgrade, repair and uninstall.";
-            launchButton.Text = arabic ? "تشغيل KNOUX Player X" : "Launch KNOUX Player X";
+            launchButton.Text = arabic ? "تشغيل Knoux X" : "Launch Knoux X";
             uninstallButton.Text = arabic ? "إزالة التطبيق" : "Uninstall";
             closeButton.Text = arabic ? "إغلاق" : "Close";
             UpdateInstallState();
@@ -675,8 +675,8 @@ namespace Knoux.VisualInstaller
         private async void UninstallClicked(object sender, EventArgs eventArgs)
         {
             DialogResult confirmation = MessageBox.Show(
-                arabic ? "هل تريد إزالة KNOUX Player X؟" : "Uninstall KNOUX Player X?",
-                "KNOUX Player X",
+                arabic ? "هل تريد إزالة Knoux X؟" : "Uninstall Knoux X?",
+                "Knoux X",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
             if (confirmation != DialogResult.Yes) return;
@@ -708,7 +708,7 @@ namespace Knoux.VisualInstaller
         private void ShowError(Exception error)
         {
             statusLabel.Text = arabic ? "فشلت العملية. راجع رسالة الخطأ." : "The operation failed. Review the error message.";
-            MessageBox.Show(error.Message, "KNOUX Player X", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(error.Message, "Knoux X", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

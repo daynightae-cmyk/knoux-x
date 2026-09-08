@@ -66,6 +66,16 @@ wait_for_rendered_screen() {
   return 1
 }
 
+foreground_activity_ready() {
+  adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" || return 1
+  grep -Fq "$PACKAGE/.MainActivity" "$OUTPUT_DIR/android-activity-live.txt"
+}
+
+native_splash_gone() {
+  adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || return 1
+  ! grep -Fq "Splash Screen $PACKAGE" "$OUTPUT_DIR/android-window.txt"
+}
+
 adb wait-for-device
 adb_retry install -r "$APK"
 adb_retry logcat -c
@@ -96,22 +106,44 @@ if [[ -z "$PID" ]]; then
   exit 1
 fi
 
-# JavaScript readiness is necessary but not sufficient: only accept a frame
-# after the central WebView plane contains real rendered KNOUX pixels.
+# Release WebViews may suppress JavaScript console.info output even when React
+# has rendered successfully. Treat the JS marker as optional corroboration, not
+# as the only readiness signal. Acceptance requires the real MainActivity to be
+# foreground, the Android starting/splash window to be gone, and two consecutive
+# screenshots to contain nonblank rendered application pixels.
 UI_READY=false
+MARKER_READY=false
+READINESS_SOURCE=''
 for attempt in $(seq 1 45); do
   if adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" && \
      grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
-    if wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
+    MARKER_READY=true
+  fi
+
+  if foreground_activity_ready && native_splash_gone && \
+     wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
+    sleep 1
+    if foreground_activity_ready && native_splash_gone && \
+       wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
       UI_READY=true
+      if [[ "$MARKER_READY" == true ]]; then
+        READINESS_SOURCE='javascript-marker+foreground+visual'
+      else
+        READINESS_SOURCE='foreground+visual'
+      fi
       break
     fi
   fi
   sleep 2
 done
 
+printf '%s\n' "${READINESS_SOURCE:-not-ready}" > "$OUTPUT_DIR/android-ui-readiness.txt"
+
 if [[ "$UI_READY" != true ]]; then
   capture_screen "$OUTPUT_DIR/android-launch.png" || true
+  adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" || true
+  adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+  adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
   echo 'Android did not render a real KNOUX interface within 90 seconds.' >&2
   exit 1
 fi
@@ -168,4 +200,4 @@ capture_screen "$OUTPUT_DIR/android-launcher.png" || true
 
 printf '%s\n' "$PID" > "$OUTPUT_DIR/android-launch.pid"
 printf '%s\n' 'PASS' > "$OUTPUT_DIR/android-launch.verdict"
-echo "KNOUX Android launch smoke passed with PID $PID"
+echo "KNOUX Android launch smoke passed with PID $PID via $READINESS_SOURCE"

@@ -1,0 +1,229 @@
+name: Android Release Acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'tests/**'
+      - 'tools/android-ci-release.sh'
+      - 'tools/android-emulator-smoke.sh'
+      - 'tools/prepare-android-branding.cjs'
+      - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
+      - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-screen.cjs'
+      - 'electron/**'
+      - 'index.html'
+      - 'vite.renderer.config.ts'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-release-acceptance.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'tests/**'
+      - 'tools/android-ci-release.sh'
+      - 'tools/android-emulator-smoke.sh'
+      - 'tools/prepare-android-branding.cjs'
+      - 'tools/prepare-android-premium-splash.cjs'
+      - 'tools/prepare-android-native-media.cjs'
+      - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-screen.cjs'
+      - 'electron/**'
+      - 'index.html'
+      - 'vite.renderer.config.ts'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-release-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knoux-x-android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CAPACITOR_VERSION: '8.5.0'
+
+jobs:
+  release-acceptance:
+    name: Build, sign, install, and launch release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Use Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Ensure Android API 36 SDK is available
+        shell: bash
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Install locked Knoux X dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Restore test/runtime binaries
+        run: npm rebuild electron ffmpeg-static @derhuerst/ffprobe-static sharp --foreground-scripts
+
+      - name: Verify official Knoux X brand sources
+        run: npm run brand:verify
+
+      - name: TypeScript gate
+        run: npm run typecheck
+
+      - name: ESLint gate
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit test gate
+        run: npm test -- --runInBand
+
+      - name: Install pinned Capacitor build tooling without mutating lockfile
+        run: >-
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
+          @capacitor/core@${CAPACITOR_VERSION}
+          @capacitor/cli@${CAPACITOR_VERSION}
+          @capacitor/android@${CAPACITOR_VERSION}
+
+      - name: Build Knoux X Android renderer
+        run: npx vite build --config vite.renderer.config.ts --outDir dist
+
+      - name: Generate and synchronize Android project
+        shell: bash
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Install native media foundations
+        shell: bash
+        run: |
+          node tools/prepare-android-native-media.cjs
+          node tools/prepare-android-functional-closure.cjs
+          grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
+          grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F '@CapacitorPlugin(name = "KnouxScreenCapture")' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
+
+      - name: Configure Android media permissions
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text(encoding='utf-8')
+          marker = '    <application'
+          permissions = '''    <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+          '''
+          if 'android.permission.CAMERA' not in text:
+              if marker not in text:
+                  raise SystemExit('AndroidManifest application marker not found')
+              text = text.replace(marker, permissions + marker, 1)
+          manifest.write_text(text, encoding='utf-8')
+          PY
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.RECORD_AUDIO' android/app/src/main/AndroidManifest.xml
+
+      - name: Apply and verify Android branding
+        shell: bash
+        run: |
+          node tools/prepare-android-branding.cjs
+          node tools/prepare-android-premium-splash.cjs
+          grep -F '<string name="app_name">KNOUX X</string>' android/app/src/main/res/values/strings.xml
+          grep -F '<color name="knoux_splash_background">#F8F7FC</color>' android/app/src/main/res/values/colors.xml
+          grep -F '<color name="colorAccent">#7828E8</color>' android/app/src/main/res/values/colors.xml
+          test -s android/app/src/main/res/drawable/splash.png
+
+      - name: Build and CI-sign release APK
+        shell: bash
+        run: bash tools/android-ci-release.sh android-ci-release-output android
+
+      - name: Stage release evidence
+        shell: bash
+        run: |
+          cp android/knoux-branding-report.json android-ci-release-output/android-branding-report.json
+          cp android/app/src/main/AndroidManifest.xml android-ci-release-output/android-manifest.xml
+          cp android/app/src/main/res/values/strings.xml android-ci-release-output/android-strings.xml
+          cp android/app/src/main/res/drawable/splash.png android-ci-release-output/android-premium-splash.png
+
+      - name: Verify packaged release identity and signature
+        run: node tools/verify-android-apk.cjs android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk
+
+      - name: Enable KVM permissions for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch release APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          force-avd-creation: true
+          emulator-boot-timeout: 300
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          script: bash tools/android-emulator-smoke.sh android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk dev.knoux.playerx android-ci-release-output
+
+      - name: Mark release acceptance PASS
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('android-ci-release-output/android-release-acceptance.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['status'] = 'PASS'
+          data['installedAndLaunched'] = True
+          data['productionSigned'] = False
+          path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          PY
+          grep -F 'PASS' android-ci-release-output/android-launch.verdict
+          grep -F '"status": "PASS"' android-ci-release-output/android-release-acceptance.json
+
+      - name: Upload CI-signed release APK and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KNOUX-X-Android-release-acceptance-${{ github.sha }}
+          path: android-ci-release-output/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

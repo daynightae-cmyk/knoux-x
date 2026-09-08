@@ -1,0 +1,63 @@
+name: Temporary Post-Merge Media Hardening
+
+on:
+  push:
+    branches:
+      - codex/post-merge-media-hardening-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Apply targeted media hardening
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceBetween(file, startMarker, endMarker, replacement) {
+            let text = fs.readFileSync(file, 'utf8');
+            const start = text.indexOf(startMarker);
+            if (start < 0) throw new Error(`Missing start marker in ${file}: ${startMarker}`);
+            const secondStart = text.indexOf(startMarker, start + startMarker.length);
+            if (secondStart >= 0) throw new Error(`Start marker is not unique in ${file}`);
+            const end = text.indexOf(endMarker, start + startMarker.length);
+            if (end < 0) throw new Error(`Missing end marker in ${file}: ${endMarker}`);
+            text = text.slice(0, start) + replacement + text.slice(end);
+            fs.writeFileSync(file, text, 'utf8');
+          }
+
+          replaceBetween(
+            'src/features/image-editor/retouch/retouchEngine.ts',
+            '// GPU renderer stub - for Phase 1, falls back to CPU',
+            '// Factory - prefers GPU when available, falls back to CPU',
+            `// GPU compatibility wrapper. WebGPU retouch execution is not implemented yet,\n// so this class must report the backend that actually rendered the pixels.\nexport class GpuRetouchRenderer implements RetouchRenderer {\n  private cpuFallback = new CpuRetouchRenderer();\n\n  async render(request: RenderRequest): Promise<RenderResult> {\n    const result = await this.cpuFallback.render(request);\n    return { ...result, backend: 'cpu' };\n  }\n\n  dispose(): void {\n    this.cpuFallback.dispose();\n  }\n}\n\n`,
+          );
+
+          replaceBetween(
+            'src/features/image-studio/retouch/retouchPreviewBridge.ts',
+            'export function documentMasksToEngineMasks(',
+            '// Preview bridge — manages rendering retouch on top of compositor output',
+            `export function documentMasksToEngineMasks(\n  masks: RetouchDocumentState['masks']\n): Map<string, RetouchMask> {\n  const map = new Map<string, RetouchMask>();\n  for (const mask of masks) {\n    const expectedLength = mask.width * mask.height * 4;\n    const data = mask.alphaDataUrl\n      ? decodeRawRgbaMask(mask.alphaDataUrl, expectedLength, mask.id)\n      : new Uint8ClampedArray(expectedLength);\n    map.set(mask.id, {\n      id: mask.id,\n      width: mask.width,\n      height: mask.height,\n      data,\n      revision: mask.revision,\n    });\n  }\n  return map;\n}\n\nfunction decodeRawRgbaMask(dataUrl: string, expectedLength: number, maskId: string): Uint8ClampedArray {\n  let base64 = dataUrl;\n  if (dataUrl.startsWith('data:')) {\n    const comma = dataUrl.indexOf(',');\n    if (comma < 0) throw new Error(\`Retouch mask \${maskId} has an invalid data URL.\`);\n    const metadata = dataUrl.slice(5, comma);\n    if (!/;base64(?:;|$)/i.test(metadata)) {\n      throw new Error(\`Retouch mask \${maskId} must use base64 serialization.\`);\n    }\n    const mime = metadata.split(';', 1)[0].toLowerCase();\n    if (mime && mime !== 'application/octet-stream' && mime !== 'application/x-rgba') {\n      throw new Error(\`Retouch mask \${maskId} must contain raw RGBA bytes, not \${mime}.\`);\n    }\n    base64 = dataUrl.slice(comma + 1);\n  }\n\n  let binary: string;\n  try {\n    binary = atob(base64);\n  } catch {\n    throw new Error(\`Retouch mask \${maskId} contains invalid base64 data.\`);\n  }\n  if (binary.length !== expectedLength) {\n    throw new Error(\`Retouch mask \${maskId} decoded to \${binary.length} bytes; expected \${expectedLength} raw RGBA bytes.\`);\n  }\n  const bytes = new Uint8ClampedArray(expectedLength);\n  for (let i = 0; i < expectedLength; i += 1) bytes[i] = binary.charCodeAt(i);\n  return bytes;\n}\n\n// ─────────────────────────────────────────────────────────────────────────────\n`,
+          );
+
+          const testPath = 'tests/unit/post-merge-media-hardening.test.ts';
+          if (fs.existsSync(testPath)) throw new Error(`${testPath} already exists`);
+          fs.writeFileSync(testPath, `/** @jest-environment jsdom */\n\nimport { GpuRetouchRenderer } from '../../src/features/image-editor/retouch/retouchEngine';\nimport { documentMasksToEngineMasks } from '../../src/features/image-studio/retouch/retouchPreviewBridge';\nimport type { RetouchDocumentState } from '../../src/core/image-studio/document/schema';\n\nfunction buffer(width = 2, height = 2) {\n  const data = new Uint8ClampedArray(width * height * 4);\n  data.fill(127);\n  for (let i = 3; i < data.length; i += 4) data[i] = 255;\n  return { width, height, data };\n}\n\nfunction rawMaskDataUrl(bytes: Uint8ClampedArray): string {\n  let binary = '';\n  for (const value of bytes) binary += String.fromCharCode(value);\n  return \`data:application/octet-stream;base64,\${btoa(binary)}\`;\n}\n\ndescribe('post-merge media hardening', () => {\n  it('reports CPU truthfully while the GPU compatibility wrapper still executes the CPU renderer', async () => {\n    const runtime = globalThis as unknown as { GPUBuffer?: unknown };\n    const previous = runtime.GPUBuffer;\n    runtime.GPUBuffer = class GPUBuffer {};\n    const renderer = new GpuRetouchRenderer();\n    try {\n      const result = await renderer.render({\n        source: buffer(),\n        operations: [],\n        masks: new Map(),\n        quality: 'preview',\n        version: 1,\n      });\n      expect(result.backend).toBe('cpu');\n    } finally {\n      renderer.dispose();\n      if (previous === undefined) delete runtime.GPUBuffer;\n      else runtime.GPUBuffer = previous;\n    }\n  });\n\n  it('decodes raw RGBA retouch masks only when the serialized byte length matches the dimensions', () => {\n    const raw = new Uint8ClampedArray(2 * 2 * 4);\n    raw[3] = 255;\n    raw[7] = 128;\n    const masks: RetouchDocumentState['masks'] = [{\n      id: 'raw-mask', width: 2, height: 2, alphaDataUrl: rawMaskDataUrl(raw), featherPx: 0, inverted: false, revision: 1,\n    }];\n    const decoded = documentMasksToEngineMasks(masks).get('raw-mask');\n    expect(decoded?.data).toEqual(raw);\n  });\n\n  it('refuses compressed image bytes instead of silently interpreting them as raw RGBA mask pixels', () => {\n    const masks: RetouchDocumentState['masks'] = [{\n      id: 'png-mask', width: 1, height: 1, alphaDataUrl: 'data:image/png;base64,AA==', featherPx: 0, inverted: false, revision: 1,\n    }];\n    expect(() => documentMasksToEngineMasks(masks)).toThrow(/raw RGBA bytes/);\n  });\n\n  it('refuses raw mask payloads with a dimension/byte-length mismatch', () => {\n    const masks: RetouchDocumentState['masks'] = [{\n      id: 'short-mask', width: 2, height: 2, alphaDataUrl: 'data:application/octet-stream;base64,AA==', featherPx: 0, inverted: false, revision: 1,\n    }];\n    expect(() => documentMasksToEngineMasks(masks)).toThrow(/expected 16 raw RGBA bytes/);\n  });\n});\n`, 'utf8');
+          NODE
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/image-editor/retouch/retouchEngine.ts src/features/image-studio/retouch/retouchPreviewBridge.ts tests/unit/post-merge-media-hardening.test.ts
+          git commit -m "fix(retouch): harden backend truth and mask integrity"
+          git push origin HEAD:${{ github.ref_name }}

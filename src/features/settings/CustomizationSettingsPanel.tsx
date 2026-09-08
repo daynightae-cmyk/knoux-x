@@ -191,7 +191,7 @@ export const CustomizationSettingsPanel: React.FC<Props> = ({
     });
     if (!destination) return;
     const selected = settings.studioPresets.filter((preset) => preset.kind === presetKind);
-    await window.knouxAPI.file.writeFile(destination, JSON.stringify({ product: 'KNOUX Player X', kind: presetKind, presets: selected }, null, 2));
+    await window.knouxAPI.file.writeFile(destination, JSON.stringify({ product: 'Knoux X', kind: presetKind, presets: selected }, null, 2));
     reportNotice(rtl ? 'تم تصدير الإعدادات المسبقة.' : 'Presets exported.');
   };
 
@@ -204,7 +204,7 @@ export const CustomizationSettingsPanel: React.FC<Props> = ({
       if (!source) return;
       const raw = await window.knouxAPI.file.readFile(source);
       const decoded = JSON.parse(new TextDecoder().decode(raw)) as { product?: string; kind?: string; presets?: unknown };
-      if (decoded.product !== 'KNOUX Player X') throw new TypeError('Preset file belongs to another product.');
+      if (decoded.product !== 'Knoux X') throw new TypeError('Preset file belongs to another product.');
       if (decoded.kind !== presetKind) throw new TypeError('Preset file belongs to another studio.');
       const imported = validateStudioPresets(decoded.presets);
       if (imported.some((preset) => preset.kind !== presetKind)) throw new TypeError('Preset file contains a mismatched studio kind.');

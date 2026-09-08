@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const reportRoot = path.join(root, 'reports', 'native-completion', 'sprint-02');
-const packageRoot = path.join(root, 'out', 'KNOUX Player X-win32-x64');
+const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
 const asarPath = path.join(packageRoot, 'resources', 'app.asar');
 
@@ -120,7 +120,7 @@ function main() {
     const final = {
       schemaVersion: 1,
       success: true,
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       mode: 'sprint-02-packaged-interaction-and-persistence',
       testedHead: head,
       testedBranch: branch,

@@ -801,7 +801,7 @@ export const RecordingView: React.FC = () => {
       case 'start':
         if (!desktopRuntime) return 'Recording requires the desktop runtime.';
         if (status !== 'idle') return `Recording is already ${status}.`;
-        if (captureMode === 'player' && !playerWindowSource) return 'No KNOUX Player X window source was found for player composition.';
+        if (captureMode === 'player' && !playerWindowSource) return 'No Knoux X window source was found for player composition.';
         if (!effectiveSourceId) return 'Select a capture source before starting.';
         if (!regionSourceValid) return 'Select a valid region before starting.';
         return undefined;

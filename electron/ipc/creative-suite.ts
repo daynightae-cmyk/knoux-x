@@ -95,7 +95,7 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
 
   ipc.handle(IPC_INVOKE.CREATIVE_OPEN_MEDIA, trusted(async () => {
     const result = await dialog.showOpenDialog({
-      title: 'Open media in KNOUX Player X',
+      title: 'Open media in Knoux X',
       filters: mediaFilters,
       properties: ['openFile'],
     });

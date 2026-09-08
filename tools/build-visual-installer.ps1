@@ -127,7 +127,7 @@ try {
   }
   Resolve-ExistingFile -PathValue $evidence -Label 'Visual installer self-test evidence' | Out-Null
   $evidenceDocument = Get-Content -LiteralPath $evidence -Raw | ConvertFrom-Json
-  if ($evidenceDocument.product -ne 'KNOUX Player X') { throw 'Visual installer self-test evidence product is invalid.' }
+  if ($evidenceDocument.product -ne 'Knoux X') { throw 'Visual installer self-test evidence product is invalid.' }
   if ($evidenceDocument.success -ne $true) { throw 'Visual installer self-test evidence did not report success.' }
   if ($evidenceDocument.mode -ne 'self-test') { throw 'Visual installer self-test evidence mode is invalid.' }
   if (@($evidenceDocument.details | Where-Object { $_ -eq 'slides=9' }).Count -ne 1) {

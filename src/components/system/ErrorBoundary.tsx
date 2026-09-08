@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   private handleCopyDiagnostic = (): void => {
     const diagnostic = JSON.stringify({
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       failure: this.state.error?.name ?? 'RendererError',
       runtime: document.documentElement.dataset.runtime ?? 'unknown',
       capturedAt: new Date().toISOString(),
@@ -48,11 +48,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <h1>The interface encountered an unexpected error.</h1>
           <p>
             Your local media and projects remain unchanged. Reload the interface
-            to restore KNOUX Player X.
+            to restore Knoux X.
           </p>
           <p className="knoux-fatal-error__reference">Diagnostic class: {this.state.error.name}</p>
           <div className="knoux-fatal-error__actions">
-            <button type="button" onClick={this.handleReload}>Reload KNOUX Player X</button>
+            <button type="button" onClick={this.handleReload}>Reload Knoux X</button>
             <button type="button" onClick={this.handleCopyDiagnostic}>Copy safe diagnostic</button>
           </div>
         </section>

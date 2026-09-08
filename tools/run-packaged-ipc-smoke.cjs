@@ -8,7 +8,7 @@ const asar = require('@electron/asar');
 const root = path.resolve(__dirname, '..');
 const reportRoot = path.join(root, 'reports', 'native-completion', 'sprint-01');
 const inspectionRoot = path.join(reportRoot, 'asar-inspection');
-const packageRoot = path.join(root, 'out', 'KNOUX Player X-win32-x64');
+const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
 const asarPath = path.join(packageRoot, 'resources', 'app.asar');
 const runtimeEvidencePath = path.join(reportRoot, 'packaged-ipc-runtime.json');
@@ -115,7 +115,7 @@ function main() {
   };
   const finalEvidence = {
     schemaVersion: 1,
-    product: 'KNOUX Player X',
+    product: 'Knoux X',
     mode: 'packaged-asar-context-bridge-ipc-smoke',
     success: true,
     packaged: true,

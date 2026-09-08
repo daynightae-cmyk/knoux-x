@@ -254,7 +254,7 @@ export const Sidebar: React.FC = () => {
       {!compact && (
         <div className="sidebar-footer">
           <strong>A Knoux Product</strong>
-          <span className="version">KNOUX Player X · 2.0.0</span>
+          <span className="version">Knoux X · 2.0.0</span>
         </div>
       )}
       {!compact && <div className="sidebar-resizer" role="separator" aria-orientation="vertical" onPointerDown={beginResize} />}

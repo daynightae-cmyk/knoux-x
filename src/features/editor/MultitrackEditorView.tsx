@@ -58,12 +58,21 @@ import type {
   TrackKind,
   TransitionKind,
 } from '../../core/creative/multitrackProject';
+import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
 import {
   compareBranchMetrics,
   computeBranchMetrics,
 } from '../../core/video-studio/ai/branch-metrics';
 import type { BranchMetrics, BranchMetricsDelta } from '../../core/video-studio/ai/branch-metrics';
 import { useTranslation } from '../../i18n';
+import { VideoRetouchInspector } from '../video-studio/retouch/VideoRetouchInspector';
+import { VideoRetouchPreviewOverlay } from '../video-studio/retouch/VideoRetouchPreviewOverlay';
+import {
+  attachRetouchAfterTrimIn,
+  attachRetouchAfterTrimOut,
+  attachRetouchToSplit,
+} from '../video-studio/retouch/videoRetouchTimeline';
+import type { VideoRetouchClipState } from '../video-studio/retouch/videoRetouchProject';
 
 interface ProjectHistory {
   past: MultitrackProject[];
@@ -321,18 +330,23 @@ export const MultitrackEditorView: React.FC = () => {
     }
   }, [activate, t]);
 
-  const saveProject = useCallback(async (saveAs = false): Promise<void> => {
-    if (!project || busy || !desktopRuntime) return;
+  const saveProject = useCallback(async (saveAs = false): Promise<{ ok: boolean; filePath?: string; projectId?: string; error?: string }> => {
+    if (!project) return { ok: false, error: t('multitrack.saveFailed') };
+    if (busy) return { ok: false, projectId: project.id, error: 'Project persistence is already in progress.' };
+    if (!desktopRuntime) return { ok: false, projectId: project.id, error: 'Project persistence is unavailable in this runtime.' };
     setBusy(true);
     try {
-      const saved = await window.knouxMultitrackAPI.save(project, projectPath, saveAs);
-      if (saved) {
-        setProjectPath(saved);
-        setDirty(false);
-        await refreshWorkspace();
-      }
+      const snapshot = structuredClone(project);
+      const saved = await window.knouxMultitrackAPI.save(snapshot, projectPath, saveAs);
+      if (!saved) return { ok: false, projectId: snapshot.id, error: t('multitrack.saveFailed') };
+      setProjectPath(saved);
+      setDirty(false);
+      await refreshWorkspace();
+      return { ok: true, filePath: saved, projectId: snapshot.id };
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('multitrack.saveFailed'));
+      const message = reason instanceof Error ? reason.message : t('multitrack.saveFailed');
+      setError(message);
+      return { ok: false, projectId: project.id, error: message };
     } finally {
       setBusy(false);
     }
@@ -509,10 +523,17 @@ export const MultitrackEditorView: React.FC = () => {
     });
   }, [commit, project, selectedItem]);
 
+  const updateSelectedRetouch = useCallback((state: VideoRetouchClipState): void => {
+    if (!project || !selectedItem) return;
+    commit(setTimelineVideoRetouchTemporal(project, selectedItem.id, state));
+  }, [commit, project, selectedItem]);
+
   const splitSelected = useCallback((): void => {
     if (!project || !selectedItem) return;
     try {
-      const [left, right] = splitTimelineItem(selectedItem, playhead, crypto.randomUUID());
+      const splitLocalTime = playhead - selectedItem.timelineStart;
+      const [rawLeft, rawRight] = splitTimelineItem(selectedItem, playhead, crypto.randomUUID());
+      const [left, right] = attachRetouchToSplit(selectedItem, rawLeft, rawRight, splitLocalTime);
       commit({
         ...project,
         tracks: project.tracks.map((track) => track.id === selectedItem.trackId
@@ -529,23 +550,27 @@ export const MultitrackEditorView: React.FC = () => {
     if (!selectedItem) return;
     const offset = playhead - selectedItem.timelineStart;
     if (offset <= 0 || offset >= selectedItem.duration) return;
-    patchSelectedItem((item) => ({
-      ...item,
-      timelineStart: playhead,
-      sourceIn: item.sourceIn + offset * item.playbackRate,
-      duration: item.duration - offset,
-    }));
+    patchSelectedItem((item) => {
+      const newDuration = item.duration - offset;
+      const trimmed = {
+        ...item,
+        timelineStart: playhead,
+        sourceIn: item.sourceIn + offset * item.playbackRate,
+        duration: newDuration,
+      };
+      return attachRetouchAfterTrimIn(trimmed, offset, newDuration);
+    });
   }, [patchSelectedItem, playhead, selectedItem]);
 
   const trimSelectedOut = useCallback((): void => {
     if (!selectedItem) return;
-    const duration = playhead - selectedItem.timelineStart;
-    if (duration <= 0 || duration >= selectedItem.duration) return;
-    patchSelectedItem((item) => ({
+    const durationValue = playhead - selectedItem.timelineStart;
+    if (durationValue <= 0 || durationValue >= selectedItem.duration) return;
+    patchSelectedItem((item) => attachRetouchAfterTrimOut({
       ...item,
-      sourceOut: item.sourceIn + duration * item.playbackRate,
-      duration,
-    }));
+      sourceOut: item.sourceIn + durationValue * item.playbackRate,
+      duration: durationValue,
+    }, durationValue));
   }, [patchSelectedItem, playhead, selectedItem]);
 
   const duplicateSelected = useCallback((): void => {
@@ -648,13 +673,21 @@ export const MultitrackEditorView: React.FC = () => {
 
   useEffect(() => {
     const handleCommand = (event: Event): void => {
-      switch ((event as CustomEvent<{ command?: string }>).detail?.command) {
+      const detail = (event as CustomEvent<{ command?: string; requestId?: string }>).detail;
+      switch (detail?.command) {
         case 'split-clip': splitSelected(); break;
         case 'trim-in': trimSelectedIn(); break;
         case 'trim-out': trimSelectedOut(); break;
         case 'undo': undo(); break;
         case 'redo': redo(); break;
-        case 'save': void saveProject(false); break;
+        case 'save':
+          void saveProject(false).then((result) => {
+            if (!detail.requestId) return;
+            window.dispatchEvent(new CustomEvent('knoux:command-result', {
+              detail: { command: 'save', requestId: detail.requestId, ...result },
+            }));
+          });
+          break;
         default: break;
       }
     };
@@ -762,7 +795,10 @@ export const MultitrackEditorView: React.FC = () => {
               ) : selectedItem.kind === 'image' ? (
                 <img src={previewUrl} alt={selectedItem.name} />
               ) : (
-                <video ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} />
+                <>
+                  <video ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} />
+                  <VideoRetouchPreviewOverlay item={selectedItem} mediaRef={previewRef} playhead={playhead} />
+                </>
               )
             ) : selectedItem?.text ? (
               <div className="multitrack-text-preview" dir={selectedItem.text.direction} style={{
@@ -796,6 +832,13 @@ export const MultitrackEditorView: React.FC = () => {
                 <label><span>{t('multitrack.start')}</span><input type="number" min="0" step="0.001" value={selectedItem.timelineStart} onChange={(event) => patchSelectedItem((item) => ({ ...item, timelineStart: Math.max(0, Number(event.target.value)) }))} /></label>
                 <label><span>{t('multitrack.duration')}</span><input type="number" min="0.04" step="0.001" value={selectedItem.duration} onChange={(event) => patchSelectedItem((item) => ({ ...item, duration: Math.max(0.04, Number(event.target.value)) }))} /></label>
               </div>
+              {(selectedItem.kind === 'video' || selectedItem.kind === 'audio') && (
+                <label><span>Speed · {selectedItem.playbackRate.toFixed(2)}×</span><input type="range" min="0.25" max="4" step="0.05" value={selectedItem.playbackRate} onChange={(event) => patchSelectedItem((item) => {
+                  const playbackRate = Math.max(0.25, Math.min(4, Number(event.target.value)));
+                  const sourceDuration = Math.max(0.001, item.sourceOut - item.sourceIn);
+                  return { ...item, playbackRate, duration: sourceDuration / playbackRate };
+                })} /></label>
+              )}
               {selectedItem.text && <label><span>{t('multitrack.text')}</span><textarea value={selectedItem.text.text} dir="auto" onChange={(event) => patchSelectedItem((item) => ({ ...item, text: item.text ? { ...item.text, text: event.target.value } : null }))} /></label>}
               <div className="multitrack-two-columns">
                 <label><span>X</span><input type="number" value={selectedItem.transform.positionX} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, positionX: Number(event.target.value) } }))} /></label>
@@ -803,9 +846,23 @@ export const MultitrackEditorView: React.FC = () => {
                 <label><span>{t('multitrack.scale')}</span><input type="number" min="0.01" max="100" step="0.01" value={selectedItem.transform.scale} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, scale: Math.max(0.01, Number(event.target.value)) } }))} /></label>
                 <label><span>{t('multitrack.rotation')}</span><input type="number" step="0.1" value={selectedItem.transform.rotation} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, rotation: Number(event.target.value) } }))} /></label>
               </div>
+              {(selectedItem.kind === 'video' || selectedItem.kind === 'image') && (
+                <div className="multitrack-two-columns">
+                  <label><span>Crop L</span><input type="number" min="0" max="0.95" step="0.01" value={selectedItem.transform.cropLeft} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, cropLeft: Math.max(0, Math.min(0.95, Number(event.target.value))) } }))} /></label>
+                  <label><span>Crop R</span><input type="number" min="0" max="0.95" step="0.01" value={selectedItem.transform.cropRight} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, cropRight: Math.max(0, Math.min(0.95, Number(event.target.value))) } }))} /></label>
+                  <label><span>Crop T</span><input type="number" min="0" max="0.95" step="0.01" value={selectedItem.transform.cropTop} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, cropTop: Math.max(0, Math.min(0.95, Number(event.target.value))) } }))} /></label>
+                  <label><span>Crop B</span><input type="number" min="0" max="0.95" step="0.01" value={selectedItem.transform.cropBottom} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, cropBottom: Math.max(0, Math.min(0.95, Number(event.target.value))) } }))} /></label>
+                </div>
+              )}
               <label><span>{t('multitrack.opacity')} · {Math.round(selectedItem.transform.opacity * 100)}%</span><input type="range" min="0" max="1" step="0.01" value={selectedItem.transform.opacity} onChange={(event) => patchSelectedItem((item) => ({ ...item, transform: { ...item.transform, opacity: Number(event.target.value) } }))} /></label>
               <label><span>{t('multitrack.volume')} · {Math.round(selectedItem.audio.volume * 100)}%</span><input type="range" min="0" max="4" step="0.01" value={selectedItem.audio.volume} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, volume: Number(event.target.value) } }))} /></label>
               <label><span>{t('multitrack.pan')} · {selectedItem.audio.pan.toFixed(2)}</span><input type="range" min="-1" max="1" step="0.01" value={selectedItem.audio.pan} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, pan: Number(event.target.value) } }))} /></label>
+              {(selectedItem.kind === 'video' || selectedItem.kind === 'audio') && (
+                <div className="multitrack-two-columns">
+                  <label><span>Fade In</span><input type="number" min="0" max={selectedItem.duration} step="0.05" value={selectedItem.audio.fadeIn} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, fadeIn: Math.max(0, Math.min(item.duration, Number(event.target.value))) } }))} /></label>
+                  <label><span>Fade Out</span><input type="number" min="0" max={selectedItem.duration} step="0.05" value={selectedItem.audio.fadeOut} onChange={(event) => patchSelectedItem((item) => ({ ...item, audio: { ...item.audio, fadeOut: Math.max(0, Math.min(item.duration, Number(event.target.value))) } }))} /></label>
+                </div>
+              )}
               <div className="multitrack-transition-grid">
                 <label><span>{t('multitrack.transitionIn')}</span><NeonSelect value={selectedItem.transitionIn?.kind ?? 'none'} onChange={(value) => setTransition('in', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
                 <label><span>{t('multitrack.transitionOut')}</span><NeonSelect value={selectedItem.transitionOut?.kind ?? 'none'} onChange={(value) => setTransition('out', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
@@ -815,6 +872,9 @@ export const MultitrackEditorView: React.FC = () => {
                 <NeonButton variant="secondary" size="sm" leftIcon={<KeyRound size={14} />} onClick={addKeyframe}>{t('multitrack.addKeyframe')}</NeonButton>
               </div>
               <div className="multitrack-keyframe-list">{selectedItem.keyframes.map((keyframe) => <span key={keyframe.id}>{keyframe.property} · {formatTime(keyframe.time)} · {keyframe.value}</span>)}</div>
+              {selectedItem.kind === 'video' && (
+                <VideoRetouchInspector item={selectedItem} sourceUrl={previewUrl} fps={project.settings.fps} onChange={updateSelectedRetouch} />
+              )}
             </div>
           )}
         </NeonPanel>

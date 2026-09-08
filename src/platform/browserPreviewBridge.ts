@@ -1,4 +1,4 @@
-const WEB_PREVIEW_MESSAGE = 'This desktop feature is available in the Windows edition of KNOUX Player X.';
+const WEB_PREVIEW_MESSAGE = 'This desktop feature is available in the Windows edition of Knoux X.';
 
 const mediaUrls = new Map<string, string>();
 const recentCaptures: string[] = [];
@@ -211,7 +211,7 @@ function createCoreBridge(): Window['knouxAPI'] {
     },
     system: {
       getInfo: async () => ({
-        product: 'KNOUX Player X' as const,
+        product: 'Knoux X' as const,
         version: 'web-preview',
         platform: navigator.platform || 'web',
         arch: 'browser',
@@ -224,7 +224,7 @@ function createCoreBridge(): Window['knouxAPI'] {
         nodeVersion: 'not-applicable',
       }),
       getBuildInfo: async () => ({
-        product: 'KNOUX Player X' as const,
+        product: 'Knoux X' as const,
         version: 'web-preview',
         sha: 'not-applicable',
         branch: 'browser-preview',
@@ -379,6 +379,6 @@ export function installBrowserPreviewBridge(): void {
   if (window.knouxRuntime || hasCoreBridge || hasCreativeBridge) throw new Error('RUNTIME_BRIDGE_OWNERSHIP_CONFLICT');
   window.knouxAPI = createCoreBridge();
   window.knouxCreativeAPI = createCreativeBridge();
-  window.knouxRuntime = Object.freeze({ edition: 'web-preview', product: 'KNOUX Player X', bridgeVersion: 1 });
+  window.knouxRuntime = Object.freeze({ edition: 'web-preview', product: 'Knoux X', bridgeVersion: 1 });
   document.documentElement.dataset.runtime = 'web-preview';
 }

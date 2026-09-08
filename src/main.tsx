@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Main Entry
+ * Knoux X™ - Main Entry
  * ═══════════════════════════════════════════════════════════════════════
  *
  * نقطة الدخول الرئيسية لتطبيق React
@@ -17,6 +17,9 @@ import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { SystemOverlay } from './components/system/SystemOverlay';
 import { AndroidBeautyExtension } from './platform/AndroidBeautyExtension';
+import { AndroidBeautyHistoryControls } from './platform/AndroidBeautyHistoryControls';
+import { AndroidBodyBeautyExtension } from './platform/AndroidBodyBeautyExtension';
+import { AndroidPlaybackPreferences } from './platform/AndroidPlaybackPreferences';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
@@ -68,7 +71,10 @@ root.render(
     <ErrorBoundary>
       <App />
       <SystemOverlay />
+      {androidRuntimeInstalled && <AndroidPlaybackPreferences />}
       {androidRuntimeInstalled && <AndroidBeautyExtension />}
+      {androidRuntimeInstalled && <AndroidBodyBeautyExtension />}
+      {androidRuntimeInstalled && <AndroidBeautyHistoryControls />}
     </ErrorBoundary>
   </React.StrictMode>
 );

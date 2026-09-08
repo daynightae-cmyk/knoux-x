@@ -29,6 +29,7 @@ import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
+import { supportedAudioOutputFormats } from '../../platform/platformCapabilities';
 
 interface AudioSource {
   filePath: string;
@@ -37,7 +38,7 @@ interface AudioSource {
   summary: AudioProbeSummary;
 }
 
-const formats: AudioOutputFormat[] = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'];
+const DESKTOP_FORMATS: AudioOutputFormat[] = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'];
 const sampleRates = [32000, 44100, 48000, 88200, 96000] as const;
 const bitrates = [96, 128, 160, 192, 256, 320] as const;
 
@@ -106,7 +107,12 @@ export const AudioToolsView: React.FC = () => {
   const [end, setEnd] = useState(0);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [format, setFormat] = useState<AudioOutputFormat>('mp3');
+  const androidRuntime = window.knouxRuntime?.edition === 'android';
+  const formats = useMemo<AudioOutputFormat[]>(() => {
+    const supported = androidRuntime ? supportedAudioOutputFormats({ platform: 'android' }) : DESKTOP_FORMATS;
+    return supported.filter((entry): entry is AudioOutputFormat => DESKTOP_FORMATS.includes(entry as AudioOutputFormat));
+  }, [androidRuntime]);
+  const [format, setFormat] = useState<AudioOutputFormat>(() => androidRuntime ? 'wav' : 'mp3');
   const [sampleRate, setSampleRate] = useState<(typeof sampleRates)[number]>(48000);
   const [channels, setChannels] = useState<AudioChannelMode>(2);
   const [bitrate, setBitrate] = useState<(typeof bitrates)[number]>(320);
@@ -431,10 +437,10 @@ export const AudioToolsView: React.FC = () => {
           <NeonPanel variant="dark" padding="md">
             <div className="audio-panel-heading"><SlidersHorizontal size={19} /><h2>{t('audioTools.processing')}</h2></div>
             <div className="audio-processing-grid">
-              <label className="audio-check-row"><input type="checkbox" checked={normalize} onChange={(event) => setNormalize(event.target.checked)} /><span>{t('audioTools.normalize')}</span></label>
-              <label><span>{t('audioTools.targetLufs')} · {targetLufs}</span><input type="range" min="-36" max="-5" step="0.5" value={targetLufs} onChange={(event) => setTargetLufs(Number(event.target.value))} disabled={!normalize} /></label>
-              <label><span>{t('audioTools.truePeak')} · {truePeakDb}</span><input type="range" min="-9" max="0" step="0.1" value={truePeakDb} onChange={(event) => setTruePeakDb(Number(event.target.value))} disabled={!normalize} /></label>
-              <label><span>{t('audioTools.loudnessRange')} · {loudnessRange}</span><input type="range" min="1" max="50" step="1" value={loudnessRange} onChange={(event) => setLoudnessRange(Number(event.target.value))} disabled={!normalize} /></label>
+              <label className="audio-check-row"><input type="checkbox" checked={normalize} onChange={(event) => setNormalize(event.target.checked)} /><span>{androidRuntime ? (locale === 'ar' ? 'تطبيع الذروة المحلي' : 'Local peak normalization') : t('audioTools.normalize')}</span></label>
+              {!androidRuntime && <label><span>{t('audioTools.targetLufs')} · {targetLufs}</span><input type="range" min="-36" max="-5" step="0.5" value={targetLufs} onChange={(event) => setTargetLufs(Number(event.target.value))} disabled={!normalize} /></label>}
+              <label><span>{androidRuntime ? (locale === 'ar' ? 'حد الذروة dB' : 'Peak ceiling dB') : t('audioTools.truePeak')} · {truePeakDb}</span><input type="range" min="-9" max="0" step="0.1" value={truePeakDb} onChange={(event) => setTruePeakDb(Number(event.target.value))} disabled={!normalize} /></label>
+              {!androidRuntime && <label><span>{t('audioTools.loudnessRange')} · {loudnessRange}</span><input type="range" min="1" max="50" step="1" value={loudnessRange} onChange={(event) => setLoudnessRange(Number(event.target.value))} disabled={!normalize} /></label>}
               <label><span>{t('audioTools.gain')} · {gainDb.toFixed(1)} dB</span><input type="range" min="-24" max="24" step="0.1" value={gainDb} onChange={(event) => setGainDb(Number(event.target.value))} /></label>
               <label><span>{t('audioTools.tempo')} · {tempo.toFixed(2)}×</span><input type="range" min="0.5" max="2" step="0.01" value={tempo} onChange={(event) => setTempo(Number(event.target.value))} /></label>
               <label><span>{t('audioTools.fadeIn')} · {fadeIn.toFixed(1)}s</span><input type="range" min="0" max={Math.max(0, selectionDuration)} step="0.1" value={Math.min(fadeIn, selectionDuration)} onChange={(event) => setFadeIn(Number(event.target.value))} /></label>
@@ -479,6 +485,7 @@ export const AudioToolsView: React.FC = () => {
             <label><span>{t('audioTools.outputChannels')}</span><NeonSelect value={String(channels)} onChange={(value) => setChannels(Number(value) as AudioChannelMode)} options={[{ value: '1', label: t('audioTools.mono') }, { value: '2', label: t('audioTools.stereo') }]} /></label>
             <label><span>{t('audioTools.outputBitrate')}</span><NeonSelect value={String(bitrate)} onChange={(value) => setBitrate(Number(value) as (typeof bitrates)[number])} disabled={lossless} options={bitrates.map((value) => ({ value: String(value), label: `${value} kbps` }))} /></label>
             <div className={`audio-format-badge ${lossless ? 'lossless' : 'lossy'}`}>{lossless ? t('audioTools.lossless') : t('audioTools.lossy')}</div>
+            {androidRuntime && <div className="audio-inline-notice">{locale === 'ar' ? 'Android المحلي: WAV PCM فقط. قياس LUFS الحقيقي متاح على Windows عبر FFmpeg.' : 'Android local: WAV PCM only. True LUFS processing remains a Windows/FFmpeg capability.'}</div>}
             <div className="audio-output-duration">{t('audioTools.duration')}: <strong dir="ltr">{formatTime(outputDuration)}</strong></div>
           </NeonPanel>
 

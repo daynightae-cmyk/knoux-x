@@ -17,9 +17,9 @@ export function createSystemTray(): Tray {
   const icon = nativeImage.createFromPath(path.join(__dirname, '../../assets/icons/tray-icon.png'));
   if (icon.isEmpty()) throw new Error('KNOUX tray icon is missing or invalid.');
   tray = new Tray(process.platform === 'darwin' ? icon.resize({ width: 16, height: 16 }) : icon);
-  tray.setToolTip('KNOUX Player X');
+  tray.setToolTip('Knoux X');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show KNOUX Player X', click: showMainWindow },
+    { label: 'Show Knoux X', click: showMainWindow },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ]));
@@ -28,7 +28,7 @@ export function createSystemTray(): Tray {
 }
 
 export function updateTrayTooltip(text: string): void {
-  tray?.setToolTip('KNOUX Player X — ' + text);
+  tray?.setToolTip('Knoux X — ' + text);
 }
 
 export function destroyTray(): void {

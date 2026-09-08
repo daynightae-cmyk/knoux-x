@@ -1,7 +1,8 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
-import type { DetectedFace, FaceAnalysisRequest, FaceAnalysisResult, FacePoint, FaceRegionMask } from './faceAnalysisContract';
+import type { DetectedFace, FaceAnalysisRequest, FaceAnalysisResult, FacePoint } from './faceAnalysisContract';
 import { FACE_ANALYSIS_MODEL_ID, faceAnalysisUnavailable } from './faceAnalysisContract';
+import { buildSemanticFaceRegions } from './faceSemanticRegions';
 
 interface ConfigureMessage {
   type: 'configure';
@@ -39,26 +40,6 @@ async function createAnalysisBitmap(imageDataUrl: string): Promise<ImageBitmap> 
 
 function point(value: { x: number; y: number; z?: number }): FacePoint {
   return { x: value.x, y: value.y, z: value.z ?? 0 };
-}
-
-function region(region: FaceRegionMask['region'], points: FacePoint[]): FaceRegionMask {
-  return { region, polygon: points };
-}
-
-function regionPoints(landmarks: FacePoint[], indexes: number[]): FacePoint[] {
-  return indexes.map((index) => landmarks[index]).filter((value): value is FacePoint => Boolean(value));
-}
-
-function semanticRegions(landmarks: FacePoint[]): FaceRegionMask[] {
-  return [
-    region('eyes', regionPoints(landmarks, [33, 133, 159, 145, 362, 263, 386, 374])),
-    region('lips', regionPoints(landmarks, [61, 185, 40, 39, 0, 267, 269, 291, 17, 146, 91, 181])),
-    region('teeth', regionPoints(landmarks, [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 14, 87])),
-    region('brows', regionPoints(landmarks, [70, 63, 105, 66, 107, 336, 296, 334, 293, 300])),
-    region('cheeks', regionPoints(landmarks, [116, 123, 147, 213, 345, 352, 376, 433])),
-    region('jaw', regionPoints(landmarks, [234, 93, 132, 58, 172, 152, 397, 288, 361, 454])),
-    region('skin', regionPoints(landmarks, [10, 338, 297, 332, 284, 251, 389, 356, 365, 379, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109])),
-  ];
 }
 
 async function configure(message: ConfigureMessage): Promise<void> {
@@ -108,7 +89,7 @@ async function analyze(message: AnalyzeMessage): Promise<void> {
           height: Math.max(...ys) - Math.min(...ys),
         },
         landmarks,
-        regions: semanticRegions(landmarks),
+        regions: buildSemanticFaceRegions(landmarks),
         headPose: null,
       };
     });

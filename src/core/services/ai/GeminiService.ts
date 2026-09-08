@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Gemini Service
+ * Knoux X™ - Gemini Service
  * ═══════════════════════════════════════════════════════════════════════
  * 
  * خدمة Gemini AI - يدمج قدرات الذكاء الاصطناعي
@@ -120,7 +120,7 @@ export class GeminiService extends EventEmitter {
       history: [
         {
           role: 'user',
-          parts: [{ text: 'You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.' }],
+          parts: [{ text: 'You are KNOUX AI, an intelligent assistant for Knoux X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.' }],
         },
         {
           role: 'model',

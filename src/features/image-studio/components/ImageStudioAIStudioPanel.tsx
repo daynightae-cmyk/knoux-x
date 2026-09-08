@@ -1,16 +1,48 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { NeonInput } from '../../../components/neon/NeonInput';
 import { NeonSelect } from '../../../components/neon/NeonSelect';
+import type { ImageProviderId } from '../../../core/image-studio/ai/catalog';
+import type { ImageTask } from '../../../core/image-studio/document/schema';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
-import type { ImageProviderId } from '../../../core/image-studio/ai/catalog';
 import type { ProviderInfo } from '../store/imageStudioStore';
+
+type RuntimeModel = {
+  id: string;
+  name: string;
+  provider: string;
+  costBucket: string;
+  classification: string;
+  endpoint: string | null;
+  capabilities: { tasks: ImageTask[] };
+};
+
+type RuntimeJob = {
+  jobId: string;
+  task: string;
+  provider: string;
+  modelId: string;
+  prompt: string;
+  status: string;
+  progress: number;
+  error?: string;
+};
+
+const SOURCE_REQUIRED_TASKS = new Set<ImageTask>([
+  'image-to-image',
+  'outpainting',
+  'background-removal',
+  'upscaling',
+  'restoration',
+  'style-transfer',
+]);
 
 export const ImageStudioAIStudioPanel: React.FC = () => {
   const { t } = useTranslation();
   const {
+    currentDocument,
     providerStatus,
     modelCatalog,
     aiJobs,
@@ -23,48 +55,52 @@ export const ImageStudioAIStudioPanel: React.FC = () => {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
-  const [task, setTask] = useState('text-to-image');
-  const [imageCount, setImageCount] = useState(1);
+  const [task, setTask] = useState<ImageTask>('text-to-image');
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
-  const [sourceLayerId, setSourceLayerId] = useState('');
+  const [sourceAssetId, setSourceAssetId] = useState('');
   const [credential, setCredential] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [modelTasks, setModelTasks] = useState<Record<string, ImageTask[]>>({});
 
-useEffect(() => {
-      void window.knouxImageStudioAPI.listProviders().then((providers) => {
-        setProviderStatus(providers as unknown as Record<string, ProviderInfo>);
-      }).catch(() => undefined);
+  const applyModels = useCallback((models: RuntimeModel[]): void => {
+    setModelTasks(Object.fromEntries(models.map((model) => [model.id, model.capabilities?.tasks ?? []])));
+    setModelCatalog(models.map((model) => ({
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+      task: model.capabilities?.tasks?.[0] ?? 'text-to-image',
+      pricing: model.classification ?? model.costBucket ?? 'unknown',
+    })));
+  }, [setModelCatalog]);
+
+  useEffect(() => {
+    void window.knouxImageStudioAPI.listProviders().then((providers) => {
+      const entries = (providers as ProviderInfo[])
+        .filter((provider) => provider.id !== 'mock')
+        .map((provider) => [provider.id, provider] as const);
+      setProviderStatus(Object.fromEntries(entries));
+    }).catch(() => setErrorKey('imageStudio.loadProvidersFailed'));
 
     void window.knouxImageStudioAPI.listModels().then((models) => {
-      setModelCatalog((models as Array<{ id: string; name: string; provider: string; costBucket: string; classification: string; endpoint: string | null; capabilities: { tasks: string[] } }>).map((m) => ({
-        id: m.id,
-        name: m.name,
-        provider: m.provider,
-        task: m.capabilities?.tasks?.[0] ?? 'text-to-image',
-        pricing: m.classification ?? m.costBucket ?? 'unknown',
-      })));
-    }).catch(() => undefined);
+      applyModels(models as RuntimeModel[]);
+    }).catch(() => setErrorKey('imageStudio.loadModelsFailed'));
 
     void window.knouxImageStudioAPI.listJobs().then((jobs) => {
-      setAiJobs(jobs as Array<{ jobId: string; task: string; provider: string; modelId: string; prompt: string; status: string; progress: number; error?: string }>);
-    }).catch(() => undefined);
-  }, [setProviderStatus, setModelCatalog, setAiJobs]);
+      setAiJobs(jobs as RuntimeJob[]);
+    }).catch(() => setErrorKey('imageStudio.loadJobsFailed'));
+  }, [applyModels, setProviderStatus, setAiJobs]);
 
   const handleRefreshModels = useCallback(async (): Promise<void> => {
     try {
       const models = await window.knouxImageStudioAPI.refreshModels();
-      setModelCatalog((models as Array<{ id: string; name: string; provider: string; costBucket: string; classification: string; endpoint: string | null; capabilities: { tasks: string[] } }>).map((m) => ({
-        id: m.id,
-        name: m.name,
-        provider: m.provider,
-        task: m.capabilities?.tasks?.[0] ?? 'text-to-image',
-        pricing: m.classification ?? m.costBucket ?? 'unknown',
-      })));
+      applyModels(models as RuntimeModel[]);
+      setErrorKey(null);
     } catch {
-      // silently ignore refresh failures
+      setErrorKey('imageStudio.refreshModelsFailed');
     }
-  }, [setModelCatalog]);
+  }, [applyModels]);
 
   const handleSetCredential = useCallback(async (): Promise<void> => {
     if (!selectedProvider || !credential) return;
@@ -72,9 +108,10 @@ useEffect(() => {
       await window.knouxImageStudioAPI.setCredential(selectedProvider, credential);
       setCredential('');
       const status = await window.knouxImageStudioAPI.providerStatus();
-      setProviderStatus(status as Record<string, { id: string; name: string; configured: boolean; healthy: boolean; storageMode: string; keyMasked: string }>);
+      setProviderStatus(status as Record<string, ProviderInfo>);
+      setErrorKey(null);
     } catch {
-      // silently ignore credential errors
+      setErrorKey('imageStudio.credentialUpdateFailed');
     }
   }, [selectedProvider, credential, setProviderStatus]);
 
@@ -82,46 +119,53 @@ useEffect(() => {
     try {
       await window.knouxImageStudioAPI.removeCredential(provider);
       const status = await window.knouxImageStudioAPI.providerStatus();
-      setProviderStatus(status as Record<string, { id: string; name: string; configured: boolean; healthy: boolean; storageMode: string; keyMasked: string }>);
+      setProviderStatus(status as Record<string, ProviderInfo>);
+      setErrorKey(null);
     } catch {
-      // silently ignore
+      setErrorKey('imageStudio.credentialRemoveFailed');
     }
   }, [setProviderStatus]);
 
   const handleCreateJob = useCallback(async (): Promise<void> => {
     if (!prompt || !selectedProvider || !selectedModel) return;
+    if (SOURCE_REQUIRED_TASKS.has(task) && !sourceAssetId) {
+      setErrorKey('imageStudio.createJobFailed');
+      return;
+    }
     setIsGenerating(true);
     try {
-       await window.knouxImageStudioAPI.createJob({
-         task: task as 'text-to-image',
-          provider: selectedProvider as ImageProviderId,
-         modelId: selectedModel,
-         prompt,
-         negativePrompt: negativePrompt || null,
+      await window.knouxImageStudioAPI.createJob({
+        task,
+        provider: selectedProvider as ImageProviderId,
+        modelId: selectedModel,
+        prompt,
+        negativePrompt: negativePrompt || null,
         seed: Math.floor(Math.random() * 2147483647),
         width,
         height,
         maskAssetId: null,
-        sourceAssetId: sourceLayerId || null,
+        sourceAssetId: sourceAssetId || null,
       });
       setPrompt('');
       setNegativePrompt('');
       const jobs = await window.knouxImageStudioAPI.listJobs();
-      setAiJobs(jobs as Array<{ jobId: string; task: string; provider: string; modelId: string; prompt: string; status: string; progress: number; error?: string }>);
+      setAiJobs(jobs as RuntimeJob[]);
+      setErrorKey(null);
     } catch {
-      // silently ignore job creation errors
+      setErrorKey('imageStudio.createJobFailed');
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, negativePrompt, selectedProvider, selectedModel, task, width, height, sourceLayerId, setAiJobs]);
+  }, [prompt, selectedProvider, selectedModel, task, sourceAssetId, negativePrompt, width, height, setAiJobs]);
 
   const handleCancelJob = useCallback(async (jobId: string): Promise<void> => {
     try {
       await window.knouxImageStudioAPI.cancelJob(jobId);
       const jobs = await window.knouxImageStudioAPI.listJobs();
-      setAiJobs(jobs as Array<{ jobId: string; task: string; provider: string; modelId: string; prompt: string; status: string; progress: number; error?: string }>);
+      setAiJobs(jobs as RuntimeJob[]);
+      setErrorKey(null);
     } catch {
-      // silently ignore
+      setErrorKey('imageStudio.cancelJobFailed');
     }
   }, [setAiJobs]);
 
@@ -129,9 +173,10 @@ useEffect(() => {
     try {
       await window.knouxImageStudioAPI.retryJob(jobId);
       const jobs = await window.knouxImageStudioAPI.listJobs();
-      setAiJobs(jobs as Array<{ jobId: string; task: string; provider: string; modelId: string; prompt: string; status: string; progress: number; error?: string }>);
+      setAiJobs(jobs as RuntimeJob[]);
+      setErrorKey(null);
     } catch {
-      // silently ignore
+      setErrorKey('imageStudio.retryJobFailed');
     }
   }, [setAiJobs]);
 
@@ -140,45 +185,72 @@ useEffect(() => {
       const document = await window.knouxImageStudioAPI.importResult(jobId, true);
       useImageStudioStore.getState().setCurrentDocument(document);
       useImageStudioStore.getState().setDirty(true);
+      setErrorKey(null);
     } catch {
-      // silently ignore import errors
+      setErrorKey('imageStudio.importResultFailed');
     }
   }, []);
 
   const providerOptions = Object.values(providerStatus)
-    .filter((p) => p.wired === true && p.id !== 'mock' && p.id !== 'local' && p.id !== 'openrouter')
-    .map((p) => ({
-      value: p.id,
-      label: `${p.name} (${p.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')})`,
+    .filter((provider) => provider.wired === true && provider.id !== 'mock' && provider.id !== 'local' && provider.id !== 'openrouter')
+    .map((provider) => ({
+      value: provider.id,
+      label: `${provider.name} (${provider.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')})`,
     }));
 
   const modelOptions = modelCatalog
-    .filter((m) => (!selectedProvider || m.provider === selectedProvider) && m.task === task && m.id !== 'knoux-mock-image')
-    .map((m) => ({ value: m.id, label: `${m.name} (${m.pricing})` }));
+    .filter((model) =>
+      (!selectedProvider || model.provider === selectedProvider)
+      && (modelTasks[model.id]?.includes(task) ?? false)
+      && model.id !== 'knoux-mock-image'
+    )
+    .map((model) => ({ value: model.id, label: `${model.name} (${model.pricing})` }));
 
   const taskOptions = [
-    { value: 'text-to-image', label: 'Text to Image' },
-    { value: 'image-to-image', label: 'Image to Image' },
-    { value: 'inpainting', label: 'Inpainting' },
-    { value: 'outpainting', label: 'Outpainting' },
-    { value: 'background-removal', label: 'Background Removal' },
-    { value: 'upscaling', label: 'Upscaling' },
-    { value: 'restoration', label: 'Restoration' },
-    { value: 'style-transfer', label: 'Style Transfer' },
+    { value: 'text-to-image', label: t('imageStudio.taskTextToImage') },
+    { value: 'image-to-image', label: t('imageStudio.taskImageToImage') },
+    { value: 'outpainting', label: t('imageStudio.taskOutpainting') },
+    { value: 'background-removal', label: t('imageStudio.taskBackgroundRemoval') },
+    { value: 'upscaling', label: t('imageStudio.taskUpscaling') },
+    { value: 'restoration', label: t('imageStudio.taskRestoration') },
+    { value: 'style-transfer', label: t('imageStudio.taskStyleTransfer') },
   ];
 
-   return (
+  const sourceOptions = useMemo(() => [
+    { value: '', label: t('imageStudio.none') },
+    ...(currentDocument?.layers.flatMap((layer) =>
+      layer.kind === 'raster' ? [{ value: layer.assetId, label: layer.name }] : []
+    ) ?? []),
+  ], [currentDocument, t]);
+
+  const requiresSource = SOURCE_REQUIRED_TASKS.has(task);
+  const generationBlocked = !prompt
+    || !selectedProvider
+    || !selectedModel
+    || isGenerating
+    || (requiresSource && !sourceAssetId);
+
+  return (
     <div className="image-studio-ai-panel">
       <h3>{t('imageStudio.aiStudio')}</h3>
+
+      {errorKey && (
+        <div className="image-studio-error-state" role="alert">
+          <span>{t(errorKey)}</span>
+          <NeonButton variant="ghost" size="sm" onClick={() => setErrorKey(null)}>
+            {t('imageStudio.dismiss')}
+          </NeonButton>
+        </div>
+      )}
 
       <div className="image-studio-provider-status">
         <span>{t('imageStudio.providerStatus')}:</span>
         {Object.values(providerStatus).length === 0 && <span>{t('imageStudio.offline')}</span>}
-        {Object.values(providerStatus).map((p) => (
-          <span key={p.id} className={`provider-status ${p.configured ? 'configured' : 'unconfigured'}`}>
-            {p.name}: {p.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')}
-            {p.configured && (
-              <NeonButton variant="ghost" size="sm" onClick={() => void handleRemoveCredential(p.id)}>{t('imageStudio.removeCredential')}</NeonButton>
+        {Object.values(providerStatus).filter((provider) => provider.id !== 'mock').map((provider) => (
+          <span key={provider.id} className={`provider-status ${provider.configured ? 'configured' : 'unconfigured'}`}>
+            {provider.name}: {provider.configured ? t('imageStudio.credentialStatusConfigured') : t('imageStudio.credentialStatusNotConfigured')}
+            {provider.configured && (
+              <NeonButton variant="ghost" size="sm" onClick={() => void handleRemoveCredential(provider.id)}>{t('imageStudio.removeCredential')}</NeonButton>
             )}
           </span>
         ))}
@@ -186,7 +258,15 @@ useEffect(() => {
 
       <label>
         <span>{t('imageStudio.provider')}</span>
-        <NeonSelect value={selectedProvider} onChange={setSelectedProvider} options={providerOptions} aria-label={t('imageStudio.provider')} />
+        <NeonSelect
+          value={selectedProvider}
+          onChange={(value) => {
+            setSelectedProvider(value);
+            setSelectedModel('');
+          }}
+          options={providerOptions}
+          aria-label={t('imageStudio.provider')}
+        />
       </label>
 
       <label>
@@ -197,41 +277,44 @@ useEffect(() => {
 
       <label>
         <span>{t('imageStudio.task')}</span>
-        <NeonSelect value={task} onChange={setTask} options={taskOptions} aria-label={t('imageStudio.task')} />
+        <NeonSelect
+          value={task}
+          onChange={(value) => {
+            setTask(value as ImageTask);
+            setSelectedModel('');
+          }}
+          options={taskOptions}
+          aria-label={t('imageStudio.task')}
+        />
       </label>
 
       <label>
         <span>{t('imageStudio.prompt')}</span>
-        <NeonInput value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label={t('imageStudio.prompt')} />
+        <NeonInput value={prompt} onChange={(event) => setPrompt(event.target.value)} aria-label={t('imageStudio.prompt')} />
       </label>
 
       <label>
         <span>{t('imageStudio.negativePrompt')}</span>
-        <NeonInput value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} aria-label={t('imageStudio.negativePrompt')} />
+        <NeonInput value={negativePrompt} onChange={(event) => setNegativePrompt(event.target.value)} aria-label={t('imageStudio.negativePrompt')} />
       </label>
 
       <label>
         <span>{t('imageStudio.sourceLayer')}</span>
         <NeonSelect
-          value={sourceLayerId}
-          onChange={setSourceLayerId}
-          options={[{ value: '', label: 'None' }, ...(useImageStudioStore.getState().currentDocument?.layers.map((l) => ({ value: l.id, label: l.name })) ?? [])]}
+          value={sourceAssetId}
+          onChange={setSourceAssetId}
+          options={sourceOptions}
           aria-label={t('imageStudio.sourceLayer')}
         />
       </label>
 
       <label>
-        <span>{t('imageStudio.imageCount')}</span>
-        <NeonInput type="number" min={1} max={4} value={imageCount} onChange={(e) => setImageCount(Math.max(1, Math.min(4, Number(e.target.value))))} aria-label={t('imageStudio.imageCount')} />
-      </label>
-
-      <label>
         <span>{t('imageStudio.size')}</span>
-        <NeonInput type="number" min={64} max={2048} value={width} onChange={(e) => setWidth(Number(e.target.value))} aria-label={t('imageStudio.width')} />
-        <NeonInput type="number" min={64} max={2048} value={height} onChange={(e) => setHeight(Number(e.target.value))} aria-label={t('imageStudio.height')} />
+        <NeonInput type="number" min={64} max={2048} value={width} onChange={(event) => setWidth(Number(event.target.value))} aria-label={t('imageStudio.width')} />
+        <NeonInput type="number" min={64} max={2048} value={height} onChange={(event) => setHeight(Number(event.target.value))} aria-label={t('imageStudio.height')} />
       </label>
 
-      {selectedModel && modelCatalog.find((m) => m.id === selectedModel)?.pricing === 'paid' && (
+      {selectedModel && modelCatalog.find((model) => model.id === selectedModel)?.pricing === 'paid' && (
         <div className="image-studio-paid-confirm" role="alert">
           {t('imageStudio.paidConfirmation')}
         </div>
@@ -241,7 +324,7 @@ useEffect(() => {
         variant="primary"
         size="sm"
         onClick={() => void handleCreateJob()}
-        disabled={!prompt || !selectedProvider || !selectedModel || isGenerating}
+        disabled={generationBlocked}
       >
         {t('imageStudio.generate')}
       </NeonButton>
@@ -251,7 +334,7 @@ useEffect(() => {
         <NeonInput
           type="password"
           value={credential}
-          onChange={(e) => setCredential(e.target.value)}
+          onChange={(event) => setCredential(event.target.value)}
           placeholder={t('imageStudio.addCredential')}
           aria-label={t('imageStudio.addCredential')}
         />

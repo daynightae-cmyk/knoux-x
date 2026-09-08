@@ -32,7 +32,7 @@ function fakeIpc(): FakeIpc {
 
 function identity() {
   return {
-    product: 'KNOUX Player X' as const,
+    product: 'Knoux X' as const,
     version: '2.0.0',
     sha: 'a'.repeat(40),
     branch: 'test/native-runtime',

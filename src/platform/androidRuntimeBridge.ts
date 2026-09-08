@@ -252,7 +252,7 @@ function installCoreOverrides(): void {
   const system = {
     ...base.system,
     getInfo: async () => ({
-      product: 'KNOUX Player X' as const,
+      product: 'Knoux X' as const,
       version: '2.0.0-android',
       platform: 'android',
       arch: 'mobile',
@@ -265,7 +265,7 @@ function installCoreOverrides(): void {
       nodeVersion: 'not-applicable',
     }),
     getBuildInfo: async () => ({
-      product: 'KNOUX Player X' as const,
+      product: 'Knoux X' as const,
       version: '2.0.0-android',
       sha: 'runtime',
       branch: 'main',
@@ -559,7 +559,7 @@ function installOtherFeatureBridges(): void {
 export function installAndroidRuntimeBridge(): boolean {
   if (!isAndroidNativeRuntime()) return false;
   installBrowserPreviewBridge();
-  window.knouxRuntime = Object.freeze({ edition: 'android', product: 'KNOUX Player X', bridgeVersion: 2 });
+  window.knouxRuntime = Object.freeze({ edition: 'android', product: 'Knoux X', bridgeVersion: 2 });
   document.documentElement.dataset.runtime = 'android';
   document.documentElement.dataset.platform = 'android';
   installCoreOverrides();

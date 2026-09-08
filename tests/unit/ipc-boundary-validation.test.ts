@@ -33,7 +33,7 @@ function fakeIpc(): FakeIpc {
 function configuredRegistry(ipc: FakeIpc, preloadPath: string): AuthoritativeIpcRegistry {
   const registry = new AuthoritativeIpcRegistry(ipc as never);
   registry.configureStartup(preloadPath, {
-    product: 'KNOUX Player X', version: '2.0.0', sha: 'a'.repeat(40), branch: 'test/ipc-boundary',
+    product: 'Knoux X', version: '2.0.0', sha: 'a'.repeat(40), branch: 'test/ipc-boundary',
     builtAt: '2026-08-01T00:00:00.000Z', packaged: false, electronVersion: '32.3.3',
   });
   registry.configureTrustedSender(() => true);
@@ -161,8 +161,8 @@ describe('complete IPC schema and basic boundary', () => {
     [IPC_INVOKE.FILE_OPEN_DIRECTORY, false],
     [IPC_INVOKE.FILE_SAVE, {}],
     [IPC_INVOKE.FILE_EXISTS, 'yes'],
-    [IPC_INVOKE.SYSTEM_INFO, { product: 'KNOUX Player X' }],
-    [IPC_INVOKE.SYSTEM_GET_BUILD_INFO, { product: 'KNOUX Player X', sha: 'placeholder' }],
+    [IPC_INVOKE.SYSTEM_INFO, { product: 'Knoux X' }],
+    [IPC_INVOKE.SYSTEM_GET_BUILD_INFO, { product: 'Knoux X', sha: 'placeholder' }],
     [IPC_INVOKE.SYSTEM_GET_IPC_HEALTH, { schemaVersion: 1, status: 'ready' }],
   ] as const)('rejects invalid %s success values', async (channel, invalidValue) => {
     const ipc = fakeIpc();

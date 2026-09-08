@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * KNOUX Player X™ - Preload Script
+ * Knoux X™ - Preload Script
  * ═══════════════════════════════════════════════════════════════════════
  * 
  * نص التحميل المسبق - يوفر واجهة آمنة بين Main و Renderer
@@ -416,7 +416,7 @@ const windowAPI = {
 
 const systemAPI = {
   getInfo: (): Promise<{
-    product: 'KNOUX Player X';
+    product: 'Knoux X';
     version: string;
     platform: string;
     arch: string;

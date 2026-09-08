@@ -11,16 +11,17 @@ const appRoot = path.join(androidRoot, 'app');
 const resRoot = path.join(appRoot, 'src', 'main', 'res');
 const manifestPath = path.join(appRoot, 'src', 'main', 'AndroidManifest.xml');
 const buildGradlePath = path.join(appRoot, 'build.gradle');
-const dayLogoPath = path.join(root, 'assets', 'branding', 'knoux-logo-day.png');
-const nightLogoPath = path.join(root, 'assets', 'branding', 'knoux-logo-night.png');
+const masterLogoPath = path.join(root, 'assets', 'branding', 'knoux-logo-master.png');
+const masterHashPath = path.join(root, 'assets', 'branding', 'official-brand.sha256');
 const reportPath = path.join(androidRoot, 'knoux-branding-report.json');
 
 const APP_NAME = 'KNOUX X';
 const APPLICATION_ID = 'dev.knoux.playerx';
 const VERSION_NAME = '2.0.0';
 const VERSION_CODE = 20000;
-const BRAND_BACKGROUND = '#090B10';
-const BRAND_BACKGROUND_RGBA = { r: 9, g: 11, b: 16, alpha: 1 };
+const BRAND_BACKGROUND = '#F8F7FC';
+const BRAND_ACCENT = '#7828E8';
+const BRAND_BACKGROUND_RGBA = { r: 248, g: 247, b: 252, alpha: 1 };
 const TRANSPARENT_RGBA = { r: 0, g: 0, b: 0, alpha: 0 };
 
 const densities = [
@@ -66,81 +67,75 @@ function removeLegacyLauncherResources() {
   }
 }
 
-async function paddedLogo(source, canvasSize, contentRatio, background) {
-  const contentSize = Math.max(1, Math.round(canvasSize * contentRatio));
-  const logo = await sharp(source)
-    .resize(contentSize, contentSize, { fit: 'contain', withoutEnlargement: false })
+function circleMask(size) {
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="#fff"/></svg>`,
+  );
+}
+
+async function circularMaster(source, size) {
+  const resized = await sharp(source)
+    .resize(size, size, { fit: 'cover', position: 'centre', withoutEnlargement: false })
+    .ensureAlpha()
     .png()
     .toBuffer();
-  return sharp({
-    create: { width: canvasSize, height: canvasSize, channels: 4, background },
-  })
-    .composite([{ input: logo, gravity: 'centre' }])
+  return sharp(resized)
+    .composite([{ input: circleMask(size), blend: 'dest-in' }])
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 }
 
-async function roundLegacyIcon(source, canvasSize) {
-  const contentSize = Math.max(1, Math.round(canvasSize * 0.70));
-  const logo = await sharp(source)
-    .resize(contentSize, contentSize, { fit: 'contain', withoutEnlargement: false })
-    .png()
-    .toBuffer();
-  const circle = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasSize}" height="${canvasSize}" viewBox="0 0 ${canvasSize} ${canvasSize}"><circle cx="${canvasSize / 2}" cy="${canvasSize / 2}" r="${canvasSize / 2}" fill="${BRAND_BACKGROUND}"/></svg>`,
-  );
+async function circularIcon(source, canvasSize, diameterRatio) {
+  const diameter = Math.max(1, Math.round(canvasSize * diameterRatio));
+  const logo = await circularMaster(source, diameter);
   return sharp({
     create: { width: canvasSize, height: canvasSize, channels: 4, background: TRANSPARENT_RGBA },
   })
-    .composite([
-      { input: circle, gravity: 'centre' },
-      { input: logo, gravity: 'centre' },
-    ])
+    .composite([{ input: logo, gravity: 'centre' }])
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 }
 
 async function monochromeAdaptiveIcon(source, canvasSize) {
-  const contentSize = Math.max(1, Math.round(canvasSize * 0.62));
-  const { data, info } = await sharp(source)
-    .resize(contentSize, contentSize, { fit: 'contain', withoutEnlargement: false })
-    .flatten({ background: '#000000' })
-    .grayscale()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
+  const diameter = Math.max(1, Math.round(canvasSize * 0.64));
+  const masked = await circularMaster(source, diameter);
+  const { data, info } = await sharp(masked).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const rgba = Buffer.alloc(info.width * info.height * 4);
-  for (let index = 0; index < data.length; index += 1) {
-    const alpha = data[index];
-    const output = index * 4;
-    rgba[output] = 255;
-    rgba[output + 1] = 255;
-    rgba[output + 2] = 255;
-    rgba[output + 3] = alpha;
+  for (let index = 0; index < data.length; index += 4) {
+    const luminance = Math.round((data[index] + data[index + 1] + data[index + 2]) / 3);
+    const sourceAlpha = data[index + 3];
+    const alpha = Math.round(sourceAlpha * (1 - luminance / 255));
+    rgba[index] = 255;
+    rgba[index + 1] = 255;
+    rgba[index + 2] = 255;
+    rgba[index + 3] = alpha;
   }
-
-  const mask = await sharp(rgba, {
-    raw: { width: info.width, height: info.height, channels: 4 },
-  }).png().toBuffer();
-
+  const glyph = await sharp(rgba, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
   return sharp({
     create: { width: canvasSize, height: canvasSize, channels: 4, background: TRANSPARENT_RGBA },
   })
-    .composite([{ input: mask, gravity: 'centre' }])
+    .composite([{ input: glyph, gravity: 'centre' }])
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 }
 
 async function splash(source, width, height) {
-  const logoSize = Math.max(1, Math.round(Math.min(width, height) * 0.36));
-  const logo = await sharp(source)
-    .resize(logoSize, logoSize, { fit: 'contain', withoutEnlargement: false })
+  const logoSize = Math.max(1, Math.round(Math.min(width, height) * 0.42));
+  const logo = await circularMaster(source, logoSize);
+  const glowSize = Math.round(logoSize * 1.28);
+  const glow = await sharp({
+    create: { width: glowSize, height: glowSize, channels: 4, background: TRANSPARENT_RGBA },
+  })
+    .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${glowSize}" height="${glowSize}"><defs><radialGradient id="g"><stop offset="0" stop-color="#8B3DFF" stop-opacity="0.18"/><stop offset="1" stop-color="#8B3DFF" stop-opacity="0"/></radialGradient></defs><circle cx="50%" cy="50%" r="50%" fill="url(#g)"/></svg>`) }])
     .png()
     .toBuffer();
   return sharp({
     create: { width, height, channels: 4, background: BRAND_BACKGROUND_RGBA },
   })
-    .composite([{ input: logo, gravity: 'centre' }])
+    .composite([
+      { input: glow, gravity: 'centre' },
+      { input: logo, gravity: 'centre' },
+    ])
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 }
@@ -152,10 +147,14 @@ async function generateLauncherResources() {
     const directory = path.join(resRoot, `mipmap-${density}`);
     ensureDir(directory);
 
-    const legacy = await paddedLogo(dayLogoPath, legacySize, 0.74, BRAND_BACKGROUND_RGBA);
-    const round = await roundLegacyIcon(dayLogoPath, legacySize);
-    const foreground = await paddedLogo(dayLogoPath, adaptiveSize, 0.62, TRANSPARENT_RGBA);
-    const monochrome = await monochromeAdaptiveIcon(nightLogoPath, adaptiveSize);
+    // Legacy launcher files are deliberately transparent outside the circular
+    // official medallion. No square/rounded-square plate is synthesized.
+    const legacy = await circularIcon(masterLogoPath, legacySize, 0.90);
+    const round = await circularIcon(masterLogoPath, legacySize, 0.96);
+    // Android adaptive safe zone: official circle remains fully inside the
+    // center 66% while the platform applies its own launcher mask.
+    const foreground = await circularIcon(masterLogoPath, adaptiveSize, 0.66);
+    const monochrome = await monochromeAdaptiveIcon(masterLogoPath, adaptiveSize);
 
     fs.writeFileSync(path.join(directory, 'ic_launcher.png'), legacy);
     fs.writeFileSync(path.join(directory, 'ic_launcher_round.png'), round);
@@ -183,35 +182,29 @@ async function generateLauncherResources() {
 
 async function generateSplashResources() {
   ensureDir(path.join(resRoot, 'drawable'));
-  fs.writeFileSync(path.join(resRoot, 'drawable', 'splash.png'), await splash(nightLogoPath, 1080, 1080));
+  fs.writeFileSync(path.join(resRoot, 'drawable', 'splash.png'), await splash(masterLogoPath, 1080, 1080));
 
   for (const [density, width, height] of portraitSplashes) {
     const portraitDirectory = path.join(resRoot, `drawable-port-${density}`);
     const landscapeDirectory = path.join(resRoot, `drawable-land-${density}`);
     ensureDir(portraitDirectory);
     ensureDir(landscapeDirectory);
-    fs.writeFileSync(path.join(portraitDirectory, 'splash.png'), await splash(nightLogoPath, width, height));
-    fs.writeFileSync(path.join(landscapeDirectory, 'splash.png'), await splash(nightLogoPath, height, width));
+    fs.writeFileSync(path.join(portraitDirectory, 'splash.png'), await splash(masterLogoPath, width, height));
+    fs.writeFileSync(path.join(landscapeDirectory, 'splash.png'), await splash(masterLogoPath, height, width));
   }
 }
 
 function writeThemeResources() {
   const colors = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#090B10</color>
-    <color name="colorPrimaryDark">#090B10</color>
-    <color name="colorAccent">#D4AF37</color>
-    <color name="ic_launcher_background">#090B10</color>
-    <color name="knoux_system_background">#090B10</color>
-    <color name="knoux_splash_background">#090B10</color>
+    <color name="colorPrimary">${BRAND_BACKGROUND}</color>
+    <color name="colorPrimaryDark">${BRAND_BACKGROUND}</color>
+    <color name="colorAccent">${BRAND_ACCENT}</color>
+    <color name="ic_launcher_background">#00FFFFFF</color>
+    <color name="knoux_system_background">${BRAND_BACKGROUND}</color>
+    <color name="knoux_splash_background">${BRAND_BACKGROUND}</color>
 </resources>`;
 
-  // Keep the Capacitor 8.5 launch-theme contract intact. BridgeActivity switches
-  // from AppTheme.NoActionBarLaunch to AppTheme.NoActionBar during onCreate.
-  // Adding postSplashScreenTheme/windowSplashScreen* here leaves the Android 12+
-  // launch surface above the live WebView on some emulator/device builds. The
-  // official launcher icon remains the system splash icon on Android 12+, while
-  // @drawable/splash provides the branded legacy/window background everywhere.
   const styles = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
@@ -220,8 +213,8 @@ function writeThemeResources() {
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:statusBarColor">@color/knoux_system_background</item>
         <item name="android:navigationBarColor">@color/knoux_system_background</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
@@ -230,16 +223,16 @@ function writeThemeResources() {
         <item name="android:background">@null</item>
         <item name="android:statusBarColor">@color/knoux_system_background</item>
         <item name="android:navigationBarColor">@color/knoux_system_background</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
         <item name="android:statusBarColor">@color/knoux_system_background</item>
         <item name="android:navigationBarColor">@color/knoux_system_background</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>`;
 
@@ -279,18 +272,82 @@ function verifyManifestContract() {
   }
 }
 
-async function verifySources() {
-  for (const source of [dayLogoPath, nightLogoPath]) {
-    if (!fs.existsSync(source)) throw new Error(`Official KNOUX brand source missing: ${source}`);
-    const metadata = await sharp(source).metadata();
-    if (!metadata.width || !metadata.height || metadata.width < 1024 || metadata.height < 1024) {
-      throw new Error(`Official KNOUX logo is too small for Android launcher generation: ${source}`);
-    }
+async function verifySource() {
+  if (!fs.existsSync(masterLogoPath)) throw new Error(`Official KNOUX X master missing: ${masterLogoPath}`);
+  if (!fs.existsSync(masterHashPath)) throw new Error(`Official KNOUX X hash record missing: ${masterHashPath}`);
+  const metadata = await sharp(masterLogoPath).metadata();
+  if (!metadata.width || !metadata.height || metadata.width < 512 || metadata.height < 512 || metadata.width !== metadata.height) {
+    throw new Error(`Official KNOUX X master must be a square PNG of at least 512px: ${metadata.width}x${metadata.height}`);
   }
+  const expected = fs.readFileSync(masterHashPath, 'utf8').trim().split(/\s+/)[0];
+  const actual = sha256(masterLogoPath);
+  if (expected !== actual) throw new Error(`Official KNOUX X master SHA-256 mismatch: expected ${expected}, got ${actual}`);
+  return { width: metadata.width, height: metadata.height, sha256: actual };
 }
 
-function buildReport() {
+async function alphaStats(filePath) {
+  const { data, info } = await sharp(filePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const alphaAt = (x, y) => data[(y * info.width + x) * 4 + 3];
+  const corners = [
+    alphaAt(0, 0),
+    alphaAt(info.width - 1, 0),
+    alphaAt(0, info.height - 1),
+    alphaAt(info.width - 1, info.height - 1),
+  ];
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+  let nonEmpty = 0;
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      const alpha = alphaAt(x, y);
+      if (alpha <= 2) continue;
+      nonEmpty += 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return {
+    width: info.width,
+    height: info.height,
+    corners,
+    centerAlpha: alphaAt(Math.floor(info.width / 2), Math.floor(info.height / 2)),
+    nonEmpty,
+    bounds: nonEmpty ? { minX, minY, maxX, maxY } : null,
+  };
+}
+
+async function verifyGeneratedLauncher() {
+  const checks = [];
+  for (const [density, legacySize, adaptiveSize] of densities) {
+    for (const [name, expectedSize, safeRatio] of [
+      ['ic_launcher.png', legacySize, 0.94],
+      ['ic_launcher_round.png', legacySize, 0.99],
+      ['ic_launcher_foreground.png', adaptiveSize, 0.70],
+    ]) {
+      const filePath = path.join(resRoot, `mipmap-${density}`, name);
+      const stats = await alphaStats(filePath);
+      if (stats.width !== expectedSize || stats.height !== expectedSize) throw new Error(`${name} ${density} has wrong dimensions.`);
+      if (stats.nonEmpty === 0 || stats.centerAlpha === 0) throw new Error(`${name} ${density} is empty or off-center.`);
+      if (stats.corners.some((alpha) => alpha !== 0)) throw new Error(`${name} ${density} has opaque exterior corners; square plate detected.`);
+      if (!stats.bounds) throw new Error(`${name} ${density} has no visible content.`);
+      const visibleWidth = stats.bounds.maxX - stats.bounds.minX + 1;
+      const visibleHeight = stats.bounds.maxY - stats.bounds.minY + 1;
+      if (visibleWidth / expectedSize > safeRatio || visibleHeight / expectedSize > safeRatio) {
+        throw new Error(`${name} ${density} exceeds its safe visual bounds.`);
+      }
+      checks.push({ density, name, ...stats });
+    }
+  }
+  return checks;
+}
+
+function buildReport(sourceInfo, launcherChecks) {
   const representative = path.join(resRoot, 'mipmap-xxxhdpi', 'ic_launcher.png');
+  const round = path.join(resRoot, 'mipmap-xxxhdpi', 'ic_launcher_round.png');
   const foreground = path.join(resRoot, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png');
   const monochrome = path.join(resRoot, 'mipmap-xxxhdpi', 'ic_launcher_monochrome.png');
   const report = {
@@ -301,23 +358,30 @@ function buildReport() {
     versionName: VERSION_NAME,
     versionCode: VERSION_CODE,
     source: {
-      day: { path: path.relative(root, dayLogoPath).replaceAll('\\', '/'), sha256: sha256(dayLogoPath) },
-      night: { path: path.relative(root, nightLogoPath).replaceAll('\\', '/'), sha256: sha256(nightLogoPath) },
+      path: path.relative(root, masterLogoPath).replaceAll('\\', '/'),
+      width: sourceInfo.width,
+      height: sourceInfo.height,
+      sha256: sourceInfo.sha256,
     },
     launcher: {
       standard: '@mipmap/ic_launcher',
       round: '@mipmap/ic_launcher_round',
       adaptive: true,
       monochromeAndroid13: true,
-      safeZoneContentRatio: 0.62,
+      visualShape: 'circular-medallion',
+      exteriorTransparencyVerified: true,
+      adaptiveSafeZoneContentRatio: 0.66,
       xxxhdpiSha256: sha256(representative),
+      xxxhdpiRoundSha256: sha256(round),
       xxxhdpiForegroundSha256: sha256(foreground),
       xxxhdpiMonochromeSha256: sha256(monochrome),
+      alphaChecks: launcherChecks,
     },
     splash: {
       branded: true,
-      source: 'assets/branding/knoux-logo-night.png',
+      source: 'assets/branding/knoux-logo-master.png',
       background: BRAND_BACKGROUND,
+      mode: 'daylight',
     },
   };
   writeText(reportPath, JSON.stringify(report, null, 2));
@@ -326,15 +390,16 @@ function buildReport() {
 
 async function main() {
   if (!fs.existsSync(androidRoot)) throw new Error('Generated Android project was not found. Run capacitor add/sync first.');
-  await verifySources();
+  const sourceInfo = await verifySource();
   patchBuildIdentity();
   await generateLauncherResources();
   await generateSplashResources();
   writeThemeResources();
   verifyManifestContract();
-  const report = buildReport();
+  const launcherChecks = await verifyGeneratedLauncher();
+  const report = buildReport(sourceInfo, launcherChecks);
   console.log(`KNOUX Android branding prepared: ${report.appName} (${report.applicationId})`);
-  console.log(`Launcher source SHA-256: ${report.source.day.sha256}`);
+  console.log(`Official source SHA-256: ${report.source.sha256}`);
   console.log(`Launcher xxxhdpi SHA-256: ${report.launcher.xxxhdpiSha256}`);
 }
 

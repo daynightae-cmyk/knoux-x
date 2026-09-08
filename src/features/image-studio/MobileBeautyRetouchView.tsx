@@ -5,6 +5,7 @@ import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
 import { ImageEditorView } from '../image-editor/ImageEditorView';
+import './mobileBeautyStudio.css';
 
 interface RetouchAssetImport {
   assetRef: string;
@@ -20,6 +21,7 @@ interface RetouchAssetImport {
 export const MobileBeautyRetouchView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const addNotification = useAppStore((state) => state.addNotification);
+  const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
   const [opening, setOpening] = useState(false);
 
@@ -28,14 +30,14 @@ export const MobileBeautyRetouchView: React.FC = () => {
     setOpening(true);
     try {
       const filePath = await window.knouxAPI.file.openFile({
-        title: 'Open photo',
-        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }],
+        title: 'Open portrait',
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }],
         properties: ['openFile'],
       });
       if (!filePath) return;
       const asset = await window.knouxImageStudioAPI.importRetouchAsset(filePath) as RetouchAssetImport;
       const bytes = await window.knouxImageStudioAPI.readRetouchProxy(asset.proxyRef);
-      if (!bytes) throw new Error('The selected photo could not be prepared for local editing.');
+      if (!bytes) throw new Error('proxy-unavailable');
       const dataUrl = URL.createObjectURL(new Blob([bytes], { type: asset.mime }));
       setSource({
         dataUrl,
@@ -47,11 +49,11 @@ export const MobileBeautyRetouchView: React.FC = () => {
         originalWidth: asset.width,
         originalHeight: asset.height,
       });
-    } catch (reason) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Could not open photo',
-        message: reason instanceof Error ? reason.message : 'Choose another image and try again.',
+        message: 'Choose another JPG, PNG, WebP or BMP image and try again.',
         duration: 4200,
       });
     } finally {
@@ -60,27 +62,44 @@ export const MobileBeautyRetouchView: React.FC = () => {
   }, [addNotification, opening, setSource]);
 
   return (
-    <section className="knoux-mobile-creative-surface kmc-beauty-retouch" data-component="MobileBeautyRetouchView">
-      <header className="kmc-topbar">
+    <section className="knoux-mobile-creative-surface kmc-beauty-retouch kmc-beauty-studio" data-component="MobileBeautyRetouchView">
+      <header className="kmc-topbar kmc-beauty-topbar">
         <button type="button" className="kmc-round-button" aria-label="Back to home" onClick={() => setView('home')}>
           <ArrowLeft size={21} />
         </button>
         <div className="kmc-brand-lockup">
           <BrandMark size={38} />
-          <div><strong>KNOUX <span>X</span></strong><small>BEAUTY RETOUCH</small></div>
+          <div><strong>KNOUX <span>X</span></strong><small>BEAUTY STUDIO</small></div>
         </div>
         <button type="button" className="kmc-export-button" onClick={() => void openPhoto()} disabled={opening}>
-          <ImagePlus size={17} /> {opening ? 'Opening' : 'Open Photo'}
+          <ImagePlus size={17} /> {opening ? 'Opening' : source ? 'Change Photo' : 'Open Photo'}
         </button>
       </header>
 
-      <div className="kmc-intro-card kmc-beauty-intro">
-        <div><span>NATURAL BEAUTY · LOCAL FIRST</span><h1>Retouch <em>naturally</em></h1><p>Skin, face, eyes, makeup and liquify stay connected to the existing KNOUX retouch engine and local face analysis.</p></div>
-        <span className="kmc-intro-icon"><Sparkles size={30} /></span>
-      </div>
+      {!source && (
+        <button type="button" className="kmc-beauty-picker" onClick={() => void openPhoto()} disabled={opening}>
+          <span className="kmc-beauty-picker__icon"><Sparkles size={34} /></span>
+          <strong>Open a portrait</strong>
+          <span>Face analysis stays on this device. No portrait upload is required for local beauty tools.</span>
+          <em>{opening ? 'Opening device…' : 'Choose photo'}</em>
+        </button>
+      )}
 
-      <div className="kmc-engine kmc-image-editor-engine kmc-beauty-engine">
-        <ImageEditorView />
+      {source && (
+        <div className="kmc-beauty-document-bar">
+          <div>
+            <span>LOCAL BEAUTY PROJECT</span>
+            <strong>{source.name}</strong>
+          </div>
+          <small>{source.originalWidth && source.originalHeight ? `${source.originalWidth} × ${source.originalHeight}` : 'Local image'}</small>
+        </div>
+      )}
+
+      <div className={source ? 'kmc-beauty-workspace has-document' : 'kmc-beauty-workspace'}>
+        <div className="kmc-beauty-preview-engine" aria-label="Beauty image preview">
+          <ImageEditorView />
+        </div>
+        <div id="knoux-mobile-beauty-host" className="kmc-beauty-controls-host" aria-live="polite" />
       </div>
     </section>
   );

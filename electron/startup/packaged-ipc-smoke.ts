@@ -154,7 +154,7 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
 
     await atomicJson(options.evidencePath, {
       schemaVersion: 1,
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       mode: 'packaged-context-bridge-ipc-smoke',
       success: true,
       packaged: app.isPackaged,

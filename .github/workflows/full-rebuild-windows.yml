@@ -153,7 +153,7 @@ jobs:
       - name: Verify package, media tools, Open With, single instance, smoke, and cleanup
         shell: pwsh
         run: |
-          $exe = Get-Item -LiteralPath 'out\KNOUX Player X-win32-x64\knoux-player-x.exe'
+          $exe = Get-Item -LiteralPath 'out\Knoux X-win32-x64\knoux-player-x.exe'
           if (-not $exe -or $exe.Length -le 0) { throw 'Packaged executable is missing or empty.' }
           $squirrelInstaller = Get-Item -LiteralPath $env:KNOUX_SQUIRREL_SETUP
           $visualInstaller = Get-Item -LiteralPath $env:KNOUX_VISUAL_INSTALLER
@@ -181,7 +181,7 @@ jobs:
           }
           $settingsDocument = Get-Content -LiteralPath $settingsEvidence -Raw | ConvertFrom-Json
           $requiredSettingsChecks = @('atomic-save', 'restart-restore', 'reset-defaults', 'import-export-round-trip', 'corrupt-settings-backup-recovery', 'no-temporary-files')
-          if ($settingsDocument.product -ne 'KNOUX Player X' -or $settingsDocument.success -ne $true -or
+          if ($settingsDocument.product -ne 'Knoux X' -or $settingsDocument.success -ne $true -or
               $settingsDocument.mode -ne 'settings-persistence' -or $settingsDocument.packaged -ne $true -or
               $settingsDocument.schemaVersion -ne 3 -or $settingsDocument.corruptBackups -ne 1) {
             Get-Content -LiteralPath $settingsEvidence | Write-Host

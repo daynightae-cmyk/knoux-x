@@ -1,0 +1,67 @@
+name: KNOUX Official Brand Sync
+
+on:
+  push:
+    branches:
+      - codex/absolute-final-product-closure-20260908
+    paths:
+      - '.github/closure/sync-official-brand.marker'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-official-brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/absolute-final-product-closure-20260908
+          fetch-depth: 0
+
+      - name: Download canonical KNOUX X brand master once
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/branding
+          curl --fail --location --retry 5 --retry-delay 2 \
+            'https://i.postimg.cc/26kx9wZK/cropped-circle-image.png' \
+            --output assets/branding/knoux-logo-master.png.tmp
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, struct
+          source = Path('assets/branding/knoux-logo-master.png.tmp')
+          raw = source.read_bytes()
+          if raw[:8] != b'\x89PNG\r\n\x1a\n':
+              raise SystemExit('Official brand URL did not return a PNG.')
+          if len(raw) < 33 or raw[12:16] != b'IHDR':
+              raise SystemExit('Official brand PNG is missing IHDR.')
+          width, height = struct.unpack('>II', raw[16:24])
+          if width < 512 or height < 512:
+              raise SystemExit(f'Official brand source is too small: {width}x{height}')
+          if width != height:
+              raise SystemExit(f'Official circular brand master must be square: {width}x{height}')
+          digest = hashlib.sha256(raw).hexdigest()
+          Path('assets/branding/official-brand.sha256').write_text(
+              f'{digest}  knoux-logo-master.png\nwidth={width}\nheight={height}\nsource=https://i.postimg.cc/26kx9wZK/cropped-circle-image.png\n',
+              encoding='utf-8',
+          )
+          print(f'Official KNOUX X master: {width}x{height} sha256={digest}')
+          PY
+          mv assets/branding/knoux-logo-master.png.tmp assets/branding/knoux-logo-master.png
+
+      - name: Commit canonical local brand asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'KNOUX Closure Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add assets/branding/knoux-logo-master.png assets/branding/official-brand.sha256
+          if git diff --cached --quiet; then
+            echo 'Canonical brand asset already matches.'
+            exit 0
+          fi
+          git commit -m 'brand: import official KNOUX X master [skip closure-sync]'
+          git push origin HEAD:codex/absolute-final-product-closure-20260908

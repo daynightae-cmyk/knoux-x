@@ -42,7 +42,6 @@ async function premiumSplash(width, height) {
   const logoY = portrait ? Math.round(height * 0.34) : Math.round(height * 0.40);
   const titleY = logoY + Math.round(logoSize * 0.66);
   const signatureY = titleY + Math.round(titleSize * 1.35);
-  const baselineY = portrait ? Math.round(height * 0.84) : Math.round(height * 0.88);
   const svg = Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <defs>
@@ -99,9 +98,21 @@ async function writeSplashes() {
   }
 }
 
+function replaceColorResource(colors, name, value) {
+  const expression = new RegExp(`(<color name="${name}">)[^<]+(</color>)`);
+  if (!expression.test(colors)) {
+    throw new Error(`KNOUX Android color resource is missing: ${name}`);
+  }
+  return colors.replace(expression, `$1${value}$2`);
+}
+
 function patchColors() {
   let colors = fs.readFileSync(colorsPath, 'utf8');
-  colors = colors.replaceAll('#090B10', DEEP_BLACK).replace('#D4AF37', PURPLE);
+  colors = replaceColorResource(colors, 'colorPrimary', DEEP_BLACK);
+  colors = replaceColorResource(colors, 'colorPrimaryDark', DEEP_BLACK);
+  colors = replaceColorResource(colors, 'colorAccent', PURPLE);
+  colors = replaceColorResource(colors, 'knoux_system_background', DEEP_BLACK);
+  colors = replaceColorResource(colors, 'knoux_splash_background', DEEP_BLACK);
   fs.writeFileSync(colorsPath, colors, 'utf8');
 }
 

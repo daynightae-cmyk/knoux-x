@@ -53,7 +53,7 @@ describe('file dialog cancellation and authorization policy', () => {
     const preloadPath = path.join(root, 'preload-entry.js');
     await fsPromises.writeFile(preloadPath, 'synthetic');
     registry.configureStartup(preloadPath, {
-      product: 'KNOUX Player X', version: '2.0.0', sha: 'a'.repeat(40), branch: 'test/dialog',
+      product: 'Knoux X', version: '2.0.0', sha: 'a'.repeat(40), branch: 'test/dialog',
       builtAt: '2026-08-01T00:00:00.000Z', packaged: false, electronVersion: '32.3.3',
     });
     registry.configureTrustedSender(() => true);

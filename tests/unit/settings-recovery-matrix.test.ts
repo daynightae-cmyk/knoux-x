@@ -78,8 +78,8 @@ describe('settings migration, corruption, serialization, and isolation', () => {
     await settings.initialize();
     await settings.set('language', 'ar');
     const before = hash(await fs.readFile(storagePath));
-    await expect(settings.import(JSON.stringify({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'KNOUX Player X', settings: { unknownSetting: true } }))).rejects.toThrow('Unsupported application setting');
-    await expect(settings.import(JSON.stringify({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'KNOUX Player X', settings: { language: 'xx' } }))).rejects.toThrow();
+    await expect(settings.import(JSON.stringify({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'Knoux X', settings: { unknownSetting: true } }))).rejects.toThrow('Unsupported application setting');
+    await expect(settings.import(JSON.stringify({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'Knoux X', settings: { language: 'xx' } }))).rejects.toThrow();
     expect(await settings.get('language')).toBe('ar');
     expect(hash(await fs.readFile(storagePath))).toBe(before);
     await settings.shutdown();
@@ -95,7 +95,7 @@ describe('settings migration, corruption, serialization, and isolation', () => {
     all.workspace.sidebarWidth = 777;
     expect((await settings.getAll()).workspace.sidebarWidth).toBe(DEFAULT_APPLICATION_SETTINGS.workspace.sidebarWidth);
     const exported = JSON.parse(await settings.export());
-    expect(exported).toMatchObject({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'KNOUX Player X', settings: DEFAULT_APPLICATION_SETTINGS });
+    expect(exported).toMatchObject({ schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION, product: 'Knoux X', settings: DEFAULT_APPLICATION_SETTINGS });
     await settings.shutdown();
   });
 

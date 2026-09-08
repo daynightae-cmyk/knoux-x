@@ -1,4 +1,4 @@
-/* KNOUX Player X product design tokens — the only source for visual primitives. */
+/* Knoux X product design tokens — the only source for visual primitives. */
 :root {
   --knoux-black: #030207;
   --knoux-charcoal: #0b0910;
@@ -212,27 +212,37 @@
 }
 
 :root[data-theme='system-light'] {
-  --knoux-bg-0: #f4f2f8;
-  --knoux-bg-1: #ebe8f1;
-  --knoux-bg-2: #e3dfea;
+  --knoux-bg-0: #f8f7fc;
+  --knoux-bg-1: #fcfbff;
+  --knoux-bg-2: #eee8ff;
   --knoux-bg-player: #111014;
-  --knoux-surface: rgba(255, 255, 255, 0.94);
-  --knoux-surface-raised: rgba(255, 255, 255, 0.99);
+  --knoux-surface: rgba(255, 255, 255, 0.9);
+  --knoux-surface-raised: rgba(255, 255, 255, 0.97);
   --knoux-surface-elevated: #ffffff;
-  --knoux-surface-hover: rgba(61, 35, 92, 0.07);
-  --knoux-overlay: rgba(28, 19, 38, 0.42);
-  --knoux-border: rgba(55, 35, 80, 0.16);
-  --knoux-border-strong: rgba(86, 42, 137, 0.4);
-  --knoux-divider: rgba(38, 26, 52, 0.11);
-  --knoux-accent-strong: #5721ad;
-  --knoux-accent-secondary: #087f99;
-  --knoux-text: #18131f;
-  --knoux-text-secondary: #40384a;
-  --knoux-muted: #665d71;
-  --knoux-disabled: #90899a;
-  --knoux-focus: #0d7f9e;
-  --knoux-shadow-sm: 0 8px 24px rgba(40, 24, 59, 0.09);
-  --knoux-shadow-md: 0 18px 52px rgba(40, 24, 59, 0.13);
+  --knoux-surface-hover: rgba(109, 33, 217, 0.065);
+  --knoux-overlay: rgba(21, 18, 28, 0.28);
+  --knoux-border: rgba(109, 33, 217, 0.14);
+  --knoux-border-strong: rgba(120, 40, 232, 0.38);
+  --knoux-divider: rgba(98, 91, 112, 0.12);
+  --knoux-accent: #7828e8;
+  --knoux-accent-strong: #6d21d9;
+  --knoux-accent-secondary: #9a4dff;
+  --knoux-accent-soft: rgba(120, 40, 232, 0.11);
+  --knoux-text: #15121c;
+  --knoux-text-secondary: #625b70;
+  --knoux-muted: #776f84;
+  --knoux-disabled: #aaa2b4;
+  --knoux-focus: #8b3dff;
+  --knoux-success: #16845b;
+  --knoux-warning: #9a6600;
+  --knoux-danger: #b4233c;
+  --knoux-info: #5e3bb7;
+  --knoux-shadow-xs: 0 1px 2px rgba(56, 37, 87, 0.05);
+  --knoux-shadow-sm: 0 10px 28px rgba(56, 37, 87, 0.08);
+  --knoux-shadow-md: 0 22px 58px rgba(56, 37, 87, 0.11);
+  --knoux-shadow-lg: 0 34px 90px rgba(56, 37, 87, 0.14);
+  --knoux-glow-subtle: 0 0 28px rgba(139, 61, 255, 0.12);
+  --knoux-glow-focus: 0 0 0 3px rgba(139, 61, 255, 0.22);
 }
 
 :root[data-theme='system-dark'] {

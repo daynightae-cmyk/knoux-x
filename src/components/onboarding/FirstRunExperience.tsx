@@ -16,7 +16,7 @@ interface TourSlide {
 const slides: TourSlide[] = [
   {
     image: new URL('../../../assets/installer/slides/01.png', import.meta.url).href,
-    title: { en: 'Welcome to KNOUX Player X', ar: 'مرحبًا بك في KNOUX Player X' },
+    title: { en: 'Welcome to Knoux X', ar: 'مرحبًا بك في Knoux X' },
     description: { en: 'A premium local media and creative workspace.', ar: 'مساحة وسائط وإبداع محلية وفاخرة.' },
   },
   {

@@ -1,5 +1,5 @@
 /**
- * KNOUX Player X — AI service exports.
+ * Knoux X — AI service exports.
  *
  * This module exposes only the implemented OpenRouter client surface. Model
  * catalogues and media-analysis types are not exported because this client

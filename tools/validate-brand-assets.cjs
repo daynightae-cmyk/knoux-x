@@ -55,7 +55,7 @@ if (hashes.size !== assets.length) throw new Error('Duplicate official brand ass
 
 const manifest = {
   schemaVersion: 1,
-  product: 'KNOUX Player X',
+  product: 'Knoux X',
   policy: 'Official source PNG files are bundled without recompression.',
   installerExperience: 'Nine official slides are embedded and shown one at a time inside the bilingual Windows visual installer during install, upgrade, and repair.',
   assets,

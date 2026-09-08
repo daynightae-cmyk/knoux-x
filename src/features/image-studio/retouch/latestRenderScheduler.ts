@@ -51,9 +51,9 @@ export class LatestRenderScheduler {
       this.running = false;
       if (!this.disposed && this.pending) {
         void this.drain();
-        return;
+      } else {
+        this.releaseIdleWaiters();
       }
-      this.releaseIdleWaiters();
     }
   }
 

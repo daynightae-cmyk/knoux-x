@@ -44,4 +44,15 @@ describe('Knoux X Android release acceptance contract', () => {
     expect(workflow).toContain('bash tools/android-emulator-smoke.sh android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk dev.knoux.playerx android-ci-release-output');
     expect(workflow).toContain("data['installedAndLaunched'] = True");
   });
+
+  test('does not make release acceptance depend solely on WebView console logging', () => {
+    expect(smoke).toContain('MARKER_READY=false');
+    expect(smoke).toContain('foreground_activity_ready');
+    expect(smoke).toContain('native_splash_gone');
+    expect(smoke).toContain('Splash Screen $PACKAGE');
+    expect(smoke).toContain('wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1');
+    expect(smoke).toContain("READINESS_SOURCE='foreground+visual'");
+    expect(smoke).toContain('android-ui-readiness.txt');
+    expect(smoke).toContain("grep -q 'KNOUX_ANDROID_UI_READY'");
+  });
 });

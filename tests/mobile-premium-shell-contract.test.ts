@@ -20,6 +20,8 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   const mobileVideoTimeline = read('src/features/video-studio/MobileVideoTimelineEditor.tsx');
   const mobileVideoCss = read('src/features/video-studio/mobileVideoTimeline.css');
   const mobileSlideshow = read('src/features/slideshow/MobilePhotosToVideoView.tsx');
+  const mobileSlideshowEditor = read('src/features/slideshow/MobileSlideshowEditor.tsx');
+  const mobileSlideshowCss = read('src/features/slideshow/mobileSlideshowEditor.css');
   const mobilePhoto = read('src/features/image-editor/MobileImageEditorView.tsx');
   const mobileBeauty = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
   const imageBridge = read('src/platform/androidImageEditorBridge.ts');
@@ -67,7 +69,12 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileVideoTimeline).toContain('window.knouxCreativeAPI.media.open()');
     expect(mobileVideoTimeline).toContain('window.knouxMultitrackAPI.save(snapshot, projectPath)');
     expect(mobileVideoTimeline).toContain('<VideoRetouchInspector');
-    expect(mobileSlideshow).toContain('<SlideshowView />');
+    expect(mobileSlideshow).toContain('<MobileSlideshowEditor />');
+    expect(mobileSlideshow).not.toContain('<SlideshowView />');
+    expect(mobileSlideshowEditor).toContain('data-component="MobileSlideshowEditor"');
+    expect(mobileSlideshowEditor).toContain('window.knouxSlideshowAPI.importFiles()');
+    expect(mobileSlideshowEditor).toContain('asset.duration ?? await readMediaDuration(asset.mediaUrl, \'video\')');
+    expect(mobileSlideshowEditor).toContain('normalizeOpened');
     expect(mobilePhoto).toContain('data-component="MobileImageEditorView"');
     expect(mobileBeauty).toContain('<MobileBeautyCanvas />');
     expect(mobileBeauty).not.toContain('<ImageEditorView />');
@@ -92,7 +99,7 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileBeauty).toContain('Open Photo');
   });
 
-  test('keeps the premium glass language and a dedicated mobile timeline layout', () => {
+  test('keeps the premium glass language and dedicated mobile editing layouts', () => {
     expect(css).toContain('backdrop-filter: blur');
     expect(css).toContain('.kmh-bottom-nav');
     expect(css).toContain('.kmd-drawer');
@@ -106,6 +113,9 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileVideoCss).toContain('.kmc-mobile-timeline-scroll');
     expect(mobileVideoCss).toContain('.kmc-mobile-track-lane');
     expect(mobileVideoCss).toContain('.kmc-mobile-inspector');
+    expect(mobileSlideshowCss).toContain('.kms-preview-stage');
+    expect(mobileSlideshowCss).toContain('.kms-strip');
+    expect(mobileSlideshowCss).toContain('.kms-inspector');
   });
 
   test('uses the official daylight asset for the native Android launch surface', () => {

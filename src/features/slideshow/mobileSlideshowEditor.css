@@ -2,6 +2,7 @@ html[data-platform='android'] .kms-mobile-slideshow {
   display: grid;
   gap: 12px;
   min-width: 0;
+  color: #21192c;
 }
 
 html[data-platform='android'] .kms-start-card,
@@ -10,9 +11,11 @@ html[data-platform='android'] .kms-project-bar,
 html[data-platform='android'] .kms-inspector,
 html[data-platform='android'] .kms-strip,
 html[data-platform='android'] .kms-import-row {
-  border: 1px solid rgba(169, 109, 255, 0.2);
-  background: linear-gradient(145deg, rgba(18, 12, 32, 0.82), rgba(7, 6, 14, 0.8));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045), 0 14px 34px rgba(0,0,0,0.18);
+  border: 1px solid rgba(120, 40, 232, 0.16);
+  background: linear-gradient(145deg, rgba(255,255,255,0.93), rgba(249,246,253,0.88));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 34px rgba(69, 44, 91, 0.09);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 html[data-platform='android'] .kms-start-card {
@@ -31,7 +34,7 @@ html[data-platform='android'] .kms-project-bar span,
 html[data-platform='android'] .kms-recent-list > span,
 html[data-platform='android'] .kms-strip small,
 html[data-platform='android'] .kms-empty-preview {
-  color: rgba(226, 215, 244, 0.66);
+  color: #746a80;
   font-size: 12px;
 }
 
@@ -48,10 +51,10 @@ html[data-platform='android'] .kms-mobile-slideshow button,
 html[data-platform='android'] .kms-mobile-slideshow input,
 html[data-platform='android'] .kms-mobile-slideshow select {
   min-height: 42px;
-  border: 1px solid rgba(175, 116, 255, 0.25);
+  border: 1px solid rgba(120, 40, 232, 0.18);
   border-radius: 14px;
-  color: #f8f2ff;
-  background: rgba(18, 11, 31, 0.86);
+  color: #241a30;
+  background: rgba(255,255,255,0.92);
   font: inherit;
 }
 
@@ -71,8 +74,9 @@ html[data-platform='android'] .kms-mobile-slideshow button:disabled {
 
 html[data-platform='android'] .kms-mobile-slideshow button.active,
 html[data-platform='android'] .kms-import-row button:last-child {
-  border-color: rgba(190, 132, 255, 0.52);
-  background: linear-gradient(135deg, rgba(139, 61, 255, 0.86), rgba(93, 29, 202, 0.86));
+  border-color: rgba(120, 40, 232, 0.5);
+  color: #fff;
+  background: linear-gradient(135deg, #8b3dff, #7828e8);
 }
 
 html[data-platform='android'] .kms-recent-list {
@@ -116,10 +120,10 @@ html[data-platform='android'] .kms-inspector-head button {
 
 html[data-platform='android'] .kms-notice {
   padding: 10px 12px;
-  border: 1px solid rgba(103, 232, 249, 0.25);
+  border: 1px solid rgba(24, 145, 168, 0.2);
   border-radius: 14px;
-  color: #c7f7ff;
-  background: rgba(27, 84, 93, 0.22);
+  color: #245b67;
+  background: rgba(103, 232, 249, 0.12);
   font-size: 12px;
 }
 
@@ -136,7 +140,7 @@ html[data-platform='android'] .kms-preview-stage {
   min-height: min(55vw, 330px);
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  background: #000;
+  background: #050509;
 }
 
 html[data-platform='android'] .kms-preview-stage > img,
@@ -178,6 +182,7 @@ html[data-platform='android'] .kms-text-card {
   align-content: center;
   gap: 8px;
   padding: 28px;
+  color: #fff;
   text-align: center;
 }
 
@@ -202,13 +207,13 @@ html[data-platform='android'] .kms-transport button {
 html[data-platform='android'] .kms-transport input[type='range'] {
   min-height: 0;
   width: 100%;
-  accent-color: #a855f7;
+  accent-color: #7828e8;
   background: transparent;
 }
 
 html[data-platform='android'] .kms-transport span {
   min-width: 48px;
-  color: #d7c4ee;
+  color: #6d627a;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }
@@ -257,7 +262,8 @@ html[data-platform='android'] .kms-strip button > span {
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  background: rgba(164, 91, 255, 0.14);
+  color: #6b2db4;
+  background: rgba(120, 40, 232, 0.09);
 }
 
 html[data-platform='android'] .kms-strip strong,
@@ -287,7 +293,7 @@ html[data-platform='android'] .kms-inspector label {
   grid-template-columns: 86px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
-  color: rgba(228, 216, 246, 0.74);
+  color: #6e6378;
   font-size: 12px;
 }
 

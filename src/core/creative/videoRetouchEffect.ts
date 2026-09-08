@@ -211,6 +211,13 @@ export function getTimelineVideoRetouch(item: TimelineItem): TimelineVideoRetouc
   return cloneEffect(effect);
 }
 
+/** Export always renders the committed Retouch result; Before/After is preview-only UI state. */
+export function getTimelineVideoRetouchExportTemporal(item: TimelineItem): VideoRetouchClipState | null {
+  const temporal = getTimelineVideoRetouch(item)?.temporal ?? null;
+  if (!temporal) return null;
+  return { ...structuredClone(temporal), beforeAfter: 'after' };
+}
+
 /** Returns a sanitized copy suitable for persistence and rendering. */
 export function normalizeTimelineVideoRetouch(effect: TimelineVideoRetouchEffect): TimelineVideoRetouchEffect {
   const normalized = createTimelineVideoRetouchEffect(effect.updatedAt);

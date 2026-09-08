@@ -4,7 +4,7 @@ import {
   type TimelineItem,
   type TimelineTrack,
 } from '../../core/creative/multitrackProject';
-import { getTimelineVideoRetouch } from '../../core/creative/videoRetouchEffect';
+import { getTimelineVideoRetouchExportTemporal } from '../../core/creative/videoRetouchEffect';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
@@ -88,7 +88,7 @@ function audioGain(item: TimelineItem, track: TimelineTrack, localTime: number):
 }
 
 function temporalRetouch(item: TimelineItem): VideoRetouchClipState | null {
-  return getTimelineVideoRetouch(item)?.temporal ?? null;
+  return getTimelineVideoRetouchExportTemporal(item);
 }
 
 function ensureRetouchBuffer(prepared: PreparedMedia, state: VideoRetouchClipState, width: number, height: number): {
@@ -96,7 +96,7 @@ function ensureRetouchBuffer(prepared: PreparedMedia, state: VideoRetouchClipSta
   context: CanvasRenderingContext2D;
   processor: VideoFrameProcessor;
 } | null {
-  if (!state.enabled || state.beforeAfter === 'before') return null;
+  if (!state.enabled) return null;
   if (!prepared.retouchCanvas) prepared.retouchCanvas = document.createElement('canvas');
   if (prepared.retouchCanvas.width !== width) prepared.retouchCanvas.width = width;
   if (prepared.retouchCanvas.height !== height) prepared.retouchCanvas.height = height;

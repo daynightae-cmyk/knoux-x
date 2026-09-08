@@ -8,6 +8,7 @@ function read(relativePath: string): string {
 describe('Knoux X premium daylight glass UI contract', () => {
   const main = read('src/main.tsx');
   const css = read('src/styles/premium-daylight-rebrand.css');
+  const videoStudioCss = read('src/styles/video-studio.css');
   const viewport = read('src/features/player/PlayerViewportBoundary.tsx');
   const settings = read('src/core/settings/applicationSettings.ts');
 
@@ -39,6 +40,18 @@ describe('Knoux X premium daylight glass UI contract', () => {
     expect(css).toContain('--knoux-hover-glow:');
     expect(css).toContain('--knoux-active-glow:');
     expect(css).toContain('backdrop-filter: blur(28px) saturate(145%);');
+  });
+
+  test('migrates Video Studio away from fixed dark/cyan colors to semantic glass tokens', () => {
+    expect(videoStudioCss).toContain('background:');
+    expect(videoStudioCss).toContain('var(--knoux-bg-0)');
+    expect(videoStudioCss).toContain('var(--knoux-accent)');
+    expect(videoStudioCss).toContain('var(--knoux-text)');
+    expect(videoStudioCss).toContain('.video-studio-tabs button:hover');
+    expect(videoStudioCss).toContain('backdrop-filter: blur');
+    expect(videoStudioCss).not.toContain('#00d4ff');
+    expect(videoStudioCss).not.toContain('#0a0a0f');
+    expect(videoStudioCss).not.toContain('#1a1a3e');
   });
 
   test('prevents a narrow browser preview from squeezing desktop sidebar into the player viewport', () => {

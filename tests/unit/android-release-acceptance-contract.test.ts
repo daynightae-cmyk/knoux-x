@@ -26,7 +26,17 @@ describe('Knoux X Android release acceptance contract', () => {
 
   test('runs the same packaged identity verifier against the release artifact', () => {
     expect(verifier).toContain("process.argv[2] || 'android-ci-output/KNOUX-X-Android-debug.apk'");
+    expect(verifier).toContain('process.argv[3] || path.dirname(apk)');
     expect(workflow).toContain('node tools/verify-android-apk.cjs android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk');
+  });
+
+  test('verifies optimized release resources by content instead of unstable resource names', () => {
+    expect(verifier).toContain("files.filter((file) => file.toLowerCase().endsWith('.png'))");
+    expect(verifier).toContain('candidate.decoded.data.equals(source.decoded.data)');
+    expect(verifier).toContain("files.filter((file) => file.toLowerCase().endsWith('.xml') && file.startsWith('res/'))");
+    expect(verifier).toContain("adaptiveIcons.filter((item) => item.hasMonochrome).length >= 2");
+    expect(verifier).not.toContain("resourceFiles(resources, 'mipmap/ic_launcher')");
+    expect(verifier).not.toContain("icon='res/mipmap-anydpi-v33/ic_launcher.xml'");
   });
 
   test('installs and launches the exact release artifact on the emulator', () => {

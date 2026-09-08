@@ -164,7 +164,7 @@ const extraResource = [ffmpeg, ffprobe, ...bundledBrandAssets].filter(Boolean);
 const squirrel = {
   name: 'KNOUX_Player_X',
   authors: 'SADEK ELGAZAR (KNOUX)',
-  description: 'KNOUX Player X',
+  description: 'Knoux X',
 };
 if (fs.existsSync(`${icon}.ico`)) squirrel.setupIcon = `${icon}.ico`;
 
@@ -173,7 +173,7 @@ module.exports = {
     asar: {
       unpack: '**/*.{node,dll}',
     },
-    name: 'KNOUX Player X',
+    name: 'Knoux X',
     executableName: 'knoux-player-x',
     appBundleId: 'dev.knoux.player-x',
     ...(fs.existsSync(`${icon}.ico`) ? { icon } : {}),

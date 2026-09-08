@@ -1,0 +1,51 @@
+name: Codex Jest root-cause capture
+
+on:
+  push:
+    branches:
+      - codex/absolute-final-product-closure-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/absolute-final-product-closure-20260908
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Restore test/runtime binaries
+        run: npm rebuild electron ffmpeg-static @derhuerst/ffprobe-static sharp --foreground-scripts
+
+      - name: Capture canonical Jest gate
+        shell: bash
+        run: |
+          set +e
+          npm test -- --runInBand > .github/codex-jest-diagnostic.txt 2>&1
+          code=$?
+          printf '\nEXIT_CODE=%s\n' "$code" >> .github/codex-jest-diagnostic.txt
+          exit 0
+
+      - name: Commit diagnostic and remove capture workflow
+        shell: bash
+        run: |
+          rm .github/workflows/codex-jest-diagnostic.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "chore(ci): record Jest failure evidence"
+          git push origin HEAD:codex/absolute-final-product-closure-20260908

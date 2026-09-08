@@ -65,7 +65,7 @@ export interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentView: 'home',
+      currentView: 'player',
       setView: (view) => set({ currentView: view }),
       theme: 'system-light',
       setTheme: (theme) => set({ theme }),

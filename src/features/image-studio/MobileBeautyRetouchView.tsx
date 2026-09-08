@@ -72,7 +72,7 @@ export const MobileBeautyRetouchView: React.FC = () => {
           <div><strong>KNOUX <span>X</span></strong><small>BEAUTY STUDIO</small></div>
         </div>
         <button type="button" className="kmc-export-button" onClick={() => void openPhoto()} disabled={opening}>
-          <ImagePlus size={17} /> {opening ? 'Opening' : source ? 'Change' : 'Photo'}
+          <ImagePlus size={17} /> {opening ? 'Opening' : source ? 'Change Photo' : 'Open Photo'}
         </button>
       </header>
 

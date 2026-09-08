@@ -494,7 +494,7 @@ export const AndroidBeautyExtension: React.FC = () => {
             </button>
           ))}
           <button type="button" className={applyAllFaces ? 'active' : ''} onClick={() => setApplyAllFaces((value) => !value)}>
-            {arabic ? 'كل الوجوه' : 'All faces'}
+            {arabic ? 'تطبيق على كل الوجوه' : 'Apply all faces'}
           </button>
         </div>
       )}

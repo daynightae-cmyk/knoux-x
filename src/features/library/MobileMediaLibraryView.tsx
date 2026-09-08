@@ -299,6 +299,7 @@ export const MobileMediaLibraryView: React.FC = () => {
             ]}
           />
           <button type="button" className="kml-round" aria-label={ar ? 'تحديث' : 'Refresh'} disabled={busy || !libraryPath} onClick={() => void loadLibrary()}><RefreshCw size={18} /></button>
+          <button type="button" className="kml-round" aria-label={ar ? 'اختيار مجلد الوسائط' : 'Choose media folder'} title={ar ? 'اختيار مجلد الوسائط' : 'Choose media folder'} disabled={busy} onClick={() => void chooseLibraryRoot()}><FolderOpen size={18} /></button>
         </div>
       )}
 
@@ -329,9 +330,9 @@ export const MobileMediaLibraryView: React.FC = () => {
             ))}
           </div>
         ) : (
-          <button type="button" className="kml-import-hero" onClick={() => libraryPath ? void importForTab() : void chooseLibraryRoot()} disabled={busy || tab === 'recents'}>
+          <button type="button" className="kml-import-hero" onClick={() => void importForTab()} disabled={busy || tab === 'recents'}>
             <FolderOpen size={36} />
-            <div><strong>{busy ? (ar ? 'جارٍ قراءة الجهاز…' : 'Reading device…') : libraryPath ? (ar ? 'لا توجد وسائط مطابقة — استيراد ملف' : 'No matching media — import a file') : (ar ? 'اختيار مجلد الوسائط' : 'Choose media folder')}</strong><span>{ar ? 'صلاحية SAF محفوظة محليًا، وملفات المشروع الداخلية لا تظهر كوسائط.' : 'SAF permission is persisted locally; internal project JSON is never listed as media.'}</span></div>
+            <div><strong>{busy ? (ar ? 'جارٍ فتح الجهاز…' : 'Opening device…') : (ar ? 'استيراد من الجهاز' : 'Import from device')}</strong><span>{ar ? 'اختر ملفات وسائط عادية — وليس ملفات مشروع JSON.' : 'Choose ordinary media files — never project JSON.'}</span></div>
             <span>›</span>
           </button>
         )}

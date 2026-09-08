@@ -122,7 +122,7 @@ describe('Video Router', () => {
     expect(result.blocked).toBe(true);
     expect(result.model).toBeNull();
     expect(result.requiresPaymentConfirmation).toBe(true);
-    expect(result.cheapestPaidCandidate?.id).toBe('minimax/video-01');
+    expect(result.cheapestPaidCandidate?.id).toBe('fal-ai/kling-video/v3/standard/text-to-video');
   });
 
   it('blocks when no provider is available', () => {

@@ -154,44 +154,48 @@ export function documentMasksToEngineMasks(
 ): Map<string, RetouchMask> {
   const map = new Map<string, RetouchMask>();
   for (const mask of masks) {
-    // Convert alphaDataUrl back to raw mask data if available
-    // For Phase 1, masks are stored as gradient masks created by createRetouchMask
-    // The alphaDataUrl is a serialized form; we reconstruct the mask from its parameters
-    // For now, if we have the raw data, use it; otherwise create a placeholder
-    if (mask.alphaDataUrl) {
-      // alphaDataUrl contains base64-encoded mask data - for serialization round-trip
-      // In practice, the mask data is set during brush operations
-      const data = base64ToUint8Clamped(mask.alphaDataUrl);
-      map.set(mask.id, {
-        id: mask.id,
-        width: mask.width,
-        height: mask.height,
-        data,
-        revision: mask.revision,
-      });
-    } else {
-      // Create empty mask as fallback
-      const data = new Uint8ClampedArray(mask.width * mask.height * 4);
-      map.set(mask.id, {
-        id: mask.id,
-        width: mask.width,
-        height: mask.height,
-        data,
-        revision: mask.revision,
-      });
-    }
+    const expectedLength = mask.width * mask.height * 4;
+    const data = mask.alphaDataUrl
+      ? decodeRawRgbaMask(mask.alphaDataUrl, expectedLength, mask.id)
+      : new Uint8ClampedArray(expectedLength);
+    map.set(mask.id, {
+      id: mask.id,
+      width: mask.width,
+      height: mask.height,
+      data,
+      revision: mask.revision,
+    });
   }
   return map;
 }
 
-function base64ToUint8Clamped(dataUrl: string): Uint8ClampedArray {
-  // Handle both raw base64 and data URL formats
-  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-  const binary = atob(base64);
-  const bytes = new Uint8ClampedArray(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+function decodeRawRgbaMask(dataUrl: string, expectedLength: number, maskId: string): Uint8ClampedArray {
+  let base64 = dataUrl;
+  if (dataUrl.startsWith('data:')) {
+    const comma = dataUrl.indexOf(',');
+    if (comma < 0) throw new Error(`Retouch mask ${maskId} has an invalid data URL.`);
+    const metadata = dataUrl.slice(5, comma);
+    if (!/;base64(?:;|$)/i.test(metadata)) {
+      throw new Error(`Retouch mask ${maskId} must use base64 serialization.`);
+    }
+    const mime = metadata.split(';', 1)[0].toLowerCase();
+    if (mime && mime !== 'application/octet-stream' && mime !== 'application/x-rgba') {
+      throw new Error(`Retouch mask ${maskId} must contain raw RGBA bytes, not ${mime}.`);
+    }
+    base64 = dataUrl.slice(comma + 1);
   }
+
+  let binary: string;
+  try {
+    binary = atob(base64);
+  } catch {
+    throw new Error(`Retouch mask ${maskId} contains invalid base64 data.`);
+  }
+  if (binary.length !== expectedLength) {
+    throw new Error(`Retouch mask ${maskId} decoded to ${binary.length} bytes; expected ${expectedLength} raw RGBA bytes.`);
+  }
+  const bytes = new Uint8ClampedArray(expectedLength);
+  for (let i = 0; i < expectedLength; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 

@@ -704,23 +704,14 @@ export class CpuRetouchRenderer implements RetouchRenderer {
   }
 }
 
-// GPU renderer stub - for Phase 1, falls back to CPU
+// GPU compatibility wrapper. WebGPU retouch execution is not implemented yet,
+// so this class must report the backend that actually rendered the pixels.
 export class GpuRetouchRenderer implements RetouchRenderer {
   private cpuFallback = new CpuRetouchRenderer();
-  private gpuAvailable: boolean;
-
-  constructor() {
-    // In Phase 1, GPU not yet available, so we detect and fallback
-    this.gpuAvailable = typeof (globalThis as unknown as { GPUBuffer?: unknown }).GPUBuffer !== 'undefined';
-  }
 
   async render(request: RenderRequest): Promise<RenderResult> {
-    if (this.gpuAvailable) {
-      // Future GPU path would go here - for now, fallback to CPU
-      // This keeps the abstraction boundary intact
-    }
     const result = await this.cpuFallback.render(request);
-    return { ...result, backend: this.gpuAvailable ? 'gpu' : 'cpu' };
+    return { ...result, backend: 'cpu' };
   }
 
   dispose(): void {

@@ -49,7 +49,6 @@ interface HistoryState {
   future: SlideshowProject[];
 }
 
-const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
 const audioExtensions = new Set(['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus']);
 const transitions: SlideshowTransition[] = ['none', 'crossfade', 'fade-black', 'wipe', 'slide', 'zoom', 'blur'];
 const motions: KenBurnsMode[] = ['none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'pan-up', 'pan-down'];

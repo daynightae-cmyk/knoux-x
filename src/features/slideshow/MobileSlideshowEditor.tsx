@@ -19,6 +19,7 @@ import {
   Undo2,
 } from 'lucide-react';
 
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import {
   addAudioTrack,
   constrainSlideTransitions,
@@ -527,8 +528,8 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
             </div>
           </div>
           <label><span>Duration</span><input type="number" min={0.1} max={86400} step={0.1} value={selectedSlide.duration} onChange={(event) => patchSelected((slide) => ({ ...slide, duration: clip(Number(event.target.value), 0.1, 86400) }))} /></label>
-          <label><span>Transition</span><select value={selectedSlide.transition} onChange={(event) => patchSelected((slide) => ({ ...slide, transition: event.target.value as SlideshowTransition }))}>{transitions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-          {selectedSlide.kind === 'image' && <label><span>Motion</span><select value={selectedSlide.kenBurns} onChange={(event) => patchSelected((slide) => ({ ...slide, kenBurns: event.target.value as KenBurnsMode }))}>{motions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}
+          <div className="kms-inspector-field"><span>Transition</span><NeonSelect aria-label="Transition" value={selectedSlide.transition} options={transitions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, transition: value as SlideshowTransition }))} /></div>
+          {selectedSlide.kind === 'image' && <div className="kms-inspector-field"><span>Motion</span><NeonSelect aria-label="Motion" value={selectedSlide.kenBurns} options={motions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, kenBurns: value as KenBurnsMode }))} /></div>}
           <label><span>Caption</span><input value={selectedSlide.caption} onChange={(event) => patchSelected((slide) => ({ ...slide, caption: event.target.value.slice(0, 1000) }))} /></label>
         </div>
       )}

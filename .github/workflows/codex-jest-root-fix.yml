@@ -1,4 +1,4 @@
-name: Codex canonical select repair
+name: Codex Phase A mobile contract repair
 
 on:
   push:
@@ -31,58 +31,81 @@ jobs:
       - name: Restore test/runtime binaries
         run: npm rebuild electron ffmpeg-static @derhuerst/ffprobe-static sharp --foreground-scripts
 
-      - name: Replace native media sort select with canonical NeonSelect
+      - name: Repair remaining mobile shell source contracts
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
-          path = Path('src/features/library/MobileMediaLibraryView.tsx')
-          text = path.read_text(encoding='utf-8')
+          def replace_once(path: str, old: str, new: str, *, already: str | None = None) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if already and already in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one repair anchor, found {count}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
 
-          import_anchor = "import { BrandMark } from '../../components/brand/BrandMark';\n"
-          if "../../components/neon/NeonSelect" not in text:
-              if import_anchor not in text:
-                  raise SystemExit('BrandMark import anchor changed; refusing stale patch')
-              text = text.replace(import_anchor, import_anchor + "import { NeonSelect } from '../../components/neon/NeonSelect';\n", 1)
+          replace_once(
+              'src/store/appStore.ts',
+              "      currentView: 'home',",
+              "      currentView: 'player',",
+              already="      currentView: 'player',",
+          )
 
-          pattern = re.compile(r"(?m)^(?P<indent>\s*)<select aria-label=\{ar \? 'ترتيب' : 'Sort'\} value=\{sort\} onChange=\{\(event\) => setSort\(event\.currentTarget\.value as SortMode\)\}>\n(?:(?P=indent)  <option[^\n]+\n){3}(?P=indent)</select>$")
-          match = pattern.search(text)
-          if match is None:
-              raise SystemExit('Native sort select no longer matches inspected structure; refusing stale patch')
-          indent = match.group('indent')
-          replacement = "\n".join([
-              f"{indent}<NeonSelect",
-              f"{indent}  aria-label={{ar ? 'ترتيب' : 'Sort'}}",
-              f"{indent}  className=\"kml-sort-select\"",
-              f"{indent}  dir={{ar ? 'rtl' : 'ltr'}}",
-              f"{indent}  value={{sort}}",
-              f"{indent}  onChange={{(value) => setSort(value as SortMode)}}",
-              f"{indent}  options={{[",
-              f"{indent}    {{ value: 'name', label: ar ? 'الاسم' : 'Name' }},",
-              f"{indent}    {{ value: 'size', label: ar ? 'الحجم' : 'Size' }},",
-              f"{indent}    {{ value: 'duration', label: ar ? 'المدة' : 'Duration' }},",
-              f"{indent}  ]}}",
-              f"{indent}/>",
-          ])
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f'Expected one native sort select, replaced {count}')
-          path.write_text(text, encoding='utf-8')
+          library = Path('src/features/library/MobileMediaLibraryView.tsx')
+          text = library.read_text(encoding='utf-8')
+
+          refresh = "          <button type=\"button\" className=\"kml-round\" aria-label={ar ? 'تحديث' : 'Refresh'} disabled={busy || !libraryPath} onClick={() => void loadLibrary()}><RefreshCw size={18} /></button>"
+          folder = "          <button type=\"button\" className=\"kml-round\" aria-label={ar ? 'اختيار مجلد الوسائط' : 'Choose media folder'} title={ar ? 'اختيار مجلد الوسائط' : 'Choose media folder'} disabled={busy} onClick={() => void chooseLibraryRoot()}><FolderOpen size={18} /></button>"
+          if folder not in text:
+              if text.count(refresh) != 1:
+                  raise SystemExit('MobileMediaLibraryView: refresh anchor changed')
+              text = text.replace(refresh, refresh + '\n' + folder, 1)
+
+          old_hero = """          <button type=\"button\" className=\"kml-import-hero\" onClick={() => libraryPath ? void importForTab() : void chooseLibraryRoot()} disabled={busy || tab === 'recents'}>
+            <FolderOpen size={36} />
+            <div><strong>{busy ? (ar ? 'جارٍ قراءة الجهاز…' : 'Reading device…') : libraryPath ? (ar ? 'لا توجد وسائط مطابقة — استيراد ملف' : 'No matching media — import a file') : (ar ? 'اختيار مجلد الوسائط' : 'Choose media folder')}</strong><span>{ar ? 'صلاحية SAF محفوظة محليًا، وملفات المشروع الداخلية لا تظهر كوسائط.' : 'SAF permission is persisted locally; internal project JSON is never listed as media.'}</span></div>
+            <span>›</span>
+          </button>"""
+          new_hero = """          <button type=\"button\" className=\"kml-import-hero\" onClick={() => void importForTab()} disabled={busy || tab === 'recents'}>
+            <FolderOpen size={36} />
+            <div><strong>{busy ? (ar ? 'جارٍ فتح الجهاز…' : 'Opening device…') : (ar ? 'استيراد من الجهاز' : 'Import from device')}</strong><span>{ar ? 'اختر ملفات وسائط عادية — وليس ملفات مشروع JSON.' : 'Choose ordinary media files — never project JSON.'}</span></div>
+            <span>›</span>
+          </button>"""
+          if 'Import from device' not in text or 'Choose ordinary media files — never project JSON.' not in text:
+              if text.count(old_hero) != 1:
+                  raise SystemExit('MobileMediaLibraryView: import hero anchor changed')
+              text = text.replace(old_hero, new_hero, 1)
+          library.write_text(text, encoding='utf-8')
+
+          replace_once(
+              'src/features/image-studio/MobileBeautyRetouchView.tsx',
+              "          <ImagePlus size={17} /> {opening ? 'Opening' : source ? 'Change' : 'Photo'}",
+              "          <ImagePlus size={17} /> {opening ? 'Opening' : source ? 'Change Photo' : 'Open Photo'}",
+              already="source ? 'Change Photo' : 'Open Photo'",
+          )
+
+          replace_once(
+              'src/platform/AndroidBeautyExtension.tsx',
+              "            {arabic ? 'كل الوجوه' : 'All faces'}",
+              "            {arabic ? 'تطبيق على كل الوجوه' : 'Apply all faces'}",
+              already="{arabic ? 'تطبيق على كل الوجوه' : 'Apply all faces'}",
+          )
           PY
-
-          rm -f .github/codex-jest-diagnostic.txt .github/codex-jest-trigger.txt
 
       - name: Persist source repair before validation
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/features/library/MobileMediaLibraryView.tsx .github/codex-jest-diagnostic.txt .github/codex-jest-trigger.txt 2>/dev/null || true
-          git add -u .github
+          git add src/store/appStore.ts \
+            src/features/library/MobileMediaLibraryView.tsx \
+            src/features/image-studio/MobileBeautyRetouchView.tsx \
+            src/platform/AndroidBeautyExtension.tsx
           if ! git diff --cached --quiet; then
-            git commit -m "fix(library): use canonical NeonSelect for media sorting"
+            git commit -m "fix(mobile): restore premium shell source contracts"
             git push origin HEAD:codex/absolute-final-product-closure-20260908
           fi
 
@@ -99,6 +122,7 @@ jobs:
           set +e
           npm test -- --runInBand 2>&1 | tee /tmp/jest.log
           status=${PIPESTATUS[0]}
+          cp /tmp/jest.log jest-full.log
           python - <<'PY'
           from pathlib import Path
           lines = Path('/tmp/jest.log').read_text(encoding='utf-8', errors='replace').splitlines()
@@ -106,18 +130,16 @@ jobs:
           selected = []
           for index, line in enumerate(lines):
               if any(needle in line for needle in needles):
-                  start = max(0, index - 5)
-                  end = min(len(lines), index + 14)
-                  selected.extend(lines[start:end])
+                  selected.extend(lines[max(0, index - 6):min(len(lines), index + 16)])
           if not selected:
-              selected = lines[-220:]
+              selected = lines[-240:]
           compact = []
           previous = None
           for line in selected:
               if line != previous:
                   compact.append(line)
               previous = line
-          Path('jest-diagnostic.txt').write_text('\n'.join(compact[-800:]) + '\n', encoding='utf-8')
+          Path('jest-diagnostic.txt').write_text('\n'.join(compact[-1000:]) + '\n', encoding='utf-8')
           PY
           exit "$status"
 
@@ -125,7 +147,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: codex-jest-diagnostic
-          path: jest-diagnostic.txt
+          name: codex-phase-a-jest-diagnostic
+          path: |
+            jest-diagnostic.txt
+            jest-full.log
           if-no-files-found: warn
           retention-days: 1

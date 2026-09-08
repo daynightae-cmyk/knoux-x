@@ -11,6 +11,7 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
   const splashScript = read('tools/prepare-android-premium-splash.cjs');
   const mobilePhotoView = read('src/features/image-editor/MobileImageEditorView.tsx');
   const premiumCss = read('src/styles/mobile-premium-shell.css');
+  const finalUiCss = read('src/styles/premium-daylight-rebrand.css');
   const creativeCss = read('src/styles/mobile-creative-surfaces.css');
   const appStore = read('src/store/appStore.ts');
   const homeDashboard = read('src/features/home/MobileHomeDashboard.tsx');
@@ -21,7 +22,7 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(app).toContain('{android && <MobileSplashOverlay />}');
     });
 
-    test('MobileSplashOverlay uses deep black branding without fake loading bars', () => {
+    test('MobileSplashOverlay keeps official branding without fake loading bars', () => {
       expect(splashOverlay).toContain('knoux-mobile-splash-overlay');
       expect(splashOverlay).toContain('KNOUX');
       expect(splashOverlay).toContain('Eng. Sadek Elgazar');
@@ -38,15 +39,20 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(splashOverlay).toContain('1800');
     });
 
-    test('tools/prepare-android-premium-splash.cjs generates clean splash PNG without static loading track', () => {
-      expect(splashScript).toContain("const DEEP_BLACK = '#030306'");
+    test('native Android splash generator uses the official daylight logo and pearl launch surface', () => {
+      expect(splashScript).toContain("knoux-logo-day.png");
+      expect(splashScript).toContain("const PEARL = '#F8F7FC'");
+      expect(splashScript).toContain("const PURPLE = '#7828E8'");
+      expect(splashScript).toContain('android:windowLightStatusBar">true');
+      expect(splashScript).toContain('android:windowLightNavigationBar">true');
       expect(splashScript).not.toContain('LOADING...');
     });
 
-    test('styles include deep black background and smooth cross-fade', () => {
+    test('final stylesheet overrides the legacy dark-first splash with pearl/lavender daylight and smooth cross-fade', () => {
       expect(premiumCss).toContain('.knoux-mobile-splash-overlay');
-      expect(premiumCss).toContain('background-color: #020205;');
-      expect(premiumCss).toContain('transition: opacity 0.3s');
+      expect(finalUiCss).toContain(":root[data-runtime='android'][data-theme='system-light'] .knoux-mobile-splash-overlay");
+      expect(finalUiCss).toContain('linear-gradient(155deg, #ffffff 0%, #f8f7fc 46%, #eee8ff 100%)');
+      expect(finalUiCss).toContain('transition: opacity 300ms');
     });
   });
 

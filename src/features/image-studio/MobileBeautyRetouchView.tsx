@@ -4,7 +4,7 @@ import { ArrowLeft, ImagePlus, Sparkles } from 'lucide-react';
 import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
-import { ImageEditorView } from '../image-editor/ImageEditorView';
+import { MobileBeautyCanvas } from './MobileBeautyCanvas';
 import './mobileBeautyStudio.css';
 
 interface RetouchAssetImport {
@@ -23,6 +23,9 @@ export const MobileBeautyRetouchView: React.FC = () => {
   const addNotification = useAppStore((state) => state.addNotification);
   const source = useImageEditorStore((state) => state.source);
   const setSource = useImageEditorStore((state) => state.setSource);
+  const setRetouchProject = useImageEditorStore((state) => state.setRetouchProject);
+  const setBeautyBeforeSnapshot = useImageEditorStore((state) => state.setBeautyBeforeSnapshot);
+  const setBeautyPreview = useImageEditorStore((state) => state.setBeautyPreview);
   const [opening, setOpening] = useState(false);
 
   const openPhoto = useCallback(async (): Promise<void> => {
@@ -39,6 +42,11 @@ export const MobileBeautyRetouchView: React.FC = () => {
       const bytes = await window.knouxImageStudioAPI.readRetouchProxy(asset.proxyRef);
       if (!bytes) throw new Error('proxy-unavailable');
       const dataUrl = URL.createObjectURL(new Blob([bytes], { type: asset.mime }));
+      const previousObjectUrl = source?.dataUrl.startsWith('blob:') ? source.dataUrl : null;
+
+      setRetouchProject(null);
+      setBeautyBeforeSnapshot(null);
+      setBeautyPreview(null);
       setSource({
         dataUrl,
         name: asset.sourceName,
@@ -49,6 +57,8 @@ export const MobileBeautyRetouchView: React.FC = () => {
         originalWidth: asset.width,
         originalHeight: asset.height,
       });
+
+      if (previousObjectUrl && previousObjectUrl !== dataUrl) URL.revokeObjectURL(previousObjectUrl);
     } catch {
       addNotification({
         type: 'error',
@@ -59,7 +69,7 @@ export const MobileBeautyRetouchView: React.FC = () => {
     } finally {
       setOpening(false);
     }
-  }, [addNotification, opening, setSource]);
+  }, [addNotification, opening, setBeautyBeforeSnapshot, setBeautyPreview, setRetouchProject, setSource, source?.dataUrl]);
 
   return (
     <section className="knoux-mobile-creative-surface kmc-beauty-retouch kmc-beauty-studio" data-component="MobileBeautyRetouchView">
@@ -97,7 +107,7 @@ export const MobileBeautyRetouchView: React.FC = () => {
 
       <div className={source ? 'kmc-beauty-workspace has-document' : 'kmc-beauty-workspace'}>
         <div className="kmc-beauty-preview-engine" aria-label="Beauty image preview">
-          <ImageEditorView />
+          <MobileBeautyCanvas />
         </div>
         <div id="knoux-mobile-beauty-host" className="kmc-beauty-controls-host" aria-live="polite" />
       </div>

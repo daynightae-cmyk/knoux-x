@@ -1,4 +1,4 @@
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -340,8 +340,14 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
         if (!selected) return;
         const extension = selected.filePath.split('.').pop()?.toLowerCase() ?? '';
         const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
-        let actualKind: 'video' | 'audio' | 'image' = imageExtensions.has(extension) ? 'image' : requestedKind;
-        if (actualKind !== 'image') {
+        const isImage = imageExtensions.has(extension);
+        let actualKind: 'video' | 'audio' | 'image';
+
+        if (isImage) {
+          if (requestedKind !== 'image') throw new Error(`Choose a ${requestedKind} file.`);
+          actualKind = 'image';
+        } else {
+          if (requestedKind === 'image') throw new Error('Choose an image file.');
           const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
           const hasVideo = probe.streams?.some((stream) => stream.codec_type === 'video') ?? false;
           const hasAudio = probe.streams?.some((stream) => stream.codec_type === 'audio') ?? false;
@@ -349,7 +355,6 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           if (requestedKind === 'audio' && !hasAudio) throw new Error('Choose an audio file.');
           actualKind = requestedKind;
         }
-        if (requestedKind === 'image' && actualKind !== 'image') throw new Error('Choose an image file.');
 
         let workingProject = project;
         let track = compatibleTrack(workingProject, actualKind);

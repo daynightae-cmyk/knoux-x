@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { DEFAULT_APPLICATION_SETTINGS } from '../src/core/settings/applicationSettings';
-import { getKnouxThemePreset } from '../src/theme/knouxThemeCatalog';
 import { getPlatformCapabilities, supportedAudioOutputFormats } from '../src/platform/platformCapabilities';
+import { getKnouxThemePreset } from '../src/theme/knouxThemeCatalog';
 
 const root = path.resolve(__dirname, '..');
 const read = (relative: string): string => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -65,16 +65,18 @@ describe('KNOUX X absolute final product closure regressions', () => {
     expect(settings).toContain("setTheme('system-light')");
   });
 
-  test('Video Studio export is gated by a real persistence acknowledgement', () => {
+  test('Video Studio export is gated by direct mobile persistence acknowledgement', () => {
     const mobileStudio = read('src/features/video-studio/MobileVideoStudioView.tsx');
-    expect(mobileStudio).toContain('knoux:command-result');
-    expect(mobileStudio).toContain('requestId');
-    expect(mobileStudio).toContain("detail?.command !== 'save'");
+    expect(mobileStudio).toContain('const result = await editor.save();');
+    expect(mobileStudio).toContain("setView('export')");
+    expect(mobileStudio).not.toContain('knoux:command-result');
+    expect(mobileStudio).not.toContain('requestId');
     expect(mobileStudio).not.toContain('setTimeout');
+    expect(mobileStudio).not.toContain('<MultitrackEditorView />');
 
-    const editor = read('src/features/editor/MultitrackEditorView.tsx');
-    expect(editor).toContain("window.dispatchEvent(new CustomEvent('knoux:command-result'");
-    expect(editor).toContain('const snapshot = structuredClone(project)');
+    const mobileTimeline = read('src/features/video-studio/MobileVideoTimelineEditor.tsx');
+    expect(mobileTimeline).toContain('const snapshot = structuredClone(project)');
+    expect(mobileTimeline).toContain('window.knouxMultitrackAPI.save(snapshot, projectPath)');
 
     const bridge = read('src/platform/androidMultitrackExportBridge.ts');
     const persistPosition = bridge.indexOf('await (base.save');

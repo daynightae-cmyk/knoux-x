@@ -1,8 +1,9 @@
 .kmc-beauty-studio {
   min-height: 100%;
   background:
-    radial-gradient(circle at 85% 8%, color-mix(in srgb, var(--knoux-accent, #7828e8) 11%, transparent), transparent 32%),
-    linear-gradient(180deg, var(--knoux-background, #f8f7fc), var(--knoux-background, #fcfbff));
+    radial-gradient(circle at 86% 8%, color-mix(in srgb, var(--knoux-accent, #7828e8) 12%, transparent), transparent 30%),
+    radial-gradient(circle at 10% 40%, color-mix(in srgb, #c4a6ff 14%, transparent), transparent 34%),
+    linear-gradient(180deg, var(--knoux-background, #f8f7fc), #fcfbff 52%, #f4efff);
   color: var(--knoux-text-primary, #15121c);
 }
 
@@ -10,38 +11,45 @@
   position: sticky;
   top: 0;
   z-index: 30;
-  background: color-mix(in srgb, var(--knoux-background, #f8f7fc) 88%, transparent);
-  backdrop-filter: blur(20px);
+  border-bottom: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 10%, transparent);
+  background: color-mix(in srgb, var(--knoux-background, #f8f7fc) 80%, transparent);
+  backdrop-filter: blur(24px) saturate(1.18);
+  -webkit-backdrop-filter: blur(24px) saturate(1.18);
 }
 
 .kmc-beauty-picker {
   width: calc(100% - 28px);
-  min-height: 260px;
+  min-height: 280px;
   margin: 18px 14px;
-  padding: 28px 22px;
+  padding: 30px 22px;
   display: grid;
   place-items: center;
   align-content: center;
   gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 19%, var(--knoux-border, #e7e0f4));
-  border-radius: 28px;
+  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 18%, var(--knoux-border, #e7e0f4));
+  border-radius: 30px;
   background:
-    radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--knoux-accent, #7828e8) 14%, transparent), transparent 34%),
-    var(--knoux-surface, #ffffff);
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--knoux-accent, #7828e8) 15%, transparent), transparent 36%),
+    color-mix(in srgb, var(--knoux-surface, #ffffff) 90%, transparent);
   color: var(--knoux-text-primary, #15121c);
-  box-shadow: 0 20px 54px color-mix(in srgb, var(--knoux-accent, #7828e8) 10%, transparent);
+  box-shadow:
+    0 24px 60px color-mix(in srgb, var(--knoux-accent, #7828e8) 10%, transparent),
+    inset 0 1px rgba(255, 255, 255, 0.86);
   text-align: center;
+  backdrop-filter: blur(20px);
 }
 
 .kmc-beauty-picker__icon {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   color: var(--knoux-accent, #7828e8);
-  background: color-mix(in srgb, var(--knoux-accent, #7828e8) 10%, #ffffff);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--knoux-accent, #7828e8) 16%, transparent);
+  background:
+    radial-gradient(circle at 32% 26%, #ffffff, color-mix(in srgb, #c4a6ff 42%, #ffffff));
+  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 20%, transparent);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--knoux-accent, #7828e8) 18%, transparent);
 }
 
 .kmc-beauty-picker strong {
@@ -49,7 +57,7 @@
 }
 
 .kmc-beauty-picker > span:not(.kmc-beauty-picker__icon) {
-  max-width: 330px;
+  max-width: 340px;
   color: var(--knoux-text-secondary, #625b70);
   font-size: 13px;
   line-height: 1.6;
@@ -59,11 +67,12 @@
   margin-top: 6px;
   padding: 10px 18px;
   border-radius: 999px;
-  background: var(--knoux-accent, #7828e8);
+  background: linear-gradient(135deg, #6d21d9, #8b3dff);
   color: #ffffff;
+  box-shadow: 0 10px 24px rgba(120, 40, 232, 0.22);
   font-style: normal;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 760;
 }
 
 .kmc-beauty-document-bar {
@@ -73,9 +82,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid var(--knoux-border, #e8e1f3);
+  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 10%, var(--knoux-border, #e8e1f3));
   border-radius: 18px;
-  background: color-mix(in srgb, var(--knoux-surface, #ffffff) 94%, transparent);
+  background: color-mix(in srgb, var(--knoux-surface, #ffffff) 86%, transparent);
+  box-shadow: 0 10px 30px rgba(53, 32, 85, 0.06);
+  backdrop-filter: blur(18px);
 }
 
 .kmc-beauty-document-bar > div {
@@ -102,7 +113,7 @@
 .kmc-beauty-workspace {
   display: grid;
   gap: 12px;
-  padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+  padding: 12px 14px calc(22px + env(safe-area-inset-bottom));
 }
 
 .kmc-beauty-workspace:not(.has-document) .kmc-beauty-preview-engine,
@@ -111,129 +122,130 @@
 }
 
 .kmc-beauty-preview-engine {
+  position: relative;
+  min-width: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 12%, var(--knoux-border, #e6def5));
-  border-radius: 26px;
-  background: #eee8ff;
-  box-shadow: 0 18px 42px rgba(45, 29, 71, 0.12);
+  border: 1px solid color-mix(in srgb, var(--knoux-accent, #7828e8) 13%, var(--knoux-border, #e6def5));
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(238, 232, 255, 0.64));
+  box-shadow:
+    0 22px 54px rgba(45, 29, 71, 0.12),
+    inset 0 1px rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
 }
 
-/* Android Beauty owns the consumer chrome. The legacy editor remains mounted
-   only as the proven canvas, history, local retouch and export engine. */
-.kmc-beauty-preview-engine .creative-header,
-.kmc-beauty-preview-engine .runtime-mode-notice,
-.kmc-beauty-preview-engine .studio-preset-bar,
-.kmc-beauty-preview-engine .image-editor-toolbar,
-.kmc-beauty-preview-engine .image-editor-ai-panel,
-.kmc-beauty-preview-engine .image-editor-retouch-studio,
-.kmc-beauty-preview-engine .image-editor-resize-panel,
-.kmc-beauty-preview-engine .image-editor-empty,
-.kmc-beauty-preview-engine .creative-error {
-  display: none !important;
-}
-
-.kmc-beauty-preview-engine .creative-view,
-.kmc-beauty-preview-engine .image-editor-shell,
-.kmc-beauty-preview-engine .image-editor-main,
-.kmc-beauty-preview-engine .image-editor-stage-panel,
-.kmc-beauty-preview-engine .image-editor-stage,
-.kmc-beauty-preview-engine .image-editor-canvas-stack {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.kmc-beauty-preview-engine .image-editor-shell,
-.kmc-beauty-preview-engine .image-editor-main {
-  display: block !important;
-}
-
-.kmc-beauty-preview-engine .image-editor-stage {
+.kmc-beauty-stage {
+  position: relative;
+  width: 100%;
   min-height: min(58vh, 560px);
   display: grid;
   place-items: center;
   overflow: hidden;
+  padding: 12px;
   background:
     linear-gradient(45deg, rgba(120, 40, 232, 0.025) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(120, 40, 232, 0.025) 25%, transparent 25%),
-    #f2eff8 !important;
-  background-size: 18px 18px !important;
+    #f2eff8;
+  background-size: 18px 18px;
 }
 
-.kmc-beauty-preview-engine .image-editor-canvas-stack {
-  display: grid !important;
+.kmc-beauty-canvas-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: min(54vh, 520px);
+  display: grid;
   place-items: center;
-  min-height: min(58vh, 560px);
 }
 
-.kmc-beauty-preview-engine .image-editor-canvas,
-.kmc-beauty-preview-engine .image-editor-overlay,
-.kmc-beauty-preview-engine .image-editor-original-preview {
-  max-width: 100% !important;
-  max-height: min(58vh, 560px) !important;
-  width: auto !important;
-  height: auto !important;
+.kmc-beauty-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: min(54vh, 520px);
+  width: auto;
+  height: auto;
   object-fit: contain;
+  border-radius: 18px;
+  box-shadow: 0 18px 46px rgba(31, 18, 51, 0.14);
+  touch-action: none;
 }
 
-/* Keep only the real export control from the legacy side surface when the
-   browser supports :has(); no desktop control wall is exposed. */
-@supports selector(:has(*)) {
-  .kmc-beauty-preview-engine .image-editor-side > * {
-    display: none !important;
-  }
+.kmc-beauty-render-status,
+.kmc-beauty-render-error {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  translate: -50% 0;
+  max-width: calc(100% - 28px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  backdrop-filter: blur(16px);
+}
 
-  .kmc-beauty-preview-engine .image-editor-side > *:has(.image-editor-export-box) {
-    display: block !important;
-    padding: 10px !important;
-    border: 0 !important;
-    background: var(--knoux-surface, #ffffff) !important;
-  }
+.kmc-beauty-render-status {
+  color: #5c2ca8;
+  background: rgba(250, 247, 255, 0.86);
+  border: 1px solid rgba(120, 40, 232, 0.14);
+}
 
-  .kmc-beauty-preview-engine .image-editor-side > *:has(.image-editor-export-box) > *:not(.image-editor-export-box) {
-    display: none !important;
-  }
-
-  .kmc-beauty-preview-engine .image-editor-export-box {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
+.kmc-beauty-render-error {
+  color: #8b1e32;
+  background: rgba(255, 244, 246, 0.94);
+  border: 1px solid rgba(190, 35, 65, 0.18);
 }
 
 .kmc-beauty-controls-host {
   position: sticky;
   bottom: max(8px, env(safe-area-inset-bottom));
   z-index: 20;
+  min-width: 0;
 }
 
 [data-theme*='dark'] .kmc-beauty-studio,
 .dark .kmc-beauty-studio {
   background:
-    radial-gradient(circle at 85% 8%, rgba(139, 61, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 85% 8%, rgba(139, 61, 255, 0.17), transparent 34%),
+    radial-gradient(circle at 12% 48%, rgba(196, 166, 255, 0.07), transparent 36%),
     #08060d;
   color: #f8f5ff;
 }
 
-[data-theme*='dark'] .kmc-beauty-preview-engine,
-.dark .kmc-beauty-preview-engine {
-  background: #0e0b14;
-  border-color: rgba(196, 166, 255, 0.14);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+[data-theme*='dark'] .kmc-beauty-topbar,
+.dark .kmc-beauty-topbar,
+[data-theme*='dark'] .kmc-beauty-document-bar,
+.dark .kmc-beauty-document-bar {
+  background: rgba(12, 9, 18, 0.78);
+  border-color: rgba(196, 166, 255, 0.13);
 }
 
-[data-theme*='dark'] .kmc-beauty-preview-engine .image-editor-stage,
-.dark .kmc-beauty-preview-engine .image-editor-stage {
-  background: #0d0a14 !important;
+[data-theme*='dark'] .kmc-beauty-preview-engine,
+.dark .kmc-beauty-preview-engine {
+  background: linear-gradient(145deg, rgba(21, 16, 29, 0.9), rgba(13, 10, 20, 0.86));
+  border-color: rgba(196, 166, 255, 0.14);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme*='dark'] .kmc-beauty-stage,
+.dark .kmc-beauty-stage {
+  background:
+    linear-gradient(45deg, rgba(196, 166, 255, 0.018) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(196, 166, 255, 0.018) 25%, transparent 25%),
+    #0d0a14;
+  background-size: 18px 18px;
+}
+
+[data-theme*='dark'] .kmc-beauty-canvas,
+.dark .kmc-beauty-canvas {
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
 }
 
 @media (orientation: landscape) and (max-height: 600px) {
   .kmc-beauty-workspace.has-document {
-    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+    grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
     align-items: start;
   }
 
@@ -241,14 +253,26 @@
     position: static;
   }
 
-  .kmc-beauty-preview-engine .image-editor-stage,
-  .kmc-beauty-preview-engine .image-editor-canvas-stack {
-    min-height: calc(100vh - 150px);
+  .kmc-beauty-stage,
+  .kmc-beauty-canvas-frame {
+    min-height: calc(100vh - 154px);
   }
 
-  .kmc-beauty-preview-engine .image-editor-canvas,
-  .kmc-beauty-preview-engine .image-editor-overlay,
-  .kmc-beauty-preview-engine .image-editor-original-preview {
-    max-height: calc(100vh - 150px) !important;
+  .kmc-beauty-canvas {
+    max-height: calc(100vh - 178px);
+  }
+}
+
+@media (max-width: 380px) {
+  .kmc-beauty-workspace {
+    padding-inline: 10px;
+  }
+
+  .kmc-beauty-document-bar {
+    margin-inline: 10px;
+  }
+
+  .kmc-beauty-stage {
+    padding: 8px;
   }
 }

@@ -23,6 +23,13 @@ export interface VideoRetouchInspectorProps {
   sourceUrl: string | null;
   fps: number;
   onChange(state: VideoRetouchClipState): void;
+  mode?: import('../../../core/creative/videoRetouchTemporal').VideoRetouchAnalysisMode;
+  playheadTime?: number | null;
+  priorityWindowSeconds?: number;
+  maxAnalysisSamples?: number;
+  enableBodyTracking?: boolean;
+  bodyModelReader?: () => Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }> | null;
+  sharedCache?: { has(timestamp: number): boolean; get(timestamp: number): unknown; nearest?(timestamp: number, maxDistance: number): unknown; stats?(): unknown; set?(timestamp: number, faces: unknown, meta?: { elapsedMs?: number; modelId?: string }): void; dispose?(): void };
 }
 
 type SupportedCategory = 'lipstick' | 'blush';
@@ -50,7 +57,11 @@ function supportedTemplate(template: RetouchTemplate): template is RetouchTempla
  * revision, while project persistence receives only accepted/final analysis
  * state rather than hundreds of transient progress snapshots.
  */
-export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({ item, sourceUrl, fps, onChange }) => {
+export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
+  item, sourceUrl, fps, onChange,
+  mode, playheadTime, priorityWindowSeconds, maxAnalysisSamples,
+  enableBodyTracking, bodyModelReader, sharedCache,
+}) => {
   const [category, setCategory] = useState<SupportedCategory>('lipstick');
   const [workingAnalysis, setWorkingAnalysis] = useState<VideoRetouchClipState>(() => stateOf(item));
   const [analysisBusy, setAnalysisBusy] = useState(false);
@@ -82,6 +93,13 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({ it
       state: persisted,
       signal: controller.signal,
       onProgress: setWorkingAnalysis,
+      ...(mode !== undefined ? { mode } : {}),
+      ...(playheadTime !== undefined && playheadTime !== null ? { playheadTime: Number(playheadTime) } : {}),
+      ...(priorityWindowSeconds !== undefined ? { priorityWindowSeconds: Number(priorityWindowSeconds) } : {}),
+      ...(maxAnalysisSamples !== undefined ? { maxAnalysisSamples: Number(maxAnalysisSamples) } : {}),
+      ...(enableBodyTracking !== undefined ? { enableBodyTracking: Boolean(enableBodyTracking) } : {}),
+      ...(bodyModelReader !== undefined ? { bodyModelReader: bodyModelReader ?? null } : {}),
+      ...(sharedCache !== undefined ? { cache: sharedCache } : {}),
     });
     if (!controller.signal.aborted) {
       setWorkingAnalysis(result);

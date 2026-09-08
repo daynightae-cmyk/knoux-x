@@ -82,7 +82,7 @@ export function cloneVideoRetouchState(state: VideoRetouchClipState): VideoRetou
 export function createVideoRetouchState(): VideoRetouchClipState {
   const timestamp = now();
   return {
-    version: 1,
+    version: 2,
     enabled: true,
     selectedFaceId: null,
     applyAllFaces: false,

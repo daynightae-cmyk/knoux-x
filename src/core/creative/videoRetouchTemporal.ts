@@ -45,6 +45,8 @@ export type VideoRetouchCategory =
   | 'body-shape'
   | 'makeup-look';
 
+export type VideoRetouchAnalysisMode = 'fast' | 'balanced' | 'high-accuracy';
+
 export type VideoRetouchParameter = number | string | boolean;
 export type VideoRetouchApplyScope = 'frame' | 'range' | 'clip';
 
@@ -77,12 +79,18 @@ export interface VideoRetouchLayerRange {
   end: number;
 }
 
+export interface VideoRetouchParameterKeyframe {
+  time: number;
+  value: number;
+}
+
 export interface VideoRetouchLayer {
   id: string;
   templateId: string;
   category: VideoRetouchCategory;
   targetRegion: VideoRetouchRegion;
   parameters: Record<string, VideoRetouchParameter>;
+  parameterKeyframes?: Record<string, VideoRetouchParameterKeyframe[]>;
   strength: number;
   active: boolean;
   order: number;
@@ -124,14 +132,78 @@ export interface VideoRetouchTrackingSettings {
  * Temporal/layer metadata owned by the canonical TimelineVideoRetouchEffect.
  * Pixel engines stay outside this serializable project-domain contract.
  */
+export interface VideoRetouchBodyTrack {
+  bodyId: string;
+  keyframes: VideoRetouchBodyKeyframe[];
+  lastConfidence: number;
+  lostFrames: number;
+}
+
+export interface VideoRetouchBodyKeyframe {
+  timestamp: number;
+  anchors: VideoRetouchBodyAnchorSet;
+  confidence: number;
+  opacity: number;
+  activeRegions: VideoRetouchBodyRegion[];
+  source: 'detected' | 'tracked' | 'interpolated' | 'reacquired';
+}
+
+export interface VideoRetouchDiscontinuity {
+  timestamp: number;
+  kind: 'scene-cut' | 'confidence-collapse' | 'manual';
+  confidence: number;
+}
+
+export interface VideoRetouchQualityReport {
+  level: 'good' | 'partial' | 'low';
+  reasons: string[];
+  coverage: number;
+  updatedAt: string;
+}
+
+export type VideoRetouchBodyRegion =
+  | 'head' | 'shoulders' | 'torso' | 'waist' | 'hips' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
+
+export interface VideoRetouchBodyAnchorPoint {
+  x: number;
+  y: number;
+  visibility: number;
+}
+
+export interface VideoRetouchBodyAnchorSegment {
+  left: VideoRetouchBodyAnchorPoint;
+  right: VideoRetouchBodyAnchorPoint;
+  center: VideoRetouchBodyAnchorPoint;
+  width: number;
+}
+
+export interface VideoRetouchBodyAnchorSet {
+  head: { center: VideoRetouchBodyAnchorPoint; radius: number } | null;
+  shoulders: VideoRetouchBodyAnchorSegment | null;
+  waist: VideoRetouchBodyAnchorSegment | null;
+  hips: VideoRetouchBodyAnchorSegment | null;
+  arms: {
+    left: [VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint] | null;
+    right: [VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint] | null;
+  };
+  legs: {
+    left: [VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint] | null;
+    right: [VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint, VideoRetouchBodyAnchorPoint] | null;
+  };
+}
+
 export interface VideoRetouchClipState {
-  version: 1;
+  version: 1 | 2;
   enabled: boolean;
   selectedFaceId: string | null;
   applyAllFaces: boolean;
   beforeAfter: 'after' | 'before';
   layers: VideoRetouchLayer[];
   faceTracks: VideoRetouchFaceTrack[];
+  bodyTracks?: VideoRetouchBodyTrack[];
+  discontinuities?: VideoRetouchDiscontinuity[];
+  quality?: VideoRetouchQualityReport | null;
+  analysisMode?: VideoRetouchAnalysisMode;
   analysis: VideoRetouchAnalysisState;
   tracking: VideoRetouchTrackingSettings;
   updatedAt: string;

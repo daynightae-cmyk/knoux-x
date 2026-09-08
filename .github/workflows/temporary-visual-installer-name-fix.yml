@@ -1,0 +1,53 @@
+name: Temporary Visual Installer Identity Repair
+
+on:
+  push:
+    branches:
+      - codex/absolute-final-product-closure-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Repair visible installer identity and self-test evidence
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'installer/windows/KnouxVisualInstaller.cs';
+          let text = fs.readFileSync(file, 'utf8');
+          const replacements = [
+            ['json.AppendLine("  \\"product\\": \\"KNOUX Player X\\",");', 'json.AppendLine("  \\"product\\": \\"Knoux X\\",");'],
+            ['throw new InvalidOperationException("Installed KNOUX Player X executable was not found.");', 'throw new InvalidOperationException("Installed Knoux X executable was not found.");'],
+            ['Text = "KNOUX Player X — Visual Installer";', 'Text = "Knoux X — Visual Installer";'],
+            ['titleLabel.Text = arabic ? "ثبّت KNOUX Player X" : "Install KNOUX Player X";', 'titleLabel.Text = arabic ? "ثبّت Knoux X" : "Install Knoux X";'],
+            ['launchButton.Text = arabic ? "تشغيل KNOUX Player X" : "Launch KNOUX Player X";', 'launchButton.Text = arabic ? "تشغيل Knoux X" : "Launch Knoux X";'],
+            ['arabic ? "هل تريد إزالة KNOUX Player X؟" : "Uninstall KNOUX Player X?",', 'arabic ? "هل تريد إزالة Knoux X؟" : "Uninstall Knoux X?",'],
+            ['"KNOUX Player X",\n                MessageBoxButtons.YesNo,', '"Knoux X",\n                MessageBoxButtons.YesNo,'],
+            ['MessageBox.Show(error.Message, "KNOUX Player X", MessageBoxButtons.OK, MessageBoxIcon.Error);', 'MessageBox.Show(error.Message, "Knoux X", MessageBoxButtons.OK, MessageBoxIcon.Error);'],
+          ];
+          let count = 0;
+          for (const [from, to] of replacements) {
+            if (!text.includes(from)) throw new Error(`Expected installer identity source not found: ${from}`);
+            text = text.replace(from, to);
+            count++;
+          }
+          fs.writeFileSync(file, text, 'utf8');
+          console.log(`Applied ${count} targeted visual-installer identity replacements.`);
+          NODE
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add installer/windows/KnouxVisualInstaller.cs
+          git commit -m "fix(windows): unify Knoux X visual installer identity"
+          git push origin HEAD:${{ github.ref_name }}

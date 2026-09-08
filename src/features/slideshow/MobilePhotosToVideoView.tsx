@@ -4,7 +4,8 @@ import { ArrowLeft, FolderOpen, Images, Sparkles } from 'lucide-react';
 import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 
-import { SlideshowView } from './SlideshowView';
+import { MobileSlideshowEditor } from './MobileSlideshowEditor';
+import './mobileSlideshowEditor.css';
 
 export const MobilePhotosToVideoView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
@@ -25,12 +26,12 @@ export const MobilePhotosToVideoView: React.FC = () => {
       </header>
 
       <div className="kmc-intro-card">
-        <div><span>TURN MOMENTS INTO MOTION</span><h1>Photos to <em>Video</em></h1><p>Select ordinary photos, add music and transitions, then create a real video.</p></div>
+        <div><span>TURN MOMENTS INTO MOTION</span><h1>Photos to <em>Video</em></h1><p>Select ordinary photos or videos, add music and transitions, and keep the project fully editable on mobile.</p></div>
         <span className="kmc-intro-icon"><Images size={30} /></span>
       </div>
 
       <div className="kmc-engine kmc-slideshow-engine">
-        <SlideshowView />
+        <MobileSlideshowEditor />
       </div>
 
       <footer className="kmc-creative-footer"><Sparkles size={15} /> SIMPLE TO CREATE · POWERFUL TO FEEL</footer>

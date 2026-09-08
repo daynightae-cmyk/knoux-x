@@ -1,0 +1,348 @@
+html[data-platform='android'] .kms-mobile-slideshow {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: #21192c;
+}
+
+html[data-platform='android'] .kms-start-card,
+html[data-platform='android'] .kms-preview-card,
+html[data-platform='android'] .kms-project-bar,
+html[data-platform='android'] .kms-inspector,
+html[data-platform='android'] .kms-strip,
+html[data-platform='android'] .kms-import-row {
+  border: 1px solid rgba(120, 40, 232, 0.16);
+  background: linear-gradient(145deg, rgba(255,255,255,0.93), rgba(249,246,253,0.88));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 34px rgba(69, 44, 91, 0.09);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-platform='android'] .kms-start-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+html[data-platform='android'] .kms-start-card > strong {
+  font-size: 21px;
+}
+
+html[data-platform='android'] .kms-start-card > p,
+html[data-platform='android'] .kms-project-bar span,
+html[data-platform='android'] .kms-recent-list > span,
+html[data-platform='android'] .kms-strip small,
+html[data-platform='android'] .kms-empty-preview {
+  color: #746a80;
+  font-size: 12px;
+}
+
+html[data-platform='android'] .kms-start-actions,
+html[data-platform='android'] .kms-import-row,
+html[data-platform='android'] .kms-project-bar > div:last-child,
+html[data-platform='android'] .kms-inspector-head > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+html[data-platform='android'] .kms-mobile-slideshow button,
+html[data-platform='android'] .kms-mobile-slideshow input {
+  min-height: 42px;
+  border: 1px solid rgba(120, 40, 232, 0.18);
+  border-radius: 14px;
+  color: #241a30;
+  background: rgba(255,255,255,0.92);
+  font: inherit;
+}
+
+html[data-platform='android'] .kms-mobile-slideshow button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+html[data-platform='android'] .kms-mobile-slideshow button:disabled {
+  opacity: 0.46;
+}
+
+html[data-platform='android'] .kms-mobile-slideshow button.active,
+html[data-platform='android'] .kms-import-row button:last-child {
+  border-color: rgba(120, 40, 232, 0.5);
+  color: #fff;
+  background: linear-gradient(135deg, #8b3dff, #7828e8);
+}
+
+html[data-platform='android'] .kms-recent-list {
+  display: grid;
+  gap: 7px;
+}
+
+html[data-platform='android'] .kms-recent-list button {
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kms-project-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 20px;
+}
+
+html[data-platform='android'] .kms-project-bar > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+html[data-platform='android'] .kms-project-bar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kms-project-bar > div:last-child button,
+html[data-platform='android'] .kms-inspector-head button {
+  width: 42px;
+  padding: 0;
+}
+
+html[data-platform='android'] .kms-notice {
+  padding: 10px 12px;
+  border: 1px solid rgba(24, 145, 168, 0.2);
+  border-radius: 14px;
+  color: #245b67;
+  background: rgba(103, 232, 249, 0.12);
+  font-size: 12px;
+}
+
+html[data-platform='android'] .kms-preview-card {
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+html[data-platform='android'] .kms-preview-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: min(55vw, 330px);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #050509;
+}
+
+html[data-platform='android'] .kms-preview-stage > img,
+html[data-platform='android'] .kms-preview-stage > video {
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+}
+
+html[data-platform='android'] .kms-motion-zoom-in > :is(img, video) {
+  animation: kms-zoom-in 7s linear both;
+}
+
+html[data-platform='android'] .kms-motion-zoom-out > :is(img, video) {
+  animation: kms-zoom-out 7s linear both;
+}
+
+html[data-platform='android'] .kms-motion-pan-left > :is(img, video) {
+  animation: kms-pan-left 7s linear both;
+}
+
+html[data-platform='android'] .kms-motion-pan-right > :is(img, video) {
+  animation: kms-pan-right 7s linear both;
+}
+
+html[data-platform='android'] .kms-motion-pan-up > :is(img, video) {
+  animation: kms-pan-up 7s linear both;
+}
+
+html[data-platform='android'] .kms-motion-pan-down > :is(img, video) {
+  animation: kms-pan-down 7s linear both;
+}
+
+html[data-platform='android'] .kms-text-card {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 28px;
+  color: #fff;
+  text-align: center;
+}
+
+html[data-platform='android'] .kms-text-card strong {
+  font-size: clamp(24px, 8vw, 42px);
+}
+
+html[data-platform='android'] .kms-transport {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+html[data-platform='android'] .kms-transport button {
+  width: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+html[data-platform='android'] .kms-transport input[type='range'] {
+  min-height: 0;
+  width: 100%;
+  accent-color: #7828e8;
+  background: transparent;
+}
+
+html[data-platform='android'] .kms-transport span {
+  min-width: 48px;
+  color: #6d627a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+html[data-platform='android'] .kms-import-row {
+  padding: 9px;
+  border-radius: 18px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+html[data-platform='android'] .kms-import-row button {
+  flex: 1 0 auto;
+}
+
+html[data-platform='android'] .kms-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  overflow-x: auto;
+  border-radius: 20px;
+  scrollbar-width: none;
+}
+
+html[data-platform='android'] .kms-strip::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform='android'] .kms-strip button {
+  flex: 0 0 128px;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  justify-content: stretch;
+  gap: 4px 7px;
+  padding: 9px;
+  text-align: start;
+}
+
+html[data-platform='android'] .kms-strip button > span {
+  grid-row: 1 / 3;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  color: #6b2db4;
+  background: rgba(120, 40, 232, 0.09);
+}
+
+html[data-platform='android'] .kms-strip strong,
+html[data-platform='android'] .kms-strip small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kms-inspector {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 22px;
+}
+
+html[data-platform='android'] .kms-inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+html[data-platform='android'] .kms-inspector label,
+html[data-platform='android'] .kms-inspector-field {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: #6e6378;
+  font-size: 12px;
+}
+
+html[data-platform='android'] .kms-inspector input,
+html[data-platform='android'] .kms-inspector-field .neon-select {
+  width: 100%;
+}
+
+html[data-platform='android'] .kms-inspector input {
+  padding: 0 11px;
+}
+
+html[data-platform='android'] .kms-inspector-field .neon-select-trigger {
+  min-height: 42px;
+  border-color: rgba(120, 40, 232, 0.18);
+  color: #241a30;
+  background: rgba(255,255,255,0.92);
+}
+
+html[data-platform='android'] .kms-inspector-field .neon-select-value {
+  color: #241a30;
+}
+
+@keyframes kms-zoom-in {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+@keyframes kms-zoom-out {
+  from { transform: scale(1.08); }
+  to { transform: scale(1); }
+}
+
+@keyframes kms-pan-left {
+  from { transform: scale(1.08) translateX(2.5%); }
+  to { transform: scale(1.08) translateX(-2.5%); }
+}
+
+@keyframes kms-pan-right {
+  from { transform: scale(1.08) translateX(-2.5%); }
+  to { transform: scale(1.08) translateX(2.5%); }
+}
+
+@keyframes kms-pan-up {
+  from { transform: scale(1.08) translateY(2.5%); }
+  to { transform: scale(1.08) translateY(-2.5%); }
+}
+
+@keyframes kms-pan-down {
+  from { transform: scale(1.08) translateY(-2.5%); }
+  to { transform: scale(1.08) translateY(2.5%); }
+}

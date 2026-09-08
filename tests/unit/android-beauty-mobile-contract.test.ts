@@ -21,16 +21,39 @@ describe('Android mobile Beauty Studio contracts', () => {
     expect(source).not.toContain("'Analyze Face'");
   });
 
-  it('keeps mobile Beauty chrome separate from the desktop editor control wall', () => {
+  it('uses a purpose-built mobile Beauty canvas instead of mounting the desktop ImageEditorView', () => {
     const view = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
+    const canvas = read('src/features/image-studio/MobileBeautyCanvas.tsx');
     const css = read('src/features/image-studio/mobileBeautyStudio.css');
 
+    expect(view).toContain("import { MobileBeautyCanvas } from './MobileBeautyCanvas';");
+    expect(view).toContain('<MobileBeautyCanvas />');
+    expect(view).not.toContain('ImageEditorView');
     expect(view).toContain('id="knoux-mobile-beauty-host"');
     expect(view).toContain('kmc-beauty-preview-engine');
-    expect(css).toContain('.kmc-beauty-preview-engine .image-editor-toolbar');
-    expect(css).toContain('.kmc-beauty-preview-engine .image-editor-ai-panel');
-    expect(css).toContain('.kmc-beauty-preview-engine .image-editor-retouch-studio');
-    expect(css).toContain('display: none !important');
+
+    expect(canvas).toContain('className="image-editor-stage kmc-beauty-stage"');
+    expect(canvas).toContain('className="image-editor-canvas kmc-beauty-canvas"');
+    expect(canvas).toContain('LatestRenderScheduler');
+    expect(canvas).toContain('retouchProject');
+    expect(canvas).toContain('maskFromDescriptor');
+    expect(canvas).toContain('applyStoredRetouchOperation');
+    expect(canvas).toContain('liquifyMeshWarp');
+
+    expect(css).toContain('.kmc-beauty-stage');
+    expect(css).toContain('.kmc-beauty-canvas');
+    expect(css).not.toContain('.image-editor-toolbar');
+    expect(css).not.toContain('.image-editor-ai-panel');
+    expect(css).not.toContain('.image-editor-retouch-studio');
+  });
+
+  it('resets the previous portrait recipe before a newly selected portrait becomes active', () => {
+    const view = read('src/features/image-studio/MobileBeautyRetouchView.tsx');
+
+    expect(view).toContain('setRetouchProject(null)');
+    expect(view).toContain('setBeautyBeforeSnapshot(null)');
+    expect(view).toContain('setBeautyPreview(null)');
+    expect(view).toContain('URL.revokeObjectURL(previousObjectUrl)');
   });
 
   it('starts body analysis only after the user opens Body and respects partial geometry', () => {

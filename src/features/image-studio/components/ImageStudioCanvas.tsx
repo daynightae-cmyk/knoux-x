@@ -9,6 +9,7 @@ import { preloadAsset, getCachedAsset } from '../retouch/assetResolver';
 import { applyRetouchToLayer, getRetouchPreviewProxy } from '../retouch/perLayerRenderer';
 import { applyRetouchToBuffer } from '../retouch/retouchPreviewBridge';
 import { createRetouchPerformanceRecorder, markRetouchInteraction, markRetouchRenderRequested } from '../retouch/retouchPerformanceTelemetry';
+import { LatestRenderScheduler } from '../retouch/latestRenderScheduler';
 
 import {
   clientPointToCanvasDocument,
@@ -20,7 +21,8 @@ export const ImageStudioCanvas: React.FC = () => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const renderVersionRef = useRef(0);
+  const renderSchedulerRef = useRef<LatestRenderScheduler | null>(null);
+  if (renderSchedulerRef.current === null) renderSchedulerRef.current = new LatestRenderScheduler();
   const {
     currentDocument,
     activeLayerId,
@@ -60,11 +62,9 @@ export const ImageStudioCanvas: React.FC = () => {
   const canvasWidth = currentDocument?.canvas.width ?? 1920;
   const canvasHeight = currentDocument?.canvas.height ?? 1080;
 
-  const renderFrame = useCallback(async () => {
+  const renderFrame = useCallback(async (myVersion: number, isCurrent: () => boolean) => {
     const canvas = canvasRef.current;
     if (!canvas || !currentDocument) return;
-    markRetouchRenderRequested();
-    const myVersion = ++renderVersionRef.current;
     const timing = createRetouchPerformanceRecorder(
       transactionActive ? 'preview' : 'final',
       {
@@ -84,7 +84,7 @@ export const ImageStudioCanvas: React.FC = () => {
         ),
       );
       timing.record('canvas.assetPreload', preloadStartedAt);
-      if (myVersion !== renderVersionRef.current) {
+      if (!isCurrent()) {
         timing.finish({ outcome: 'superseded-after-preload' });
         return;
       }
@@ -117,7 +117,7 @@ export const ImageStudioCanvas: React.FC = () => {
           }),
         );
       }
-      if (myVersion !== renderVersionRef.current) {
+      if (!isCurrent()) {
         timing.finish({ outcome: 'superseded-after-layer-render' });
         return;
       }
@@ -154,7 +154,7 @@ export const ImageStudioCanvas: React.FC = () => {
       if (!useOriginal && currentDocument.legacyCompositeRetouch && currentDocument.legacyCompositeRetouch.operations.length > 0) {
         finalBuffer = await applyRetouchToBuffer(result, currentDocument.legacyCompositeRetouch, 'preview');
       }
-      if (myVersion !== renderVersionRef.current) {
+      if (!isCurrent()) {
         timing.finish({ outcome: 'superseded-before-paint' });
         return;
       }
@@ -188,7 +188,7 @@ export const ImageStudioCanvas: React.FC = () => {
         renderedHeight: finalBuffer.height,
       });
     } catch (err) {
-      if (myVersion !== renderVersionRef.current) {
+      if (!isCurrent()) {
         timing.finish({ outcome: 'superseded-error' });
         return;
       }
@@ -198,8 +198,15 @@ export const ImageStudioCanvas: React.FC = () => {
   }, [currentDocument, canvasWidth, canvasHeight, showingOriginal, showOriginal, transactionActive, setRenderError]);
 
   useEffect(() => {
-    void renderFrame();
-  }, [renderFrame, documentVersion]);
+    if (!currentDocument) return;
+    markRetouchRenderRequested();
+    renderSchedulerRef.current?.request((revision, isCurrent) => renderFrame(revision, isCurrent));
+  }, [currentDocument, documentVersion, renderFrame]);
+
+  useEffect(() => () => {
+    renderSchedulerRef.current?.dispose();
+    renderSchedulerRef.current = null;
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {

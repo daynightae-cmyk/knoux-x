@@ -123,20 +123,19 @@ async function packageNativeRuntime(buildPath, electronVersion, platform, arch, 
     const sqliteManifest = requirePackagedManifest(buildPath, 'better-sqlite3');
     const sharpManifest = requirePackagedManifest(buildPath, 'sharp');
     const sharpPlatformRoot = path.join(buildPath, 'node_modules', '@img');
-    const expectedRuntime = platform === 'win32' ? `sharp-win32-${arch}` : null;
-    const windowsRuntime = expectedRuntime && installedImagePackages.includes(expectedRuntime)
-      ? expectedRuntime
-      : null;
-    if (!windowsRuntime) {
-      throw new Error(`Sharp Windows ${arch} runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
+    const runtimePrefix = platform === 'win32' ? 'sharp-win32' : platform === 'linux' ? 'sharp-linux' : `sharp-${platform}`;
+    const expectedRuntime = `${runtimePrefix}-${arch}`;
+    const packagedRuntime = installedImagePackages.includes(expectedRuntime) ? expectedRuntime : null;
+    if (!packagedRuntime) {
+      throw new Error(`Sharp ${platform} ${arch} runtime package is missing from ${sharpPlatformRoot}: ${installedImagePackages.join(', ') || 'none'}`);
     }
 
-    const windowsRuntimeRoot = path.join(sharpPlatformRoot, windowsRuntime);
-    const runtimeFiles = listRuntimeFiles(windowsRuntimeRoot);
+    const packagedRuntimeRoot = path.join(sharpPlatformRoot, packagedRuntime);
+    const runtimeFiles = listRuntimeFiles(packagedRuntimeRoot);
     const nativeBinaries = runtimeFiles.filter((filePath) => filePath.endsWith('.node'));
     const runtimeLibraries = runtimeFiles.filter((filePath) => filePath.toLowerCase().endsWith('.dll'));
     if (nativeBinaries.length === 0) {
-      throw new Error(`Sharp Windows native binary is missing from ${windowsRuntimeRoot}`);
+      throw new Error(`Sharp ${platform} native binary is missing from ${packagedRuntimeRoot}`);
     }
 
     console.log(`[KNOUX package] Native SQLite runtime copied to ${sqliteManifest}`);

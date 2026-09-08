@@ -134,7 +134,7 @@ export class ReplicateVideoAdapter implements VideoProviderAdapter {
         if (!outputUrl) {
           throw new VideoGatewayError('invalid-result', videoBlockedMessage('invalid-result', 'Replicate returned no video output URL.'), 'replicate');
         }
-        return this.downloadAndFinalize(outputUrl, providerJobId, request, key, onPhase, probeVideo);
+        return this.downloadAndFinalize(outputUrl, providerJobId, request, onPhase, probeVideo);
       }
       if (prediction.status === 'failed' || prediction.status === 'canceled') {
         const code = prediction.status === 'canceled' ? 'canceled' : 'upstream';
@@ -182,14 +182,12 @@ export class ReplicateVideoAdapter implements VideoProviderAdapter {
     outputUrl: string,
     providerJobId: string,
     request: VideoGatewayJobRequest,
-    key: string,
     onPhase: (phase: VideoJobPhase) => void,
     probeVideo: VideoProbeFn,
   ): Promise<VideoGatewayJobResult> {
-    assertHttpsOutput(outputUrl);
+    assertTrustedOutputUrl(outputUrl);
     onPhase('downloading');
     const download = await this.http.get(outputUrl, {
-      headers: { authorization: `Bearer ${key}` },
       binary: true,
       timeoutMs: 120_000,
     });
@@ -250,15 +248,20 @@ function outputUrlOf(output: ReplicatePrediction['output']): string | null {
   return null;
 }
 
-function assertHttpsOutput(url: string): void {
+function assertTrustedOutputUrl(url: string): void {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     throw new VideoGatewayError('invalid-result', videoBlockedMessage('invalid-result', 'Replicate returned an invalid output URL.'), 'replicate');
   }
-  if (parsed.protocol !== 'https:') {
-    throw new VideoGatewayError('invalid-result', videoBlockedMessage('invalid-result', 'Replicate output URL must use HTTPS.'), 'replicate');
+  const host = parsed.hostname.toLowerCase();
+  const trustedHost = host === 'replicate.delivery'
+    || host.endsWith('.replicate.delivery')
+    || host === 'replicate.com'
+    || host.endsWith('.replicate.com');
+  if (parsed.protocol !== 'https:' || !trustedHost) {
+    throw new VideoGatewayError('invalid-result', videoBlockedMessage('invalid-result', 'Replicate output URL must use a trusted HTTPS Replicate host.'), 'replicate');
   }
 }
 

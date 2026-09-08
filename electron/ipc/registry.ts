@@ -116,7 +116,7 @@ function validateDialogOptions(channel: string, args: unknown[]): void {
 
 function isBuildIdentity(value: unknown): value is BuildIdentity {
   if (!isPlainRecord(value)) return false;
-  return value.product === 'KNOUX Player X'
+  return value.product === 'Knoux X'
     && isSafeString(value.version, 128)
     && typeof value.sha === 'string' && /^[0-9a-f]{40}$/i.test(value.sha)
     && isSafeString(value.branch, 512)

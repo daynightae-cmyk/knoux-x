@@ -110,7 +110,7 @@ async function main() {
     await page.screenshot({ path: screenshotPath, fullPage: true });
     writeJson(evidencePath, {
       schemaVersion: 1,
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       mode: 'real-browser-preview',
       success: true,
       url,

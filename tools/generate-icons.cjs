@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Generate placeholder application icons for KNOUX Player X
+ * Generate placeholder application icons for Knoux X
  * This creates temporary icons for development/testing purposes
  * 
  * Usage: node tools/generate-icons.cjs

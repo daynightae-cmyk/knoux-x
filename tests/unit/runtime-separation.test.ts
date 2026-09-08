@@ -17,14 +17,14 @@ describe('honest runtime bridge ownership', () => {
 
   test('installs only an explicitly labeled browser preview without desktop claims', async () => {
     installBrowserPreviewBridge();
-    expect(window.knouxRuntime).toEqual({ edition: 'web-preview', product: 'KNOUX Player X', bridgeVersion: 1 });
+    expect(window.knouxRuntime).toEqual({ edition: 'web-preview', product: 'Knoux X', bridgeVersion: 1 });
     expect(isBrowserPreviewRuntime()).toBe(true);
     expect(isDesktopRuntime()).toBe(false);
     expect(await window.knouxAPI.system.getInfo()).toMatchObject({ packaged: false, electronVersion: 'not-applicable' });
   });
 
   test('never supplements a partial desktop bridge', () => {
-    window.knouxRuntime = Object.freeze({ edition: 'desktop', product: 'KNOUX Player X', bridgeVersion: 1 });
+    window.knouxRuntime = Object.freeze({ edition: 'desktop', product: 'Knoux X', bridgeVersion: 1 });
     window.knouxAPI = {} as Window['knouxAPI'];
     expect(() => installBrowserPreviewBridge()).toThrow('DESKTOP_BRIDGE_INCOMPLETE');
     expect(window.knouxCreativeAPI).toBeUndefined();

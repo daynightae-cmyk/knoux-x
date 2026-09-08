@@ -58,7 +58,7 @@ declare global {
     }>;
     knouxRuntime?: Readonly<{
       edition: 'desktop' | 'web-preview' | 'android';
-      product: 'KNOUX Player X';
+      product: 'Knoux X';
       bridgeVersion: number;
     }>;
   }

@@ -22,7 +22,7 @@ const acceptanceConfigPath = path.join(evidenceDir, 'retouch-phase3b-packaged-ac
 const networkLogPath = path.join(evidenceDir, 'retouch-phase3b-packaged-network.json');
 const progressLogPath = process.env.RETOUCH_PHASE3B_PROGRESS_PATH || path.join(evidenceDir, `retouch-phase3b-acceptance-progress-${process.pid}.log`);
 const cdpEndpoint = 'http://127.0.0.1:9222';
-const packagedExecutablePath = path.join(root, 'out', 'KNOUX Player X-win32-x64', 'knoux-player-x.exe');
+const packagedExecutablePath = path.join(root, 'out', 'Knoux X-win32-x64', 'knoux-player-x.exe');
 
 fs.mkdirSync(evidenceDir, { recursive: true });
 fs.mkdirSync(runtimeUserDataPath, { recursive: true });

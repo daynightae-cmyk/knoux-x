@@ -21,8 +21,8 @@ export const RuntimeModeNotice: React.FC<RuntimeModeNoticeProps> = ({ feature, f
         <strong>{locale === 'ar' ? 'معاينة واجهة المتصفح' : 'Browser interface preview'}</strong>
         <p>
           {locale === 'ar'
-            ? `${featureAr} متاحة في تطبيق KNOUX Player X لويندوز. لا تحاكي هذه المعاينة ملفات النظام أو SQLite أو FFmpeg أو التسجيل الأصلي.`
-            : `${feature} is available in KNOUX Player X for Windows. This preview never simulates filesystem, SQLite, FFmpeg, or native recording access.`}
+            ? `${featureAr} متاحة في تطبيق Knoux X لويندوز. لا تحاكي هذه المعاينة ملفات النظام أو SQLite أو FFmpeg أو التسجيل الأصلي.`
+            : `${feature} is available in Knoux X for Windows. This preview never simulates filesystem, SQLite, FFmpeg, or native recording access.`}
         </p>
       </div>
       <span className="runtime-mode-notice__safe"><ShieldCheck size={15} /> {locale === 'ar' ? 'حدود آمنة' : 'Safe boundary'}</span>

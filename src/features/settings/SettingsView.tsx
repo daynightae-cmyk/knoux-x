@@ -307,7 +307,7 @@ export const SettingsView: React.FC = () => {
   const copyDiagnostics = useCallback(async (): Promise<void> => {
     if (!runtimeInfo || !settings) return;
     const diagnostics = JSON.stringify({
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       runtime: runtimeInfo,
       settings: {
         language: settings.language,
@@ -356,7 +356,7 @@ export const SettingsView: React.FC = () => {
     >
       <header className="creative-header">
         <div>
-          <span className="creative-eyebrow">KNOUX Player X · Local Preferences</span>
+          <span className="creative-eyebrow">Knoux X · Local Preferences</span>
           <h1 id="settings-title"><MonitorCog size={30} /> {t('settings.title')}</h1>
           <p>{t('settings.description')}</p>
         </div>
@@ -566,7 +566,7 @@ export const SettingsView: React.FC = () => {
           {category === 'about' && (
             <NeonPanel variant="dark" padding="lg">
               <h2>{t('settings.about')}</h2>
-              <div className="about-brand-card"><BrandMark size={72} /><div><strong>KNOUX Player X</strong><p>A Knoux Product · Crafted by {KNOUX_BRAND.developer}</p></div></div>
+              <div className="about-brand-card"><BrandMark size={72} /><div><strong>Knoux X</strong><p>A Knoux Product · Crafted by {KNOUX_BRAND.developer}</p></div></div>
               <dl className="about-grid">
                 <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? '2.0.0'}</dd></div>
                 <div><dt>Electron</dt><dd>{runtimeInfo?.electronVersion ?? '—'}</dd></div>

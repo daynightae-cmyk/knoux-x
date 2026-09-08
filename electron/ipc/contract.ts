@@ -10,7 +10,7 @@ import { IPC_SOURCE_INVENTORY, type ChannelSourceInventoryEntry } from './channe
 
 export interface FileDialogFilter { name: string; extensions: string[]; }
 export interface FileDialogOptions { title?: string; defaultPath?: string; buttonLabel?: string; filters?: FileDialogFilter[]; }
-export interface BuildIdentity { product: 'KNOUX Player X'; version: string; sha: string; branch: string; builtAt: string; packaged: boolean; electronVersion: string; }
+export interface BuildIdentity { product: 'Knoux X'; version: string; sha: string; branch: string; builtAt: string; packaged: boolean; electronVersion: string; }
 export interface DesktopSystemInfo extends BuildIdentity { platform: NodeJS.Platform; arch: string; chromeVersion: string; nodeVersion: string; }
 export interface IpcFailure { code: string; channel: string; message: string; detail?: string; }
 export type IpcResult<T> = { ok: true; value: T } | { ok: false; error: IpcFailure };
@@ -707,4 +707,4 @@ export const BASIC_INVOKE_CHANNELS = [
   IPC_INVOKE.SYSTEM_GET_IPC_HEALTH,
 ] as const;
 export const EXPOSED_INVOKE_CHANNELS = Object.freeze(Object.values(IPC_INVOKE)) as readonly IpcInvokeChannel[];
-export const DESKTOP_RUNTIME_DESCRIPTOR = Object.freeze({ edition: 'desktop' as const, product: 'KNOUX Player X' as const, bridgeVersion: 1 as const });
+export const DESKTOP_RUNTIME_DESCRIPTOR = Object.freeze({ edition: 'desktop' as const, product: 'Knoux X' as const, bridgeVersion: 1 as const });

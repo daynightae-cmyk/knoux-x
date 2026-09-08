@@ -1,5 +1,5 @@
 export const KNOUX_BRAND = Object.freeze({
-  productName: 'KNOUX Player X',
+  productName: 'Knoux X',
   shortName: 'KNOUX X',
   developer: 'Eng. Sadek Elgazar (Knoux)',
   website: 'https://knoux.store',

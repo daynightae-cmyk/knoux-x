@@ -776,7 +776,7 @@ async function launch() {
 }
 
 async function closeVisible(id) {
-  const expression = button('Close KNOUX Player X');
+  const expression = button('Close Knoux X');
   progress('pointer-click:start', { id });
   const before = await cdp.ensureVisible(expression, true);
   progress('pointer-click:visible', { id });

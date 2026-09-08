@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "KNOUX Player X",
+    "name": "Knoux X",
     "loadingModule": "Loading KNOUX module…",
     "loadingAI": "Loading optional AI…",
     "working": "Working…",
@@ -48,7 +48,7 @@
     "minimize": "Minimize window",
     "maximize": "Maximize window",
     "restore": "Restore window",
-    "close": "Close KNOUX Player X"
+    "close": "Close Knoux X"
   },
   "player": {
     "openLocalMedia": "Open local media",

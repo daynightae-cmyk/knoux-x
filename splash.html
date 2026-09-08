@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>KNOUX Player X</title>
+    <title>Knoux X</title>
     <style>
       :root {
         color-scheme: dark;
@@ -204,7 +204,7 @@
       </section>
       <section class="content">
         <span class="product-line">A Knoux Product</span>
-        <h1 id="product-name">KNOUX Player X</h1>
+        <h1 id="product-name">Knoux X</h1>
         <p class="attribution">Crafted by Eng. Sadek Elgazar (Knoux)</p>
         <div class="stage-block" role="status" aria-live="polite">
           <div class="stage-row"><span id="stage">Starting KNOUX</span><span id="percent">6%</span></div>
@@ -229,7 +229,7 @@
 
         window.setKnouxStage = ({ label, progress }) => {
           const safeProgress = Math.max(0, Math.min(100, Number(progress) || 0));
-          document.getElementById('stage').textContent = String(label || 'KNOUX Player X');
+          document.getElementById('stage').textContent = String(label || 'Knoux X');
           document.getElementById('percent').textContent = `${Math.round(safeProgress)}%`;
           document.getElementById('progress-bar').style.width = `${safeProgress}%`;
           document.querySelector('.progress').setAttribute('aria-valuenow', String(Math.round(safeProgress)));

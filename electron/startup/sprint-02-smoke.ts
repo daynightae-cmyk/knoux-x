@@ -286,7 +286,7 @@ export async function runSprint02Smoke(options: Sprint02SmokeOptions): Promise<v
   const googleAdapter = options.phase === 'initial' ? await googleAdapterProof() : null;
   await atomicJson(options.evidencePath, {
     schemaVersion: 1,
-    product: 'KNOUX Player X',
+    product: 'Knoux X',
     mode: 'packaged-real-dom-sprint-02',
     success: true,
     packaged: app.isPackaged,

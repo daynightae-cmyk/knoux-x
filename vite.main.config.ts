@@ -24,7 +24,7 @@ const buildBranch = currentBranch();
 const buildTimestamp = new Date().toISOString();
 
 if (!/^[0-9a-f]{40}$/i.test(buildSha) || /^(unknown|dev)$/i.test(buildBranch)) {
-  throw new Error('Refusing to build KNOUX Player X with placeholder build identity.');
+  throw new Error('Refusing to build Knoux X with placeholder build identity.');
 }
 
 export default defineConfig({

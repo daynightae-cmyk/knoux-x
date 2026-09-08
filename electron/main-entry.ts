@@ -69,7 +69,7 @@ try {
       },
       exit: terminateProcess,
       onFatal: (error) => {
-        log.error('Failed to start KNOUX Player X', error);
+        log.error('Failed to start Knoux X', error);
         terminateProcess(1);
       },
     });

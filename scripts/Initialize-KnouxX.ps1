@@ -104,7 +104,7 @@ function New-Scaffold([string]$Repo) {
   Write-Missing (Join-Path $Repo '.nvmrc') "20`n"
   Write-Missing (Join-Path $Repo '.env.example') "VITE_APP_ENV=development`nVITE_OPENROUTER_BASE_URL=https://openrouter.ai/api/v1`n# Store private keys with Electron safeStorage.`n"
   Write-Missing (Join-Path $Repo 'src\types\vite-env.d.ts') "/// <reference types=`"vite/client`" />`ndeclare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;`ndeclare const MAIN_WINDOW_VITE_NAME: string;`n"
-  Write-Missing (Join-Path $Repo 'src\config\app.config.ts') "export const appConfig = { id: 'dev.knoux.player-x', productName: 'KNOUX Player X', supportedLocales: ['en','ar'] } as const;`n"
+  Write-Missing (Join-Path $Repo 'src\config\app.config.ts') "export const appConfig = { id: 'dev.knoux.player-x', productName: 'Knoux X', supportedLocales: ['en','ar'] } as const;`n"
   Write-Missing (Join-Path $Repo 'src\config\env.ts') "export const publicEnvironment = { mode: import.meta.env.MODE, isDevelopment: import.meta.env.DEV } as const;`n"
   Write-Missing (Join-Path $Repo 'assets\icons\README.md') "# Icons`nAdd valid app-icon.ico, app-icon.png, app-icon.icns and favicon.png. Never create zero-byte binary icons.`n"
   Write-Missing (Join-Path $Repo 'assets\animations\README.md') "# Installer artwork`nAdd installer.gif after final branding approval.`n"
@@ -139,10 +139,10 @@ const fs=require('node:fs');const path=require('node:path');
 const {FusesPlugin}=require('@electron-forge/plugin-fuses');
 const {FuseV1Options,FuseVersion}=require('@electron/fuses');
 const icon=path.resolve(__dirname,'assets/icons/app-icon');
-const squirrel={name:'KNOUX_Player_X',authors:'SADEK ELGAZAR (KNOUX)',description:'KNOUX Player X'};
+const squirrel={name:'KNOUX_Player_X',authors:'SADEK ELGAZAR (KNOUX)',description:'Knoux X'};
 if(fs.existsSync(`${icon}.ico`))squirrel.setupIcon=`${icon}.ico`;
 module.exports={
- packagerConfig:{asar:true,name:'KNOUX Player X',executableName:'knoux-player-x',appBundleId:'dev.knoux.player-x',...(fs.existsSync(`${icon}.ico`)?{icon}:{})},
+ packagerConfig:{asar:true,name:'Knoux X',executableName:'knoux-player-x',appBundleId:'dev.knoux.player-x',...(fs.existsSync(`${icon}.ico`)?{icon}:{})},
  makers:[{name:'@electron-forge/maker-squirrel',platforms:['win32'],config:squirrel},{name:'@electron-forge/maker-zip',platforms:['darwin','linux'],config:{}}],
  plugins:[{name:'@electron-forge/plugin-vite',config:{build:[{entry:'electron/main.ts',config:'vite.main.config.ts'},{entry:'electron/preload.ts',config:'vite.preload.config.ts'}],renderer:[{name:'main_window',config:'vite.renderer.config.ts'}]}},{name:'@electron-forge/plugin-auto-unpack-natives',config:{}},new FusesPlugin({version:FuseVersion.V1,[FuseV1Options.RunAsNode]:false,[FuseV1Options.EnableCookieEncryption]:true,[FuseV1Options.EnableNodeOptionsEnvironmentVariable]:false,[FuseV1Options.EnableNodeCliInspectArguments]:false,[FuseV1Options.EnableEmbeddedAsarIntegrityValidation]:true,[FuseV1Options.OnlyLoadAppFromAsar]:true})]
 };

@@ -71,7 +71,7 @@ export interface ApplicationSettings {
 
 export interface ApplicationSettingsExport {
   schemaVersion: number;
-  product: 'KNOUX Player X';
+  product: 'Knoux X';
   exportedAt: string;
   settings: ApplicationSettings;
 }
@@ -298,7 +298,7 @@ export function parseApplicationSettingsExport(value: unknown): ApplicationSetti
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Settings import must be an object.');
   const source = value as Record<string, unknown>;
   if (source.settings !== undefined) {
-    if (source.product !== 'KNOUX Player X') throw new TypeError('Settings file belongs to another product.');
+    if (source.product !== 'Knoux X') throw new TypeError('Settings file belongs to another product.');
     if (![1, 2, APPLICATION_SETTINGS_SCHEMA_VERSION].includes(Number(source.schemaVersion))) throw new TypeError('Settings schema version is unsupported.');
     return Number(source.schemaVersion) === APPLICATION_SETTINGS_SCHEMA_VERSION
       ? parseApplicationSettings(source.settings)
@@ -310,7 +310,7 @@ export function parseApplicationSettingsExport(value: unknown): ApplicationSetti
 export function createApplicationSettingsExport(settings: ApplicationSettings, exportedAt = new Date().toISOString()): ApplicationSettingsExport {
   return {
     schemaVersion: APPLICATION_SETTINGS_SCHEMA_VERSION,
-    product: 'KNOUX Player X',
+    product: 'Knoux X',
     exportedAt,
     settings: parseApplicationSettings(settings),
   };

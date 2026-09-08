@@ -13,7 +13,7 @@ import {
 } from '../../src/core/settings/applicationSettings';
 
 interface SettingsSelfTestEvidence {
-  product: 'KNOUX Player X';
+  product: 'Knoux X';
   success: boolean;
   mode: 'settings-persistence';
   packaged: boolean;
@@ -154,7 +154,7 @@ async function executeSettingsPersistenceScenario(root: string): Promise<Setting
 
   const persisted = await fs.readFile(storagePath, 'utf8');
   return {
-    product: 'KNOUX Player X',
+    product: 'Knoux X',
     success: true,
     mode: 'settings-persistence',
     packaged: app.isPackaged,
@@ -179,7 +179,7 @@ export async function runSettingsPersistenceSelfTest(evidencePath: string): Prom
     evidence = await executeSettingsPersistenceScenario(root);
   } catch (error) {
     evidence = {
-      product: 'KNOUX Player X',
+      product: 'Knoux X',
       success: false,
       mode: 'settings-persistence',
       packaged: app.isPackaged,

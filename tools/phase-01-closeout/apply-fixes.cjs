@@ -139,8 +139,8 @@ replaceExact(
 
 replaceExact(
   'src/core/services/ai/GeminiService.ts',
-  "parts: 'You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.',",
-  "parts: [{ text: 'You are KNOUX AI, an intelligent assistant for KNOUX Player X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.' }],",
+  "parts: 'You are KNOUX AI, an intelligent assistant for Knoux X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.',",
+  "parts: [{ text: 'You are KNOUX AI, an intelligent assistant for Knoux X media player. You can help users with media playback, playlist creation, and answer questions about their media library. Be concise and helpful.' }],",
 );
 replaceExact(
   'src/core/services/ai/GeminiService.ts',

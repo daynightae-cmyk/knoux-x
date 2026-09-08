@@ -131,22 +131,22 @@ describe('Video Router', () => {
     expect(result.blockedReason).toBeDefined();
   });
 
-  it('blocks static-documentation Fal models instead of prompting for payment', () => {
+  it('requires explicit payment confirmation for discovered Fal Kling v3', () => {
     const falOnly = { ...VIDEO_AVAILABILITY_NONE, fal: true };
     const result = routeVideoTask('text-to-video', falOnly, false);
     expect(result.blocked).toBe(true);
     expect(result.model).toBeNull();
-    expect(result.requiresPaymentConfirmation).toBe(false);
-    expect(result.cheapestPaidCandidate).toBeNull();
+    expect(result.requiresPaymentConfirmation).toBe(true);
+    expect(result.cheapestPaidCandidate?.id).toBe('fal-ai/kling-video/v3/standard/text-to-video');
+    expect(result.cheapestPaidCandidate?.liveVerification).toBe('discovered');
   });
 
-  it('does not make static-documentation Fal executable after paid approval', () => {
+  it('routes discovered Fal Kling v3 only after paid approval', () => {
     const falOnly = { ...VIDEO_AVAILABILITY_NONE, fal: true };
     const result = routeVideoTask('text-to-video', falOnly, true);
-    expect(result.blocked).toBe(true);
-    expect(result.model).toBeNull();
-    expect(result.requiresPaymentConfirmation).toBe(false);
-    expect(result.cheapestPaidCandidate).toBeNull();
+    expect(result.blocked).toBe(false);
+    expect(result.model?.id).toBe('fal-ai/kling-video/v3/standard/text-to-video');
+    expect(result.model?.liveVerification).toBe('discovered');
   });
 
   it('blocks an explicit static-documentation model even when its provider is configured', () => {

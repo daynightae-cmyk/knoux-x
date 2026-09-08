@@ -48,8 +48,7 @@ html[data-platform='android'] .kms-inspector-head > div {
 }
 
 html[data-platform='android'] .kms-mobile-slideshow button,
-html[data-platform='android'] .kms-mobile-slideshow input,
-html[data-platform='android'] .kms-mobile-slideshow select {
+html[data-platform='android'] .kms-mobile-slideshow input {
   min-height: 42px;
   border: 1px solid rgba(120, 40, 232, 0.18);
   border-radius: 14px;
@@ -288,7 +287,8 @@ html[data-platform='android'] .kms-inspector-head {
   gap: 10px;
 }
 
-html[data-platform='android'] .kms-inspector label {
+html[data-platform='android'] .kms-inspector label,
+html[data-platform='android'] .kms-inspector-field {
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr);
   align-items: center;
@@ -298,9 +298,23 @@ html[data-platform='android'] .kms-inspector label {
 }
 
 html[data-platform='android'] .kms-inspector input,
-html[data-platform='android'] .kms-inspector select {
+html[data-platform='android'] .kms-inspector-field .neon-select {
   width: 100%;
+}
+
+html[data-platform='android'] .kms-inspector input {
   padding: 0 11px;
+}
+
+html[data-platform='android'] .kms-inspector-field .neon-select-trigger {
+  min-height: 42px;
+  border-color: rgba(120, 40, 232, 0.18);
+  color: #241a30;
+  background: rgba(255,255,255,0.92);
+}
+
+html[data-platform='android'] .kms-inspector-field .neon-select-value {
+  color: #241a30;
 }
 
 @keyframes kms-zoom-in {

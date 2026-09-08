@@ -25,6 +25,7 @@ import { useTranslation } from '../../i18n';
 import { MultitrackEditorView } from '../editor/MultitrackEditorView';
 import type { ExportJobSnapshot, ExportPreset, ExportPresetId } from '../../../electron/creative/export-service';
 import type { FFmpegCapabilities, ProbeResult } from '../../../electron/creative/ffmpeg-service';
+import { formatPaidVideoConfirmation, resolvePaidVideoCandidate, type VideoPaymentPlan } from './videoPaidConfirmation';
 
 type VideoStudioTab =
   | 'media'
@@ -248,6 +249,21 @@ export const VideoStudioView: React.FC = () => {
     setAiGenerating(true);
     setAiPlanResult(null);
     try {
+      let plan: VideoPaymentPlan | null = null;
+      if (!aiModelId) {
+        plan = await api.aiPlan(aiTask, false) as VideoPaymentPlan;
+        setAiPlanResult(plan);
+        if (plan.blocked && !plan.requiresPaymentConfirmation) return;
+      }
+
+      const paidCandidate = resolvePaidVideoCandidate(aiModelId, models, plan);
+      let allowPaidFallback = false;
+      if (paidCandidate) {
+        const confirmation = formatPaidVideoConfirmation(t('videoStudio.aiPaidConfirm'), paidCandidate);
+        if (!window.confirm(confirmation)) return;
+        allowPaidFallback = true;
+      }
+
       const result = await api.createJob({
         task: aiTask,
         prompt: aiPrompt,
@@ -258,7 +274,7 @@ export const VideoStudioView: React.FC = () => {
         durationSeconds: aiDuration,
         fps: aiFPS,
         explicitModelId: aiModelId || undefined,
-        allowPaidFallback: false,
+        allowPaidFallback,
       });
 
       setJobs((prev) => [...prev, {
@@ -270,11 +286,10 @@ export const VideoStudioView: React.FC = () => {
         task: aiTask,
         prompt: aiPrompt,
       }]);
-      setAiGenerating(false);
-    } catch {
+    } finally {
       setAiGenerating(false);
     }
-  }, [aiDuration, aiFPS, aiHeight, aiModelId, aiNegativePrompt, aiPrompt, aiSeed, aiTask, aiWidth]);
+  }, [aiDuration, aiFPS, aiHeight, aiModelId, aiNegativePrompt, aiPrompt, aiSeed, aiTask, aiWidth, models, t]);
 
   const handleAiCancel = useCallback(async (jobId: string): Promise<void> => {
     const api = videoStudioAPI();

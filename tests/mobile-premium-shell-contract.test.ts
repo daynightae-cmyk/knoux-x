@@ -61,7 +61,8 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileVideo).toContain('<MultitrackEditorView />');
     expect(mobileSlideshow).toContain('<SlideshowView />');
     expect(mobilePhoto).toContain('data-component="MobileImageEditorView"');
-    expect(mobileBeauty).toContain('<ImageEditorView />');
+    expect(mobileBeauty).toContain('<MobileBeautyCanvas />');
+    expect(mobileBeauty).not.toContain('<ImageEditorView />');
     expect(mobileVideo).toContain("dispatchEditorCommand('split-clip')");
   });
 

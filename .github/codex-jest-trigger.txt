@@ -1,1 +1,1 @@
-Knoux X Jest diagnostic trigger.
+Knoux X canonical select repair trigger.

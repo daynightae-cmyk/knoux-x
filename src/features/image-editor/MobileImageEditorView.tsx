@@ -53,6 +53,9 @@ const FILTERS = [
   { id: 'cyber', label: 'Cyber' },
 ];
 
+const EXPORT_PROBE_SIZE = 8;
+const MAX_JPEG_PROBE_ERROR = 34;
+
 interface ActivePhotoState {
   sourceUri: string;
   sourceName: string;
@@ -61,7 +64,139 @@ interface ActivePhotoState {
   naturalHeight: number;
 }
 
+interface DecodedImageSource {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  close(): void;
+}
+
 let persistentPhotoState: ActivePhotoState | null = null;
+
+function toPortableBytes(data: unknown): Uint8Array {
+  if (data instanceof Uint8Array) {
+    return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+  }
+  if (data instanceof ArrayBuffer) return new Uint8Array(data.slice(0));
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+  }
+  if (typeof data === 'string') return new TextEncoder().encode(data);
+  if (data && typeof data === 'object' && 'buffer' in data) {
+    const value = (data as { buffer?: ArrayBufferLike }).buffer;
+    if (value instanceof ArrayBuffer) return new Uint8Array(value.slice(0));
+  }
+  throw new TypeError('Unsupported binary file payload.');
+}
+
+async function writePortableBytes(filePath: string, bytes: Uint8Array): Promise<void> {
+  const writeFile = window.knouxAPI.file.writeFile as unknown as (
+    path: string,
+    data: Uint8Array,
+  ) => Promise<void>;
+  await writeFile(filePath, bytes);
+}
+
+function canvasProbe(canvas: HTMLCanvasElement): Uint8ClampedArray {
+  const probe = document.createElement('canvas');
+  probe.width = EXPORT_PROBE_SIZE;
+  probe.height = EXPORT_PROBE_SIZE;
+  const context = probe.getContext('2d', { willReadFrequently: true });
+  if (!context) throw new Error('Could not create the export verification canvas.');
+  context.drawImage(canvas, 0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE);
+  return context.getImageData(0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE).data;
+}
+
+function meanProbeError(expected: Uint8ClampedArray, actual: Uint8ClampedArray): number {
+  if (expected.length !== actual.length || expected.length === 0) return Number.POSITIVE_INFINITY;
+  let error = 0;
+  let channels = 0;
+  for (let index = 0; index < expected.length; index += 4) {
+    error += Math.abs(expected[index] - actual[index]);
+    error += Math.abs(expected[index + 1] - actual[index + 1]);
+    error += Math.abs(expected[index + 2] - actual[index + 2]);
+    channels += 3;
+  }
+  return channels > 0 ? error / channels : Number.POSITIVE_INFINITY;
+}
+
+async function decodeStoredImage(bytes: Uint8Array, mime: string): Promise<DecodedImageSource> {
+  const blob = new Blob([bytes.slice().buffer], { type: mime });
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(blob);
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      close: () => bitmap.close(),
+    };
+  }
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const candidate = new Image();
+      candidate.onload = () => resolve(candidate);
+      candidate.onerror = () => reject(new Error('The exported JPEG could not be decoded after saving.'));
+      candidate.src = url;
+    });
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      close: () => undefined,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function validateSavedImage(
+  targetUri: string,
+  expectedWidth: number,
+  expectedHeight: number,
+  expectedProbe: Uint8ClampedArray,
+): Promise<void> {
+  if (!await window.knouxAPI.file.exists(targetUri)) {
+    throw new Error('The exported photo was not found after writing.');
+  }
+
+  const storedPayload = await window.knouxAPI.file.readFile(targetUri);
+  const storedBytes = toPortableBytes(storedPayload);
+  if (storedBytes.byteLength < 4) throw new Error('The exported photo is empty or truncated.');
+
+  const decoded = await decodeStoredImage(storedBytes, 'image/jpeg');
+  try {
+    if (decoded.width !== expectedWidth || decoded.height !== expectedHeight) {
+      throw new Error(
+        `Export verification failed: expected ${expectedWidth}×${expectedHeight}, decoded ${decoded.width}×${decoded.height}.`,
+      );
+    }
+
+    const probe = document.createElement('canvas');
+    probe.width = EXPORT_PROBE_SIZE;
+    probe.height = EXPORT_PROBE_SIZE;
+    const context = probe.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Could not inspect the decoded export.');
+    context.drawImage(decoded.source, 0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE);
+    const actualProbe = context.getImageData(0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE).data;
+    const error = meanProbeError(expectedProbe, actualProbe);
+    if (!Number.isFinite(error) || error > MAX_JPEG_PROBE_ERROR) {
+      throw new Error(`Export verification failed: decoded pixel probe drifted by ${error.toFixed(1)} levels.`);
+    }
+  } finally {
+    decoded.close();
+  }
+}
+
+function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Could not encode the edited canvas as JPEG.'));
+    }, 'image/jpeg', 0.92);
+  });
+}
 
 export const MobileImageEditorView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
@@ -180,16 +315,7 @@ export const MobileImageEditorView: React.FC = () => {
       setEditorState('DECODING');
       try {
         const rawData = await window.knouxAPI.file.readFile(uri);
-
-        let bytes: Uint8Array;
-        if (rawData instanceof Uint8Array) {
-          bytes = rawData;
-        } else if (typeof rawData === 'string') {
-          bytes = new TextEncoder().encode(rawData);
-        } else {
-          const buffer = (rawData as { buffer?: ArrayBuffer }).buffer ?? (rawData as ArrayBuffer);
-          bytes = new Uint8Array(buffer);
-        }
+        const bytes = toPortableBytes(rawData);
 
         const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
         let mime = 'image/jpeg';
@@ -282,80 +408,61 @@ export const MobileImageEditorView: React.FC = () => {
       offscreen.width = fullW;
       offscreen.height = fullH;
 
-      const ctx = offscreen.getContext('2d');
-      if (ctx) {
-        ctx.translate(fullW / 2, fullH / 2);
-        ctx.rotate((adjustments.rotation * Math.PI) / 180);
-        ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
+      const ctx = offscreen.getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('Could not create the full-resolution photo renderer.');
 
-        const b = 100 + adjustments.brightness;
-        const c = 100 + adjustments.contrast;
-        const s = 100 + adjustments.saturation;
+      ctx.translate(fullW / 2, fullH / 2);
+      ctx.rotate((adjustments.rotation * Math.PI) / 180);
+      ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
 
-        let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-        if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
-        else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
-        else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
-        else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
-        else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
-        else if (adjustments.filter === 'warm') filterStr += ' sepia(25%) saturate(110%)';
-        else if (adjustments.filter === 'cool') filterStr += ' hue-rotate(30deg) brightness(105%)';
+      const b = 100 + adjustments.brightness;
+      const c = 100 + adjustments.contrast;
+      const s = 100 + adjustments.saturation;
 
-        ctx.filter = filterStr;
-        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+      if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
+      else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
+      else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
+      else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
+      else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
+      else if (adjustments.filter === 'warm') filterStr += ' sepia(25%) saturate(110%)';
+      else if (adjustments.filter === 'cool') filterStr += ' hue-rotate(30deg) brightness(105%)';
+
+      ctx.filter = filterStr;
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+      const expectedProbe = canvasProbe(offscreen);
+      const blob = await canvasToJpeg(offscreen);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+
+      const defaultPath = `KNOUX_Photo_${Date.now()}.jpg`;
+      const targetUri = await window.knouxAPI.file.saveFile({
+        defaultPath,
+        filters: [{ name: 'JPEG Image', extensions: ['jpg'] }],
+      });
+
+      if (!targetUri) {
+        setEditorState('READY');
+        return;
       }
 
-      offscreen.toBlob(async (blob) => {
-        if (!blob) {
-          addNotification({ type: 'error', title: 'Export Error', message: 'Could not create blob from canvas.' });
-          setEditorState('READY');
-          return;
-        }
+      await writePortableBytes(targetUri, bytes);
+      await validateSavedImage(targetUri, fullW, fullH, expectedProbe);
 
-        try {
-          const buffer = await blob.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-
-          const defaultPath = `KNOUX_Photo_${Date.now()}.jpg`;
-          const targetUri = await window.knouxAPI.file.saveFile({
-            defaultPath,
-            filters: [{ name: 'JPEG Image', extensions: ['jpg'] }],
-          });
-
-          if (!targetUri) {
-            setEditorState('READY');
-            return;
-          }
-
-          await window.knouxAPI.file.writeFile(targetUri, Buffer.from(bytes.buffer) as unknown as Buffer);
-          const exists = await window.knouxAPI.file.exists(targetUri);
-
-          if (exists) {
-            addNotification({
-              type: 'success',
-              title: 'Photo Exported',
-              message: `Saved & verified at ${targetUri}`,
-              duration: 5000,
-            });
-          }
-        } catch (err) {
-          addNotification({
-            type: 'error',
-            title: 'Export Failed',
-            message: err instanceof Error ? err.message : 'Write operation failed.',
-            duration: 5000,
-          });
-        } finally {
-          setEditorState('READY');
-        }
-      }, 'image/jpeg', 0.92);
+      addNotification({
+        type: 'success',
+        title: 'Photo Exported',
+        message: `Saved, reopened, decoded & verified at ${targetUri}`,
+        duration: 5000,
+      });
     } catch (err) {
       addNotification({
         type: 'error',
-        title: 'Export Error',
-        message: err instanceof Error ? err.message : 'Canvas export failed.',
+        title: 'Export Failed',
+        message: err instanceof Error ? err.message : 'Write or verification failed.',
         duration: 5000,
       });
+    } finally {
       setEditorState('READY');
     }
   };

@@ -4,6 +4,7 @@ import { ArrowLeft, ImagePlus, Sparkles } from 'lucide-react';
 import { BrandMark } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
+
 import { MobileBeautyCanvas } from './MobileBeautyCanvas';
 import './mobileBeautyStudio.css';
 

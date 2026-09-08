@@ -93,6 +93,18 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(mobilePhotoView).not.toContain('knouxNativeBridge');
     });
 
+    test('writes portable Uint8Array bytes and reopens, decodes, dimensions-checks, and pixel-probes the saved JPEG', () => {
+      expect(mobilePhotoView).toContain('async function writePortableBytes');
+      expect(mobilePhotoView).toContain('data: Uint8Array');
+      expect(mobilePhotoView).not.toContain('Buffer.from');
+      expect(mobilePhotoView).toContain('await window.knouxAPI.file.readFile(targetUri)');
+      expect(mobilePhotoView).toContain('decodeStoredImage');
+      expect(mobilePhotoView).toContain('decoded.width !== expectedWidth');
+      expect(mobilePhotoView).toContain('meanProbeError');
+      expect(mobilePhotoView).toContain('MAX_JPEG_PROBE_ERROR');
+      expect(mobilePhotoView).toContain('Saved, reopened, decoded & verified');
+    });
+
     test('defines explicit editor states and photo canvas viewport with ResizeObserver', () => {
       expect(mobilePhotoView).toContain("'EMPTY' | 'PICKING' | 'DECODING' | 'READY' | 'EDITING' | 'EXPORTING' | 'ERROR'");
       expect(mobilePhotoView).toContain('kmc-photo-canvas');

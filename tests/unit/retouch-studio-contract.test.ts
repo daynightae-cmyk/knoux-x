@@ -41,7 +41,13 @@ describe('Knoux X Retouch Studio contracts', () => {
     expect(inspector).toContain('faceTracks');
     expect(inspector).toContain('removeVideoRetouchLayer');
     expect(inspector).not.toContain("'face-shape'");
-    expect(inspector).not.toContain("'body-shape'");
+    // Body reshape is executable in Video Studio ONLY through the gated body
+    // section: the apply button stays disabled until a tracked body exists,
+    // and the UI honestly labels background protection as degraded.
+    expect(inspector).toContain('data-testid="video-body-retouch"');
+    expect(inspector).toContain('disabled={!displayState.bodyTracks?.length');
+    expect(inspector).toContain('background protection degraded');
+    expect(inspector).toContain("category: 'body-shape'");
   });
 
   test('mobile beauty canvas replays operations at full resolution', () => {

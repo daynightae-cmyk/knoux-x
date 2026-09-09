@@ -28,7 +28,7 @@ export interface VideoRetouchInspectorProps {
   priorityWindowSeconds?: number;
   maxAnalysisSamples?: number;
   enableBodyTracking?: boolean;
-  bodyModelReader?: () => Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }> | null;
+  bodyModelReader?: (() => Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }>) | null;
   sharedCache?: { has(timestamp: number): boolean; get(timestamp: number): unknown; nearest?(timestamp: number, maxDistance: number): unknown; stats?(): unknown; set?(timestamp: number, faces: unknown, meta?: { elapsedMs?: number; modelId?: string }): void; dispose?(): void };
 }
 
@@ -219,6 +219,15 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
           ))}
         </div>
       )}
+
+      <div className="video-retouch-body" data-testid="video-body-retouch">
+        <strong>Body Retouch / تنسيق الجسم</strong>
+        <small>{displayState.bodyTracks?.length ? 'Body tracked · background protection degraded / حماية الخلفية محدودة' : 'No tracked body / لم يتم تتبع جسم'}</small>
+        <button type="button" disabled={!displayState.bodyTracks?.length || analysisBusy} onClick={() => onChange(addVideoRetouchLayer(stateOf(item), {
+          templateId: 'body-reshape', category: 'body-shape', targetRegion: 'waist', strength: 50,
+          parameters: { waist: -65, torsoWidth: -35 }, applyScope: 'clip',
+        }))}>Apply Body Reshape / تطبيق تنسيق الجسم</button>
+      </div>
 
       <div className="video-retouch-categories">
         {SUPPORTED_CATEGORIES.map((entry) => (

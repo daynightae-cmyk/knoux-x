@@ -16,6 +16,8 @@ import type {
   VideoTrackingPoint,
 } from '../../../core/creative/videoRetouchTemporal';
 
+import { uniqueSamples } from './temporalSampling';
+
 export type {
   VideoRetouchAnalysisState,
   VideoRetouchApplyScope,
@@ -63,14 +65,14 @@ function copyLayer(layer: VideoRetouchLayer): VideoRetouchLayer {
     ...layer,
     parameters: { ...layer.parameters },
     parameterKeyframes: layer.parameterKeyframes ? Object.fromEntries(
-      Object.entries(layer.parameterKeyframes).map(([k, arr]) => [k, arr.map((item) => ({ ...item }))])
+      Object.entries(layer.parameterKeyframes).map(([k, arr]) => [k, uniqueSamples(arr, (item) => item.time).map((item) => ({ ...item }))])
     ) : undefined,
     range: layer.range ? { ...layer.range } : null,
   };
 }
 
 function copyTrack(track: VideoRetouchFaceTrack): VideoRetouchFaceTrack {
-  return { ...track, keyframes: track.keyframes.map(copyKeyframe) };
+  return { ...track, keyframes: uniqueSamples(track.keyframes, (frame) => frame.timestamp).map(copyKeyframe) };
 }
 
 export function cloneVideoRetouchState(state: VideoRetouchClipState): VideoRetouchClipState {
@@ -78,7 +80,7 @@ export function cloneVideoRetouchState(state: VideoRetouchClipState): VideoRetou
     ...state,
     layers: state.layers.map(copyLayer),
     faceTracks: state.faceTracks.map(copyTrack),
-    bodyTracks: state.bodyTracks ? state.bodyTracks.map((t) => ({ ...t, keyframes: t.keyframes.map((k) => ({ ...k })) })) : undefined,
+    bodyTracks: state.bodyTracks ? state.bodyTracks.map((t) => ({ ...t, keyframes: uniqueSamples(t.keyframes, (k) => k.timestamp).map((k) => structuredClone(k)) })) : undefined,
     discontinuities: state.discontinuities ? state.discontinuities.map((d) => ({ ...d })) : undefined,
     quality: state.quality ? { ...state.quality, reasons: [...state.quality.reasons], updatedAt: state.quality.updatedAt } : null,
     analysis: { ...state.analysis },
@@ -324,7 +326,18 @@ export function orderedVideoRetouchLayers(state: VideoRetouchClipState, localTim
   };
   return state.layers
     .filter((layer) => layerAppliesAt(layer, localTime))
-    .map(copyLayer)
+    .map((layer) => {
+      const copied = copyLayer(layer);
+      for (const [key, raw] of Object.entries(copied.parameterKeyframes ?? {})) {
+        const frames = uniqueSamples(raw, (frame) => frame.time);
+        if (!frames.length) continue;
+        const right = frames.find((frame) => frame.time >= localTime) ?? frames[frames.length - 1];
+        const left = [...frames].reverse().find((frame) => frame.time <= localTime) ?? frames[0];
+        const amount = right.time === left.time ? 0 : (localTime - left.time) / (right.time - left.time);
+        copied.parameters[key] = left.value + (right.value - left.value) * amount;
+      }
+      return copied;
+    })
     .sort((left, right) => priority[left.category] - priority[right.category] || left.order - right.order);
 }
 
@@ -414,7 +427,7 @@ export function splitVideoRetouchState(
     }
     return Object.keys(result).length > 0 ? result : undefined;
   };
-  left.layers = left.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.range ? splitParamLeft(layer.parameterKeyframes) : layer.applyScope === 'clip' ? layer.parameterKeyframes : splitParamLeft(layer.parameterKeyframes) }));
+  left.layers = left.layers.map((layer) => ({ ...layer, parameterKeyframes: splitParamLeft(layer.parameterKeyframes) }));
   right.layers = right.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.range ? splitParamRight(layer.parameterKeyframes) : layer.applyScope === 'clip' ? splitParamRight(layer.parameterKeyframes) : splitParamRight(layer.parameterKeyframes) }));
   left.updatedAt = now();
   right.updatedAt = now();

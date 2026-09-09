@@ -1,10 +1,13 @@
 import type { FacePoint, FaceSemanticRegion } from '../../faceAnalysisContract';
 import { buildSemanticFaceRegions } from '../../faceSemanticRegions';
 import type { VideoRetouchClipState, VideoRetouchLayer, VideoRetouchRegion, VideoRetouchTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
-import { orderedVideoRetouchLayers, resolveTrackingKeyframe } from '../../../../video-studio/retouch/videoRetouchProject';
+import { orderedVideoRetouchLayers } from '../../../../video-studio/retouch/videoRetouchProject';
 import { applyMakeupBlend, parseHexColor, type MakeupBlendMode } from '../Pipeline/BlendModes';
 import { MaskCache } from '../Pipeline/MaskCache';
 import { liquifyMeshWarp } from '../../liquify/liquifyMesh';
+import { createBodyFreezeMask } from '../../bodyReshapeGeometry';
+import type { BodySegmentationMask } from '../../bodyAnalysisContract';
+import { VideoRetouchFrameResolver } from '../../../../video-studio/retouch/VideoRetouchFrameResolver';
 import * as VideoRetouchBodyGeometry from '../../../../video-studio/retouch/VideoRetouchBodyGeometry';
 
 export interface VideoFrameRetouchResult {
@@ -16,6 +19,8 @@ export interface VideoFrameRetouchResult {
 export interface VideoFrameProcessOptions {
   /** Before/After is an editor preview concern and is ignored by export unless explicitly requested. */
   respectBeforeAfter?: boolean;
+  /** Only an actual segmentation of this frame may protect its background. */
+  bodySegmentation?: BodySegmentationMask;
 }
 
 const FACE_REGIONS = new Set<VideoRetouchRegion>([
@@ -124,9 +129,15 @@ export class VideoFrameProcessor {
           const controls = VideoRetouchBodyGeometry.aggregateBodyControls([layer]);
           const result = VideoRetouchBodyGeometry.resolveBodyGeometryForFrame(state, localTime, output.width, output.height, controls);
           if (result.strokes && result.strokes.length > 0) {
-            const freezeMaskData = result.bounds ? new ImageData(new Uint8ClampedArray(result.bounds.width * result.bounds.height * 4).fill(255), result.bounds.width, result.bounds.height) : undefined;
-            output = liquifyMeshWarp(output, result.strokes, freezeMaskData ? freezeMaskData : undefined);
-            appliedLayerIds.push(layer.id);
+            const segmentation = options.bodySegmentation;
+            if (segmentation && (segmentation.width !== output.width || segmentation.height !== output.height || segmentation.data.length !== output.width * output.height)) throw new Error('Body segmentation frame size mismatch.');
+            const freezeMask = segmentation && result.geometry ? createBodyFreezeMask(segmentation, result.geometry) : undefined;
+            // Without segmentation, use the local warp with explicitly degraded background protection.
+            const warped = liquifyMeshWarp(output, result.strokes, freezeMask);
+            if (warped.data.some((value, index) => value !== output.data[index])) {
+              output = warped;
+              appliedLayerIds.push(layer.id);
+            } else skippedLayerIds.push(layer.id);
           } else {
             skippedLayerIds.push(layer.id);
           }
@@ -150,15 +161,17 @@ export class VideoFrameProcessor {
         : state.faceTracks.filter((track) => track.faceId === (layer.faceId ?? state.selectedFaceId ?? state.faceTracks[0]?.faceId));
       let layerApplied = false;
       for (const track of candidateTracks) {
-        const frame = resolveTrackingKeyframe(track, localTime);
+        const resolved = new VideoRetouchFrameResolver().resolve(state, localTime).faces.find((face) => face.faceId === track.faceId);
+        const frame = resolved?.available ? resolved.keyframe : null;
         if (!frame || frame.opacity <= 0 || frame.confidence < state.tracking.minimumConfidence) continue;
         const polygons = polygonsForRegion(frame, layer.targetRegion);
         for (let polygonIndex = 0; polygonIndex < polygons.length; polygonIndex += 1) {
           const polygon = polygons[polygonIndex];
           const mask = this.masks.get(output.width, output.height, `${track.faceId}:${layer.targetRegion}:${polygonIndex}`, polygon);
           if (mask.pixelCount <= 0) continue;
-          output = applyMakeupBlend(output, mask, parseHexColor(color), effectiveIntensity(layer, frame), blendModeOf(layer));
-          layerApplied = true;
+          const blended = applyMakeupBlend(output, mask, parseHexColor(color), effectiveIntensity(layer, frame), blendModeOf(layer));
+          layerApplied ||= blended.data.some((value, index) => value !== output.data[index]);
+          output = blended;
         }
       }
       if (layerApplied) appliedLayerIds.push(layer.id);

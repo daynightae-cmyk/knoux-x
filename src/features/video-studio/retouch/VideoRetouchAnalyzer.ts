@@ -1,6 +1,10 @@
+import { BodyAnalysisClient } from '../../image-editor/retouch/bodyAnalysisClient';
+import type { VideoRetouchBodyTrack } from '../../../core/creative/videoRetouchTemporal';
 import { FaceAnalysisClient } from '../../image-editor/retouch/faceAnalysisClient';
 import { FaceTracker, type FaceObservation } from '../../image-editor/retouch/RetouchModule/Detection/FaceTracker';
 
+import { recordVideoBodies } from './recordVideoBodies';
+import { VideoBodyTracker } from './VideoBodyTracker';
 import {
   cloneVideoRetouchState,
   setVideoRetouchAnalysis,
@@ -17,6 +21,8 @@ export interface VideoRetouchAnalysisRequest {
   fps: number;
   state: VideoRetouchClipState;
   signal?: AbortSignal;
+  enableBodyTracking?: boolean;
+  bodyModelReader?: (() => Promise<{ status: string; modelId: string; reason?: string; buffer?: Uint8Array }>) | null;
   onProgress?(state: VideoRetouchClipState): void;
 }
 
@@ -136,6 +142,10 @@ export class VideoRetouchAnalyzer {
     video.playsInline = true;
     video.muted = true;
     video.src = request.sourceUrl;
+    const bodyClient = request.enableBodyTracking === false ? null : new BodyAnalysisClient(request.bodyModelReader ?? (() => window.knouxImageStudioAPI.getVerifiedPoseModel()));
+    const bodyTracker = new VideoBodyTracker({ ...state.tracking });
+    const bodyTracks = new Map<string, VideoRetouchBodyTrack>();
+    state.bodyTracks = [];
     const client = new FaceAnalysisClient(() => window.knouxImageStudioAPI.getVerifiedFaceModel());
     const tracker = new FaceTracker({
       smoothingFactor: state.tracking.smoothingFactor,
@@ -158,7 +168,7 @@ export class VideoRetouchAnalyzer {
 
       for (let sampleIndex = 0; sampleIndex < totalSamples; sampleIndex += 1) {
         if (request.signal?.aborted) throw new DOMException('Video Retouch analysis cancelled.', 'AbortError');
-        const localTime = Math.min(duration, sampleIndex * sampleStep);
+        const localTime = Math.min(Math.max(0, duration - 1 / fps), sampleIndex * sampleStep);
         const sourceTime = Math.max(0, request.sourceIn + localTime * Math.max(0.1, request.playbackRate));
         await seek(video, sourceTime, request.signal);
         context.drawImage(video, 0, 0, dimensions.width, dimensions.height);
@@ -169,7 +179,13 @@ export class VideoRetouchAnalyzer {
           imageHeight: dimensions.height,
           maxFaces: 8,
         });
-        const observations = result.status === 'ready' ? result.faces.map(observationOf) : [];
+        if (bodyClient) {
+          const bodyResult = await bodyClient.analyze({ imageDataUrl: frameDataUrl, imageWidth: dimensions.width, imageHeight: dimensions.height, maxBodies: 1 });
+          if (bodyResult.status !== 'ready') throw new Error(bodyResult.reason);
+          recordVideoBodies(bodyTracker, bodyTracks, bodyResult, localTime);
+          state.bodyTracks = Array.from(bodyTracks.values());
+        }
+        const observations = result.status === 'ready'  ? result.faces.map(observationOf) : [];
         const frameTracks = tracker.update(observations);
         for (const frame of frameTracks) pushFrame(tracks, frame, localTime);
         if (!selectedFaceId && frameTracks.length > 0) {
@@ -193,11 +209,11 @@ export class VideoRetouchAnalyzer {
       }
 
       state = setVideoRetouchAnalysis(state, {
-        status: tracks.size > 0 ? 'ready' : 'no-face',
+        status: tracks.size > 0 || bodyTracks.size > 0 ? 'ready' : 'no-face',
         progress: 100,
         processedFrames: totalSamples,
         sampledFrames: totalSamples,
-        message: tracks.size > 0 ? `${tracks.size} tracked face${tracks.size === 1 ? '' : 's'} ready.` : 'No stable face was detected in this clip.',
+        message: `${tracks.size} tracked faces; ${bodyTracks.size} tracked bodies. Background protection is degraded outside per-frame segmentation.`,
       });
       state.faceTracks = Array.from(tracks.values());
       state.selectedFaceId = selectedFaceId;
@@ -214,6 +230,8 @@ export class VideoRetouchAnalyzer {
       return state;
     } finally {
       client.dispose();
+      bodyClient?.dispose();
+      bodyTracker.reset();
       tracker.reset();
       video.pause();
       video.removeAttribute('src');

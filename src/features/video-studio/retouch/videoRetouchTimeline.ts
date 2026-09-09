@@ -100,6 +100,9 @@ export function retouchAfterTrimIn(
       .filter((frame) => frame.timestamp >= removed && frame.timestamp <= removed + duration)
       .map((frame) => ({ ...frame, timestamp: frame.timestamp - removed })),
   }));
+  next.bodyTracks = next.bodyTracks?.map((track) => ({ ...track, keyframes: track.keyframes.filter((frame) => frame.timestamp >= removed && frame.timestamp <= removed + duration).map((frame) => ({ ...frame, timestamp: frame.timestamp - removed })) }));
+  next.discontinuities = next.discontinuities?.filter((cut) => cut.timestamp >= removed && cut.timestamp <= removed + duration).map((cut) => ({ ...cut, timestamp: cut.timestamp - removed }));
+  next.layers = next.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.parameterKeyframes ? Object.fromEntries(Object.entries(layer.parameterKeyframes).map(([key, frames]) => [key, frames.filter((frame) => frame.time >= removed && frame.time <= removed + duration).map((frame) => ({ ...frame, time: frame.time - removed }))])) : undefined }));
   next.layers = normalizeOrders(next.layers.flatMap((layer) => {
     if (layer.applyScope === 'clip' || !layer.range) return [layer];
     if (layer.range.end < removed || layer.range.start > removed + duration) return [];
@@ -127,6 +130,9 @@ export function retouchAfterTrimOut(
     ...track,
     keyframes: track.keyframes.filter((frame) => frame.timestamp <= duration),
   }));
+  next.bodyTracks = next.bodyTracks?.map((track) => ({ ...track, keyframes: track.keyframes.filter((frame) => frame.timestamp <= duration) }));
+  next.discontinuities = next.discontinuities?.filter((cut) => cut.timestamp <= duration);
+  next.layers = next.layers.map((layer) => ({ ...layer, parameterKeyframes: layer.parameterKeyframes ? Object.fromEntries(Object.entries(layer.parameterKeyframes).map(([key, frames]) => [key, frames.filter((frame) => frame.time <= duration)])) : undefined }));
   next.layers = normalizeOrders(next.layers.flatMap((layer) => {
     if (layer.applyScope === 'clip' || !layer.range) return [layer];
     if (layer.range.start > duration) return [];

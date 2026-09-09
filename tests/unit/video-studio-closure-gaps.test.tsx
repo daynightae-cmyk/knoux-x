@@ -14,7 +14,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { transitionFadeOpacity } from '../../src/core/creative/transitionFade';
-import { createMultitrackProject } from '../../src/core/creative/multitrackProject';
+import { createMultitrackProject, type TimelineTransition } from '../../src/core/creative/multitrackProject';
 import { multitrackEditorArabic, multitrackEditorEnglish } from '../../src/locales/multitrackEditor';
 import { MultitrackEditorView } from '../../src/features/editor/MultitrackEditorView';
 
@@ -39,22 +39,23 @@ describe('Video Studio closure gaps', () => {
     });
 
     test('fade-in ramps from zero across its duration', () => {
-      expect(transitionFadeOpacity(1, { id: 'a', kind: 'fade-black', duration: 2, direction: 'left', color: '#000' }, null, 0, 10)).toBe(0);
-      expect(transitionFadeOpacity(1, { id: 'a', kind: 'fade-black', duration: 2, direction: 'left', color: '#000' }, null, 1, 10)).toBeCloseTo(0.5);
-      expect(transitionFadeOpacity(1, { id: 'a', kind: 'fade-black', duration: 2, direction: 'left', color: '#000' }, null, 2, 10)).toBe(1);
-      expect(transitionFadeOpacity(1, { id: 'a', kind: 'fade-black', duration: 2, direction: 'left', color: '#000' }, null, 9, 10)).toBe(1);
+      const fadeIn: TimelineTransition = { id: 'a', kind: 'fade-black', duration: 2, direction: 'left', color: '#000' };
+      expect(transitionFadeOpacity(1, fadeIn, null, 0, 10)).toBe(0);
+      expect(transitionFadeOpacity(1, fadeIn, null, 1, 10)).toBeCloseTo(0.5);
+      expect(transitionFadeOpacity(1, fadeIn, null, 2, 10)).toBe(1);
+      expect(transitionFadeOpacity(1, fadeIn, null, 9, 10)).toBe(1);
     });
 
     test('fade-out ramps to zero at the item end', () => {
-      const out = { id: 'b', kind: 'fade-white', duration: 2, direction: 'left', color: '#fff' };
+      const out: TimelineTransition = { id: 'b', kind: 'fade-white', duration: 2, direction: 'left', color: '#fff' };
       expect(transitionFadeOpacity(1, null, out, 8, 10)).toBe(1);
       expect(transitionFadeOpacity(1, null, out, 9, 10)).toBeCloseTo(0.5);
       expect(transitionFadeOpacity(1, null, out, 10, 10)).toBe(0);
     });
 
     test('combined fades multiply and clamp honestly', () => {
-      const fadeIn = { id: 'a', kind: 'cross-dissolve', duration: 2, direction: 'left', color: '#000' };
-      const fadeOut = { id: 'b', kind: 'cross-dissolve', duration: 2, direction: 'left', color: '#000' };
+      const fadeIn: TimelineTransition = { id: 'a', kind: 'cross-dissolve', duration: 2, direction: 'left', color: '#000' };
+      const fadeOut: TimelineTransition = { id: 'b', kind: 'cross-dissolve', duration: 2, direction: 'left', color: '#000' };
       expect(transitionFadeOpacity(0.5, fadeIn, fadeOut, 1, 10)).toBeCloseTo(0.25);
       expect(transitionFadeOpacity(2, null, null, 1, 10)).toBe(1);
       expect(transitionFadeOpacity(1, fadeIn, null, -5, 10)).toBe(0);

@@ -6,6 +6,7 @@ import type { MultitrackProject } from '../../core/creative/multitrackProject';
 import { useTranslation } from '../../i18n';
 import { renderMultitrackProject } from '../export/mobileTimelineRenderer';
 import { VideoStudioView } from './VideoStudioView';
+
 import '../../styles/desktop-timeline-export.css';
 
 type ExportPhase = 'saving' | 'rendering' | 'choosing-output' | 'writing' | 'verifying';
@@ -56,9 +57,12 @@ function waitForCurrentProjectSave(): Promise<SaveCommandResult | null> {
 }
 
 function safeOutputName(project: MultitrackProject): string {
-  const normalized = project.name
+  const printableName = [...project.name]
+    .map((character) => character.charCodeAt(0) < 32 ? '-' : character)
+    .join('');
+  const normalized = printableName
     .normalize('NFC')
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+    .replace(/[<>:"/\\|?*]+/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
   return normalized || 'KNOUX-timeline';
@@ -121,7 +125,6 @@ export const DesktopVideoStudioView: React.FC = () => {
     setError(null);
     setVerifiedOutput(null);
     setProgress(0);
-    let destination: string | null = null;
 
     try {
       setPhase('rendering');
@@ -137,7 +140,7 @@ export const DesktopVideoStudioView: React.FC = () => {
 
       const extension = outputExtension(rendered.mimeType);
       setPhase('choosing-output');
-      destination = await window.knouxAPI.file.saveFile({
+      const destination = await window.knouxAPI.file.saveFile({
         title: ar ? 'حفظ تصدير KNOUX X' : 'Save KNOUX X timeline export',
         defaultPath: `${safeOutputName(project)}-timeline.${extension}`,
         filters: [{ name: extension.toUpperCase(), extensions: [extension] }],

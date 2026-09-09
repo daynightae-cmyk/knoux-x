@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "testedHead": "003924b4bccad95547e95e00c17d9d8f215824f0",
+  "testedHead": "d86e4ab0aa8c32798dfd03a73a5d4adc49903c82",
   "channels": [
     {
       "channel": "ai-secure:cancel",
@@ -3810,6 +3810,94 @@
       "registeredOwner": "core-system"
     },
     {
+      "channel": "update:check",
+      "direction": "invoke",
+      "owner": "core-update",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"update:check\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"update:check\"]"
+      },
+      "sourceRoots": [
+        "electron/preload.ts",
+        "electron/startup/app-updater.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-update"
+    },
+    {
+      "channel": "update:download",
+      "direction": "invoke",
+      "owner": "core-update",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"update:download\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"update:download\"]"
+      },
+      "sourceRoots": [
+        "electron/preload.ts",
+        "electron/startup/app-updater.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-update"
+    },
+    {
+      "channel": "update:install",
+      "direction": "invoke",
+      "owner": "core-update",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"update:install\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"update:install\"]"
+      },
+      "sourceRoots": [
+        "electron/preload.ts",
+        "electron/startup/app-updater.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "core-update"
+    },
+    {
+      "channel": "update:status",
+      "direction": "outbound-event",
+      "owner": "core-update",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"update:status\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/preload.ts",
+        "electron/startup/app-updater.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
       "channel": "app:renderer-ready",
       "direction": "inbound-listener",
       "owner": "core-app",
@@ -3961,7 +4049,6 @@
       },
       "sourceRoots": [
         "electron/main.ts",
-        "electron/menu/app-menu.ts",
         "electron/preload.ts"
       ],
       "lifecycle": "active",
@@ -4293,6 +4380,2272 @@
       "sourceRoots": [
         "electron/main.ts",
         "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "image-studio:create",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:create\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:create\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:open",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:open\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:open\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:save",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:save\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:save\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:save-as",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:save-as\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:save-as\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:close",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:close\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:close\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:get-current",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:get-current\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:get-current\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:sync-retouch",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:sync-retouch\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:sync-retouch\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:recent",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:recent\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:recent\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:migrate",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:migrate\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:migrate\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:validate",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:validate\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:validate\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:recover",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:recover\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:recover\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:create-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:create-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:create-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:delete-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:delete-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:delete-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:duplicate-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:duplicate-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:duplicate-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:rename-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:rename-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:rename-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:reorder-layers",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:reorder-layers\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:reorder-layers\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:group-layers",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:group-layers\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:group-layers\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:ungroup-layers",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:ungroup-layers\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:ungroup-layers\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-visibility",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-visibility\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-visibility\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-locked",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-locked\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-locked\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-opacity",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-opacity\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-opacity\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-blend-mode",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-blend-mode\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-blend-mode\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-transform",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-transform\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-transform\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:add-mask",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:add-mask\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:add-mask\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:update-mask",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:update-mask\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:update-mask\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:remove-mask",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:remove-mask\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:remove-mask\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:apply-adjustment",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:apply-adjustment\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:apply-adjustment\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:undo",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:undo\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:undo\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:redo",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:redo\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:redo\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:can-undo",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:can-undo\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:can-undo\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:can-redo",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:can-redo\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:can-redo\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:create-checkpoint",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:create-checkpoint\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:create-checkpoint\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:import-image",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:import-image\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:import-image\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:import-as-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:import-as-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:import-as-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:export-document",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:export-document\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:export-document\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:export-flattened",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:export-flattened\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:export-flattened\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:export-layer",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:export-layer\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:export-layer\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:inspect-format",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:inspect-format\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:inspect-format\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:autosave-status",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:autosave-status\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:autosave-status\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:trigger-autosave",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:trigger-autosave\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:trigger-autosave\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:recovery-sessions",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:recovery-sessions\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:recovery-sessions\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:restore-recovery",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:restore-recovery\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:restore-recovery\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:discard-recovery",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:discard-recovery\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:discard-recovery\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:list-providers",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:list-providers\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:list-providers\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:provider-status",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:provider-status\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:provider-status\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:list-models",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:list-models\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:list-models\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:refresh-models",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:refresh-models\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:refresh-models\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:validate-credential",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:validate-credential\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:validate-credential\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:set-credential",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:set-credential\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:set-credential\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:remove-credential",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:remove-credential\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:remove-credential\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:create-job",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:create-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:create-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:cancel-job",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:cancel-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:cancel-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:retry-job",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:retry-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:retry-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:get-job",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:get-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:get-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:list-jobs",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:list-jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:list-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:remove-job",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:remove-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:remove-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:import-result",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:import-result\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:import-result\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:get-face-model",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:get-face-model\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:get-face-model\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:get-pose-model",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:get-pose-model\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:get-pose-model\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:import-retouch-asset",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:import-retouch-asset\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:import-retouch-asset\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:read-retouch-proxy",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:read-retouch-proxy\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:read-retouch-proxy\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:release-retouch-asset",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:release-retouch-asset\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:release-retouch-asset\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:read-asset",
+      "direction": "invoke",
+      "owner": "image-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"image-studio:read-asset\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"image-studio:read-asset\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": true,
+      "registrationCount": 1,
+      "registeredOwner": "image-studio"
+    },
+    {
+      "channel": "image-studio:autosave",
+      "direction": "outbound-event",
+      "owner": "image-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"image-studio:autosave\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "image-studio:job-progress",
+      "direction": "outbound-event",
+      "owner": "image-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"image-studio:job-progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "image-studio:job-complete",
+      "direction": "outbound-event",
+      "owner": "image-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"image-studio:job-complete\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "image-studio:job-failed",
+      "direction": "outbound-event",
+      "owner": "image-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"image-studio:job-failed\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "image-studio:recovery-available",
+      "direction": "outbound-event",
+      "owner": "image-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"image-studio:recovery-available\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/image-studio-runtime.ts",
+        "electron/preload-image-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:list-providers",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:list-providers\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:list-providers\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:provider-status",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:provider-status\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:provider-status\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:list-models",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:list-models\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:list-models\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:create-job",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:create-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:create-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:cancel-job",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:cancel-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:cancel-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:retry-job",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:retry-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:retry-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:get-job",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:get-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:get-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:list-jobs",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:list-jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:list-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:remove-job",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:remove-job\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:remove-job\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:ai-health",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:ai-health\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:ai-health\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:ai-entitlement",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:ai-entitlement\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:ai-entitlement\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:ai-plan",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:ai-plan\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:ai-plan\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:ai-settings-get",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:ai-settings-get\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:ai-settings-get\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:ai-settings-set",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:ai-settings-set\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:ai-settings-set\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:gateway-config-get",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:gateway-config-get\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:gateway-config-get\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:gateway-config-set",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:gateway-config-set\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:gateway-config-set\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:set-credential",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:set-credential\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:set-credential\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:offline-jobs",
+      "direction": "invoke",
+      "owner": "video-studio",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:offline-jobs\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:offline-jobs\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio"
+    },
+    {
+      "channel": "video-studio:edit-analyze",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:edit-analyze\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:edit-analyze\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:edit-replay",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:edit-replay\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:edit-replay\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:plan-record",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:plan-record\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:plan-record\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:plan-list",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:plan-list\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:plan-list\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:plan-get",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:plan-get\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:plan-get\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:plan-remove",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:plan-remove\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:plan-remove\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:branch-create",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:branch-create\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:branch-create\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:branch-list",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:branch-list\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:branch-list\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:branch-get",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:branch-get\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:branch-get\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:branch-remove",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:branch-remove\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:branch-remove\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:branch-compare",
+      "direction": "invoke",
+      "owner": "video-studio-edit",
+      "exposedBy": "preload-video-studio",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"video-studio:branch-compare\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"video-studio:branch-compare\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-edit-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "video-studio-edit"
+    },
+    {
+      "channel": "video-studio:job-phase",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:job-phase\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:job-progress",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:job-progress\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:job-complete",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:job-complete\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:job-failed",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:job-failed\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:job-cancelled",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:job-cancelled\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": null,
+      "registeredOwner": null
+    },
+    {
+      "channel": "video-studio:flushed",
+      "direction": "outbound-event",
+      "owner": "video-studio",
+      "exposedBy": "preload subscription",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "OutboundPayloadMap[\"video-studio:flushed\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "void"
+      },
+      "sourceRoots": [
+        "electron/ipc/video-studio-runtime.ts",
+        "electron/preload-video-studio.ts"
       ],
       "lifecycle": "active",
       "basic": false,

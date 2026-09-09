@@ -67,6 +67,69 @@
     "file:scan",
     "file:stats",
     "file:write",
+    "image-studio:add-mask",
+    "image-studio:apply-adjustment",
+    "image-studio:autosave-status",
+    "image-studio:can-redo",
+    "image-studio:can-undo",
+    "image-studio:cancel-job",
+    "image-studio:close",
+    "image-studio:create",
+    "image-studio:create-checkpoint",
+    "image-studio:create-job",
+    "image-studio:create-layer",
+    "image-studio:delete-layer",
+    "image-studio:discard-recovery",
+    "image-studio:duplicate-layer",
+    "image-studio:export-document",
+    "image-studio:export-flattened",
+    "image-studio:export-layer",
+    "image-studio:get-current",
+    "image-studio:get-face-model",
+    "image-studio:get-job",
+    "image-studio:get-pose-model",
+    "image-studio:group-layers",
+    "image-studio:import-as-layer",
+    "image-studio:import-image",
+    "image-studio:import-result",
+    "image-studio:import-retouch-asset",
+    "image-studio:inspect-format",
+    "image-studio:list-jobs",
+    "image-studio:list-models",
+    "image-studio:list-providers",
+    "image-studio:migrate",
+    "image-studio:open",
+    "image-studio:provider-status",
+    "image-studio:read-asset",
+    "image-studio:read-retouch-proxy",
+    "image-studio:recent",
+    "image-studio:recover",
+    "image-studio:recovery-sessions",
+    "image-studio:redo",
+    "image-studio:refresh-models",
+    "image-studio:release-retouch-asset",
+    "image-studio:remove-credential",
+    "image-studio:remove-job",
+    "image-studio:remove-mask",
+    "image-studio:rename-layer",
+    "image-studio:reorder-layers",
+    "image-studio:restore-recovery",
+    "image-studio:retry-job",
+    "image-studio:save",
+    "image-studio:save-as",
+    "image-studio:set-blend-mode",
+    "image-studio:set-credential",
+    "image-studio:set-locked",
+    "image-studio:set-opacity",
+    "image-studio:set-transform",
+    "image-studio:set-visibility",
+    "image-studio:sync-retouch",
+    "image-studio:trigger-autosave",
+    "image-studio:undo",
+    "image-studio:ungroup-layers",
+    "image-studio:update-mask",
+    "image-studio:validate",
+    "image-studio:validate-credential",
     "library:add-history",
     "library:cancel-scan",
     "library:choose-folder",
@@ -159,6 +222,38 @@
     "system:memory",
     "system:open-external",
     "system:show-item",
+    "update:check",
+    "update:download",
+    "update:install",
+    "video-studio:ai-entitlement",
+    "video-studio:ai-health",
+    "video-studio:ai-plan",
+    "video-studio:ai-settings-get",
+    "video-studio:ai-settings-set",
+    "video-studio:branch-compare",
+    "video-studio:branch-create",
+    "video-studio:branch-get",
+    "video-studio:branch-list",
+    "video-studio:branch-remove",
+    "video-studio:cancel-job",
+    "video-studio:create-job",
+    "video-studio:edit-analyze",
+    "video-studio:edit-replay",
+    "video-studio:gateway-config-get",
+    "video-studio:gateway-config-set",
+    "video-studio:get-job",
+    "video-studio:list-jobs",
+    "video-studio:list-models",
+    "video-studio:list-providers",
+    "video-studio:offline-jobs",
+    "video-studio:plan-get",
+    "video-studio:plan-list",
+    "video-studio:plan-record",
+    "video-studio:plan-remove",
+    "video-studio:provider-status",
+    "video-studio:remove-job",
+    "video-studio:retry-job",
+    "video-studio:set-credential",
     "video:brightness",
     "video:contrast",
     "video:crop",
@@ -500,6 +595,321 @@
     {
       "channel": "file:write",
       "owner": "core-file",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:add-mask",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:apply-adjustment",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:autosave-status",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:can-redo",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:can-undo",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:cancel-job",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:close",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:create",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:create-checkpoint",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:create-job",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:create-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:delete-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:discard-recovery",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:duplicate-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:export-document",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:export-flattened",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:export-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:get-current",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:get-face-model",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:get-job",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:get-pose-model",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:group-layers",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:import-as-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:import-image",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:import-result",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:import-retouch-asset",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:inspect-format",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:list-jobs",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:list-models",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:list-providers",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:migrate",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:open",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:provider-status",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:read-asset",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:read-retouch-proxy",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:recent",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:recover",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:recovery-sessions",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:redo",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:refresh-models",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:release-retouch-asset",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:remove-credential",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:remove-job",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:remove-mask",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:rename-layer",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:reorder-layers",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:restore-recovery",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:retry-job",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:save",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:save-as",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-blend-mode",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-credential",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-locked",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-opacity",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-transform",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:set-visibility",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:sync-retouch",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:trigger-autosave",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:undo",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:ungroup-layers",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:update-mask",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:validate",
+      "owner": "image-studio",
+      "count": 1
+    },
+    {
+      "channel": "image-studio:validate-credential",
+      "owner": "image-studio",
       "count": 1
     },
     {
@@ -963,6 +1373,166 @@
       "count": 1
     },
     {
+      "channel": "update:check",
+      "owner": "core-update",
+      "count": 1
+    },
+    {
+      "channel": "update:download",
+      "owner": "core-update",
+      "count": 1
+    },
+    {
+      "channel": "update:install",
+      "owner": "core-update",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:ai-entitlement",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:ai-health",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:ai-plan",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:ai-settings-get",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:ai-settings-set",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:branch-compare",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:branch-create",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:branch-get",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:branch-list",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:branch-remove",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:cancel-job",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:create-job",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:edit-analyze",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:edit-replay",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:gateway-config-get",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:gateway-config-set",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:get-job",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:list-jobs",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:list-models",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:list-providers",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:offline-jobs",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:plan-get",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:plan-list",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:plan-record",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:plan-remove",
+      "owner": "video-studio-edit",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:provider-status",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:remove-job",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:retry-job",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
+      "channel": "video-studio:set-credential",
+      "owner": "video-studio",
+      "count": 1
+    },
+    {
       "channel": "video:brightness",
       "owner": "core-video",
       "count": 1
@@ -1077,12 +1647,12 @@
   ],
   "missing": [],
   "duplicates": [],
-  "preloadPath": "D:\\Knoux-X-Bootstrap\\repository\\out\\KNOUX Player X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
+  "preloadPath": "D:\\KNOUX X\\out\\Knoux X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
   "preloadExists": true,
   "packaged": true,
-  "version": "2.0.0",
-  "sha": "003924b4bccad95547e95e00c17d9d8f215824f0",
-  "branch": "feat/offline-creative-studio-professional-completion",
-  "buildTimestamp": "2026-08-01T10:06:44.147Z",
+  "version": "2.1.0",
+  "sha": "d86e4ab0aa8c32798dfd03a73a5d4adc49903c82",
+  "branch": "main",
+  "buildTimestamp": "2026-09-09T11:13:58.995Z",
   "electronVersion": "32.3.3"
 }

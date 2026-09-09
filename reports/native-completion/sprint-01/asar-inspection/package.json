@@ -1,7 +1,7 @@
 {
   "name": "knoux-player-x",
-  "version": "2.0.0",
-  "description": "KNOUX Player X — premium next-generation desktop media player and creative suite.",
+  "version": "2.1.0",
+  "description": "Knoux X — premium next-generation desktop media player and creative suite.",
   "main": ".vite/build/main-entry.js",
   "author": "Eng. Sadek Elgazar (Knoux)",
   "license": "Proprietary",
@@ -13,6 +13,7 @@
     "publish": "electron-forge publish",
     "build": "electron-forge package",
     "build:native": "node-gyp rebuild",
+    "icons:generate": "node tools/generate-icons.cjs",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --ext .ts,.tsx . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,css}\"",
@@ -32,7 +33,11 @@
     "phase1:installed-verify": "node tools/run-slideshow-phase1-installed-verification.cjs",
     "brand:manifest": "node tools/validate-brand-assets.cjs --write",
     "brand:verify": "node tools/validate-brand-assets.cjs",
-    "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package"
+    "phase1:verify": "npm run doctor && npm run typecheck && npm run lint && npm run package",
+    "verify:video-gate": "node scripts/real-video-execution-gate.cjs",
+    "verify:local-media": "jest tests/unit/real-local-media-workflow.test.ts",
+    "release:version": "node tools/knoux-release-version.cjs --json",
+    "release:prepare": "node tools/knoux-release-prepare.cjs"
   },
   "jest": {
     "testEnvironment": "node",
@@ -43,6 +48,10 @@
           "tsconfig": "tsconfig.json"
         }
       ]
+    },
+    "moduleNameMapper": {
+      "^.+\\\\?worker$": "<rootDir>/tests/mocks/vite-worker.ts",
+      "\\.(css|less|scss|sass)$": "<rootDir>/tests/mocks/style-mock.js"
     },
     "modulePathIgnorePatterns": [
       "<rootDir>/backups/",
@@ -57,7 +66,9 @@
     "@electron-forge/maker-squirrel": "^7.2.0",
     "@electron-forge/maker-zip": "^7.2.0",
     "@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
-    "@electron-forge/plugin-webpack": "^7.2.0",
+    "@electron-forge/plugin-fuses": "^7.2.0",
+    "@electron-forge/plugin-vite": "^7.2.0",
+    "@electron/fuses": "^1.8.0",
     "@types/better-sqlite3": "^7.6.8",
     "@types/fluent-ffmpeg": "^2.1.24",
     "@types/jest": "^29.5.11",
@@ -66,7 +77,7 @@
     "@types/react-dom": "^18.2.18",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
-    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "@vitejs/plugin-react": "^4.3.4",
     "css-loader": "^6.8.1",
     "electron": "32.3.3",
     "electron-devtools-installer": "^3.2.0",
@@ -92,15 +103,12 @@
     "vite": "^5.4.21",
     "webpack": "^5.89.0",
     "webpack-bundle-analyzer": "^4.10.1",
-    "webpack-cli": "^5.1.4",
-    "@electron-forge/plugin-vite": "^7.2.0",
-    "@electron-forge/plugin-fuses": "^7.2.0",
-    "@electron/fuses": "^1.8.0",
-    "@vitejs/plugin-react": "^4.3.4"
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@derhuerst/ffprobe-static": "5.3.0",
     "@google/generative-ai": "^0.24.1",
+    "@mediapipe/tasks-vision": "1.0.1",
     "@tensorflow/tfjs": "^4.15.0",
     "@tensorflow/tfjs-node": "^4.15.0",
     "better-sqlite3": "11.10.0",
@@ -151,5 +159,13 @@
   "bugs": {
     "url": "https://github.com/daynightae-cmyk/knoux-x/issues"
   },
-  "homepage": "https://knoux.store"
+  "homepage": "https://knoux.store",
+  "allowScripts": {
+    "electron@32.3.3": true,
+    "better-sqlite3@11.10.0": true,
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true,
+    "ffmpeg-static@5.3.0": true,
+    "@derhuerst/ffprobe-static@5.3.0": true
+  }
 }

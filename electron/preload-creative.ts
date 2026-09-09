@@ -42,6 +42,8 @@ export const creativeAPI = {
   media: {
     open: (): Promise<{ filePath: string; mediaUrl: string } | null> =>
       invokeDesktop(IPC_INVOKE.CREATIVE_OPEN_MEDIA),
+    openVideo: (): Promise<{ filePath: string; mediaUrl: string } | null> =>
+      invokeDesktop(IPC_INVOKE.CREATIVE_OPEN_VIDEO),
     toUrl: (filePath: string): Promise<string> =>
       invokeDesktop(IPC_INVOKE.CREATIVE_PATH_TO_MEDIA_URL, filePath),
   },

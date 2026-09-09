@@ -40,6 +40,10 @@ const mediaFilters = [{
     'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff',
   ],
 }];
+const videoFilters = [{
+  name: 'Video Files',
+  extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v'],
+}];
 
 function isTrustedRendererUrl(value: string): boolean {
   try {
@@ -97,6 +101,16 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
     const result = await dialog.showOpenDialog({
       title: 'Open media in Knoux X',
       filters: mediaFilters,
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const filePath = creativePaths.authorizeFile(result.filePaths[0]);
+    return { filePath, mediaUrl: pathToFileURL(filePath).toString() };
+  }));
+  ipc.handle(IPC_INVOKE.CREATIVE_OPEN_VIDEO, trusted(async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Import video into Knoux X',
+      filters: videoFilters,
       properties: ['openFile'],
     });
     if (result.canceled || result.filePaths.length === 0) return null;

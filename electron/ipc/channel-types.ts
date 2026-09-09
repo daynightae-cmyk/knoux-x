@@ -76,6 +76,7 @@ export interface InvokeArgumentMap {
   'clip:extract': [inputPath: string, options: ClipExtractionOptions];
   'clip:show-item': [outputPath: string];
   'creative:open-media': [];
+  'creative:open-video': [];
   'creative:path-to-media-url': [filePath: string];
   'creative:request-media-permission': [];
   'editor:autosave': [project: EditProject];
@@ -320,7 +321,7 @@ export interface InvokeResultMap {
   'audio:balance': VoidResult; 'audio:dsp': VoidResult; 'audio:effect': VoidResult; 'audio:equalizer': VoidResult; 'audio:muted': VoidResult; 'audio:settings': object; 'audio:visualizer': Uint8Array; 'audio:volume': VoidResult;
   'capture:choose-default-directory': string | null; 'capture:contact-sheet': string | null; 'capture:copy-frame': VoidResult; 'capture:desktop': DesktopCaptureOperationResult; 'capture:desktop-sources': object[]; 'capture:get-default-directory': string | null; 'capture:recent': string[]; 'capture:save-burst': string[]; 'capture:save-frame': string | null; 'capture:show-item': VoidResult;
   'clip:cancel': boolean; 'clip:extract': object | null; 'clip:show-item': VoidResult;
-  'creative:open-media': object | null; 'creative:path-to-media-url': string; 'creative:request-media-permission': boolean;
+  'creative:open-media': object | null; 'creative:open-video': object | null; 'creative:path-to-media-url': string; 'creative:request-media-permission': boolean;
   'editor:autosave': string; 'editor:clear-recent-projects': VoidResult; 'editor:new-project': object; 'editor:open-project': object | null; 'editor:open-recent': object; 'editor:recent-projects': string[]; 'editor:recover-autosaves': object[]; 'editor:save-project': string | null;
   'export:cancel': boolean; 'export:capabilities': object; 'export:jobs': object[]; 'export:presets': object[]; 'export:probe': object; 'export:select-source': string | null; 'export:start': object | null;
   'file:authorize-dropped': string; 'file:delete': boolean; 'file:exists': boolean; 'file:media-info': object; 'file:open': string | null; 'file:open-directory': string | null; 'file:open-multiple': string[]; 'file:read': Uint8Array; 'file:save': string | null; 'file:scan': string[]; 'file:stats': object; 'file:write': VoidResult;

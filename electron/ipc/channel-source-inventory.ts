@@ -50,6 +50,7 @@ export const IPC_SOURCE_INVENTORY = {
   'clip:progress': { sourceRoots: ['electron/ipc/clip-extraction-runtime.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'clip:show-item': { sourceRoots: ['electron/ipc/clip-extraction-runtime.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'creative:open-media': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
+  'creative:open-video': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'creative:path-to-media-url': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'creative:request-media-permission': { sourceRoots: ['electron/creative-bootstrap.ts', 'electron/preload-creative-expose.ts'], lifecycle: 'active' },
   'editor:autosave': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },

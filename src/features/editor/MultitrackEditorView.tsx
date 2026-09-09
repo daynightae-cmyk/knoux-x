@@ -8,6 +8,7 @@ import {
   EyeOff,
   FileImage,
   FilePlus2,
+  FileVideo,
   FolderOpen,
   GitBranch,
   GitCompare,
@@ -29,6 +30,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  Upload,
   Video,
   Volume2,
   VolumeX,
@@ -78,6 +80,16 @@ import {
   attachRetouchToSplit,
 } from '../video-studio/retouch/videoRetouchTimeline';
 import type { VideoRetouchClipState } from '../video-studio/retouch/videoRetouchProject';
+
+import {
+  buildImportItem,
+  classifyMediaExtension,
+  ensureImportTrack,
+  projectHasItems,
+  resolveImportKind,
+  type ImportMediaKind,
+  type ImportRequest,
+} from './videoStudioEntry';
 
 interface ProjectHistory {
   past: MultitrackProject[];
@@ -487,50 +499,162 @@ export const MultitrackEditorView: React.FC = () => {
     commit({ ...project, tracks: reorderTrack(project.tracks, trackId, track.order + direction) });
   }, [commit, project]);
 
+  /**
+   * Shared production import path: dialog selection AND Explorer drag/drop
+   * funnel through here. Resolves the timeline kind from real stream
+   * evidence, assures a compatible track (creating one when missing),
+   * places the first clip of an empty project at timeline 0, and selects
+   * the new item so preview + inspector follow immediately.
+   */
+  const insertSelectedMedia = useCallback(async (
+    base: MultitrackProject,
+    selected: { filePath: string; mediaUrl: string },
+    requested: ImportRequest,
+    options: { fresh?: boolean; preferredTrackId?: string } = {},
+  ): Promise<MultitrackProject> => {
+    const classified = classifyMediaExtension(selected.filePath);
+    let probe: { hasVideo: boolean; hasAudio: boolean } | null = null;
+    if (classified !== 'image') {
+      const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);
+      const streams = raw.streams ?? [];
+      probe = {
+        hasVideo: streams.some((stream) => stream.codec_type === 'video'),
+        hasAudio: streams.some((stream) => stream.codec_type === 'audio'),
+      };
+    }
+    let kind: ImportMediaKind;
+    try {
+      kind = resolveImportKind(selected.filePath, probe, requested);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'IMPORT_NOT_IMAGE_REQUESTED' || code === 'IMPORT_NOT_IMAGE_FILE') {
+        throw new Error(t('multitrack.selectImageFile'));
+      }
+      if (code === 'IMPORT_NOT_VIDEO') throw new Error(t('multitrack.selectVideoFile'));
+      throw new Error(t('multitrack.addMediaFailed'));
+    }
+    const itemDuration = kind === 'image'
+      ? 5
+      : await readMediaMetadata(selected.mediaUrl, kind);
+    const preferred = options.preferredTrackId
+      ? base.tracks.find((track) => track.id === options.preferredTrackId && track.kind === kind)
+      : undefined;
+    const ensured = preferred
+      ? { project: base, track: preferred }
+      : ensureImportTrack(base, kind, crypto.randomUUID(), t(`multitrack.track_${kind}`));
+    const atZero = !projectHasItems(ensured.project);
+    const item = buildImportItem(
+      crypto.randomUUID(),
+      ensured.track.id,
+      kind,
+      selected.filePath,
+      itemDuration,
+      atZero ? 0 : playhead,
+    );
+    const next = insertItem(ensured.project, item);
+    if (options.fresh) {
+      historyRef.current = { past: [], future: [] };
+      setProject(structuredClone(next));
+      setProjectPath(undefined);
+      setSelectedTrackId(ensured.track.id);
+      setSelectedItemId(item.id);
+      setPlayhead(0);
+      setDirty(true);
+      setError(null);
+    } else {
+      commit(next);
+      setSelectedTrackId(ensured.track.id);
+      setSelectedItemId(item.id);
+    }
+    return next;
+  }, [commit, playhead, t]);
+
   const addMedia = useCallback(async (targetKind: 'video' | 'audio' | 'image'): Promise<void> => {
     if (!project || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const selected = await window.knouxCreativeAPI.media.open();
+      const selected = targetKind === 'video' && typeof window.knouxCreativeAPI?.media?.openVideo === 'function'
+        ? await window.knouxCreativeAPI.media.openVideo()
+        : await window.knouxCreativeAPI.media.open();
       if (!selected) return;
-      const extension = selected.filePath.split('.').pop()?.toLowerCase() ?? '';
-      const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
-      let actualKind: 'video' | 'audio' | 'image' = 'image';
-      if (!imageExtensions.has(extension)) {
-        const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
-        const hasVideo = probe.streams?.some((stream) => stream.codec_type === 'video') ?? false;
-        const hasAudio = probe.streams?.some((stream) => stream.codec_type === 'audio') ?? false;
-        if (targetKind === 'video' && !hasVideo) throw new Error(t('multitrack.addMediaFailed'));
-        if (targetKind === 'audio' && !hasAudio) throw new Error(t('multitrack.addMediaFailed'));
-        actualKind = targetKind === 'audio' ? 'audio' : 'video';
-      }
-      if (targetKind === 'image' && actualKind !== 'image') throw new Error(t('multitrack.selectImageFile'));
-      const track = compatibleTrack(project, actualKind);
-      if (!track) throw new Error(t('multitrack.noCompatibleTrack'));
-      const itemDuration = actualKind === 'image'
-        ? 5
-        : await readMediaMetadata(selected.mediaUrl, actualKind === 'audio' ? 'audio' : 'video');
-      const item = createTimelineItem({
-        id: crypto.randomUUID(),
-        trackId: track.id,
-        kind: actualKind,
-        name: basename(selected.filePath),
-        sourcePath: selected.filePath,
-        timelineStart: playhead,
-        duration: itemDuration,
-        sourceIn: 0,
-        sourceOut: itemDuration,
-      });
-      commit(insertItem(project, item));
-      setSelectedTrackId(track.id);
-      setSelectedItemId(item.id);
+      await insertSelectedMedia(project, selected, targetKind);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('multitrack.addMediaFailed'));
     } finally {
       setBusy(false);
     }
-  }, [busy, commit, playhead, project, t]);
+  }, [busy, insertSelectedMedia, project, t]);
+
+  /**
+   * Zero-project entry: Import Video / Import Media auto-creates an Untitled
+   * project when none is open, then follows the same production import path.
+   */
+  const importEntryMedia = useCallback(async (requested: 'video' | 'auto'): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let base = project;
+      let fresh = false;
+      if (!base) {
+        if (!desktopRuntime) return;
+        base = await window.knouxMultitrackAPI.create(t('multitrack.untitledProject'));
+        fresh = true;
+      }
+      const opener = requested === 'video' && typeof window.knouxCreativeAPI?.media?.openVideo === 'function'
+        ? window.knouxCreativeAPI.media.openVideo()
+        : window.knouxCreativeAPI.media.open();
+      const selected = await opener;
+      if (!selected) {
+        if (fresh) activate(base, undefined, true);
+        return;
+      }
+      await insertSelectedMedia(base, selected, requested, { fresh });
+      await refreshWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('multitrack.addMediaFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [activate, busy, desktopRuntime, insertSelectedMedia, project, refreshWorkspace, t]);
+
+  /**
+   * Explorer drag/drop follows the same production import path: authorize the
+   * dropped file, resolve its media URL, then insert it like a dialog import.
+   */
+  const importDroppedFiles = useCallback(async (files: FileList | File[], preferredTrackId?: string): Promise<void> => {
+    const list = Array.from(files);
+    if (list.length === 0 || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let base = project;
+      let fresh = false;
+      if (!base) {
+        if (!desktopRuntime) return;
+        base = await window.knouxMultitrackAPI.create(t('multitrack.untitledProject'));
+        fresh = true;
+      }
+      let current = base;
+      let firstFresh = fresh;
+      for (const file of list) {
+        if (classifyMediaExtension(file.name) === 'unknown') continue;
+        // eslint-disable-next-line no-await-in-loop
+        const filePath = await window.knouxAPI.file.authorizeDroppedFile(file);
+        // eslint-disable-next-line no-await-in-loop
+        const mediaUrl = await window.knouxCreativeAPI.media.toUrl(filePath);
+        // eslint-disable-next-line no-await-in-loop
+        current = await insertSelectedMedia(current, { filePath, mediaUrl }, 'auto', { fresh: firstFresh, preferredTrackId });
+        firstFresh = false;
+      }
+      await refreshWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('multitrack.addMediaFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, desktopRuntime, insertSelectedMedia, project, refreshWorkspace, t]);
 
   const addTextItem = useCallback((kind: 'text' | 'subtitle'): void => {
     if (!project) return;
@@ -688,7 +812,13 @@ export const MultitrackEditorView: React.FC = () => {
 
   const handleDrop = useCallback((trackId: string, event: React.DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
-    if (!project || !draggedItemId) return;
+    const files = event.dataTransfer?.files;
+    if (!draggedItemId) {
+      // Explorer file drop on a track lane follows the production import path.
+      if (files && files.length > 0) void importDroppedFiles(files, trackId);
+      return;
+    }
+    if (!project) return;
     const lane = event.currentTarget.getBoundingClientRect();
     const scrollLeft = event.currentTarget.parentElement?.scrollLeft ?? 0;
     const proposed = Math.max(0, (event.clientX - lane.left + scrollLeft) / pixelsPerSecond);
@@ -701,7 +831,7 @@ export const MultitrackEditorView: React.FC = () => {
     } finally {
       setDraggedItemId(null);
     }
-  }, [commit, draggedItemId, pixelsPerSecond, project, t]);
+  }, [commit, draggedItemId, importDroppedFiles, pixelsPerSecond, project, t]);
 
   const togglePreview = useCallback(async (): Promise<void> => {
     const media = previewRef.current;
@@ -796,7 +926,15 @@ export const MultitrackEditorView: React.FC = () => {
 
   if (!project) {
     return (
-      <section className="creative-view multitrack-editor-view" aria-labelledby="multitrack-title">
+      <section
+        className="creative-view multitrack-editor-view"
+        aria-labelledby="multitrack-title"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (event.dataTransfer?.files?.length) void importDroppedFiles(event.dataTransfer.files);
+        }}
+      >
         <header className="creative-header">
           <div>
             <span className="creative-eyebrow">{t('multitrack.eyebrow')}</span>
@@ -807,6 +945,14 @@ export const MultitrackEditorView: React.FC = () => {
         <RuntimeModeNotice feature="Versioned offline multitrack editing" featureAr="تحرير متعدد المسارات محلي وإصداري" />
         {error && <div className="creative-error" role="alert">{error}</div>}
         <div className="multitrack-start-grid">
+          <NeonPanel variant="dark" padding="lg" className="multitrack-start-card">
+            <FileVideo size={42} />
+            <h2>{t('multitrack.importVideo')}</h2>
+            <p>{t('multitrack.importDescription')}</p>
+            <NeonButton variant="primary" leftIcon={<FileVideo size={16} />} onClick={() => void importEntryMedia('video')} disabled={!desktopRuntime || busy}>{t('multitrack.importVideo')}</NeonButton>
+            <NeonButton variant="secondary" leftIcon={<Upload size={16} />} onClick={() => void importEntryMedia('auto')} disabled={!desktopRuntime || busy}>{t('multitrack.importMedia')}</NeonButton>
+            <p className="multitrack-drop-hint">{t('multitrack.dropHint')}</p>
+          </NeonPanel>
           <NeonPanel variant="dark" padding="lg" className="multitrack-start-card">
             <FilePlus2 size={42} />
             <h2>{t('multitrack.newProject')}</h2>
@@ -845,7 +991,7 @@ export const MultitrackEditorView: React.FC = () => {
         </div>
         <div className="creative-actions">
           <NeonButton variant="ghost" leftIcon={<FilePlus2 size={15} />} onClick={() => void createProject()} disabled={busy}>{t('common.new')}</NeonButton>
-          <NeonButton variant="ghost" leftIcon={<FolderOpen size={15} />} onClick={() => void openProject()} disabled={busy}>{t('common.open')}</NeonButton>
+          <NeonButton variant="ghost" leftIcon={<FolderOpen size={15} />} onClick={() => void openProject()} disabled={busy}>{t('multitrack.open')}</NeonButton>
           <NeonButton variant="secondary" leftIcon={<Save size={15} />} onClick={() => void saveProject(false)} disabled={busy}>{dirty ? t('multitrack.saveChanges') : t('common.save')}</NeonButton>
           <NeonButton variant="ghost" onClick={() => void saveProject(true)} disabled={busy}>{t('common.saveAs')}</NeonButton>
         </div>

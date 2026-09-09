@@ -113,6 +113,27 @@ function probe(filePath) {
   };
 }
 
+/**
+ * Streaming recorders (MediaRecorder webm) may omit mux duration metadata.
+ * Measure actual content extent from video packet timestamps instead of
+ * trusting the container header, so completeness is proven from content.
+ */
+function measureContentDuration(filePath) {
+  const direct = probe(filePath);
+  if (direct.duration > 0) return { duration: direct.duration, mode: 'mux', probe: direct };
+  const listing = run(ffprobePath, [
+    '-v', 'error', '-select_streams', 'v:0',
+    '-show_entries', 'packet=pts_time', '-of', 'csv=p=0', filePath,
+  ]);
+  const stamps = listing.split('\n')
+    .map((line) => Number(line.trim().split(',')[0]))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (stamps.length === 0) throw new Error('No decodable video packets found in the rendered output.');
+  const contentEnd = Math.max(...stamps);
+  log(`Mux duration missing; measured content extent ${contentEnd.toFixed(3)}s from ${stamps.length} video packets.`);
+  return { duration: contentEnd, mode: 'packet-pts', probe: direct, packetCount: stamps.length };
+}
+
 function extractFrame(inputPath, seconds, outputFile, tolerateEncoderQuirks = false) {
   const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y'];
   if (tolerateEncoderQuirks) args.push('-err_detect', 'ignore_err');
@@ -134,9 +155,23 @@ function extractProofFrame(inputPath, seconds, outputFile) {
     return 'strict';
   } catch (error) {
     log(`Strict decode failed for proof frame at ${seconds}s (${error.message.slice(0, 160)}); retrying tolerantly.`);
+  }
+  try {
     extractFrame(inputPath, seconds, outputFile, true);
     return 'tolerant';
+  } catch (error) {
+    log(`Tolerant seek decode failed for proof frame at ${seconds}s (${error.message.slice(0, 160)}); decoding sequentially.`);
   }
+  // Fragmented platform muxes can mislead input seeking; a sequential pass
+  // with error concealment still measures real output pixels near the target.
+  run(ffmpegPath, [
+    '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+    '-err_detect', 'ignore_err', '-i', inputPath,
+    '-vf', `select='gte(t\\,${seconds})',scale=320:180:flags=lanczos`,
+    '-frames:v', '1', outputFile,
+  ]);
+  requireFile(outputFile, `Sequential frame at ${seconds}s`);
+  return 'tolerant-sequential';
 }
 
 async function imageMetrics(filePath) {
@@ -597,15 +632,19 @@ function prepare() {
     assert(evidence.project.titleText === TITLE_TEXT, 'Persisted authored title text does not match.');
     assert(Math.abs(evidence.project.titleDuration - TITLE_DURATION) < 0.05, `Persisted title duration is ${evidence.project.titleDuration}.`);
 
-    const outputProbe = probe(outputPath);
+    const measured = measureContentDuration(outputPath);
+    const outputProbe = measured.probe;
     evidence.output = {
       path: path.relative(root, outputPath),
       bytes: fs.statSync(outputPath).size,
       ...outputProbe,
+      measuredDuration: measured.duration,
+      durationMeasurement: measured.mode,
+      durationPacketCount: measured.packetCount || null,
     };
     assert(outputProbe.videoCodec, 'FFprobe found no video stream in the rendered output.');
-    assert(outputProbe.duration >= TITLE_DURATION - 0.35, `Output duration ${outputProbe.duration}s does not cover the authored ${TITLE_DURATION}s timeline.`);
-    assert(outputProbe.duration >= sourceProbe.duration + 1, `Output duration ${outputProbe.duration}s does not extend beyond the ${sourceProbe.duration}s source clip.`);
+    assert(measured.duration >= TITLE_DURATION - 0.35, `Output content ${measured.duration}s does not cover the authored ${TITLE_DURATION}s timeline.`);
+    assert(measured.duration >= sourceProbe.duration + 1, `Output content ${measured.duration}s does not extend beyond the ${sourceProbe.duration}s source clip.`);
 
     extractFrame(fixturePath, 0.75, sourceFramePath);
     const outputEarlyMode = extractProofFrame(outputPath, 0.75, outputEarlyFramePath);

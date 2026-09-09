@@ -4,7 +4,7 @@ import path from 'node:path';
 import { app, BrowserWindow } from 'electron';
 
 import type { IpcHealthReport } from '../ipc/registry';
-import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from '../window-security';
+import { resolveTrustedPreloadPath } from '../window-security';
 
 const EXPECTED_NAMESPACES = [
   'knouxRuntime',
@@ -46,30 +46,42 @@ function safePreferences(window: BrowserWindow, configuredPreload: string): Reco
   };
 }
 
+async function waitForBridge(window: BrowserWindow, timeoutMs = 30000): Promise<void> {
+  const started = Date.now();
+  for (;;) {
+    if (window.isDestroyed()) throw new Error('PACKAGED_MAIN_WINDOW_DESTROYED');
+    try {
+      const ready = await window.webContents.executeJavaScript(
+        `typeof window.knouxRuntime === 'object' && window.knouxRuntime !== null
+          && typeof window.knouxAPI === 'object' && typeof window.knouxAPI.settings?.get === 'function'`,
+        true,
+      );
+      if (ready === true) return;
+    } catch {
+      // Renderer still hydrating; retry until the timeout below.
+    }
+    if (Date.now() - started > timeoutMs) throw new Error('PACKAGED_BRIDGE_NOT_READY');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
 export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promise<void> {
   if (!app.isPackaged) throw new Error('Packaged IPC smoke refuses to run outside a packaged executable.');
+  // The smoke drives the MAIN product window deliberately: the trust boundary
+  // (BrowserWindow.fromWebContents(event.sender) === mainWindow) rejects IPC
+  // from any auxiliary smoke window, so a separate window can never pass.
   const startedAt = new Date().toISOString();
   const syntheticRoot = path.resolve(options.syntheticRoot);
   await fs.mkdir(syntheticRoot, { recursive: true });
   const fixturePath = path.join(syntheticRoot, 'synthetic-fixture.mp4');
-  const htmlPath = path.join(syntheticRoot, 'ipc-smoke.html');
   await fs.writeFile(fixturePath, 'KNOUX synthetic fixture only\n', 'utf8');
-  await fs.writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"></head><body>KNOUX packaged IPC smoke</body></html>', 'utf8');
   options.authorizeFixture([fixturePath]);
 
-  const smokeWindow = new BrowserWindow({
-    show: false,
-    width: 640,
-    height: 480,
-    webPreferences: {
-      ...SECURE_RENDERER_PREFERENCES,
-      preload: resolveTrustedPreloadPath(),
-    },
-  });
+  const mainWindow = options.mainWindow;
+  if (mainWindow.isDestroyed()) throw new Error('PACKAGED_MAIN_WINDOW_DESTROYED');
+  await waitForBridge(mainWindow);
 
-  try {
-    await smokeWindow.loadFile(htmlPath);
-    const rendererResult = await smokeWindow.webContents.executeJavaScript(`(async () => {
+  const rendererResult = await mainWindow.webContents.executeJavaScript(`(async () => {
       const expectedNamespaces = ${JSON.stringify(EXPECTED_NAMESPACES)};
       const namespacePresence = Object.fromEntries(expectedNamespaces.map((name) => [name, typeof window[name] === 'object' && window[name] !== null]));
       if (Object.values(namespacePresence).some((present) => !present)) throw new Error('PACKAGED_BRIDGE_NAMESPACE_MISSING');
@@ -131,48 +143,41 @@ export async function runPackagedIpcSmoke(options: PackagedSmokeOptions): Promis
       return { namespacePresence, requiredApis, runtimeDescriptor: runtimeBefore, overwriteBlocked, steps, systemInfo, buildInfo, ipcHealth };
     })()`, true) as Record<string, unknown>;
 
-    const expectedPreload = resolveTrustedPreloadPath();
-    const mainBridge = await options.mainWindow.webContents.executeJavaScript(`(() => ({
+  const expectedPreload = resolveTrustedPreloadPath();
+  const mainBridge = await mainWindow.webContents.executeJavaScript(`(() => ({
       runtime: window.knouxRuntime,
       hasCoreApi: typeof window.knouxAPI === 'object' && typeof window.knouxAPI.settings?.get === 'function',
       hasCreativeApi: typeof window.knouxCreativeAPI === 'object'
     }))()`, true) as { runtime?: { edition?: string }; hasCoreApi?: boolean; hasCreativeApi?: boolean };
-    if (mainBridge.runtime?.edition !== 'desktop' || !mainBridge.hasCoreApi || !mainBridge.hasCreativeApi) {
-      throw new Error(`PACKAGED_MAIN_BRIDGE_INVALID ${JSON.stringify(mainBridge)}`);
-    }
-    const mainPreferences = safePreferences(options.mainWindow, expectedPreload);
-    const smokePreferences = safePreferences(smokeWindow, expectedPreload);
-    for (const [label, preferences] of [['main', mainPreferences], ['smoke', smokePreferences]] as const) {
-      if (preferences.nodeIntegration !== false || preferences.contextIsolation !== true || preferences.sandbox !== true || preferences.webSecurity !== true) {
-        throw new Error(`PACKAGED_WINDOW_SECURITY_FAILED ${label}`);
-      }
-      const actualPreload = path.resolve(String(preferences.preload));
-      if (actualPreload !== expectedPreload) {
-        throw new Error(`PACKAGED_WINDOW_PRELOAD_MISMATCH ${label} ${JSON.stringify({ actualPreload, expectedPreload })}`);
-      }
-    }
-
-    await atomicJson(options.evidencePath, {
-      schemaVersion: 1,
-      product: 'Knoux X',
-      mode: 'packaged-context-bridge-ipc-smoke',
-      success: true,
-      packaged: app.isPackaged,
-      executable: app.getPath('exe'),
-      preloadPath: expectedPreload,
-      syntheticRoot,
-      fixturePath,
-      fixtureContained: fixturePath.startsWith(`${syntheticRoot}${path.sep}`),
-      deterministicDialogCancellation: true,
-      startupHealth: options.health,
-      ipcManifest: options.manifest,
-      windows: { main: mainPreferences, smoke: smokePreferences },
-      renderer: rendererResult,
-      mainRenderer: mainBridge,
-      startedAt,
-      completedAt: new Date().toISOString(),
-    });
-  } finally {
-    if (!smokeWindow.isDestroyed()) smokeWindow.destroy();
+  if (mainBridge.runtime?.edition !== 'desktop' || !mainBridge.hasCoreApi || !mainBridge.hasCreativeApi) {
+    throw new Error(`PACKAGED_MAIN_BRIDGE_INVALID ${JSON.stringify(mainBridge)}`);
   }
+  const mainPreferences = safePreferences(mainWindow, expectedPreload);
+  if (mainPreferences.nodeIntegration !== false || mainPreferences.contextIsolation !== true || mainPreferences.sandbox !== true || mainPreferences.webSecurity !== true) {
+    throw new Error('PACKAGED_WINDOW_SECURITY_FAILED main');
+  }
+  const actualPreload = path.resolve(String(mainPreferences.preload));
+  if (actualPreload !== expectedPreload) {
+    throw new Error(`PACKAGED_WINDOW_PRELOAD_MISMATCH main ${JSON.stringify({ actualPreload, expectedPreload })}`);
+  }
+  await atomicJson(options.evidencePath, {
+    schemaVersion: 1,
+    product: 'Knoux X',
+    mode: 'packaged-context-bridge-ipc-smoke',
+    success: true,
+    packaged: app.isPackaged,
+    executable: app.getPath('exe'),
+    preloadPath: expectedPreload,
+    syntheticRoot,
+    fixturePath,
+    fixtureContained: fixturePath.startsWith(`${syntheticRoot}${path.sep}`),
+    deterministicDialogCancellation: true,
+    startupHealth: options.health,
+    ipcManifest: options.manifest,
+    windows: { main: mainPreferences },
+    renderer: rendererResult,
+    mainRenderer: mainBridge,
+    startedAt,
+    completedAt: new Date().toISOString(),
+  });
 }

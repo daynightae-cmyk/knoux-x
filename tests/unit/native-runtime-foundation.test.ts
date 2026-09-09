@@ -180,10 +180,15 @@ describe('IPC and BrowserWindow source inventory', () => {
     expect(constructions.map((entry) => path.relative(repositoryRoot, entry.filePath).replace(/\\/g, '/'))).toEqual([
       'electron/creative/recording-region-service.ts',
       'electron/creative/region-capture-service.ts',
-      'electron/startup/packaged-ipc-smoke.ts',
       'electron/window.ts',
     ]);
     for (const construction of constructions) expect(construction.block).toContain('...SECURE_RENDERER_PREFERENCES');
+    // The packaged IPC smoke must NOT create an auxiliary window: the trust
+    // boundary only accepts the main window, so the smoke drives it directly.
+    const smokeSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'startup', 'packaged-ipc-smoke.ts'), 'utf8');
+    expect(smokeSource).not.toContain('new BrowserWindow({');
+    expect(smokeSource).toContain('options.mainWindow');
+    expect(smokeSource).toContain('waitForBridge');
   });
 });
 
@@ -214,7 +219,12 @@ describe('initial media argument delivery', () => {
 
   test('queues the primary process arguments after startup for renderer-ready delivery', () => {
     const mainSource = fs.readFileSync(path.join(repositoryRoot, 'electron', 'main.ts'), 'utf8');
-    expect(mainSource).toContain('await startupPromise;\n\n  // The first instance has no `second-instance` event');
+    expect(mainSource).toContain('await startupPromise;');
+    // The packaged IPC smoke runs (and exits) before normal media delivery.
+    expect(mainSource).toContain('maybeRunPackagedIpcSmoke(process.argv)');
+    expect(mainSource.indexOf('maybeRunPackagedIpcSmoke(process.argv)')).toBeLessThan(
+      mainSource.indexOf('queueMediaPaths(process.argv);'),
+    );
     expect(mainSource).toContain('queueMediaPaths(process.argv);');
   });
 });

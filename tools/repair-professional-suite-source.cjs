@@ -27,7 +27,9 @@ validateRepair(
   'src/features/editor/MultitrackEditorView.tsx',
   ["      const actualKind: 'video' | 'audio' | 'image' = imageExtensions.has(extension)\n        ? 'image'\n        : targetKind;\n"],
   [
-    'const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);',
+    // Shared import path (dialog + Explorer drop) probes real streams; the
+    // local is named `raw` because the resolved summary is called `probe`.
+    'const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);',
     "stream.codec_type === 'video'",
     "stream.codec_type === 'audio'",
   ],

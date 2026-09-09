@@ -37,7 +37,8 @@
     "verify:video-gate": "node scripts/real-video-execution-gate.cjs",
     "verify:local-media": "jest tests/unit/real-local-media-workflow.test.ts",
     "release:version": "node tools/knoux-release-version.cjs --json",
-    "release:prepare": "node tools/knoux-release-prepare.cjs"
+    "release:prepare": "node tools/knoux-release-prepare.cjs",
+    "verify:packaged-retouch-e2e": "node tools/run-packaged-retouch-e2e.cjs"
   },
   "jest": {
     "testEnvironment": "node",

@@ -32,6 +32,18 @@ import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshow
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
 
+// Test-only packaged Windows Retouch E2E: dynamically imported ONLY when the
+// renderer boots with `?knouxRetouchE2E=1` (driven by the real packaged app
+// under the explicit `--retouch-e2e` main-process flag). Normal boots never
+// load it. It exercises the same production retouch modules Video Studio uses.
+try {
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('knouxRetouchE2E') === '1') {
+    void import('./retouch-e2e/packaged-retouch-e2e').then((module) => module.maybeStartPackagedRetouchE2E());
+  }
+} catch {
+  // E2E bootstrap must never break normal product startup.
+}
+
 // Capacitor Android receives dedicated native-safe bridges. Desktop preload
 // remains authoritative in Electron, and normal browsers keep the constrained
 // preview adapter. Runtime ownership is established first, then Android-specific

@@ -20,6 +20,7 @@ import { createWindow, getMainWindow } from './window';
 import { startAppUpdater } from './startup/app-updater';
 import { registerApplicationLifecycle } from './startup/application-lifecycle';
 import { installPhase3bAcceptanceNetworkGuard } from './retouch/phase3b-acceptance-runtime';
+import { maybeRunPackagedRetouchE2E } from './startup/packaged-retouch-e2e';
 import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
 
 let activeOrchestrator: SystemOrchestrator | null = null;
@@ -277,6 +278,8 @@ export async function startPrimaryApplication(): Promise<{ handleSecondInstance(
   await startupPromise;
 
   if (await maybeRunPackagedIpcSmoke(process.argv)) return { handleSecondInstance: () => undefined };
+
+  if (await maybeRunPackagedRetouchE2E(process.argv)) return { handleSecondInstance: () => undefined };
 
   // The first instance has no `second-instance` event, so preserve its media
   // argument until the renderer announces readiness and can receive IPC.

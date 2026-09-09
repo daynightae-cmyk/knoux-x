@@ -9,6 +9,24 @@ import { transitionFadeOpacity } from '../../core/creative/transitionFade';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
+/**
+ * Wall-clock delivery stalls (occluded windows, throttled animation frames,
+ * heavy first-frame uploads) must not corrupt the media clock: time the
+ * recorder runs but no frame is drawn would bake wall gaps into the output
+ * or terminate the render on the first late frame. Any inter-frame gap
+ * beyond the stall threshold freezes the media clock so every media instant
+ * is still drawn exactly once, in order. Pure and unit-tested.
+ */
+export const RENDER_STALL_RESYNC_MS = 1000;
+
+export function resyncMediaClock(startedAt: number, lastWall: number, wallNow: number): { startedAt: number; lastWall: number } {
+  const wallGap = wallNow - lastWall;
+  if (wallGap > RENDER_STALL_RESYNC_MS) {
+    return { startedAt: startedAt + wallGap, lastWall: wallNow };
+  }
+  return { startedAt, lastWall: wallNow };
+}
+
 export type MobileTimelineRenderOptions = {
   width: number;
   height: number;
@@ -267,7 +285,8 @@ export async function renderMultitrackProject(
 
   await audioContext.resume();
   recorder.start(1000);
-  const startedAt = performance.now();
+  let startedAt = performance.now();
+  let lastWall = startedAt;
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -277,7 +296,11 @@ export async function renderMultitrackProject(
           resolve();
           return;
         }
-        const time = (performance.now() - startedAt) / 1000;
+        const wallNow = performance.now();
+        const resynced = resyncMediaClock(startedAt, lastWall, wallNow);
+        startedAt = resynced.startedAt;
+        lastWall = resynced.lastWall;
+        const time = (wallNow - startedAt) / 1000;
         context.fillStyle = project.settings.backgroundColor || '#000000';
         context.fillRect(0, 0, canvas.width, canvas.height);
 

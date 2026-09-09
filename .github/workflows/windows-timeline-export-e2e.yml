@@ -68,7 +68,7 @@ jobs:
       - name: Run dedicated packaged multitrack export E2E
         shell: pwsh
         run: |
-          node tools/run-packaged-timeline-export-e2e.cjs
+          node tools/run-packaged-timeline-export-e2e-entry.cjs
           if ($LASTEXITCODE -ne 0) { throw 'DESKTOP TIMELINE EXPORT PACKAGED E2E failed.' }
 
       - name: Upload timeline export evidence

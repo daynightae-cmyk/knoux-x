@@ -113,13 +113,30 @@ function probe(filePath) {
   };
 }
 
-function extractFrame(inputPath, seconds, outputFile) {
-  run(ffmpegPath, [
-    '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-    '-ss', String(seconds), '-i', inputPath,
-    '-frames:v', '1', '-vf', 'scale=320:180:flags=lanczos', outputFile,
-  ]);
+function extractFrame(inputPath, seconds, outputFile, tolerateEncoderQuirks = false) {
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y'];
+  if (tolerateEncoderQuirks) args.push('-err_detect', 'ignore_err');
+  args.push('-ss', String(seconds), '-i', inputPath,
+    '-frames:v', '1', '-vf', 'scale=320:180:flags=lanczos', outputFile);
+  run(ffmpegPath, args);
   requireFile(outputFile, `Frame at ${seconds}s`);
+}
+
+/**
+ * Platform hardware encoders (e.g. MediaFoundation H.264 behind
+ * MediaRecorder) can emit slice-header quirks that trip ffmpeg's strict
+ * decoder while the pixels decode fine. Proof frames decode tolerantly,
+ * but the strict outcome is recorded honestly in evidence.
+ */
+function extractProofFrame(inputPath, seconds, outputFile) {
+  try {
+    extractFrame(inputPath, seconds, outputFile, false);
+    return 'strict';
+  } catch (error) {
+    log(`Strict decode failed for proof frame at ${seconds}s (${error.message.slice(0, 160)}); retrying tolerantly.`);
+    extractFrame(inputPath, seconds, outputFile, true);
+    return 'tolerant';
+  }
 }
 
 async function imageMetrics(filePath) {
@@ -591,8 +608,8 @@ function prepare() {
     assert(outputProbe.duration >= sourceProbe.duration + 1, `Output duration ${outputProbe.duration}s does not extend beyond the ${sourceProbe.duration}s source clip.`);
 
     extractFrame(fixturePath, 0.75, sourceFramePath);
-    extractFrame(outputPath, 0.75, outputEarlyFramePath);
-    extractFrame(outputPath, 2.5, outputLateFramePath);
+    const outputEarlyMode = extractProofFrame(outputPath, 0.75, outputEarlyFramePath);
+    const outputLateMode = extractProofFrame(outputPath, 2.5, outputLateFramePath);
     const sourceEarly = await imageMetrics(sourceFramePath);
     const outputEarly = await imageMetrics(outputEarlyFramePath);
     const outputLate = await imageMetrics(outputLateFramePath);
@@ -604,6 +621,8 @@ function prepare() {
       earlyDifference,
       lateSampleSeconds: 2.5,
       sourceEndsBeforeLateSample: sourceProbe.duration < 2.5,
+      outputEarlyDecodeMode: outputEarlyMode,
+      outputLateDecodeMode: outputLateMode,
     };
     assert(sourceProbe.duration < 2.5, 'Late proof sample is not actually after the source clip ends.');
     assert(outputLate.maxChannel > 160, `Late exported frame has no bright title pixels (max=${outputLate.maxChannel}).`);

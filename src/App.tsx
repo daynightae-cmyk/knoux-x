@@ -63,8 +63,8 @@ const MobileScreenRecordingView = lazy(async () => {
   return { default: module.MobileScreenRecordingView };
 });
 const VideoStudioView = lazy(async () => {
-  const module = await import('./features/video-studio/VideoStudioView');
-  return { default: module.VideoStudioView };
+  const module = await import('./features/video-studio/DesktopVideoStudioView');
+  return { default: module.DesktopVideoStudioView };
 });
 const MobileVideoStudioView = lazy(async () => {
   const module = await import('./features/video-studio/MobileVideoStudioView');

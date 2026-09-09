@@ -5,6 +5,7 @@ import {
   type TimelineTrack,
 } from '../../core/creative/multitrackProject';
 import { getTimelineVideoRetouchExportTemporal } from '../../core/creative/videoRetouchEffect';
+import { transitionFadeOpacity } from '../../core/creative/transitionFade';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
@@ -70,13 +71,7 @@ function activeAt(item: TimelineItem, time: number): boolean {
 }
 
 function transitionOpacity(item: TimelineItem, localTime: number): number {
-  let opacity = item.transform.opacity;
-  if (item.transitionIn && item.transitionIn.duration > 0) opacity *= Math.min(1, localTime / item.transitionIn.duration);
-  if (item.transitionOut && item.transitionOut.duration > 0) {
-    const remaining = item.duration - localTime;
-    opacity *= Math.min(1, remaining / item.transitionOut.duration);
-  }
-  return Math.max(0, Math.min(1, opacity));
+  return transitionFadeOpacity(item.transform.opacity, item.transitionIn, item.transitionOut, localTime, item.duration);
 }
 
 function audioGain(item: TimelineItem, track: TimelineTrack, localTime: number): number {

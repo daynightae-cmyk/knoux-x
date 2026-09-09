@@ -65,6 +65,7 @@ import type {
   TransitionKind,
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
+import { transitionFadeOpacity } from '../../core/creative/transitionFade';
 import {
   compareBranchMetrics,
   computeBranchMetrics,
@@ -80,6 +81,15 @@ import {
   attachRetouchToSplit,
 } from '../video-studio/retouch/videoRetouchTimeline';
 import type { VideoRetouchClipState } from '../video-studio/retouch/videoRetouchProject';
+
+interface RecentMediaEntry {
+  path: string;
+  title?: string;
+  name?: string;
+  type?: string;
+  mediaType?: string;
+  duration?: number;
+}
 
 import {
   buildImportItem,
@@ -243,6 +253,7 @@ export const MultitrackEditorView: React.FC = () => {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const [recentMedia, setRecentMedia] = useState<RecentMediaEntry[]>([]);
   const [recoveries, setRecoveries] = useState<RecoveryEntry[]>([]);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [newTrackKind, setNewTrackKind] = useState<TrackKind>('video');
@@ -271,6 +282,21 @@ export const MultitrackEditorView: React.FC = () => {
     ? [...project.tracks].sort((left, right) => left.order - right.order)
     : [], [project]);
   const selectedItem = useMemo(() => project?.tracks.flatMap((track) => track.items).find((item) => item.id === selectedItemId) ?? null, [project, selectedItemId]);
+  // Program-monitor transition proof: the selected item previews with its
+  // keyframed opacity multiplied by the shared transition fade (the exact
+  // semantic the mobile timeline renderer bakes into exported frames).
+  const previewLocalTime = selectedItem
+    ? Math.max(0, Math.min(selectedItem.duration, playhead - selectedItem.timelineStart))
+    : 0;
+  const previewOpacity = selectedItem
+    ? transitionFadeOpacity(
+      interpolateKeyframes(selectedItem.keyframes, 'opacity', previewLocalTime, selectedItem.transform.opacity),
+      selectedItem.transitionIn,
+      selectedItem.transitionOut,
+      previewLocalTime,
+      selectedItem.duration,
+    )
+    : 1;
   const anySoloTrack = useMemo(() => project?.tracks.some((track) => track.solo) ?? false, [project]);
   const currentMetrics = useMemo(() => project ? computeBranchMetrics(project) : null, [project]);
   const activeMix = useMemo(() => project ? mixAudioAtTime(project, playhead) : [], [playhead, project]);
@@ -311,6 +337,18 @@ export const MultitrackEditorView: React.FC = () => {
       setRecoveries(nextRecoveries);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('multitrack.workspaceFailed'));
+    }
+    // Recent media is advisory: an empty or unavailable history is an honest
+    // empty state, never a workspace error.
+    try {
+      if (typeof window.knouxAPI?.library?.getHistory === 'function') {
+        const history = await window.knouxAPI.library.getHistory(8);
+        setRecentMedia(Array.isArray(history) ? history.filter((entry): entry is RecentMediaEntry =>
+          Boolean(entry) && typeof (entry as RecentMediaEntry).path === 'string' && (entry as RecentMediaEntry).path.length > 0,
+        ) : []);
+      }
+    } catch {
+      setRecentMedia([]);
     }
   }, [desktopRuntime, t]);
 
@@ -656,6 +694,33 @@ export const MultitrackEditorView: React.FC = () => {
     }
   }, [busy, desktopRuntime, insertSelectedMedia, project, refreshWorkspace, t]);
 
+  /**
+   * Recent-media entry: reopens a library item through the production
+   * open-item path (re-authorizes it) and imports it like any other media,
+   * auto-creating an Untitled project when none is open.
+   */
+  const importRecentMediaItem = useCallback(async (mediaPath: string): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let base = project;
+      let fresh = false;
+      if (!base) {
+        if (!desktopRuntime) return;
+        base = await window.knouxMultitrackAPI.create(t('multitrack.untitledProject'));
+        fresh = true;
+      }
+      const selected = await window.knouxCreativeAPI.library.openItem(mediaPath);
+      await insertSelectedMedia(base, selected, 'auto', { fresh });
+      await refreshWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('multitrack.addMediaFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, desktopRuntime, insertSelectedMedia, project, refreshWorkspace, t]);
+
   const addTextItem = useCallback((kind: 'text' | 'subtitle'): void => {
     if (!project) return;
     const track = compatibleTrack(project, kind);
@@ -976,6 +1041,14 @@ export const MultitrackEditorView: React.FC = () => {
               </button>
             ))}
           </NeonPanel>
+          <NeonPanel variant="dark" padding="lg">
+            <h2>{t('multitrack.recentMedia')}</h2>
+            {recentMedia.length === 0 ? <div className="creative-empty">{t('multitrack.noRecentMedia')}</div> : recentMedia.map((entry) => (
+              <button key={entry.path} type="button" className="multitrack-project-link" onClick={() => void importRecentMediaItem(entry.path)}>
+                <strong>{entry.title || entry.name || basename(entry.path)}</strong><span dir="auto">{entry.mediaType ?? entry.type ?? ''}{typeof entry.duration === 'number' && entry.duration > 0 ? ` · ${formatTime(entry.duration)}` : ''}</span>
+              </button>
+            ))}
+          </NeonPanel>
         </div>
       </section>
     );
@@ -1074,7 +1147,7 @@ export const MultitrackEditorView: React.FC = () => {
                   <img
                     src={previewUrl}
                     alt={selectedItem.name}
-                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit }}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
                     onLoad={(event) => {
                       const target = event.currentTarget;
                       if (target.naturalWidth > 0 && target.naturalHeight > 0) {
@@ -1088,7 +1161,7 @@ export const MultitrackEditorView: React.FC = () => {
                   <video
                     ref={(node) => { previewRef.current = node; }}
                     src={previewUrl}
-                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit }}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
                     onEnded={() => setPreviewPlaying(false)}
                     onLoadedMetadata={(event) => {
                       const target = event.currentTarget;
@@ -1166,6 +1239,7 @@ export const MultitrackEditorView: React.FC = () => {
               <div className="multitrack-transition-grid">
                 <label><span>{t('multitrack.transitionIn')}</span><NeonSelect value={selectedItem.transitionIn?.kind ?? 'none'} onChange={(value) => setTransition('in', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
                 <label><span>{t('multitrack.transitionOut')}</span><NeonSelect value={selectedItem.transitionOut?.kind ?? 'none'} onChange={(value) => setTransition('out', value as TransitionKind | 'none')} options={transitionKinds.map((kind) => ({ value: kind, label: kind }))} /></label>
+                <p className="video-studio-muted">{t('multitrack.transitionPreviewNote')}</p>
               </div>
               <div className="multitrack-keyframe-row">
                 <NeonSelect value={keyframeProperty} onChange={(value) => setKeyframeProperty(value as KeyframeProperty)} options={keyframeProperties.map((property) => ({ value: property, label: property }))} />

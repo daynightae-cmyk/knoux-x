@@ -5,6 +5,7 @@ import { NeonButton } from '../../components/neon/NeonButton';
 import type { MultitrackProject } from '../../core/creative/multitrackProject';
 import { useTranslation } from '../../i18n';
 import { renderMultitrackProject } from '../export/mobileTimelineRenderer';
+
 import { VideoStudioView } from './VideoStudioView';
 
 import '../../styles/desktop-timeline-export.css';

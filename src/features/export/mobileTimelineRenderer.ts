@@ -34,6 +34,12 @@ export type MobileTimelineRenderOptions = {
   videoBitsPerSecond: number;
   onProgress?(percentage: number): void;
   cancelled?(): boolean;
+  /**
+   * Optional encoder preference override. When omitted, the historical
+   * mp4-first order is used. Desktop timeline export passes a VP9-first
+   * order (see DesktopVideoStudioView) for machine-independent output.
+   */
+  preferredMimeTypes?: readonly string[];
 };
 
 type PreparedMedia = {
@@ -47,14 +53,15 @@ type PreparedMedia = {
   retouchProcessor?: VideoFrameProcessor;
 };
 
-function recorderMime(): string {
-  const candidates = [
+function recorderMime(preferred?: readonly string[]): string {
+  const fallback = [
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
     'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
   ];
+  const candidates = preferred && preferred.length > 0 ? preferred : fallback;
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
 }
 
@@ -211,7 +218,7 @@ export async function renderMultitrackProject(
   options: MobileTimelineRenderOptions,
 ): Promise<{ blob: Blob; mimeType: string; duration: number }> {
   if (typeof MediaRecorder === 'undefined') throw new Error('This Android WebView does not expose MediaRecorder.');
-  const mimeType = recorderMime();
+  const mimeType = recorderMime(options.preferredMimeTypes);
   if (!mimeType) throw new Error('No supported on-device video encoder is available.');
   const duration = projectDuration(project);
   if (duration <= 0) throw new Error('The current project timeline is empty.');

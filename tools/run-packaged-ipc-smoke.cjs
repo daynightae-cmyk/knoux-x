@@ -69,7 +69,10 @@ function main() {
   const preloadText = fs.readFileSync(preloadEntry.outputPath, 'utf8');
   const head = git(['rev-parse', 'HEAD']).toLowerCase();
   const branch = git(['branch', '--show-current']);
-  if (!runtimeMainText.includes('preload-entry.js') || !runtimeMainText.includes('KNOUX_IPC_HEALTH') || !runtimeMainText.toLowerCase().includes(head)) {
+  // The smoke entrypoint flag must be bundled in the packaged main entry (it is
+  // wired by electron/ipc/setup.ts); the current HEAD sha proves freshness.
+  // (The legacy KNOUX_IPC_HEALTH marker no longer exists in main bundles.)
+  if (!runtimeMainText.includes('preload-entry.js') || !runtimeMainText.includes('ipc-smoke-test') || !runtimeMainText.toLowerCase().includes(head)) {
     throw new Error('ASAR_MAIN_ENTRY_STALE_OR_UNRELATED');
   }
   for (const marker of ['knouxRuntime', 'knouxAPI', 'knouxCreativeAPI', 'knouxRecordingAPI', 'knouxMultitrackAPI', 'knouxSlideshowAPI', 'knouxAudioToolsAPI']) {

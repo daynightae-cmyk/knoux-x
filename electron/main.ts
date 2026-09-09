@@ -1,4 +1,4 @@
-import { cpus } from 'node:os';
+import { cpus, tmpdir } from 'node:os';
 import { extname, isAbsolute, join } from 'node:path';
 
 import { app, BrowserWindow, powerMonitor, type IpcMainInvokeEvent } from 'electron';
@@ -187,6 +187,40 @@ function registerApplicationLifecycleHandlers(): void {
   });
 }
 
+const PACKAGED_IPC_SMOKE_FLAG = '--ipc-smoke-test';
+const PACKAGED_IPC_EVIDENCE_PREFIX = '--ipc-smoke-evidence=';
+
+/**
+ * Runs the packaged context-bridge IPC smoke when explicitly requested.
+ * Returning true guarantees normal desktop startup must not continue: the
+ * smoke writes its evidence and exits the process. Without this branch the
+ * flag only armed deterministic dialog cancellation and the app idled until
+ * the harness timed out.
+ */
+async function maybeRunPackagedIpcSmoke(argv: readonly string[]): Promise<boolean> {
+  if (!argv.includes(PACKAGED_IPC_SMOKE_FLAG)) return false;
+  const evidencePath = argv.find((argument) => argument.startsWith(PACKAGED_IPC_EVIDENCE_PREFIX))
+    ?.slice(PACKAGED_IPC_EVIDENCE_PREFIX.length) ?? '';
+  try {
+    const mainWindow = getMainWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Packaged IPC smoke has no main window.');
+    const { runPackagedIpcSmoke } = await import('./startup/packaged-ipc-smoke');
+    await runPackagedIpcSmoke({
+      evidencePath,
+      syntheticRoot: join(tmpdir(), `knoux-packaged-ipc-smoke-${process.pid}`),
+      mainWindow,
+      health: authoritativeIpc.getHealthReport(),
+      manifest: authoritativeIpc.manifest(),
+      authorizeFixture: (paths) => authorizeMediaPaths(paths),
+    });
+    app.exit(0);
+  } catch (error) {
+    console.error('PACKAGED_IPC_SMOKE_FAILED', error);
+    app.exit(1);
+  }
+  return true;
+}
+
 function initializePrimaryApplication(): Promise<void> {
   return (async () => {
     await app.whenReady();
@@ -241,6 +275,8 @@ export async function startPrimaryApplication(): Promise<{ handleSecondInstance(
   registerApplicationLifecycleHandlers();
   startupPromise ??= initializePrimaryApplication();
   await startupPromise;
+
+  if (await maybeRunPackagedIpcSmoke(process.argv)) return { handleSecondInstance: () => undefined };
 
   // The first instance has no `second-instance` event, so preserve its media
   // argument until the renderer announces readiness and can receive IPC.

@@ -1,0 +1,86 @@
+name: KNOUX Windows Timeline Export E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-timeline-export-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packaged-timeline-export:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure native toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python -ErrorAction Stop).Source
+          "npm_config_python=$python" >> $env:GITHUB_ENV
+          "npm_config_msvs_version=2022" >> $env:GITHUB_ENV
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'MSVC 2022 x64 build tools are missing.' }
+
+      - name: Install deterministic dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Rebuild Electron native modules
+        shell: pwsh
+        run: |
+          npm exec electron-rebuild -- -f --only better-sqlite3,sharp
+          if ($LASTEXITCODE -ne 0) { throw 'Electron native-module rebuild failed.' }
+
+      - name: Zero-warning source gates
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'TypeScript gate failed.' }
+          npm run lint -- --max-warnings=0
+          if ($LASTEXITCODE -ne 0) { throw 'ESLint zero-warning gate failed.' }
+
+      - name: Build packaged Windows application
+        run: npm run package -- --arch=x64
+
+      - name: Run dedicated packaged multitrack export E2E
+        shell: pwsh
+        run: |
+          node tools/run-packaged-timeline-export-e2e.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'DESKTOP TIMELINE EXPORT PACKAGED E2E failed.' }
+
+      - name: Upload timeline export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-windows-timeline-export-e2e-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            reports/packaged-timeline-export-e2e/evidence.json
+            reports/packaged-timeline-export-e2e/*.png
+            reports/packaged-timeline-export-e2e/*.mp4
+            reports/packaged-timeline-export-e2e/*.webm
+            reports/packaged-timeline-export-e2e/*.knouxedit

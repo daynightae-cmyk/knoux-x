@@ -17,8 +17,8 @@
   "orphans": 0,
   "verdict": "PASS",
   "openVideoResult": {
-    "filePath": "D:\\وقتي المفضل 🤍#قرآن.mp4",
-    "mediaUrl": "file:///D:/%D9%88%D9%82%D8%AA%D9%8A%20%D8%A7%D9%84%D9%85%D9%81%D8%B6%D9%84%20%F0%9F%A4%8D%23%D9%82%D8%B1%D8%A2%D9%86.mp4"
+    "filePath": "D:\\20260720_164824_edit1.mp4",
+    "mediaUrl": "file:///D:/20260720_164824_edit1.mp4"
   },
   "openVideoRoundTripSelected": true,
   "openVideoRoundTrip": true,
@@ -34,8 +34,8 @@
     "videoFilterExcludesMp3": true,
     "videoFilterExcludesPng": true
   },
-  "testedHead": "398c80f4c0f3af2bbb3ffda9dafbf6e3748d7074",
+  "testedHead": "dae1d71d9661c18bab1cbf140543cf6b64725c2e",
   "testedBranch": "main",
-  "startedAt": "2026-09-09T14:01:08.052Z",
-  "completedAt": "2026-09-09T14:02:19.739Z"
+  "startedAt": "2026-09-09T15:38:45.335Z",
+  "completedAt": "2026-09-09T15:40:10.507Z"
 }

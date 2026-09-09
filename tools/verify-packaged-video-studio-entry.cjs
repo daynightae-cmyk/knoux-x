@@ -223,6 +223,11 @@ async function main() {
     }
     gate.bridgeReady = true;
     gate.openVideoExposed = true;
+    try {
+      await session.send('Page.bringToFront', {});
+    } catch {
+      // Foregrounding is best-effort; the navigation retry covers throttling.
+    }
     const build = await cdpEvaluate(session, `window.knouxAPI.system.getBuildInfo()`);
     if (!build || build.packaged !== true) throw new Error('NOT_PACKAGED_IDENTITY');
     logLine(`build: ${build.product} ${build.version} sha=${build.sha}`);
@@ -235,46 +240,82 @@ async function main() {
       if (Date.now() > editorNavDeadline) throw new Error('EDITOR_NAV_LIST_TIMEOUT');
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    const navDeadline = Date.now() + 60000;
-    for (;;) {
-      const clicked = await cdpEvaluate(session, `(() => {
-        const matches = Array.from(document.querySelectorAll('button[data-view-id="editor"]'));
-        const rects = matches.map((b) => {
-          const r = b.getBoundingClientRect();
-          return { w: r.width, h: r.height, x: r.x, y: r.y, visible: r.width > 0 && r.height > 0 };
-        });
-        const target = matches.find((b) => {
-          const r = b.getBoundingClientRect();
-          return r.width > 0 && r.height > 0;
-        });
-        if (!target) return { clicked: false, count: matches.length, rects };
-        target.click();
-        return { clicked: true, count: matches.length, rects };
-      })()`);
-      const state = await cdpEvaluate(session, `(() => {
-        const shell = document.querySelector('.app-shell');
-        const sections = Array.from(document.querySelectorAll('.multitrack-editor-view'));
-        const studio = document.querySelector('.video-studio-view');
-        const first = sections[0];
-        return {
-          view: shell?.getAttribute('data-current-view'),
-          sections: sections.length,
-          studioPresent: Boolean(studio),
-          studioTextLen: studio?.textContent?.length ?? -1,
-          htmlLen: first?.outerHTML?.length ?? -1,
-          htmlHead: (first?.outerHTML ?? '').slice(0, 600),
-          bodyLen: document.body.textContent?.length ?? -1,
-          bodyHead: (document.body.textContent ?? '').slice(0, 300),
-        };
-      })()`);
-      if (state.view === 'editor' && (state.bodyHead.includes('Import video') || state.htmlLen > 2000)) {
-        logLine(`editor dom: sections=${state.sections} studio=${state.studioPresent} studioLen=${state.studioTextLen} htmlLen=${state.htmlLen} bodyLen=${state.bodyLen}`);
-        logLine(`console errors: ${JSON.stringify(consoleErrors.slice(0, 8))}`);
-        logLine(`editor html head: ${state.htmlHead.slice(0, 300)}`);
-        break;
+    // Navigate with reload-retry: the editor view is a lazy chunk and its
+    // first mount can lose a race with the argv media autoplay under load.
+    // Authorizations live in the main process, so a renderer reload is safe.
+    let state = null;
+    let clicks = 0;
+    let navigated = false;
+    for (let attempt = 1; attempt <= 3 && !navigated; attempt += 1) {
+      try {
+        await session.send('Page.bringToFront', {});
+      } catch { /* best effort against rAF throttling */ }
+      const navDeadline = Date.now() + 45000;
+      for (;;) {
+        const clicked = await cdpEvaluate(session, `(() => {
+          const shell = document.querySelector('.app-shell');
+          if (shell?.getAttribute('data-current-view') !== 'editor') {
+            const matches = Array.from(document.querySelectorAll('button[data-view-id="editor"]'));
+            const target = matches.find((b) => {
+              const r = b.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            if (!target) return { clicked: false, count: matches.length, rects: [] };
+            target.click();
+            return { clicked: true, count: matches.length, rects: [] };
+          }
+          return { clicked: false, alreadyThere: true };
+        })()`);
+        if (clicked.clicked) clicks += 1;
+        state = await cdpEvaluate(session, `(() => {
+          const shell = document.querySelector('.app-shell');
+          const sections = Array.from(document.querySelectorAll('.multitrack-editor-view'));
+          const studio = document.querySelector('.video-studio-view');
+          const first = sections[0];
+          return {
+            view: shell?.getAttribute('data-current-view'),
+            sections: sections.length,
+            studioPresent: Boolean(studio),
+            studioTextLen: studio?.textContent?.length ?? -1,
+            htmlLen: first?.outerHTML?.length ?? -1,
+            htmlHead: (first?.outerHTML ?? '').slice(0, 600),
+            bodyLen: document.body.textContent?.length ?? -1,
+            bodyHead: (document.body.textContent ?? '').slice(0, 300),
+          };
+        })()`);
+        if (state.view === 'editor' && (state.bodyHead.includes('Import video') || state.htmlLen > 2000)) {
+          logLine(`editor dom: sections=${state.sections} studio=${state.studioPresent} studioLen=${state.studioTextLen} htmlLen=${state.htmlLen} bodyLen=${state.bodyLen}`);
+          logLine(`console errors: ${JSON.stringify(consoleErrors.slice(0, 8))}`);
+          logLine(`editor html head: ${state.htmlHead.slice(0, 300)}`);
+          navigated = true;
+          break;
+        }
+        if (Date.now() > navDeadline) {
+          logLine(`navigation attempt ${attempt} timed out (view=${state.view} sections=${state.sections}); reloading renderer`);
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-      if (Date.now() > navDeadline) throw new Error(`EDITOR_NAV_TIMEOUT ${JSON.stringify({ clicked, view: state.view, sections: state.sections, studio: state.studioPresent, studioLen: state.studioTextLen, bodyLen: state.bodyLen, bodyHead: state.bodyHead, consoleErrors: consoleErrors.slice(0, 8) })}`);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!navigated) {
+        if (attempt === 3) {
+          const autopsy = await cdpEvaluate(session, `(() => ({
+            mainHead: (document.querySelector('main')?.innerHTML ?? '').slice(0, 500),
+            loading: document.querySelector('.creative-loading')?.textContent ?? null,
+            shells: document.querySelectorAll('.app-shell').length,
+            views: Array.from(document.querySelectorAll('.app-shell')).map((s) => s.getAttribute('data-current-view')),
+          }))()`);
+          throw new Error(`EDITOR_NAV_TIMEOUT ${JSON.stringify({ clicks, view: state.view, sections: state.sections, studio: state.studioPresent, autopsy, consoleErrors: consoleErrors.slice(0, 8) })}`);
+        }
+        await session.send('Page.reload', { ignoreCache: false });
+        const reloadDeadline = Date.now() + 60000;
+        for (;;) {
+          const ready = await cdpEvaluate(session, `typeof window.knouxRuntime === 'object' && window.knouxRuntime !== null
+            && typeof window.knouxCreativeAPI?.media?.openVideo === 'function'`);
+          if (ready === true) break;
+          if (Date.now() > reloadDeadline) throw new Error('CDP_RELOAD_BRIDGE_TIMEOUT');
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
     }
     gate.navigatedToEditor = true;
     const landing = await cdpEvaluate(session, `(() => {
@@ -303,17 +344,29 @@ async function main() {
     })()`);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     let shot = null;
-    for (let attempt = 1; attempt <= 3 && !shot; attempt += 1) {
+    let shotError = null;
+    for (let attempt = 1; attempt <= 2 && !shot; attempt += 1) {
+      let shotSocket = null;
       try {
+        // A dedicated session isolates the compositor readback from the
+        // long-lived evaluation session.
         // eslint-disable-next-line no-await-in-loop
-        shot = await session.send('Page.captureScreenshot', { format: 'png' });
+        shotSocket = await connectCdp(pageTarget.webSocketDebuggerUrl, 30000);
+        const shotSession = cdpSession(shotSocket, 120000);
+        // eslint-disable-next-line no-await-in-loop
+        shot = await shotSession.send('Page.captureScreenshot', { format: 'png' });
       } catch (error) {
-        logLine(`screenshot attempt ${attempt} failed: ${error instanceof Error ? error.message : String(error)}`);
+        shotError = error instanceof Error ? error.message : String(error);
+        logLine(`screenshot attempt ${attempt} failed: ${shotError}`);
         // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => setTimeout(resolve, 2000));
+      } finally {
+        try {
+          if (shotSocket) shotSocket.close();
+        } catch { /* ignore */ }
       }
     }
-    if (!shot) throw new Error('SCREENSHOT_FAILED');
+    if (!shot) throw new Error(`SCREENSHOT_FAILED ${shotError ?? ''}`);
     fs.writeFileSync(screenshotPath, Buffer.from(shot.data, 'base64'));
     gate.screenshotTaken = fs.statSync(screenshotPath).size > 0;
 
@@ -329,7 +382,19 @@ async function main() {
     // 6. openVideo channel round-trip through the real main handler: either
     // the native dialog auto-cancels in automation (null) or a real
     // selection round-trips as an authorized { filePath, mediaUrl } pair.
-    const opened = await cdpEvaluate(session, `window.knouxCreativeAPI.media.openVideo()`);
+    // The native dialog is resolved by the environment, which can take
+    // minutes, so this call rides a dedicated long-budget session.
+    let opened = null;
+    let dialogSocket = null;
+    try {
+      dialogSocket = await connectCdp(pageTarget.webSocketDebuggerUrl, 30000);
+      const dialogSession = cdpSession(dialogSocket, 300000);
+      opened = await cdpEvaluate(dialogSession, `window.knouxCreativeAPI.media.openVideo()`);
+    } finally {
+      try {
+        if (dialogSocket) dialogSocket.close();
+      } catch { /* ignore */ }
+    }
     gate.openVideoResult = opened;
     gate.openVideoRoundTripNull = opened === null;
     gate.openVideoRoundTripSelected = Boolean(

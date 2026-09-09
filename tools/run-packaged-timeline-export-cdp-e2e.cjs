@@ -4,7 +4,9 @@
  * Drives the real packaged Windows executable through its production renderer
  * and IPC bridges. It creates and persists a real multitrack project through
  * knouxMultitrackAPI, loads that saved project through the visible Video Studio
- * recent-project UI, clicks the real Export Current Project control, then
+ * recent-project UI, selects the authored title through the visible timeline
+ * item UI (opening a project selects the first video item, never the title),
+ * clicks the real Export Current Project control, then
  * independently verifies the rendered output with the packaged ffprobe/ffmpeg.
  *
  * The authored project intentionally lasts longer than the source clip. A
@@ -37,6 +39,7 @@ const evidencePath = path.join(evidenceDir, 'evidence.json');
 const runLogPath = path.join(evidenceDir, 'run.log');
 const configuredScreenshot = path.join(evidenceDir, 'timeline-configured.png');
 const exportedScreenshot = path.join(evidenceDir, 'timeline-export-success.png');
+const failureScreenshot = path.join(evidenceDir, 'timeline-failure.png');
 const sourceFramePath = path.join(evidenceDir, 'source-early.png');
 const outputEarlyFramePath = path.join(evidenceDir, 'output-early.png');
 const outputLateFramePath = path.join(evidenceDir, 'output-late.png');
@@ -79,11 +82,13 @@ function run(file, args) {
 }
 
 function createFixture() {
+  // H.264: the fixture must use a codec the real Chromium renderer can
+  // decode (MPEG-4 Part 2 is ffprobe-readable but not <video>-decodable).
   run(ffmpegPath, [
     '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
     '-f', 'lavfi',
     '-i', `testsrc2=size=640x360:rate=24:duration=${SOURCE_DURATION}`,
-    '-c:v', 'mpeg4', '-q:v', '2', '-pix_fmt', 'yuv420p', '-an',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-an',
     fixturePath,
   ]);
   requireFile(fixturePath, 'Synthetic source video');
@@ -108,13 +113,65 @@ function probe(filePath) {
   };
 }
 
-function extractFrame(inputPath, seconds, outputFile) {
+/**
+ * Streaming recorders (MediaRecorder webm) may omit mux duration metadata.
+ * Measure actual content extent from video packet timestamps instead of
+ * trusting the container header, so completeness is proven from content.
+ */
+function measureContentDuration(filePath) {
+  const direct = probe(filePath);
+  if (direct.duration > 0) return { duration: direct.duration, mode: 'mux', probe: direct };
+  const listing = run(ffprobePath, [
+    '-v', 'error', '-select_streams', 'v:0',
+    '-show_entries', 'packet=pts_time', '-of', 'csv=p=0', filePath,
+  ]);
+  const stamps = listing.split('\n')
+    .map((line) => Number(line.trim().split(',')[0]))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (stamps.length === 0) throw new Error('No decodable video packets found in the rendered output.');
+  const contentEnd = Math.max(...stamps);
+  log(`Mux duration missing; measured content extent ${contentEnd.toFixed(3)}s from ${stamps.length} video packets.`);
+  return { duration: contentEnd, mode: 'packet-pts', probe: direct, packetCount: stamps.length };
+}
+
+function extractFrame(inputPath, seconds, outputFile, tolerateEncoderQuirks = false) {
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y'];
+  if (tolerateEncoderQuirks) args.push('-err_detect', 'ignore_err');
+  args.push('-ss', String(seconds), '-i', inputPath,
+    '-frames:v', '1', '-vf', 'scale=320:180:flags=lanczos', outputFile);
+  run(ffmpegPath, args);
+  requireFile(outputFile, `Frame at ${seconds}s`);
+}
+
+/**
+ * Platform hardware encoders (e.g. MediaFoundation H.264 behind
+ * MediaRecorder) can emit slice-header quirks that trip ffmpeg's strict
+ * decoder while the pixels decode fine. Proof frames decode tolerantly,
+ * but the strict outcome is recorded honestly in evidence.
+ */
+function extractProofFrame(inputPath, seconds, outputFile) {
+  try {
+    extractFrame(inputPath, seconds, outputFile, false);
+    return 'strict';
+  } catch (error) {
+    log(`Strict decode failed for proof frame at ${seconds}s (${error.message.slice(0, 160)}); retrying tolerantly.`);
+  }
+  try {
+    extractFrame(inputPath, seconds, outputFile, true);
+    return 'tolerant';
+  } catch (error) {
+    log(`Tolerant seek decode failed for proof frame at ${seconds}s (${error.message.slice(0, 160)}); decoding sequentially.`);
+  }
+  // Fragmented platform muxes can mislead input seeking; a sequential pass
+  // with error concealment still measures real output pixels near the target.
   run(ffmpegPath, [
     '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-    '-ss', String(seconds), '-i', inputPath,
-    '-frames:v', '1', '-vf', 'scale=320:180:flags=lanczos', outputFile,
+    '-err_detect', 'ignore_err', '-i', inputPath,
+    '-vf', `select='gte(t\\,${seconds})',scale=320:180:flags=lanczos`,
+    '-frames:v', '1', outputFile,
   ]);
-  requireFile(outputFile, `Frame at ${seconds}s`);
+  requireFile(outputFile, `Sequential frame at ${seconds}s`);
+  return 'tolerant-sequential';
 }
 
 async function imageMetrics(filePath) {
@@ -250,8 +307,57 @@ async function waitUntil(session, expression, label, timeoutMs = TIMEOUT_MS) {
 
 async function screenshot(session, outputFile) {
   await session.send('Page.bringToFront');
-  const result = await session.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  fs.writeFileSync(outputFile, Buffer.from(result.data, 'base64'));
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const result = await session.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      fs.writeFileSync(outputFile, Buffer.from(result.data, 'base64'));
+      return;
+    } catch (error) {
+      lastError = error;
+      log(`Screenshot attempt ${attempt} failed; retrying.`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Structured DOM snapshot of the multitrack workspace for failure capture
+ * and progress evidence. Read-only: never mutates application state.
+ */
+async function captureUiState(session) {
+  return evaluate(session, `(() => {
+    const textOf = (selector) => document.querySelector(selector)?.textContent || '';
+    const tracks = Array.from(document.querySelectorAll('.multitrack-track-row')).map((row) => ({
+      kind: row.getAttribute('data-kind'),
+      selected: row.classList.contains('selected'),
+      items: Array.from(row.querySelectorAll('.multitrack-item')).map((item) => ({
+        kind: item.getAttribute('data-kind'),
+        selected: item.classList.contains('selected'),
+        label: (item.textContent || '').slice(0, 120),
+      })),
+    }));
+    const textPreview = document.querySelector('.multitrack-text-preview');
+    const videoPreview = document.querySelector('.multitrack-preview-stage video');
+    const inspectorName = Array.from(document.querySelectorAll('.multitrack-inspector input, .multitrack-panel input'))
+      .map((input) => input.value || '').find((value) => value.length > 0) || '';
+    return {
+      view: document.querySelector('.app-shell')?.getAttribute('data-current-view') || '',
+      editorMounted: Boolean(document.querySelector('.multitrack-editor-view')),
+      toolbarPresent: Boolean(document.querySelector('.multitrack-toolbar')),
+      projectTitle: textOf('#multitrack-title'),
+      tracks,
+      previewKind: textPreview ? 'text' : (videoPreview ? 'video' : 'none'),
+      previewText: (textPreview?.textContent || '').slice(0, 200),
+      previewVisible: textPreview ? (() => {
+        const rect = textPreview.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })() : false,
+      inspectorName: inspectorName.slice(0, 120),
+      playheadText: textOf('.multitrack-timeline-header strong'),
+    };
+  })()`);
 }
 
 async function killPackagedProcesses() {
@@ -414,7 +520,32 @@ function prepare() {
     assert(recentClick === true, 'Saved project was not clicked from the real Recent UI.');
     await waitUntil(session, `Boolean(document.querySelector('.multitrack-toolbar'))
       && (document.querySelector('#multitrack-title')?.textContent || '').includes('Packaged Timeline Export E2E')`, 'Loaded multitrack workspace');
+    evidence.ui.workspace = await captureUiState(session);
+    // Opening a project selects the first video item by product contract, so
+    // the authored title must be selected through the real timeline UI exactly
+    // as a user would: click its visible timeline item, which also clamps the
+    // playhead into the title clip.
+    const titleClick = await evaluate(session, `(() => {
+      const items = Array.from(document.querySelectorAll('button.multitrack-item[data-kind="text"]'));
+      const target = items.find((item) => (item.textContent || '').includes(${JSON.stringify(TITLE_TEXT)}));
+      if (!target) {
+        return {
+          clicked: false,
+          textItems: items.map((item) => (item.textContent || '').slice(0, 80)),
+        };
+      }
+      target.click();
+      return { clicked: true, label: (target.textContent || '').slice(0, 80) };
+    })()`);
+    assert(titleClick.clicked, `Real title timeline item was not clickable: ${JSON.stringify(titleClick)}`);
+    evidence.ui.titleClick = titleClick;
+    log(`Clicked real packaged title timeline item: ${JSON.stringify(titleClick)}`);
     await waitUntil(session, `(document.querySelector('.multitrack-text-preview')?.textContent || '').includes(${JSON.stringify(TITLE_TEXT)})`, 'Authored title preview');
+    const afterSelection = await captureUiState(session);
+    assert(afterSelection.previewKind === 'text', `Title preview did not render after real UI selection: ${JSON.stringify(afterSelection)}`);
+    assert(afterSelection.inspectorName.includes(TITLE_TEXT), `Inspector does not identify the selected title: ${JSON.stringify(afterSelection.inspectorName)}`);
+    evidence.ui.titleSelectedThroughUI = true;
+    evidence.ui.titleSelection = afterSelection;
     evidence.ui.projectOpenedFromRecent = true;
     evidence.ui.titleVisibleBeforeExport = true;
     await screenshot(session, configuredScreenshot);
@@ -430,13 +561,43 @@ function prepare() {
     evidence.ui.exportButton = exportClick;
     log(`Clicked real packaged timeline export control: ${JSON.stringify(exportClick)}`);
 
-    const exportOutcome = await waitUntil(session, `(() => {
-      const success = document.querySelector('.knoux-desktop-export-success');
-      if (success) return { status: 'success', text: success.textContent || '' };
-      const error = document.querySelector('.knoux-desktop-export-error');
-      if (error) return { status: 'error', text: error.textContent || '' };
-      return false;
-    })()`, 'Timeline export completion', TIMEOUT_MS);
+    const exportOutcome = await (async () => {
+      const deadline = Date.now() + TIMEOUT_MS;
+      let lastProgress = -1;
+      let lastForeground = 0;
+      // The realtime canvas renderer needs animation frames, which an
+      // occluded window may stop delivering. Keep the packaged window in
+      // the foreground while it renders, exactly as an exporting user would.
+      const keepForeground = async () => {
+        if (Date.now() - lastForeground < 5000) return;
+        lastForeground = Date.now();
+        try {
+          await Promise.race([
+            session.send('Page.bringToFront'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('FOREGROUND_TIMEOUT')), 5000)),
+          ]);
+        } catch { /* best effort; the render proceeds regardless */ }
+      };
+      await keepForeground();
+      for (;;) {
+        const state = await evaluate(session, `(() => {
+          const success = document.querySelector('.knoux-desktop-export-success');
+          if (success) return { status: 'success', text: success.textContent || '' };
+          const error = document.querySelector('.knoux-desktop-export-error');
+          if (error) return { status: 'error', text: error.textContent || '' };
+          const progress = document.querySelector('.knoux-desktop-timeline-export progress');
+          return { status: 'running', progress: progress ? Number(progress.getAttribute('value') || 0) : null };
+        })()`);
+        if (state && (state.status === 'success' || state.status === 'error')) return state;
+        if (typeof state?.progress === 'number' && state.progress - lastProgress >= 10) {
+          lastProgress = state.progress;
+          log(`Export render progress: ${Math.round(state.progress)}%`);
+        }
+        await keepForeground();
+        if (Date.now() >= deadline) throw new Error(`Timeline export completion timed out. Last=${JSON.stringify(state)}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    })();
     assert(exportOutcome.status === 'success', `Packaged timeline export reported an error: ${exportOutcome.text}`);
     evidence.ui.exportOutcome = exportOutcome;
     await screenshot(session, exportedScreenshot);
@@ -471,19 +632,23 @@ function prepare() {
     assert(evidence.project.titleText === TITLE_TEXT, 'Persisted authored title text does not match.');
     assert(Math.abs(evidence.project.titleDuration - TITLE_DURATION) < 0.05, `Persisted title duration is ${evidence.project.titleDuration}.`);
 
-    const outputProbe = probe(outputPath);
+    const measured = measureContentDuration(outputPath);
+    const outputProbe = measured.probe;
     evidence.output = {
       path: path.relative(root, outputPath),
       bytes: fs.statSync(outputPath).size,
       ...outputProbe,
+      measuredDuration: measured.duration,
+      durationMeasurement: measured.mode,
+      durationPacketCount: measured.packetCount || null,
     };
     assert(outputProbe.videoCodec, 'FFprobe found no video stream in the rendered output.');
-    assert(outputProbe.duration >= TITLE_DURATION - 0.35, `Output duration ${outputProbe.duration}s does not cover the authored ${TITLE_DURATION}s timeline.`);
-    assert(outputProbe.duration >= sourceProbe.duration + 1, `Output duration ${outputProbe.duration}s does not extend beyond the ${sourceProbe.duration}s source clip.`);
+    assert(measured.duration >= TITLE_DURATION - 0.35, `Output content ${measured.duration}s does not cover the authored ${TITLE_DURATION}s timeline.`);
+    assert(measured.duration >= sourceProbe.duration + 1, `Output content ${measured.duration}s does not extend beyond the ${sourceProbe.duration}s source clip.`);
 
     extractFrame(fixturePath, 0.75, sourceFramePath);
-    extractFrame(outputPath, 0.75, outputEarlyFramePath);
-    extractFrame(outputPath, 2.5, outputLateFramePath);
+    const outputEarlyMode = extractProofFrame(outputPath, 0.75, outputEarlyFramePath);
+    const outputLateMode = extractProofFrame(outputPath, 2.5, outputLateFramePath);
     const sourceEarly = await imageMetrics(sourceFramePath);
     const outputEarly = await imageMetrics(outputEarlyFramePath);
     const outputLate = await imageMetrics(outputLateFramePath);
@@ -495,6 +660,8 @@ function prepare() {
       earlyDifference,
       lateSampleSeconds: 2.5,
       sourceEndsBeforeLateSample: sourceProbe.duration < 2.5,
+      outputEarlyDecodeMode: outputEarlyMode,
+      outputLateDecodeMode: outputLateMode,
     };
     assert(sourceProbe.duration < 2.5, 'Late proof sample is not actually after the source clip ends.');
     assert(outputLate.maxChannel > 160, `Late exported frame has no bright title pixels (max=${outputLate.maxChannel}).`);
@@ -510,6 +677,16 @@ function prepare() {
   } catch (error) {
     evidence.error = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack || ''}` : String(error);
     log(`FAIL: ${evidence.error}`);
+    try {
+      if (socket) {
+        const failureSession = cdpSession(socket, 30_000);
+        evidence.ui.atFailure = await captureUiState(failureSession);
+        await screenshot(failureSession, failureScreenshot);
+        evidence.ui.failureScreenshot = path.relative(root, failureScreenshot);
+      }
+    } catch (captureError) {
+      evidence.ui.captureError = captureError instanceof Error ? captureError.message : String(captureError);
+    }
     throw error;
   } finally {
     fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');

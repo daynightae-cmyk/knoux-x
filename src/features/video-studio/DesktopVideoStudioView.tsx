@@ -74,6 +74,23 @@ function timelineBitrate(project: MultitrackProject): number {
   return Math.max(8_000_000, Math.min(45_000_000, Math.round(estimated)));
 }
 
+/**
+ * Desktop timeline output prefers Chrome's bundled software VP8 encoder.
+ * Platform H.264 behind MediaRecorder is machine-dependent and has produced
+ * reference-undecodable slice headers on some Windows runners, while VP9's
+ * software first-frame latency is too high for realtime capture under load
+ * (near-empty output). VP8 encodes deterministically everywhere with low
+ * first-frame latency. Mobile keeps the historical mp4-first order via the
+ * renderer's default.
+ */
+const DESKTOP_TIMELINE_PREFERRED_MIME_TYPES: readonly string[] = [
+  'video/webm;codecs=vp8,opus',
+  'video/webm;codecs=vp9,opus',
+  'video/webm',
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4',
+];
+
 function outputExtension(mimeType: string): 'mp4' | 'webm' {
   return mimeType.includes('mp4') ? 'mp4' : 'webm';
 }
@@ -134,6 +151,7 @@ export const DesktopVideoStudioView: React.FC = () => {
         height: project.settings.height,
         fps: project.settings.fps,
         videoBitsPerSecond: timelineBitrate(project),
+        preferredMimeTypes: DESKTOP_TIMELINE_PREFERRED_MIME_TYPES,
         onProgress: setProgress,
         cancelled: () => cancelRequestedRef.current,
       });

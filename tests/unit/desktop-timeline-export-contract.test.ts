@@ -39,6 +39,18 @@ describe('Windows real multitrack timeline export', () => {
     expect(contract).not.toContain('multitrack:export');
   });
 
+  test('prefers the deterministic software VP8 encoder while the shared renderer keeps mp4-first default', () => {
+    const renderer = readSource('src/features/export/mobileTimelineRenderer.ts');
+    expect(shell).toContain('preferredMimeTypes: DESKTOP_TIMELINE_PREFERRED_MIME_TYPES');
+    expect(shell).toContain("'video/webm;codecs=vp8,opus'");
+    const desktopFirst = shell.indexOf("'video/webm;codecs=vp8,opus'");
+    const desktopMp4 = shell.indexOf("'video/mp4;codecs=avc1.42E01E,mp4a.40.2'");
+    expect(desktopFirst).toBeGreaterThan(-1);
+    expect(desktopMp4).toBeGreaterThan(desktopFirst);
+    const fallback = renderer.slice(renderer.indexOf('const fallback = ['), renderer.indexOf('const fallback = [') + 400);
+    expect(fallback.indexOf("'video/mp4")).toBeLessThan(fallback.indexOf("'video/webm"));
+  });
+
   test('provides cancellation during the real timeline render', () => {
     expect(shell).toContain('cancelled: () => cancelRequestedRef.current');
     expect(shell).toContain('cancelRequestedRef.current = true');

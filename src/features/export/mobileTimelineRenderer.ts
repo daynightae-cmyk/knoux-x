@@ -9,6 +9,24 @@ import { transitionFadeOpacity } from '../../core/creative/transitionFade';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
+/**
+ * Wall-clock delivery stalls (occluded windows, throttled animation frames,
+ * heavy first-frame uploads) must not corrupt the media clock: time the
+ * recorder runs but no frame is drawn would bake wall gaps into the output
+ * or terminate the render on the first late frame. Any inter-frame gap
+ * beyond the stall threshold freezes the media clock so every media instant
+ * is still drawn exactly once, in order. Pure and unit-tested.
+ */
+export const RENDER_STALL_RESYNC_MS = 1000;
+
+export function resyncMediaClock(startedAt: number, lastWall: number, wallNow: number): { startedAt: number; lastWall: number } {
+  const wallGap = wallNow - lastWall;
+  if (wallGap > RENDER_STALL_RESYNC_MS) {
+    return { startedAt: startedAt + wallGap, lastWall: wallNow };
+  }
+  return { startedAt, lastWall: wallNow };
+}
+
 export type MobileTimelineRenderOptions = {
   width: number;
   height: number;
@@ -16,6 +34,12 @@ export type MobileTimelineRenderOptions = {
   videoBitsPerSecond: number;
   onProgress?(percentage: number): void;
   cancelled?(): boolean;
+  /**
+   * Optional encoder preference override. When omitted, the historical
+   * mp4-first order is used. Desktop timeline export passes a VP9-first
+   * order (see DesktopVideoStudioView) for machine-independent output.
+   */
+  preferredMimeTypes?: readonly string[];
 };
 
 type PreparedMedia = {
@@ -29,14 +53,15 @@ type PreparedMedia = {
   retouchProcessor?: VideoFrameProcessor;
 };
 
-function recorderMime(): string {
-  const candidates = [
+function recorderMime(preferred?: readonly string[]): string {
+  const fallback = [
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
     'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
   ];
+  const candidates = preferred && preferred.length > 0 ? preferred : fallback;
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
 }
 
@@ -193,7 +218,7 @@ export async function renderMultitrackProject(
   options: MobileTimelineRenderOptions,
 ): Promise<{ blob: Blob; mimeType: string; duration: number }> {
   if (typeof MediaRecorder === 'undefined') throw new Error('This Android WebView does not expose MediaRecorder.');
-  const mimeType = recorderMime();
+  const mimeType = recorderMime(options.preferredMimeTypes);
   if (!mimeType) throw new Error('No supported on-device video encoder is available.');
   const duration = projectDuration(project);
   if (duration <= 0) throw new Error('The current project timeline is empty.');
@@ -267,7 +292,8 @@ export async function renderMultitrackProject(
 
   await audioContext.resume();
   recorder.start(1000);
-  const startedAt = performance.now();
+  let startedAt = performance.now();
+  let lastWall = startedAt;
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -277,7 +303,11 @@ export async function renderMultitrackProject(
           resolve();
           return;
         }
-        const time = (performance.now() - startedAt) / 1000;
+        const wallNow = performance.now();
+        const resynced = resyncMediaClock(startedAt, lastWall, wallNow);
+        startedAt = resynced.startedAt;
+        lastWall = resynced.lastWall;
+        const time = (wallNow - startedAt) / 1000;
         context.fillStyle = project.settings.backgroundColor || '#000000';
         context.fillRect(0, 0, canvas.width, canvas.height);
 

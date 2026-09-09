@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "testedHead": "d86e4ab0aa8c32798dfd03a73a5d4adc49903c82",
+  "testedHead": "398c80f4c0f3af2bbb3ffda9dafbf6e3748d7074",
   "channels": [
     {
       "channel": "ai-secure:cancel",
@@ -784,6 +784,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"creative:open-media\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
+    },
+    {
+      "channel": "creative:open-video",
+      "direction": "invoke",
+      "owner": "creative",
+      "exposedBy": "preload-creative",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"creative:open-video\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"creative:open-video\"]"
       },
       "sourceRoots": [
         "electron/ipc/creative-suite.ts",

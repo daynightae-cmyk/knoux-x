@@ -38,6 +38,7 @@
     "clip:extract",
     "clip:show-item",
     "creative:open-media",
+    "creative:open-video",
     "creative:path-to-media-url",
     "creative:request-media-permission",
     "editor:autosave",
@@ -449,6 +450,11 @@
     },
     {
       "channel": "creative:open-media",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
+      "channel": "creative:open-video",
       "owner": "creative-suite",
       "count": 1
     },
@@ -1651,8 +1657,8 @@
   "preloadExists": true,
   "packaged": true,
   "version": "2.1.0",
-  "sha": "d86e4ab0aa8c32798dfd03a73a5d4adc49903c82",
+  "sha": "398c80f4c0f3af2bbb3ffda9dafbf6e3748d7074",
   "branch": "main",
-  "buildTimestamp": "2026-09-09T11:13:58.995Z",
+  "buildTimestamp": "2026-09-09T13:33:28.672Z",
   "electronVersion": "32.3.3"
 }

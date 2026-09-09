@@ -96,48 +96,143 @@ function git(commandArgs) {
   }
 }
 
+function httpGetJson(url, timeoutMs) {
+  const http = require('node:http');
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`HTTP_TIMEOUT ${url}`)), timeoutMs);
+    http.get(url, (response) => {
+      let body = '';
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        clearTimeout(timer);
+        try {
+          resolve(JSON.parse(body));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }).on('error', (error) => { clearTimeout(timer); reject(error); });
+  });
+}
+
+function connectCdp(webSocketUrl, timeoutMs) {
+  const WebSocket = require('ws');
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(webSocketUrl, { maxPayload: 256 * 1024 * 1024 });
+    const timer = setTimeout(() => { try { socket.close(); } catch { /* ignore */ } reject(new Error('CDP_CONNECT_TIMEOUT')); }, timeoutMs);
+    socket.on('open', () => { clearTimeout(timer); resolve(socket); });
+    socket.on('error', (error) => { clearTimeout(timer); reject(error); });
+  });
+}
+
+function cdpSession(socket, timeoutMs) {
+  let nextId = 1;
+  const pending = new Map();
+  socket.on('message', (data) => {
+    let message = null;
+    try {
+      message = JSON.parse(data.toString());
+    } catch { return; }
+    if (message && message.id && pending.has(message.id)) {
+      const entry = pending.get(message.id);
+      pending.delete(message.id);
+      entry(message);
+    }
+  });
+  return {
+    send(method, params) {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP_TIMEOUT ${method}`)); }, timeoutMs);
+        pending.set(id, (message) => {
+          clearTimeout(timer);
+          if (message.error) reject(new Error(`CDP_ERROR ${method} ${JSON.stringify(message.error)}`));
+          else resolve(message.result);
+        });
+        socket.send(JSON.stringify({ id, method, params }));
+      });
+    },
+  };
+}
+
+async function cdpEvaluate(session, expression) {
+  const result = await session.send('Runtime.evaluate', {
+    expression, returnByValue: true, awaitPromise: true,
+  });
+  if (result.exceptionDetails) {
+    throw new Error(`CDP_EVALUATE_FAILED ${JSON.stringify(result.exceptionDetails).slice(0, 500)}`);
+  }
+  return result.result ? result.result.value : undefined;
+}
+
 async function phaseB() {
-  const { _electron } = require('playwright');
   const result = { relaunchSuccess: false, argvOpenWithSuccess: false, detail: {} };
-  let app = null;
+  const debugPort = 9333;
+  const profileDir = path.join(root, 'reports', '.packaged-retouch-e2e-profile');
+  fs.mkdirSync(profileDir, { recursive: true });
+  let child = null;
+  let socket = null;
   try {
-    const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
-    app = await _electron.launch({ executablePath, args: [], env, timeout: RELAUNCH_TIMEOUT_MS });
-    const page = await app.firstWindow({ timeout: RELAUNCH_TIMEOUT_MS });
-    await page.waitForFunction(
-      `typeof window.knouxRuntime === 'object' && window.knouxRuntime !== null
+    try {
+      childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
+    } catch { /* nothing to kill */ }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    child = childProcess.spawn(executablePath, [
+      `--remote-debugging-port=${debugPort}`,
+      `--user-data-dir=${profileDir}`,
+    ], { cwd: packageRoot, windowsHide: true, stdio: 'ignore', detached: true });
+    child.unref();
+    result.detail.pid = child.pid;
+
+    const deadline = Date.now() + RELAUNCH_TIMEOUT_MS;
+    let pageTarget = null;
+    for (;;) {
+      try {
+        const targets = await httpGetJson(`http://127.0.0.1:${debugPort}/json`, 5000);
+        pageTarget = (targets || []).find((target) => target.type === 'page' && typeof target.url === 'string' && target.url.startsWith('file://') && target.webSocketDebuggerUrl);
+        if (pageTarget) break;
+      } catch { /* devtools not up yet */ }
+      if (Date.now() > deadline) throw new Error('CDP_TARGETS_TIMEOUT');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    result.detail.pageUrl = pageTarget.url;
+    socket = await connectCdp(pageTarget.webSocketDebuggerUrl, 30000);
+    const session = cdpSession(socket, 60000);
+
+    const bridgeDeadline = Date.now() + RELAUNCH_TIMEOUT_MS;
+    for (;;) {
+      const ready = await cdpEvaluate(session, `typeof window.knouxRuntime === 'object' && window.knouxRuntime !== null
         && typeof window.knouxAPI === 'object' && typeof window.knouxAPI.system?.getBuildInfo === 'function'
-        && typeof window.knouxAPI.app?.onOpenMedia === 'function'`,
-      null,
-      { timeout: RELAUNCH_TIMEOUT_MS },
-    );
-    const identity = await page.evaluate(`(async () => ({
+        && typeof window.knouxAPI.app?.onOpenMedia === 'function'`);
+      if (ready === true) break;
+      if (Date.now() > bridgeDeadline) throw new Error('CDP_BRIDGE_TIMEOUT');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    const identity = await cdpEvaluate(session, `(async () => ({
       build: await window.knouxAPI.system.getBuildInfo(),
       system: await window.knouxAPI.system.getInfo(),
     }))()`);
     result.detail.identity = identity;
-    if (identity.build && identity.build.packaged === true && identity.build.product === 'Knoux X') {
+    if (identity && identity.build && identity.build.packaged === true && identity.build.product === 'Knoux X') {
       result.relaunchSuccess = true;
     }
-    await page.evaluate(`window.__argvSeen = null;
+    await cdpEvaluate(session, `window.__argvSeen = null;
       window.knouxAPI.app.onOpenMedia((paths) => { window.__argvSeen = paths; });`);
-    const second = childProcess.spawn(executablePath, [sourceVideo], {
+    const second = childProcess.spawnSync(executablePath, [sourceVideo, `--user-data-dir=${profileDir}`], {
       cwd: packageRoot,
       windowsHide: true,
-      stdio: 'ignore',
-      detached: true,
+      timeout: 60000,
     });
-    second.unref();
-    const deadline = Date.now() + 60000;
+    result.detail.secondInstanceStatus = second.status;
+    const argvDeadline = Date.now() + 60000;
     for (;;) {
-      const seen = await page.evaluate(`window.__argvSeen`);
+      const seen = await cdpEvaluate(session, `window.__argvSeen`);
       if (Array.isArray(seen) && seen.some((entry) => path.resolve(entry) === path.resolve(sourceVideo))) {
         result.argvOpenWithSuccess = true;
         result.detail.argvSeen = seen;
         break;
       }
-      if (Date.now() > deadline) {
+      if (Date.now() > argvDeadline) {
         result.detail.argvSeen = seen;
         break;
       }
@@ -147,10 +242,12 @@ async function phaseB() {
     result.detail.error = error instanceof Error ? error.stack || error.message : String(error);
   } finally {
     try {
-      if (app) await app.close();
-    } catch (error) {
-      result.detail.closeError = error instanceof Error ? error.message : String(error);
-    }
+      if (socket) socket.close();
+    } catch { /* ignore */ }
+    try {
+      childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
+    } catch { /* ignore */ }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
   try {
     const tasklist = childProcess.spawnSync('tasklist', ['/FI', 'IMAGENAME eq knoux-player-x.exe', '/FO', 'CSV'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
@@ -158,6 +255,7 @@ async function phaseB() {
   } catch {
     result.detail.orphans = null;
   }
+  try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* best effort */ }
   return result;
 }
 

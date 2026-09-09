@@ -11,7 +11,16 @@ describe('Sprint 02 DOM action command runtime', () => {
     const runtime = createSprint02CommandRuntime(document.querySelector('.app-shell')!);
     runtime.refresh();
     button.click();
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    // The command completes asynchronously; poll for the terminal trace state
+    // instead of asserting after a fixed delay (fixed sleeps flake under load).
+    const completionDeadline = Date.now() + 5000;
+    for (;;) {
+      const traces = runtime.traces();
+      if (traces.length === 1 && traces[0].status === 'completed') break;
+      if (Date.now() > completionDeadline) break;
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     expect(effects).toBe(1);
     expect(runtime.traces()).toHaveLength(1);
     expect(runtime.traces()[0]).toMatchObject({ actionId: 'player.play', command: 'dom.player.play', status: 'completed' });

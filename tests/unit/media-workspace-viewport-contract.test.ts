@@ -64,10 +64,11 @@ describe('Knoux X professional workspace viewport contract', () => {
 
   test('slideshow stage follows the project aspect instead of a fixed box', () => {
     const css = read('src/styles/slideshow-studio.css');
-    expect(css).toContain('--knoux-slide-ar');
     expect(css).not.toContain('min-height: 380px');
+    // Aspect ratio is now handled via inline style on .slideshow-preview-stage
     const view = read('src/features/slideshow/SlideshowView.tsx');
     expect(view).toContain('--knoux-slide-ar');
+    expect(view).toContain('aspectRatio');
     const mobile = read('src/features/slideshow/MobileSlideshowEditor.tsx');
     expect(mobile).toContain('slideshowOutputSize');
     expect(mobile).toContain('--knoux-slide-ar');

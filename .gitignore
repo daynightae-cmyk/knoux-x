@@ -56,6 +56,16 @@ temp/
 .parcel-cache/
 .eslintcache
 
+# Chromium/Electron runtime garbage: packaged-run profiles, GPU caches,
+# SQLite journals and DevTools ports are regenerated per run and must
+# never be committed as evidence.
+reports/**/profile/
+GPUCache/
+DawnGraphiteCache/
+*.sqlite3-wal
+*.sqlite3-shm
+DevToolsActivePort
+
 # Bootstrap exclusions
 .webpack/
 release/

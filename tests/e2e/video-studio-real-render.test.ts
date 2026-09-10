@@ -8,12 +8,12 @@ import { createRequire } from 'node:module';
 import {
   createMultitrackProject,
   createTimelineItem,
-  createTrack,
+  _createTrack,
   insertItem,
   parseMultitrackProject,
   projectDuration,
-  type MultitrackProject,
-  type TimelineItem,
+  type _MultitrackProject,
+  type _TimelineItem,
 } from '../../src/core/creative/multitrackProject';
 import { MultitrackProjectService } from '../../electron/creative/multitrack-project-service';
 

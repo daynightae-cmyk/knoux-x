@@ -56,7 +56,11 @@ jobs:
       - name: Verify canonical repository
         shell: bash
         run: |
-          test "$(git config --get remote.origin.url)" = "https://github.com/daynightae-cmyk/knoux-x.git"
+          url="$(git config --get remote.origin.url)"
+          if [ "$url" != "https://github.com/daynightae-cmyk/knoux-x.git" ]; then
+            echo "REMOTE_URL_MISMATCH url=$(printf '%s' "$url" | sed 's#://[^@]*@#://***@#')"
+            exit 1
+          fi
           test "${{ github.repository }}" = "daynightae-cmyk/knoux-x"
 
       - name: Record source SHA

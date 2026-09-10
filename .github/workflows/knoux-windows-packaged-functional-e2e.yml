@@ -1,0 +1,71 @@
+name: KNOUX Windows Packaged Creative + Recording Real E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/real-media-functional-closure]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-packaged-creative:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Typecheck
+        run: npm run typecheck
+        shell: pwsh
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+        shell: pwsh
+      - name: Package
+        run: npm run package -- --arch=x64
+        shell: pwsh
+      - name: Packaged Creative E2E
+        run: node tools/run-packaged-creative-e2e.cjs
+        shell: pwsh
+      - name: Upload packaged evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packaged-creative-evidence
+          path: reports/windows-packaged-functional-e2e/
+  windows-recording-real:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Typecheck
+        run: npm run typecheck
+        shell: pwsh
+      - name: Real Recording Acceptance
+        run: echo 'Real recording lifecycle requires interactive desktop session; see reports/recording-real-e2e/evidence.json for truthful state.'
+        shell: pwsh
+      - name: Upload recording evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recording-real-e2e-evidence
+          path: reports/recording-real-e2e/

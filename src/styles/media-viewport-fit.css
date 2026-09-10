@@ -9,10 +9,10 @@
   justify-content: center;
   min-width: 0;
   min-height: 0;
+  width: 100%;
+  height: 100%;
   overflow: auto;
-  background:
-    radial-gradient(circle at center, color-mix(in srgb, var(--knoux-accent) 9%, transparent), transparent 62%),
-    var(--knoux-media-workspace, #0a0912);
+  background: transparent;
 }
 
 .knoux-media-stage.knoux-media-stage--overflow {
@@ -32,7 +32,10 @@
 .knoux-media-frame > img,
 .knoux-media-frame > canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   background: #000;
+  object-fit: contain;
 }
 
 .knoux-media-frame > img {
@@ -122,5 +125,55 @@
   }
   .knoux-workspace-grid.knoux-workspace-collapsible-inspector .knoux-inspector-collapsible {
     display: none;
+  }
+}
+
+/* ─── Shared responsive preview stage utility ───
+     The stage container should fill the available grid cell (100% width/height).
+     The media frame inside is sized by useMediaViewportFit to fit the stage.
+     The stage background is neutral/transparent — NOT a giant black canvas.
+     The media frame itself provides the visual frame with its own background. */
+
+.knoux-preview-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: transparent;
+}
+
+.knoux-preview-stage--overflow {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.knoux-preview-media {
+  position: relative;
+  flex: 0 0 auto;
+  line-height: 0;
+  background: #000;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.09);
+}
+
+.knoux-preview-media > video,
+.knoux-preview-media > img,
+.knoux-preview-media > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  object-fit: contain;
+}
+
+/* Mobile: preview stage fills available flex space */
+@media (max-width: 768px) {
+  .knoux-preview-stage {
+    min-height: 0;
+    flex: 1;
   }
 }

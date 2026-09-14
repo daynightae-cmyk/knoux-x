@@ -13,7 +13,7 @@
     "publish": "electron-forge publish",
     "build": "electron-forge package",
     "build:native": "node-gyp rebuild",
-    "icons:generate": "node tools/generate-icons.cjs",
+    "icons:generate": "node tools/generate-icon-assets.cjs",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --ext .ts,.tsx . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,css}\"",

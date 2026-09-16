@@ -1,25 +1,13 @@
 import React, { lazy, Suspense, useEffect, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 
-import { Sidebar } from './components/layout/Sidebar';
-import { TitleBar } from './components/layout/TitleBar';
-import { MobileGlassDrawer } from './components/mobile/MobileGlassDrawer';
 import { MobileSplashOverlay } from './components/mobile/MobileSplashOverlay';
-import { FirstRunExperience } from './components/onboarding/FirstRunExperience';
-import { CommandShortcutController } from './components/system/CommandShortcutController';
-import { Sprint02CommandRuntime } from './components/system/Sprint02CommandRuntime';
-import { QuickAccessToolbar } from './components/toolbars/QuickAccessToolbar';
-import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
 import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
+import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
+import { normalizeRuntimeWorkspace } from './core/settings/runtimeWorkspace';
 import { MobileHomeDashboard } from './features/home/MobileHomeDashboard';
-import { LibraryView } from './features/library/LibraryView';
-import { MobileMediaLibraryView } from './features/library/MobileMediaLibraryView';
-import { PlayerViewportBoundary } from './features/player/PlayerViewportBoundary';
-import { SettingsView } from './features/settings/SettingsView';
 import { useTranslation } from './i18n';
-import { useAppStore } from './store/appStore';
+import { useAppStore, type ViewType } from './store/appStore';
 import { usePlayerStore } from './store/playerStore';
-import type { ViewType } from './store/appStore';
 import { getKnouxThemePreset } from './theme/knouxThemeCatalog';
 import './styles/global.css';
 import './styles/media-viewport-fit.css';
@@ -49,7 +37,52 @@ import './styles/mobile-export.css';
 import './styles/mobile-recording.css';
 import './styles/mobile-functional-closure.css';
 import './styles/mobile-settings.css';
+import './styles/android-performance.css';
 
+const Sidebar = lazy(async () => {
+  const module = await import('./components/layout/Sidebar');
+  return { default: module.Sidebar };
+});
+const TitleBar = lazy(async () => {
+  const module = await import('./components/layout/TitleBar');
+  return { default: module.TitleBar };
+});
+const MobileGlassDrawer = lazy(async () => {
+  const module = await import('./components/mobile/MobileGlassDrawer');
+  return { default: module.MobileGlassDrawer };
+});
+const FirstRunExperience = lazy(async () => {
+  const module = await import('./components/onboarding/FirstRunExperience');
+  return { default: module.FirstRunExperience };
+});
+const CommandShortcutController = lazy(async () => {
+  const module = await import('./components/system/CommandShortcutController');
+  return { default: module.CommandShortcutController };
+});
+const Sprint02CommandRuntime = lazy(async () => {
+  const module = await import('./components/system/Sprint02CommandRuntime');
+  return { default: module.Sprint02CommandRuntime };
+});
+const QuickAccessToolbar = lazy(async () => {
+  const module = await import('./components/toolbars/QuickAccessToolbar');
+  return { default: module.QuickAccessToolbar };
+});
+const LibraryView = lazy(async () => {
+  const module = await import('./features/library/LibraryView');
+  return { default: module.LibraryView };
+});
+const MobileMediaLibraryView = lazy(async () => {
+  const module = await import('./features/library/MobileMediaLibraryView');
+  return { default: module.MobileMediaLibraryView };
+});
+const PlayerViewportBoundary = lazy(async () => {
+  const module = await import('./features/player/PlayerViewportBoundary');
+  return { default: module.PlayerViewportBoundary };
+});
+const SettingsView = lazy(async () => {
+  const module = await import('./features/settings/SettingsView');
+  return { default: module.SettingsView };
+});
 const CaptureView = lazy(async () => {
   const module = await import('./features/capture/CaptureView');
   return { default: module.CaptureView };
@@ -138,26 +171,36 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
   }
 }
 
+async function readWorkspaceSettings(): Promise<WorkspaceSettings> {
+  try {
+    const value = await window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS);
+    return normalizeRuntimeWorkspace(value);
+  } catch (error) {
+    console.warn('[KNOUX] Workspace settings read failed; using safe defaults.', error);
+    return structuredClone(DEFAULT_WORKSPACE_SETTINGS);
+  }
+}
+
 const App: React.FC = () => {
-  const {
-    currentView,
-    theme,
-    accentColor,
-    locale,
-    isSidebarOpen,
-    isAIAssistantOpen,
-    notifications,
-    removeNotification,
-    isLoading,
-    loadingMessage,
-    motionEnabled,
-    setView,
-    setSidebarWidth,
-  } = useAppStore();
+  const currentView = useAppStore((state) => state.currentView);
+  const theme = useAppStore((state) => state.theme);
+  const accentColor = useAppStore((state) => state.accentColor);
+  const locale = useAppStore((state) => state.locale);
+  const isSidebarOpen = useAppStore((state) => state.isSidebarOpen);
+  const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen);
+  const isAIAssistantOpen = useAppStore((state) => state.isAIAssistantOpen);
+  const notifications = useAppStore((state) => state.notifications);
+  const removeNotification = useAppStore((state) => state.removeNotification);
+  const isLoading = useAppStore((state) => state.isLoading);
+  const loadingMessage = useAppStore((state) => state.loadingMessage);
+  const motionEnabled = useAppStore((state) => state.motionEnabled);
+  const setView = useAppStore((state) => state.setView);
+  const setSidebarWidth = useAppStore((state) => state.setSidebarWidth);
   const { t } = useTranslation();
   const workspaceLoadedRef = useRef(false);
   const startupMediaHandledRef = useRef(false);
   const android = window.knouxRuntime?.edition === 'android';
+  const effectiveMotion = motionEnabled && !android;
 
   useEffect(() => {
     if (!android) return;
@@ -172,10 +215,10 @@ const App: React.FC = () => {
     root.lang = locale;
     root.dir = locale === 'ar' ? 'rtl' : 'ltr';
     root.dataset.theme = theme;
-    root.dataset.motion = motionEnabled ? 'full' : 'reduced';
+    root.dataset.motion = effectiveMotion ? 'full' : 'reduced';
     root.style.setProperty('--knoux-accent', accentColor);
     root.style.colorScheme = getKnouxThemePreset(theme).logo === 'day' ? 'light' : 'dark';
-  }, [accentColor, locale, motionEnabled, theme]);
+  }, [accentColor, effectiveMotion, locale, theme]);
 
   useEffect(() => {
     const applyWorkspace = (workspace: WorkspaceSettings): void => {
@@ -188,9 +231,8 @@ const App: React.FC = () => {
       setSidebarWidth(workspace.sidebarWidth);
     };
     let active = true;
-    void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
+    void readWorkspaceSettings().then((workspace) => {
       if (!active) return;
-      const workspace = value as WorkspaceSettings;
       applyWorkspace(workspace);
 
       if (android) {
@@ -207,17 +249,21 @@ const App: React.FC = () => {
       workspaceLoadedRef.current = true;
     });
     const unsubscribe = window.knouxAPI.settings.onChange((key, value) => {
-      if (key === 'workspace') applyWorkspace(value as WorkspaceSettings);
+      if (key === 'workspace') applyWorkspace(normalizeRuntimeWorkspace(value));
     });
     return () => { active = false; unsubscribe(); };
   }, [android, setSidebarWidth, setView]);
 
   useEffect(() => {
     if (!workspaceLoadedRef.current || (android && currentView === 'home')) return;
-    void window.knouxAPI.settings.get('workspace', DEFAULT_WORKSPACE_SETTINGS).then((value) => {
-      const workspace = value as WorkspaceSettings;
+    void readWorkspaceSettings().then((workspace) => {
       if (workspace.lastOpenedSection === currentView) return;
-      return window.knouxAPI.settings.set('workspace', { ...workspace, lastOpenedSection: currentView as WorkspaceSettings['lastOpenedSection'] });
+      return window.knouxAPI.settings.set('workspace', {
+        ...workspace,
+        lastOpenedSection: currentView as WorkspaceSettings['lastOpenedSection'],
+      });
+    }).catch((error) => {
+      console.warn('[KNOUX] Workspace section persistence failed.', error);
     });
   }, [android, currentView]);
 
@@ -253,30 +299,36 @@ const App: React.FC = () => {
 
   return (
     <div className="app-shell" data-current-view={currentView} data-mobile-shell={android ? 'premium' : undefined}>
-      {!android && <TitleBar />}
-      {!android && <QuickAccessToolbar />}
+      {!android && (
+        <Suspense fallback={null}>
+          <TitleBar />
+          <QuickAccessToolbar />
+        </Suspense>
+      )}
       <div className="app-body">
-        {!android && isSidebarOpen && <Sidebar />}
+        {!android && isSidebarOpen && (
+          <Suspense fallback={null}>
+            <Sidebar />
+          </Suspense>
+        )}
         <main className="main-content" aria-live="polite">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              className="view-transition"
-              data-sprint02-surface={sprint02SurfaceForView(currentView)}
-              initial={motionEnabled ? { opacity: 0, y: 8 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: motionEnabled ? 0.18 : 0 }}
-            >
-              <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
-                {viewFor(currentView, android)}
-              </Suspense>
-            </motion.div>
-          </AnimatePresence>
+          <div
+            key={currentView}
+            className="view-transition"
+            data-sprint02-surface={android ? undefined : sprint02SurfaceForView(currentView)}
+          >
+            <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
+              {viewFor(currentView, android)}
+            </Suspense>
+          </div>
         </main>
       </div>
 
-      {android && <MobileGlassDrawer />}
+      {android && isMobileMenuOpen && (
+        <Suspense fallback={null}>
+          <MobileGlassDrawer />
+        </Suspense>
+      )}
       {android && <MobileSplashOverlay />}
 
       {isAIAssistantOpen && (
@@ -286,22 +338,17 @@ const App: React.FC = () => {
       )}
 
       <div className="notification-stack" aria-live="assertive">
-        <AnimatePresence>
-          {notifications.map((notification) => (
-            <motion.button
-              type="button"
-              key={notification.id}
-              className={`app-notification ${notification.type}`}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 24 }}
-              onClick={() => removeNotification(notification.id)}
-            >
-              <strong>{notification.title}</strong>
-              <span>{notification.message}</span>
-            </motion.button>
-          ))}
-        </AnimatePresence>
+        {notifications.map((notification) => (
+          <button
+            type="button"
+            key={notification.id}
+            className={`app-notification ${notification.type}`}
+            onClick={() => removeNotification(notification.id)}
+          >
+            <strong>{notification.title}</strong>
+            <span>{notification.message}</span>
+          </button>
+        ))}
       </div>
 
       {isLoading && (
@@ -310,9 +357,13 @@ const App: React.FC = () => {
           <span>{loadingMessage || t('app.working')}</span>
         </div>
       )}
-      {!android && <FirstRunExperience />}
-      <CommandShortcutController />
-      <Sprint02CommandRuntime />
+      {!android && (
+        <Suspense fallback={null}>
+          <FirstRunExperience />
+          <CommandShortcutController />
+          <Sprint02CommandRuntime />
+        </Suspense>
+      )}
     </div>
   );
 };

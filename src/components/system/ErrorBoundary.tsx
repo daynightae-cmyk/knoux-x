@@ -18,6 +18,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   public componentDidCatch(error: Error, info: ErrorInfo): void {
+    document.documentElement.dataset.rendererState = 'recovery';
+    console.error(`KNOUX_RENDER_BOUNDARY_ERROR ${error.name}`, error.message);
     console.error('KNOUX renderer failure:', error, info.componentStack);
   }
 

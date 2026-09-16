@@ -1,0 +1,30 @@
+/* Android performance overrides.
+ * Keep layout and brand colors, but remove the GPU-expensive glass blur and
+ * transition work that makes lower/mid-range WebViews stutter.
+ */
+html[data-platform='android'] {
+  scroll-behavior: auto;
+}
+
+html[data-platform='android'] .app-shell,
+html[data-platform='android'] .app-shell *,
+html[data-platform='android'] .app-shell *::before,
+html[data-platform='android'] .app-shell *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-platform='android'] .view-transition {
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+
+html[data-platform='android'] .app-notification,
+html[data-platform='android'] .global-loading-overlay,
+html[data-platform='android'] .kmd-backdrop,
+html[data-platform='android'] .kmd-drawer {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

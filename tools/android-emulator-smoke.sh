@@ -76,6 +76,18 @@ native_splash_gone() {
   ! grep -Fq "Splash Screen $PACKAGE" "$OUTPUT_DIR/android-window.txt"
 }
 
+assert_no_recovery_screen() {
+  local hierarchy="$OUTPUT_DIR/android-ui-hierarchy.xml"
+  if adb_retry shell uiautomator dump /sdcard/knoux-ui.xml >/dev/null 2>&1; then
+    adb_retry shell cat /sdcard/knoux-ui.xml > "$hierarchy" 2>/dev/null || true
+    if [[ -s "$hierarchy" ]] && grep -Eqi 'KNOUX RECOVERY MODE|The interface encountered an unexpected error|Reload Knoux X' "$hierarchy"; then
+      echo 'KNOUX recovery UI was rendered instead of the product interface.' >&2
+      return 1
+    fi
+  fi
+  return 0
+}
+
 adb wait-for-device
 adb_retry install -r "$APK"
 adb_retry logcat -c
@@ -148,6 +160,11 @@ if [[ "$UI_READY" != true ]]; then
   exit 1
 fi
 
+if ! assert_no_recovery_screen; then
+  adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+  exit 1
+fi
+
 PID="$(read_pid || true)"
 if [[ -z "$PID" ]]; then
   echo 'KNOUX Android process exited during startup.' >&2
@@ -163,7 +180,7 @@ if ! grep -q "$PACKAGE" "$OUTPUT_DIR/android-activity.txt"; then
   exit 1
 fi
 
-FATAL_PATTERN='FATAL EXCEPTION|Unable to start activity|ANR in dev\.knoux\.playerx|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|Capacitor/Console.*Uncaught|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE|selectedWorkspace'
+FATAL_PATTERN='FATAL EXCEPTION|Unable to start activity|ANR in dev\.knoux\.playerx|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|Capacitor/Console.*Uncaught|KNOUX_RENDER_BOUNDARY_ERROR|KNOUX renderer failure|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE|selectedWorkspace'
 if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
   echo 'Fatal KNOUX startup error detected in Android logcat.' >&2
   grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt" || true
@@ -186,6 +203,11 @@ done
 adb_retry shell wm size reset
 adb_retry shell wm density reset
 sleep 1
+
+if ! assert_no_recovery_screen; then
+  adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+  exit 1
+fi
 
 adb_retry logcat -d -t 2800 > "$OUTPUT_DIR/android-launch-log.txt"
 if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then

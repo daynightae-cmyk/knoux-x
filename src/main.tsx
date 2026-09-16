@@ -10,7 +10,7 @@
  * @version 1.1.0
  */
 
-import React from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
@@ -28,7 +28,7 @@ import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshow
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
 
-const SystemOverlay = React.lazy(async () => {
+const SystemOverlay = lazy(async () => {
   const module = await import('./components/system/SystemOverlay');
   return { default: module.SystemOverlay };
 });
@@ -89,13 +89,13 @@ const productTree = (
     <App />
     {androidRuntimeInstalled && <AndroidOptionalRuntime />}
     {(!androidRuntimeInstalled || androidDiagnosticsEnabled) && (
-      <React.Suspense fallback={null}>
+      <Suspense fallback={null}>
         <SystemOverlay />
-      </React.Suspense>
+      </Suspense>
     )}
   </ErrorBoundary>
 );
 
 // StrictMode is valuable for desktop development, but its duplicate development
 // effects are needless work in the Android WebView debug build used on devices.
-root.render(androidRuntimeInstalled ? productTree : <React.StrictMode>{productTree}</React.StrictMode>);
+root.render(androidRuntimeInstalled ? productTree : <StrictMode>{productTree}</StrictMode>);

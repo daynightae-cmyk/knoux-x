@@ -250,7 +250,7 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
 
   jest.setTimeout(180_000);
 
-  beforeAll(() => {
+  beforeAll(async () => {
     temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-ss-e2e-'));
 
     image = path.join(temporaryDirectory, 'slide-photo.jpg');
@@ -258,7 +258,7 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
     audio = path.join(temporaryDirectory, 'slide-music.mp3');
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="100%" height="100%" fill="#2a1a3a"/><text x="50%" y="50%" text-anchor="middle" font-size="72" fill="#e8d5ff">KNOUX SLIDE</text></svg>`;
-    sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toFile(image);
+    await sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toFile(image);
 
     run(ffmpeg, [
       '-hide_banner', '-loglevel', 'error', '-y',
@@ -283,7 +283,7 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   });
 
-  test('create project → multi-photo + video + audio → render MP4 → FFprobe validate', () => {
+  test('create project → multi-photo + video + audio → render MP4 → FFprobe validate', async () => {
     const project = createSlideshowProject(randomUUID(), 'E2E Slideshow', '1080p');
     project.fps = 30;
     project.slides = [
@@ -345,10 +345,10 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
 
     const slides = updatedProject.slides;
     const titleCard1 = path.join(tempDir, 'slide-1.png');
-    sharp(Buffer.from(titleCardSvg(slides[0], width, height))).png().toFile(titleCard1);
+    await sharp(Buffer.from(titleCardSvg(slides[0], width, height))).png().toFile(titleCard1);
 
     const titleCard3 = path.join(tempDir, 'slide-3.png');
-    sharp(Buffer.from(titleCardSvg(slides[2], width, height))).png().toFile(titleCard3);
+    await sharp(Buffer.from(titleCardSvg(slides[2], width, height))).png().toFile(titleCard3);
 
     const filterComplex = buildFilterComplex(updatedProject, width, height, tempDir, true);
     const outputPath = path.join(temporaryDirectory, `slideshow-${randomUUID()}.mp4`);
@@ -410,7 +410,7 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
     expect(slideshowDuration(reparsed)).toBe(4);
   });
 
-  test('render WebM format → FFprobe validate VP8/VP9', () => {
+  test('render WebM format → FFprobe validate VP8/VP9', async () => {
     const project = createSlideshowProject(randomUUID(), 'WebM Test', '1080p');
     project.fps = 30;
     project.slides = [
@@ -431,7 +431,7 @@ describe('Photos-to-Video (Slideshow) — real render + FFprobe validation', () 
     fs.mkdirSync(tempDir, { recursive: true });
 
     const titleCard = path.join(tempDir, 'slide-1.png');
-    sharp(Buffer.from(titleCardSvg(project.slides[0], width, height))).png().toFile(titleCard);
+    await sharp(Buffer.from(titleCardSvg(project.slides[0], width, height))).png().toFile(titleCard);
 
     const filterComplex = buildFilterComplex(project, width, height, tempDir, false);
     const outputPath = path.join(temporaryDirectory, `slideshow-${randomUUID()}.webm`);

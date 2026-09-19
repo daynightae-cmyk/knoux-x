@@ -14,7 +14,9 @@ describe('player viewport layout contract', () => {
   const viewportCss = read('src/styles/player-viewport.css');
 
   test('mounts the player inside the dedicated viewport boundary', () => {
-    expect(appSource).toContain("import { PlayerViewportBoundary }");
+    expect(appSource).toContain('const PlayerViewportBoundary = lazy(async () => {');
+    expect(appSource).toContain("import('./features/player/PlayerViewportBoundary')");
+    expect(appSource).toContain('return { default: module.PlayerViewportBoundary };');
     expect(appSource).toContain("case 'player': return <PlayerViewportBoundary />");
     expect(appSource).toContain('data-current-view={currentView}');
     expect(appSource).toContain("import './styles/player-viewport.css'");

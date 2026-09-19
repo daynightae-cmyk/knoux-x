@@ -37,10 +37,9 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   });
 
   test('removes desktop chrome from every Android surface and installs the glass drawer', () => {
-    expect(app).toContain('{!android && <TitleBar />}');
-    expect(app).toContain('{!android && <QuickAccessToolbar />}');
-    expect(app).toContain('{!android && isSidebarOpen && <Sidebar />}');
-    expect(app).toContain('{android && <MobileGlassDrawer />}');
+    expect(app).toMatch(/\{!android && \([\s\S]*?<TitleBar \/>[\s\S]*?<QuickAccessToolbar \/>[\s\S]*?\)\}/);
+    expect(app).toMatch(/\{!android && isSidebarOpen && \([\s\S]*?<Sidebar \/>[\s\S]*?\)\}/);
+    expect(app).toMatch(/\{android && isMobileMenuOpen && \([\s\S]*?<MobileGlassDrawer \/>[\s\S]*?\)\}/);
     expect(drawer).toContain('Video Studio');
     expect(drawer).toContain('Photos to Video');
     expect(drawer).toContain('Beauty Retouch');

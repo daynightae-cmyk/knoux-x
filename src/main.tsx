@@ -10,7 +10,7 @@
  * @version 1.1.0
  */
 
-import React from 'react';
+import React, { lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
@@ -28,7 +28,7 @@ import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshow
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
 
-const SystemOverlay = React.lazy(async () => {
+const SystemOverlay = lazy(async () => {
   const module = await import('./components/system/SystemOverlay');
   return { default: module.SystemOverlay };
 });

@@ -25,6 +25,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install locked dependencies
+        run: npm ci
+        shell: pwsh
       - name: Typecheck
         run: npm run typecheck
         shell: pwsh
@@ -57,6 +60,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install locked dependencies
+        run: npm ci
+        shell: pwsh
       - name: Typecheck
         run: npm run typecheck
         shell: pwsh

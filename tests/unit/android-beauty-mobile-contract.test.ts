@@ -94,6 +94,7 @@ describe('Android mobile Beauty Studio contracts', () => {
   it('starts body analysis only after the user opens Body and respects partial geometry', () => {
     const source = read('src/platform/AndroidBodyBeautyExtension.tsx');
     const main = read('src/main.tsx');
+    const optionalRuntime = read('src/platform/AndroidOptionalRuntime.tsx');
 
     for (const state of ['IDLE', 'QUEUED', 'ANALYZING', 'READY', 'PARTIAL', 'NO_BODY', 'MODEL_UNAVAILABLE', 'ERROR']) {
       expect(source).toContain(`'${state}'`);
@@ -104,7 +105,9 @@ describe('Android mobile Beauty Studio contracts', () => {
     expect(source).toContain('Protect Background');
     expect(source).toContain('createBodyFreezeMask');
     expect(source).toContain("operation.tool === 'body-sculpt'");
-    expect(main).toContain('<AndroidBodyBeautyExtension />');
+    expect(main).toContain('<AndroidOptionalRuntime />');
+    expect(optionalRuntime).toContain("currentView === 'image-studio'");
+    expect(optionalRuntime).toContain('<AndroidBodyBeautyExtension />');
   });
 
   it('offers independent positive/negative body-part controls without exposing unavailable geometry', () => {

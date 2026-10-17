@@ -160,6 +160,11 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
   ) => {
     library.updatePlayback(validateString(filePath, 'Library media path'), position, duration, Boolean(completed));
   }));
+  ipc.handle(IPC_INVOKE.LIBRARY_GET_PLAYBACK, trusted(async (_event, filePath: string) => {
+    const item = library.getMedia(validateString(filePath, 'Library media path'));
+    if (!item || item.missing) return null;
+    return library.getMedia(creativePaths.authorizeFile(item.path));
+  }));
 
   ipc.handle(IPC_INVOKE.CAPTURE_SAVE_FRAME, trusted(async (_event, request: SaveFrameRequest) => capture.saveFrame(request)));
   ipc.handle(IPC_INVOKE.CAPTURE_COPY_FRAME, trusted(async (_event, dataUrl: string) => capture.copyFrame(validateString(dataUrl, 'Capture data', 96 * 1024 * 1024))));

@@ -83,6 +83,63 @@ html[data-platform='android'] .kms-recent-list {
   gap: 7px;
 }
 
+html[data-platform='android'] .kms-render-jobs {
+  display: grid;
+  gap: 9px;
+}
+
+html[data-platform='android'] .kms-render-job {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 11px 12px;
+  border: 1px solid rgba(120, 40, 232, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.93), rgba(249,246,253,0.88));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 34px rgba(69, 44, 91, 0.09);
+  font-size: 12px;
+  color: #241a30;
+}
+
+html[data-platform='android'] .kms-render-job-title {
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-platform='android'] .kms-render-job-meta {
+  color: #746a80;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-platform='android'] .kms-render-job.rendering .kms-render-job-meta,
+html[data-platform='android'] .kms-render-job.preparing .kms-render-job-meta {
+  color: #7828e8;
+  font-weight: 800;
+}
+
+html[data-platform='android'] .kms-render-job.failed {
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+html[data-platform='android'] .kms-render-job-error {
+  color: #b3261e;
+  font-size: 11px;
+}
+
+html[data-platform='android'] .kms-render-job-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+html[data-platform='android'] .kms-render-jobs .kms-render-job.completed button {
+  border-color: rgba(120, 40, 232, 0.5);
+}
+
 html[data-platform='android'] .kms-recent-list button {
   justify-content: flex-start;
   overflow: hidden;

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { NeonSelect } from '../../components/neon/NeonSelect';
+import type { SlideshowRenderSnapshot } from '../../../electron/creative/slideshow-render-service';
 import {
   addAudioTrack,
   constrainSlideTransitions,
@@ -119,6 +120,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [renderSnapshots, setRenderSnapshots] = useState<SlideshowRenderSnapshot[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const historyRef = useRef<HistoryState>({ past: [], future: [] });
 
@@ -308,7 +310,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
         setError('MP4 slideshow rendering is not implemented on this Android runtime yet. Your project remains saved and editable.');
         return false;
       }
-      setNotice('MP4 render queued successfully.');
+      setNotice('MP4 render queued. Progress appears below; open the output when it completes.');
       return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'MP4 render could not be queued.');
@@ -317,6 +319,22 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
       setBusy(false);
     }
   }, [busy]);
+
+  useEffect(() => {
+    let mounted = true;
+    const upsert = (snapshot: SlideshowRenderSnapshot): void => {
+      setRenderSnapshots((previous) => {
+        const next = [...previous.filter((job) => job.id !== snapshot.id), snapshot];
+        next.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        return next;
+      });
+    };
+    window.knouxSlideshowAPI.onRenderProgress?.(upsert);
+    void window.knouxSlideshowAPI.renderJobs?.()
+      .then((jobs) => { if (mounted) setRenderSnapshots(jobs); })
+      .catch(() => undefined);
+    return () => { mounted = false; };
+  }, []);
 
   useImperativeHandle(ref, () => ({ save, renderMp4 }), [renderMp4, save]);
 
@@ -508,6 +526,34 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
         <button type="button" onClick={() => void addAudio()} disabled={busy || duration <= 0}><Music size={18} /> Add music</button>
         <button type="button" onClick={() => void renderMp4()} disabled={busy || project.slides.length === 0}>Create MP4</button>
       </div>
+
+      {renderSnapshots.length > 0 && (
+        <div className="kms-render-jobs" aria-label="Slideshow render jobs">
+          {renderSnapshots.map((job) => {
+            const active = job.status === 'preparing' || job.status === 'rendering';
+            return (
+              <div key={job.id} className={`kms-render-job ${job.status}`}>
+                <span className="kms-render-job-title">
+                  {(job.format === 'mp4' ? 'MP4' : job.format.toUpperCase())} render · {job.status}
+                </span>
+                <span className="kms-render-job-meta">{Math.round(job.percentage)}%</span>
+                {active && (
+                  <button type="button" onClick={() => void window.knouxSlideshowAPI.cancelRender?.(job.id)}>
+                    Cancel
+                  </button>
+                )}
+                {job.status === 'failed' && <span className="kms-render-job-error">{job.error ?? 'Render failed.'}</span>}
+                {job.status === 'completed' && (
+                  <div className="kms-render-job-actions">
+                    <button type="button" onClick={() => void window.knouxSlideshowAPI.openOutput?.(job.id).catch(() => undefined)}>Open output</button>
+                    <button type="button" onClick={() => void window.knouxSlideshowAPI.revealOutput?.(job.id).catch(() => undefined)}>Save copy</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="kms-strip" aria-label="Slideshow timeline">
         {project.slides.map((slide, index) => (

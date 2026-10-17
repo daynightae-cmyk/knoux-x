@@ -24,6 +24,7 @@ import type {
   TrackKind,
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
+import { isAndroidRuntime } from '../../platform/runtime';
 
 import { VideoRetouchInspector } from './retouch/VideoRetouchInspector';
 import { VideoRetouchPreviewOverlay } from './retouch/VideoRetouchPreviewOverlay';
@@ -348,11 +349,20 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           actualKind = 'image';
         } else {
           if (requestedKind === 'image') throw new Error('Choose an image file.');
-          const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
-          const hasVideo = probe.streams?.some((stream) => stream.codec_type === 'video') ?? false;
-          const hasAudio = probe.streams?.some((stream) => stream.codec_type === 'audio') ?? false;
-          if (requestedKind === 'video' && !hasVideo) throw new Error('Choose a video file.');
-          if (requestedKind === 'audio' && !hasAudio) throw new Error('Choose an audio file.');
+          if (isAndroidRuntime()) {
+            const info = await window.knouxAPI.file.getMediaInfo(selected.filePath);
+            const mime = (typeof info.format === 'string' ? info.format : '').toLowerCase();
+            const hasVideo = mime.startsWith('video/');
+            const hasAudio = mime.startsWith('audio/');
+            if (requestedKind === 'video' && !hasVideo) throw new Error('Choose a video file.');
+            if (requestedKind === 'audio' && !hasAudio) throw new Error('Choose an audio file.');
+          } else {
+            const probe = await window.knouxCreativeAPI.export.probe(selected.filePath);
+            const hasVideo = probe.streams?.some((stream) => stream.codec_type === 'video') ?? false;
+            const hasAudio = probe.streams?.some((stream) => stream.codec_type === 'audio') ?? false;
+            if (requestedKind === 'video' && !hasVideo) throw new Error('Choose a video file.');
+            if (requestedKind === 'audio' && !hasAudio) throw new Error('Choose an audio file.');
+          }
           actualKind = requestedKind;
         }
 

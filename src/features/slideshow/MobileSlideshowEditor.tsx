@@ -329,11 +329,11 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
         return next;
       });
     };
-    window.knouxSlideshowAPI.onRenderProgress?.(upsert);
+    const unsubscribe = window.knouxSlideshowAPI.onRenderProgress?.(upsert);
     void window.knouxSlideshowAPI.renderJobs?.()
       .then((jobs) => { if (mounted) setRenderSnapshots(jobs); })
       .catch(() => undefined);
-    return () => { mounted = false; };
+    return () => { mounted = false; unsubscribe?.(); };
   }, []);
 
   useImperativeHandle(ref, () => ({ save, renderMp4 }), [renderMp4, save]);

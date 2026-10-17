@@ -47,6 +47,13 @@ export async function resumeActivePlayerAudio(): Promise<void> {
   await resolveActivePlayerAudioManager()?.resume();
 }
 
+export async function setActivePlayerPreservesPitch(preserve: boolean): Promise<boolean> {
+  const manager = resolveActivePlayerAudioManager();
+  if (!manager) return false;
+  manager.setPreservesPitch(preserve);
+  return true;
+}
+
 export class PlayerAudioManager {
   private settings: RendererAudioSettings;
   private audioContext: AudioContext | null = null;
@@ -288,6 +295,17 @@ export class PlayerAudioManager {
       this.gainNode.gain.setTargetAtTime(this.settings.volume, this.audioContext.currentTime, 0.01);
     }
     this.emit('volume-change', this.settings.volume);
+  }
+
+  public setPreservesPitch(preserve: boolean): void {
+    const video = typeof HTMLVideoElement !== 'undefined' && this.mediaElement instanceof HTMLVideoElement ? this.mediaElement : null;
+    const apply = (element: { preservesPitch?: boolean; webkitPreservesPitch?: boolean }): void => {
+      element.preservesPitch = preserve;
+      element.webkitPreservesPitch = preserve;
+    };
+    if (video) apply(video as HTMLVideoElement & { webkitPreservesPitch?: boolean });
+    if (this.audioMirror) apply(this.audioMirror);
+    this.emit('preserves-change', preserve);
   }
 
   public async setBoost(multiplier: number): Promise<void> {

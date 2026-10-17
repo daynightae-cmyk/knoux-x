@@ -9,6 +9,10 @@ import {
   captureStudioArabic,
   captureStudioEnglish,
 } from '../locales/captureStudio';
+import {
+  clipArabic,
+  clipEnglish,
+} from '../locales/clipExtraction';
 import en from '../locales/en.json';
 import {
   imageEditorArabic,
@@ -77,6 +81,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...en.recording,
       ...recordingStudioEnglish,
     },
+    clip: clipEnglish,
     imageEditor: imageEditorEnglish,
     imageStudio: imageStudioEnglish,
     multitrack: multitrackEditorEnglish,
@@ -112,6 +117,7 @@ const dictionaries: Record<LocaleType, unknown> = {
       ...ar.recording,
       ...recordingStudioArabic,
     },
+    clip: clipArabic,
     imageEditor: imageEditorArabic,
     imageStudio: imageStudioArabic,
     multitrack: multitrackEditorArabic,

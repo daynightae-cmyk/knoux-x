@@ -74,7 +74,12 @@
     "pip": "Picture in Picture",
     "fullscreen": "Fullscreen",
     "decodeError": "This media could not be decoded by the current Chromium build.",
-    "frameUnavailable": "A decoded video frame is not available yet."
+    "frameUnavailable": "A decoded video frame is not available yet.",
+    "playbackSpeed": "Playback Speed",
+    "boost": "Volume Boost (up to 200%)",
+    "audioDelay": "Audio-to-Video Delay",
+    "preservePitch": "Preserve pitch when changing speed",
+    "resumedFrom": "Resumed playback at"
   },
   "queue": {
     "eyebrow": "Persistent playback workspace",

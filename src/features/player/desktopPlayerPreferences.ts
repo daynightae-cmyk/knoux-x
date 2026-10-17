@@ -101,7 +101,7 @@ export function mergeDesktopPlayerPrefs(
   partial: Partial<DesktopPlayerPrefs>,
   store: DesktopPlayerPrefsStore | null,
 ): DesktopPlayerPrefs {
-  const merged = { ...readDesktopPlayerPrefs(mediaPath, store), ...sanitizePrefs(partial) };
+  const merged = sanitizePrefs({ ...readDesktopPlayerPrefs(mediaPath, store), ...partial });
   try {
     store?.setItem(desktopPlayerPrefsKey(mediaPath), JSON.stringify(merged));
   } catch {

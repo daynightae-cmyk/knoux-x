@@ -39,7 +39,7 @@ const saneDefault = {
   preservesPitch: true,
 } satisfies DesktopPlayerPrefs;
 
-describe('clip extraction canvas contract', () => {
+describe('desktop player preference persistence', () => {
   it('desktopPlayerPrefsKey is namespaced per media path and stable', () => {
     expect(desktopPlayerPrefsKey('C:\\videos\\movie.mp4')).toBe('knoux:desktop-player:C:\\videos\\movie.mp4');
     expect(desktopPlayerPrefsKey('')).toBe('knoux:desktop-player:');
@@ -55,6 +55,26 @@ describe('clip extraction canvas contract', () => {
     expect(saved.boost).toBe(DESKTOP_PLAYER_BOOST_MAX);
     expect(saved.delayMs).toBe(DESKTOP_PLAYER_DELAY_MAX_MS);
     expect(saved.preservesPitch).toBe(true);
+  });
+
+  it('preserves all untouched preferences across sequential partial updates', () => {
+    const store = baseStore();
+    const path = 'C:\\videos\\partial-update.mp4';
+    mergeDesktopPlayerPrefs(path, { speed: 2.5, delayMs: 350, preservesPitch: false }, store);
+    mergeDesktopPlayerPrefs(path, { boost: 1.6 }, store);
+    expect(readDesktopPlayerPrefs(path, store)).toEqual({
+      speed: 2.5,
+      boost: 1.6,
+      delayMs: 350,
+      preservesPitch: false,
+    });
+    mergeDesktopPlayerPrefs(path, { speed: 3 }, store);
+    expect(readDesktopPlayerPrefs(path, store)).toEqual({
+      speed: 3,
+      boost: 1.6,
+      delayMs: 350,
+      preservesPitch: false,
+    });
   });
 
   it('corrupt stored JSON falls back to defaults instead of throwing', () => {

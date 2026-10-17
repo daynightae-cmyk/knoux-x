@@ -337,11 +337,26 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       setBusy(true);
       setError(null);
       try {
-        const selected = await window.knouxCreativeAPI.media.open();
+        const android = isAndroidRuntime();
+        let selected: { filePath: string; mediaUrl: string } | null;
+        if (android && requestedKind === 'image') {
+          const imagePath = await window.knouxAPI.file.openFile({
+            filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }],
+          });
+          selected = imagePath
+            ? { filePath: imagePath, mediaUrl: await window.knouxCreativeAPI.media.toUrl(imagePath) }
+            : null;
+        } else {
+          selected = await window.knouxCreativeAPI.media.open();
+        }
         if (!selected) return;
         const extension = selected.filePath.split('.').pop()?.toLowerCase() ?? '';
         const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff']);
-        const isImage = imageExtensions.has(extension);
+        const androidMime = android
+          ? String((await window.knouxAPI.file.getMediaInfo(selected.filePath)).format ?? '').toLowerCase()
+          : '';
+        const isImage = androidMime.startsWith('image/')
+          || (imageExtensions.has(extension) && (!android || !androidMime || androidMime === 'application/octet-stream'));
         let actualKind: 'video' | 'audio' | 'image';
 
         if (isImage) {
@@ -349,11 +364,9 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           actualKind = 'image';
         } else {
           if (requestedKind === 'image') throw new Error('Choose an image file.');
-          if (isAndroidRuntime()) {
-            const info = await window.knouxAPI.file.getMediaInfo(selected.filePath);
-            const mime = (typeof info.format === 'string' ? info.format : '').toLowerCase();
-            const hasVideo = mime.startsWith('video/');
-            const hasAudio = mime.startsWith('audio/');
+          if (android) {
+            const hasVideo = androidMime.startsWith('video/');
+            const hasAudio = androidMime.startsWith('audio/');
             if (requestedKind === 'video' && !hasVideo) throw new Error('Choose a video file.');
             if (requestedKind === 'audio' && !hasAudio) throw new Error('Choose an audio file.');
           } else {

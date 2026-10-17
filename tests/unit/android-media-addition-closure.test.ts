@@ -14,16 +14,24 @@ describe('Android media addition and slideshow output closure', () => {
     expect(timeline).toContain('isAndroidRuntime()');
     expect(timeline).toContain('window.knouxCreativeAPI.media.open()');
     expect(timeline).toContain('window.knouxCreativeAPI.export.probe(selected.filePath)');
-    const androidBranch = timeline.indexOf('if (isAndroidRuntime())');
+    const androidBranch = timeline.indexOf('if (android)');
     const desktopProbe = timeline.indexOf('window.knouxCreativeAPI.export.probe');
     expect(androidBranch).toBeGreaterThan(0);
     expect(androidBranch).toBeLessThan(desktopProbe);
-    expect(timeline).toContain('mime.startsWith(\'video/\')');
-    expect(timeline).toContain('mime.startsWith(\'audio/\')');
+    expect(timeline).toContain('androidMime.startsWith(\'video/\')');
+    expect(timeline).toContain('androidMime.startsWith(\'audio/\')');
+  });
+
+  test('Android image imports use an image-only picker and SAF MIME for opaque content URIs', () => {
+    expect(timeline).toContain("if (android && requestedKind === 'image')");
+    expect(timeline).toContain('window.knouxAPI.file.openFile({');
+    expect(timeline).toContain("androidMime.startsWith('image/')");
+    expect(timeline).toContain('window.knouxCreativeAPI.media.toUrl(imagePath)');
   });
 
   test('slideshow editor streams render job progress and exposes the completed output', () => {
-    expect(slideshowEditor).toContain('window.knouxSlideshowAPI.onRenderProgress?.(upsert)');
+    expect(slideshowEditor).toContain('const unsubscribe = window.knouxSlideshowAPI.onRenderProgress?.(upsert)');
+    expect(slideshowEditor).toContain('unsubscribe?.()');
     expect(slideshowEditor).toContain('window.knouxSlideshowAPI.renderJobs?.()');
     expect(slideshowEditor).toContain('window.knouxSlideshowAPI.cancelRender?.(job.id)');
     expect(slideshowEditor).toContain('window.knouxSlideshowAPI.openOutput?.(job.id)');

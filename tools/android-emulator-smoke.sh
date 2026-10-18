@@ -216,6 +216,60 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
   exit 1
 fi
 
+# ── Hardware back-button policy (ANDROID_BACK_BUTTON_UNWIRED closure) ───────
+# The KNOUX JS back handler owns the hardware back button once the Capacitor
+# App plugin emits `backButton`. Root-view policy: the first press arms exit
+# and shows an in-app notice WITHOUT killing the process; a quick second press
+# inside the confirmation window exits. Both halves are exercised for real.
+adb_retry logcat -c || true
+adb_retry shell input keyevent KEYCODE_BACK
+sleep 2
+
+if [[ -z "$(read_pid || true)" ]]; then
+  echo 'KNOUX exited on the first hardware back press; the back policy is not active.' >&2
+  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+if ! foreground_activity_ready; then
+  echo 'KNOUX is no longer foreground after the first hardware back press.' >&2
+  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+capture_screen "$OUTPUT_DIR/android-back-first-press.png" || true
+adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+if grep -q 'KNOUX_ANDROID_BACK_DECISION exit-armed' "$OUTPUT_DIR/android-back-log.txt"; then
+  printf '%s\n' 'intercepted' > "$OUTPUT_DIR/android-back-verdict.txt"
+else
+  # Debug WebViews normally log the decision marker; the process-survival and
+  # foreground assertions above remain the acceptance signal when a WebView
+  # suppresses console output.
+  printf '%s\n' 'survived-without-marker' > "$OUTPUT_DIR/android-back-verdict.txt"
+fi
+
+# Double press inside the confirmation window must apply the exit policy.
+adb_retry shell input keyevent KEYCODE_BACK
+sleep 0.4
+adb_retry shell input keyevent KEYCODE_BACK
+BACK_EXITED=false
+for attempt in $(seq 1 15); do
+  if [[ -z "$(read_pid || true)" ]]; then
+    BACK_EXITED=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$BACK_EXITED" != true ]]; then
+  echo 'KNOUX did not apply the root exit policy on a double hardware back press.' >&2
+  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+printf '%s\n' 'PASS' > "$OUTPUT_DIR/android-back-policy.verdict"
+echo 'KNOUX Android hardware back policy verified (intercept, then double-press exit).'
+
 adb_retry shell input keyevent KEYCODE_HOME || true
 sleep 1
 capture_screen "$OUTPUT_DIR/android-launcher.png" || true

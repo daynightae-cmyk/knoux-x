@@ -23,6 +23,32 @@ export interface AtomicWriteResult {
   bytesWritten: number;
 }
 
+/** Win32 rename replacement is atomic but can transiently fail while another
+ *  process (antivirus, indexer, a competing atomic export) holds a handle on
+ *  the destination. Retrying just the rename keeps the atomic contract: the
+ *  destination only ever changes by a complete rename. */
+const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 200, 400] as const;
+
+function isTransientRenameError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+}
+
+async function renameWithTransientRetry(temporary: string, destination: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= RENAME_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await rename(temporary, destination);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientRenameError(error) || attempt === RENAME_RETRY_DELAYS_MS.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RENAME_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Write `bytes` to `destination` atomically. On any failure the destination
  * is left untouched and the temporary file is removed.
@@ -38,7 +64,7 @@ export async function writeFileAtomic(destination: string, bytes: Uint8Array): P
     await file.sync();
     await file.close();
     file = undefined;
-    await rename(temporary, destination);
+    await renameWithTransientRetry(temporary, destination);
     return { destination, bytesWritten: bytes.byteLength };
   } catch (error) {
     if (file) await file.close().catch(() => undefined);

@@ -56,6 +56,7 @@ concurrency:
 
 env:
   CAPACITOR_VERSION: '8.5.0'
+  CAPACITOR_APP_VERSION: '8.1.2'
 
 jobs:
   release-acceptance:
@@ -113,6 +114,7 @@ jobs:
           @capacitor/core@${CAPACITOR_VERSION}
           @capacitor/cli@${CAPACITOR_VERSION}
           @capacitor/android@${CAPACITOR_VERSION}
+          @capacitor/app@${CAPACITOR_APP_VERSION}
 
       - name: Build Knoux X Android renderer
         run: npx vite build --config vite.renderer.config.ts --outDir dist
@@ -129,6 +131,7 @@ jobs:
         run: |
           node tools/prepare-android-native-media.cjs
           node tools/prepare-android-functional-closure.cjs
+          grep -F '"@capacitor/app"' android/app/src/main/assets/capacitor.plugins.json
           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
           grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
           grep -F '@CapacitorPlugin(name = "KnouxScreenCapture")' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
@@ -216,6 +219,7 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
           PY
           grep -F 'PASS' android-ci-release-output/android-launch.verdict
+          grep -F 'PASS' android-ci-release-output/android-back-policy.verdict
           grep -F '"status": "PASS"' android-ci-release-output/android-release-acceptance.json
 
       - name: Upload CI-signed release APK and evidence

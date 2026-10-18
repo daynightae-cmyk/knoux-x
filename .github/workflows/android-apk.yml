@@ -54,6 +54,7 @@ concurrency:
 
 env:
   CAPACITOR_VERSION: '8.5.0'
+  CAPACITOR_APP_VERSION: '8.1.2'
 
 jobs:
   build-debug-apk:
@@ -111,6 +112,7 @@ jobs:
           @capacitor/core@${CAPACITOR_VERSION}
           @capacitor/cli@${CAPACITOR_VERSION}
           @capacitor/android@${CAPACITOR_VERSION}
+          @capacitor/app@${CAPACITOR_APP_VERSION}
 
       - name: Build KNOUX Android renderer
         run: npx vite build --config vite.renderer.config.ts --outDir dist
@@ -127,6 +129,7 @@ jobs:
         run: |
           node tools/prepare-android-native-media.cjs
           node tools/prepare-android-functional-closure.cjs
+          grep -F '"@capacitor/app"' android/app/src/main/assets/capacitor.plugins.json
           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
           grep -F 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
           grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' android/app/src/main/AndroidManifest.xml

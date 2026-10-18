@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 1,
+  "product": "Knoux X",
+  "kind": "windows-packaged-performance-probe",
+  "timestamp": "2026-10-18T03:47:28.521Z",
+  "artifact": {
+    "executable": {
+      "path": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
+      "bytes": 186361344,
+      "sha256": "9e9b4e41fa96fa435313e3ebf0f0ada57b34064d0f7a116da21c45cc9d970426"
+    },
+    "head": "a13ca8ced43027770f1d806f63047711895bff36",
+    "branch": "feat/knoux-x-production-closure-20261017",
+    "trackedTreeClean": true
+  },
+  "machine": {
+    "platform": "win32 10.0.19045",
+    "cpu": "Intel(R) Core(TM) i5-4570 CPU @ 3.20GHz",
+    "cpuCount": 4,
+    "totalMemoryBytes": 12769726464,
+    "node": "v20.20.2"
+  },
+  "runs": [
+    {
+      "index": 0,
+      "cold": true,
+      "ok": true,
+      "wallMs": {
+        "cdp": 3260,
+        "page": 3584,
+        "domContentLoaded": 3593,
+        "uiReady": 3975
+      },
+      "renderer": {
+        "navigation": {
+          "responseEnd": 13.5,
+          "domContentLoadedEventEnd": 371.80000000074506,
+          "loadEventEnd": 372.59999999962747
+        },
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 458.90000000037253
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 508.90000000037253
+          }
+        ],
+        "heap": {
+          "usedJSHeapSize": 10000000,
+          "totalJSHeapSize": 11200000,
+          "jsHeapSizeLimit": 2190000000
+        },
+        "readyState": "complete"
+      },
+      "memoryAfter3s": {
+        "cpuSeconds": 2.96875,
+        "workingSetBytes": 463233024,
+        "privateBytes": 331116544,
+        "count": 4
+      },
+      "memorySettled": {
+        "cpuSeconds": 3.046875,
+        "workingSetBytes": 431464448,
+        "privateBytes": 299544576,
+        "count": 4
+      },
+      "trace": {
+        "eventCount": 6,
+        "deltasMs": {
+          "module-enter": 0,
+          "electron-api-loaded": 2,
+          "startup-imports-loaded": 18,
+          "single-instance-lock-attempt": 18,
+          "single-instance-lock": 26,
+          "primary-bootstrap": 26
+        }
+      },
+      "traceFile": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\_temp\\performance-traces\\run-1.log"
+    },
+    {
+      "index": 1,
+      "cold": false,
+      "ok": true,
+      "wallMs": {
+        "cdp": 2725,
+        "page": 2837,
+        "domContentLoaded": 2886,
+        "uiReady": 3129
+      },
+      "renderer": {
+        "navigation": {
+          "responseEnd": 14.300000000745058,
+          "domContentLoadedEventEnd": 167.90000000037253,
+          "loadEventEnd": 168.90000000037253
+        },
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 246
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 295.90000000037253
+          }
+        ],
+        "heap": {
+          "usedJSHeapSize": 10000000,
+          "totalJSHeapSize": 11200000,
+          "jsHeapSizeLimit": 2190000000
+        },
+        "readyState": "complete"
+      },
+      "memoryAfter3s": {
+        "cpuSeconds": 2.921875,
+        "workingSetBytes": 460521472,
+        "privateBytes": 326709248,
+        "count": 4
+      },
+      "memorySettled": {
+        "cpuSeconds": 2.96875,
+        "workingSetBytes": 460832768,
+        "privateBytes": 327192576,
+        "count": 4
+      },
+      "trace": {
+        "eventCount": 6,
+        "deltasMs": {
+          "module-enter": 0,
+          "electron-api-loaded": 1,
+          "startup-imports-loaded": 17,
+          "single-instance-lock-attempt": 17,
+          "single-instance-lock": 24,
+          "primary-bootstrap": 27
+        }
+      },
+      "traceFile": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\_temp\\performance-traces\\run-2.log"
+    },
+    {
+      "index": 2,
+      "cold": false,
+      "ok": true,
+      "wallMs": {
+        "cdp": 2763,
+        "page": 2888,
+        "domContentLoaded": 2995,
+        "uiReady": 3143
+      },
+      "renderer": {
+        "navigation": {
+          "responseEnd": 22.299999998882413,
+          "domContentLoadedEventEnd": 201,
+          "loadEventEnd": 202
+        },
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 279.2999999988824
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 329.19999999925494
+          }
+        ],
+        "heap": {
+          "usedJSHeapSize": 10000000,
+          "totalJSHeapSize": 11200000,
+          "jsHeapSizeLimit": 2190000000
+        },
+        "readyState": "complete"
+      },
+      "memoryAfter3s": {
+        "cpuSeconds": 2.75,
+        "workingSetBytes": 460320768,
+        "privateBytes": 326373376,
+        "count": 4
+      },
+      "memorySettled": {
+        "cpuSeconds": 2.875,
+        "workingSetBytes": 460042240,
+        "privateBytes": 326168576,
+        "count": 4
+      },
+      "trace": {
+        "eventCount": 6,
+        "deltasMs": {
+          "module-enter": 0,
+          "electron-api-loaded": 3,
+          "startup-imports-loaded": 18,
+          "single-instance-lock-attempt": 18,
+          "single-instance-lock": 25,
+          "primary-bootstrap": 26
+        }
+      },
+      "traceFile": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\_temp\\performance-traces\\run-3.log"
+    },
+    {
+      "index": 3,
+      "cold": false,
+      "ok": true,
+      "wallMs": {
+        "cdp": 2679,
+        "page": 2754,
+        "domContentLoaded": 2810,
+        "uiReady": 2980
+      },
+      "renderer": {
+        "navigation": {
+          "responseEnd": 13.900000000372529,
+          "domContentLoadedEventEnd": 146.59999999962747,
+          "loadEventEnd": 147.40000000037253
+        },
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 222.69999999925494
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 289.19999999925494
+          }
+        ],
+        "heap": {
+          "usedJSHeapSize": 10000000,
+          "totalJSHeapSize": 11900000,
+          "jsHeapSizeLimit": 2190000000
+        },
+        "readyState": "complete"
+      },
+      "memoryAfter3s": {
+        "cpuSeconds": 2.6875,
+        "workingSetBytes": 470786048,
+        "privateBytes": 337031168,
+        "count": 4
+      },
+      "memorySettled": {
+        "cpuSeconds": 2.71875,
+        "workingSetBytes": 470294528,
+        "privateBytes": 336396288,
+        "count": 4
+      },
+      "trace": {
+        "eventCount": 6,
+        "deltasMs": {
+          "module-enter": 0,
+          "electron-api-loaded": 2,
+          "startup-imports-loaded": 17,
+          "single-instance-lock-attempt": 18,
+          "single-instance-lock": 25,
+          "primary-bootstrap": 25
+        }
+      },
+      "traceFile": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\_temp\\performance-traces\\run-4.log"
+    },
+    {
+      "index": 4,
+      "cold": false,
+      "ok": true,
+      "wallMs": {
+        "cdp": 2724,
+        "page": 2805,
+        "domContentLoaded": 2878,
+        "uiReady": 3186
+      },
+      "renderer": {
+        "navigation": {
+          "responseEnd": 18.699999999254942,
+          "domContentLoadedEventEnd": 146,
+          "loadEventEnd": 146.89999999850988
+        },
+        "paints": [
+          {
+            "name": "first-paint",
+            "startTime": 231.19999999925494
+          },
+          {
+            "name": "first-contentful-paint",
+            "startTime": 260
+          }
+        ],
+        "heap": {
+          "usedJSHeapSize": 10000000,
+          "totalJSHeapSize": 11200000,
+          "jsHeapSizeLimit": 2190000000
+        },
+        "readyState": "complete"
+      },
+      "memoryAfter3s": {
+        "cpuSeconds": 2.828125,
+        "workingSetBytes": 459902976,
+        "privateBytes": 328388608,
+        "count": 4
+      },
+      "memorySettled": {
+        "cpuSeconds": 3,
+        "workingSetBytes": 460390400,
+        "privateBytes": 328900608,
+        "count": 4
+      },
+      "trace": {
+        "eventCount": 6,
+        "deltasMs": {
+          "module-enter": 0,
+          "electron-api-loaded": 2,
+          "startup-imports-loaded": 17,
+          "single-instance-lock-attempt": 18,
+          "single-instance-lock": 25,
+          "primary-bootstrap": 26
+        }
+      },
+      "traceFile": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\_temp\\performance-traces\\run-5.log"
+    }
+  ],
+  "aggregates": {
+    "uiReadyMs": {
+      "samples": [
+        2980,
+        3129,
+        3143,
+        3186,
+        3975
+      ],
+      "p50": 3143,
+      "p95": 3975,
+      "min": 2980,
+      "max": 3975
+    },
+    "uiReadyColdMs": {
+      "samples": [
+        3975
+      ]
+    },
+    "uiReadyWarmMs": {
+      "samples": [
+        2980,
+        3129,
+        3143,
+        3186
+      ],
+      "p50": 3129,
+      "p95": 3186
+    },
+    "usedJsHeapBytes": {
+      "samples": [
+        10000000,
+        10000000,
+        10000000,
+        10000000,
+        10000000
+      ],
+      "p50": 10000000,
+      "p95": 10000000
+    },
+    "workingSetBytes": {
+      "samples": [
+        431464448,
+        460042240,
+        460390400,
+        460832768,
+        470294528
+      ],
+      "p50": 460390400,
+      "p95": 470294528
+    },
+    "privateBytes": {
+      "samples": [
+        299544576,
+        326168576,
+        327192576,
+        328900608,
+        336396288
+      ],
+      "p50": 327192576
+    },
+    "cpuSecondsBurnIn": {
+      "samples": [
+        2.71875,
+        2.875,
+        2.96875,
+        3,
+        3.046875
+      ],
+      "p50": 2.96875
+    },
+    "trace": {
+      "primaryBootstrapMs": [
+        25,
+        26,
+        26,
+        26,
+        27
+      ],
+      "moduleEnterToElectronApiMs": [
+        1,
+        2,
+        2,
+        2,
+        3
+      ]
+    }
+  },
+  "notes": [
+    "Wall times measured from process spawn to observable milestone on this machine.",
+    "cold = first launch after the process tree was fully terminated; warm = subsequent relaunches without rebuild. runs=5."
+  ]
+}

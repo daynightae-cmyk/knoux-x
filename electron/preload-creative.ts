@@ -161,7 +161,8 @@ export const creativeAPI = {
     selectSource: (): Promise<string | null> => invokeDesktop(IPC_INVOKE.EXPORT_SELECT_SOURCE),
     presets: (): Promise<ExportPreset[]> => invokeDesktop(IPC_INVOKE.EXPORT_PRESETS),
     capabilities: (): Promise<FFmpegCapabilities> => invokeDesktop(IPC_INVOKE.EXPORT_CAPABILITIES),
-    probe: (filePath: string): Promise<ProbeResult> => invokeDesktop(IPC_INVOKE.EXPORT_PROBE, filePath),
+    probe: (filePath: string, options?: { verifyVideoPacketExtent?: boolean }): Promise<ProbeResult> =>
+      invokeDesktop(IPC_INVOKE.EXPORT_PROBE, filePath, options),
     jobs: (): Promise<ExportJobSnapshot[]> => invokeDesktop(IPC_INVOKE.EXPORT_JOBS),
     start: (request: {
       inputPath: string;

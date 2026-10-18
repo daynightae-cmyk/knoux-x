@@ -33,6 +33,24 @@ Product code on this branch is unchanged from `db0160b`; all continuation commit
 - `library.scan` rejects folders that are not already registered (`electron/ipc/creative-suite.ts` `requireLibraryFolder`); the only registration path is the native `chooseFolder` dialog. The player E2E now drives that real dialog (`tools/pick-folder-dialog.ps1`).
 - The video-studio entry gate assumed the native `Import video into Knoux X` dialog resolves itself; in this environment it never does. `tools/dismiss-native-dialog.ps1` finds the dialog by title/process and cancels it (WM_CLOSE, verified), so the gate exercises the documented `null` (cancelled) round-trip.
 - Windows PowerShell 5.1 parses script files with the ANSI code page: automation scripts in `tools/` must stay ASCII-only.
+- CI-only failure of the new player gate (run 39105467790, head eb64ab5): the GitHub runner sets `TEMP` to the 8.3 short form (`C:\Users\RUNNER~1\...`) while the native picker returns the canonical long path, so the equality check rejected every pick and retried three times. Fixed in `74cbafa` by canonicalizing the fixture directory up front (`fs.realpathSync.native`) and canonicalizing both sides of folder comparisons, plus per-attempt pick diagnostics recorded into the evidence/failure JSON. Local re-verification after the fix: PASS 13/13.
+
+## CI matrix on the continuation PR (#55)
+
+First cycle (head `eb64ab5`):
+- KNOUX Windows Timeline Export E2E: export E2E PASS, new player preferences gate FAILED (root cause above), fix pushed.
+- KNOUX Player Viewport Windows: PASS (10 scenarios) and produced the Squirrel installer artifact.
+- KNOUX Windows Packaged Creative + Recording Real E2E: PASS.
+- KNOUX Full Rebuild Windows: PASS.
+- Android Release Acceptance: PASS (signed APK, KVM emulator install-launch-render smoke).
+- Android APK (Capacitor): PASS.
+Final cycle (head `74cbafa`): timeline export E2E PASS including the packaged player preferences/resume gate on the short-TEMP runner (14/14 steps, folder registration on attempt 1 - fix proof, evidence artifact 12128473223); viewport PASS and produced the installer artifact 12128812550; creative+recording, full rebuild, Android acceptance and Android APK all PASS. The PR head is fully green. Machine-readable matrix: `reports/release/ci-matrix-2026-10-18.json`.
+
+## Windows installer artifact (Squirrel, from CI run 39105467634)
+
+- `Knoux X-2.1.0 Setup.exe` - 285,468,672 bytes - SHA256 `d9ea93733aea210d35430618b7a1640b546042c2e43338eb264ad98989d6c86d`.
+- `KNOUX_Player_X-2.1.0-full.nupkg` - 284,730,515 bytes - SHA256 `425771b40ae1321deff281b9442649288895a569e1203a503653d865680ad52b`, SHA1 `a5fe1595568313ce34dbbb1948412df6a7f58272` matching the RELEASES feed entry.
+- Authenticode: NotSigned (no signing certificate in this environment; SmartScreen will warn until a certificate is configured). Full record: `reports/release/installer-artifact.json`.
 
 ## Known limitations / blocked
 

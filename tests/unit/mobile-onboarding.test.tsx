@@ -2,6 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
+
 import { MobileOnboarding, ONBOARDING_KEY } from '../../src/components/mobile/MobileOnboarding';
 import { useAppStore } from '../../src/store/appStore';
 

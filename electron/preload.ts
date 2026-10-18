@@ -168,29 +168,9 @@ const playerAPI = {
     muted: boolean;
   }> => invokeDesktop(IPC_INVOKE.PLAYER_STATE),
 
-  onStateChange: (callback: (state: unknown) => void): () => void => {
-    const handler = (_: unknown, state: unknown) => callback(state);
-    onDesktopEvent(IPC_OUTBOUND.PLAYER_STATE_CHANGE, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_STATE_CHANGE, handler);
-  },
 
-  onTimeUpdate: (callback: (time: number) => void): () => void => {
-    const handler = (_: unknown, time: number) => callback(time);
-    onDesktopEvent(IPC_OUTBOUND.PLAYER_TIME_UPDATE, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_TIME_UPDATE, handler);
-  },
 
-  onEnded: (callback: () => void): () => void => {
-    const handler = () => callback();
-    onDesktopEvent(IPC_OUTBOUND.PLAYER_ENDED, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_ENDED, handler);
-  },
 
-  onError: (callback: (error: string) => void): () => void => {
-    const handler = (_: unknown, error: string) => callback(error);
-    onDesktopEvent(IPC_OUTBOUND.PLAYER_ERROR, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.PLAYER_ERROR, handler);
-  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -222,11 +202,6 @@ const audioAPI = {
   getVisualizerData: (): Promise<Uint8Array> =>
     invokeDesktop(IPC_INVOKE.AUDIO_VISUALIZER),
 
-  onVisualizerData: (callback: (data: Uint8Array) => void): () => void => {
-    const handler = (_: unknown, data: Uint8Array) => callback(data);
-    onDesktopEvent(IPC_OUTBOUND.AUDIO_VISUALIZER_DATA, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.AUDIO_VISUALIZER_DATA, handler);
-  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -508,11 +483,6 @@ const aiAPI = {
   getRecommendations: (basedOn: string[]): Promise<object[]> =>
     invokeDesktop(IPC_INVOKE.AI_RECOMMENDATIONS, basedOn),
 
-  onStream: (callback: (chunk: string) => void): () => void => {
-    const handler = (_: unknown, chunk: string) => callback(chunk);
-    onDesktopEvent(IPC_OUTBOUND.AI_STREAM, handler);
-    return () => offDesktopEvent(IPC_OUTBOUND.AI_STREAM, handler);
-  },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

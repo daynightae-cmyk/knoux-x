@@ -140,6 +140,7 @@
     "library:get-favorites",
     "library:get-history",
     "library:get-media",
+    "library:get-playback",
     "library:get-playlists",
     "library:open-item",
     "library:query",
@@ -964,6 +965,11 @@
       "count": 1
     },
     {
+      "channel": "library:get-playback",
+      "owner": "creative-suite",
+      "count": 1
+    },
+    {
       "channel": "library:get-playlists",
       "owner": "core-library",
       "count": 1
@@ -1653,12 +1659,12 @@
   ],
   "missing": [],
   "duplicates": [],
-  "preloadPath": "D:\\KNOUX X\\out\\Knoux X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
+  "preloadPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\out\\Knoux X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
   "preloadExists": true,
   "packaged": true,
   "version": "2.1.0",
-  "sha": "398c80f4c0f3af2bbb3ffda9dafbf6e3748d7074",
-  "branch": "main",
-  "buildTimestamp": "2026-09-09T13:33:28.672Z",
+  "sha": "5085bab9d74f70eb425c47739f36d870b39f89f0",
+  "branch": "feat/knoux-x-production-closure-20261017",
+  "buildTimestamp": "2026-10-18T03:10:12.701Z",
   "electronVersion": "32.3.3"
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "testedHead": "398c80f4c0f3af2bbb3ffda9dafbf6e3748d7074",
+  "testedHead": "5085bab9d74f70eb425c47739f36d870b39f89f0",
   "channels": [
     {
       "channel": "ai-secure:cancel",
@@ -1651,6 +1651,28 @@
       "basic": false,
       "registrationCount": 1,
       "registeredOwner": "core-library"
+    },
+    {
+      "channel": "library:get-playback",
+      "direction": "invoke",
+      "owner": "creative-library",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"library:get-playback\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"library:get-playback\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/creative-suite.ts",
+        "electron/preload-creative.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "creative-suite"
     },
     {
       "channel": "library:get-playlists",

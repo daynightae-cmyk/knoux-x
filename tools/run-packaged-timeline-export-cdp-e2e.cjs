@@ -260,13 +260,13 @@ function cdpSession(socket, timeoutMs = 90_000) {
     settle(message);
   });
   return {
-    send(method, params = {}) {
+    send(method, params = {}, timeoutOverrideMs = timeoutMs) {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           reject(new Error(`CDP_TIMEOUT ${method}`));
-        }, timeoutMs);
+        }, timeoutOverrideMs);
         pending.set(id, (message) => {
           clearTimeout(timer);
           if (message.error) reject(new Error(`CDP_ERROR ${method}: ${JSON.stringify(message.error)}`));
@@ -306,17 +306,30 @@ async function waitUntil(session, expression, label, timeoutMs = TIMEOUT_MS) {
 }
 
 async function screenshot(session, outputFile) {
-  await session.send('Page.bringToFront');
+  try {
+    await session.send('Page.bringToFront', {}, 15_000);
+  } catch {
+    // Foregrounding is best-effort; capture still proceeds.
+  }
+  // Surface readback can starve while a media preview is painting (observed as
+  // a raw CDP timeout on some GPU/compositor states). Try the default surface
+  // capture, the renderer-frame capture, then a plain retry, each with a short
+  // budget so one wedged variant cannot stall the whole acceptance run.
+  const attempts = [
+    { label: 'surface', params: { format: 'png', captureBeyondViewport: false } },
+    { label: 'renderer-frame', params: { format: 'png', fromSurface: false, captureBeyondViewport: false } },
+    { label: 'retry', params: { format: 'png', captureBeyondViewport: false } },
+  ];
   let lastError = null;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (const attempt of attempts) {
     try {
-      const result = await session.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      const result = await session.send('Page.captureScreenshot', attempt.params, 15_000);
       fs.writeFileSync(outputFile, Buffer.from(result.data, 'base64'));
       return;
     } catch (error) {
       lastError = error;
-      log(`Screenshot attempt ${attempt} failed; retrying.`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      log(`Screenshot (${attempt.label}) failed; retrying.`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
   throw lastError;

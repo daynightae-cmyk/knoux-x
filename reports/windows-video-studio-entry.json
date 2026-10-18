@@ -12,15 +12,12 @@
   "mediaUrlResolves": true,
   "probeHasVideo": true,
   "probeVideoCodec": "h264",
-  "openVideoRoundTripNull": false,
+  "openVideoRoundTripNull": true,
   "screenshotTaken": true,
   "orphans": 0,
   "verdict": "PASS",
-  "openVideoResult": {
-    "filePath": "D:\\20260720_164824_edit1.mp4",
-    "mediaUrl": "file:///D:/20260720_164824_edit1.mp4"
-  },
-  "openVideoRoundTripSelected": true,
+  "openVideoResult": null,
+  "openVideoRoundTripSelected": false,
   "openVideoRoundTrip": true,
   "asarChecks": {
     "hasOpenVideoChannel": true,
@@ -34,8 +31,8 @@
     "videoFilterExcludesMp3": true,
     "videoFilterExcludesPng": true
   },
-  "testedHead": "dae1d71d9661c18bab1cbf140543cf6b64725c2e",
-  "testedBranch": "main",
-  "startedAt": "2026-09-09T15:38:45.335Z",
-  "completedAt": "2026-09-09T15:40:10.507Z"
+  "testedHead": "5085bab9d74f70eb425c47739f36d870b39f89f0",
+  "testedBranch": "feat/knoux-x-production-closure-20261017",
+  "startedAt": "2026-10-18T03:32:16.480Z",
+  "completedAt": "2026-10-18T03:32:26.354Z"
 }

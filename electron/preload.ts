@@ -92,8 +92,8 @@ const fileAPI = {
   readFile: (filePath: string): Promise<Buffer> =>
     invokeDesktop(IPC_INVOKE.FILE_READ, filePath),
 
-  writeFile: (filePath: string, data: Buffer | string): Promise<void> =>
-    invokeDesktop(IPC_INVOKE.FILE_WRITE, filePath, data),
+  writeFile: (filePath: string, data: Buffer | string, options?: { exclusive?: boolean }): Promise<void> =>
+    invokeDesktop(IPC_INVOKE.FILE_WRITE, filePath, data, options),
 
   deleteFile: (filePath: string): Promise<boolean> =>
     invokeDesktop(IPC_INVOKE.FILE_DELETE, filePath),

@@ -137,29 +137,33 @@ async function runCase(id, work) {
     return { ...frame, audioPeak, seek: 'completed', speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)' };
   });
   // Native screen capture is a separate case. Failure never turns into launch PASS.
-  // After a native KEYCODE_BACK the prior page handle may be detached, so the
-  // recording case re-acquires the WebView page before interacting with it.
+  // Re-attach only when the current page handle is actually dead: the prior
+  // emulator verdict shows the initial attach survives native navigation, and a
+  // redundant re-attach is what closed the working page (browser closed).
   try { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); } catch { /* best-effort navigation */ }
-  try {
-    await device.shell('am start -n dev.knoux.playerx/.MainActivity');
-    const fresh = await until(async () => {
-      try {
-        const candidate = await device.webView({ pkg: 'dev.knoux.playerx' });
-        if (candidate) { webview = candidate; return await webview.page(); }
-        return null;
-      } catch { return null; }
-    }, 'Could not re-attach to WebView after returning to the app task', 30000);
-    if (fresh) {
-      page = fresh;
-      page.on('console', (message) => {
-        if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
-      });
-      page.on('pageerror', (error) => {
-        results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
-      });
-      await hookAudio(page);
-    }
-  } catch { /* fall through: the recording case will report a precise attach error */ }
+  const pageAlive = await page.evaluate(() => Boolean(document.documentElement)).then(() => true).catch(() => false);
+  if (!pageAlive) {
+    try {
+      await device.shell('am start -n dev.knoux.playerx/.MainActivity');
+      const fresh = await until(async () => {
+        try {
+          const candidate = await device.webView({ pkg: 'dev.knoux.playerx' });
+          if (candidate) { webview = candidate; return await webview.page(); }
+          return null;
+        } catch { return null; }
+      }, 'Could not re-attach to WebView after returning to the app task', 30000);
+      if (fresh) {
+        page = fresh;
+        page.on('console', (message) => {
+          if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
+        });
+        page.on('pageerror', (error) => {
+          results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
+        });
+        await hookAudio(page);
+      }
+    } catch { /* fall through: the recording case will report a precise attach error */ }
+  }
   await runCase('native-recording-finalize-editor-handoff', async () => {
     await page.getByRole('button', { name: 'Record Native screen capture' }).click();
     await page.getByRole('button', { name: 'Start screen recording' }).click();

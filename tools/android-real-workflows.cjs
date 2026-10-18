@@ -9,22 +9,34 @@ const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const output = 'android-ci-output';
-const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', cases: [], measurements: [], consoleErrors: [] };
+const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', syntheticEventsUsed: false, syntheticNotes: 'tapWeb dispatches untrusted PointerEvent/MouseEvent; not equivalent to trusted screen taps. Real touch remains NOT_RUN unless UIAutomator/device tapped.', cases: [], measurements: [], consoleErrors: [] };
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function save() { fs.writeFileSync(`${output}/real-workflows.json`, JSON.stringify(results, null, 2)); }
 async function until(check, message, timeout = 20000) {
   const started = Date.now();
-  while (Date.now() - started < timeout) { if (await check()) return; await delay(250); }
+  while (Date.now() - started < timeout) {
+    const result = await check();
+    if (result) return result;
+    await delay(250);
+  }
   throw new Error(message);
 }
 async function nativeTap(labels, timeout = 12000) {
   let found;
-  await until(() => {
-    const dump = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
-    const xml = dump.includes('<node') ? dump : adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml') + adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
+  await until(async () => {
+    let xml = '';
+    try {
+      xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
+    } catch { xml = ''; }
+    if (!xml.includes('<node')) {
+      try {
+        adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
+        xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
+      } catch { xml = ''; }
+    }
     for (const label of labels) {
-      const node = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]).find((value) => value.includes(`text="${label}"`) || value.includes(`content-desc="${label}"`));
+      const node = [...(xml.matchAll(/<node\b[^>]+>/g) || [])].map((m) => m[0]).find((v) => v.includes(`text="${label}"`) || v.includes(`content-desc="${label}"`));
       if (node) {
         const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
         if (bounds) { found = bounds; return true; }
@@ -35,7 +47,7 @@ async function nativeTap(labels, timeout = 12000) {
   adb('shell', 'input', 'tap', String(Math.round((+found[1] + +found[3]) / 2)), String(Math.round((+found[2] + +found[4]) / 2)));
 }
 async function runCase(id, work) {
-  try { const evidence = await work(); results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', evidence }); }
+  try { const evidence = await work(); results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', syntheticUsed: results.syntheticEventsUsed, evidence }); }
   catch (error) {
     results.cases.push({ id, status: 'FAILED', error: error && error.message ? error.message : String(error) });
     try { adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`); adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`); }
@@ -48,7 +60,10 @@ async function runCase(id, work) {
   // outside the compositor viewport (fixed pixel_7 profile). A synthetic DOM
   // click performs the same user-intent handler without the geometry gate, and
   // every case still synchronizes on the resulting real app state.
+  // DIAGNOSTIC FALLBACK ONLY — synthetic untrusted PointerEvent/MouseEvent sequence.
+  // Not a trusted user touch. Any success using this must be labeled HANDLER_ONLY / SYNTHETIC.
   async function tapWeb(locator, timeout = 15000) {
+    results.syntheticEventsUsed = true;
     await locator.waitFor({ timeout });
     await locator.evaluate((element) => {
       element.scrollIntoView({ block: 'center', inline: 'center' });
@@ -93,7 +108,11 @@ async function runCase(id, work) {
       }; })();`;
     const hookAudio = async (target) => {
       try { await target.addInitScript(QA_AUDIO_HOOK); } catch { /* AndroidWebView may not support init scripts */ }
-      try { await target.reload(); } catch { /* best-effort refresh before the first interaction */ }
+      // Only reload if the page is stale or the hook has not been evaluated; reload closes active Playwright pages and must be avoided when a live WebView handle is already working.
+      try {
+        const hooked = await target.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
+        if (!hooked) await target.reload();
+      } catch { /* best-effort; do not break the running case */ }
       await target.evaluate(QA_AUDIO_HOOK);
     };
     await hookAudio(page);
@@ -164,8 +183,9 @@ async function runCase(id, work) {
   await runCase('native-recording-finalize-editor-handoff', async () => {
     await tapWeb(page.getByRole('button', { name: 'Record Native screen capture' }));
     await tapWeb(page.getByRole('button', { name: 'Start screen recording' }));
-    try { await nativeTap(['A single app', 'A single application']); await nativeTap(['Entire screen']); } catch { /* OS may already default to full screen. Consent still required below. */ }
-    await nativeTap(['Start now', 'Start recording']);
+    try { await nativeTap(['A single app', 'A single application', 'Entire screen']); } catch { /* OS may default to full screen; consent still required below */ }
+    await nativeTap(['Start now', 'Start recording', 'Start']);
+    // SystemUI API 35 consent button: text="Start" with resource-id="android:id/button1"; search text covers both localized and default forms.
     await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 20000 });
     await delay(4500); // Intentional captured duration, not a startup readiness wait.
     await tapWeb(page.getByRole('button', { name: 'Stop & save MP4' }));

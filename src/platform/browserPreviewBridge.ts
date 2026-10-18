@@ -116,10 +116,6 @@ function createCoreBridge(): Window['knouxAPI'] {
         volume: 1,
         muted: false,
       }),
-      onStateChange: noopSubscription,
-      onTimeUpdate: noopSubscription,
-      onEnded: noopSubscription,
-      onError: noopSubscription,
     },
     audio: {
       getSettings: async () => ({ volume: 1, muted: false, balance: 0, equalizer: [], effects: {} }),
@@ -130,7 +126,6 @@ function createCoreBridge(): Window['knouxAPI'] {
       setEffect: async () => undefined,
       enableDSP: async () => undefined,
       getVisualizerData: async () => new Uint8Array(),
-      onVisualizerData: noopSubscription,
     },
     video: {
       getSettings: async () => ({ brightness: 1, contrast: 1, saturation: 1, hue: 0, gamma: 1 }),
@@ -257,7 +252,6 @@ function createCoreBridge(): Window['knouxAPI'] {
       analyzeMedia: async () => ({ summary: '', tags: [], mood: '', recommendations: [] }),
       generatePlaylist: async () => [],
       getRecommendations: async () => [],
-      onStream: noopSubscription,
     },
   };
   return bridge as unknown as Window['knouxAPI'];

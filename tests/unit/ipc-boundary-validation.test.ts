@@ -52,7 +52,7 @@ describe('complete IPC schema and basic boundary', () => {
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   test('all directions have concrete keyed shapes and source roots', () => {
-    expect(IPC_CHANNEL_DEFINITIONS).toHaveLength(304);
+    expect(IPC_CHANNEL_DEFINITIONS).toHaveLength(298);
     expect(IPC_CHANNEL_DEFINITIONS.filter((entry) => entry.direction === 'invoke')).toHaveLength(EXPOSED_INVOKE_CHANNELS.length);
     for (const definition of IPC_CHANNEL_DEFINITIONS) {
       expect(definition.arguments).toMatchObject({ schema: 'typescript' });
@@ -96,7 +96,8 @@ describe('complete IPC schema and basic boundary', () => {
   });
 
   test('every no-emitter outbound declaration is explicitly reserved with a concrete reason', () => {
-    const expectedReserved = [
+    // A retired channel must not be advertised as available in the bridge.
+    const retired = [
       'ai:stream',
       'audio:visualizer-data',
       'player:ended',
@@ -104,6 +105,11 @@ describe('complete IPC schema and basic boundary', () => {
       'player:state-change',
       'player:time-update',
     ];
+    const expectedReserved: string[] = [];
+    for (const channel of retired) {
+      expect(IPC_CHANNEL_DEFINITIONS.some((entry) => entry.channel === channel)).toBe(false);
+      expect(Object.values(IPC_OUTBOUND)).not.toContain(channel);
+    }
     const reserved = IPC_CHANNEL_DEFINITIONS.filter(({ lifecycle }) => lifecycle === 'reserved');
     expect(reserved.map(({ channel }) => channel).sort()).toEqual(expectedReserved);
     for (const definition of reserved) {

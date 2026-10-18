@@ -16,6 +16,10 @@
   "screenshotTaken": true,
   "orphans": 0,
   "verdict": "PASS",
+  "openVideoError": null,
+  "openVideoDialogDismissExitCode": 0,
+  "openVideoDialogDismissOutput": "DIALOG_FOUND title=\"Import video into Knoux X\"\r\nDIALOG_DISMISSED title=\"Import video into Knoux X\" method=WM_CLOSE attempts=1",
+  "openVideoDialogDismissSpawnError": null,
   "openVideoResult": null,
   "openVideoRoundTripSelected": false,
   "openVideoRoundTrip": true,
@@ -31,8 +35,8 @@
     "videoFilterExcludesMp3": true,
     "videoFilterExcludesPng": true
   },
-  "testedHead": "5085bab9d74f70eb425c47739f36d870b39f89f0",
-  "testedBranch": "feat/knoux-x-production-closure-20261017",
-  "startedAt": "2026-10-18T03:32:16.480Z",
-  "completedAt": "2026-10-18T03:32:26.354Z"
+  "testedHead": "8cad214799d9597ca7ed9cbe9d74b01624668b55",
+  "testedBranch": "feat/knoux-x-final-release-closure",
+  "startedAt": "2026-10-18T06:36:57.771Z",
+  "completedAt": "2026-10-18T06:37:16.012Z"
 }

@@ -4,25 +4,25 @@
   "mode": "packaged-retouch-e2e",
   "success": true,
   "packaged": true,
-  "executable": "D:\\KNOUX X\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "executable": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
   "packageVersion": "2.1.0",
   "rendererReady": true,
   "vanillaIdentity": {
     "build": {
       "product": "Knoux X",
       "version": "2.1.0",
-      "sha": "407e90871dae75bdcd8fcf70c3de0730c042927b",
-      "branch": "main",
-      "builtAt": "2026-09-09T12:19:54.446Z",
+      "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+      "branch": "feat/knoux-x-final-release-closure",
+      "builtAt": "2026-10-18T05:20:49.565Z",
       "packaged": true,
       "electronVersion": "32.3.3"
     },
     "system": {
       "product": "Knoux X",
       "version": "2.1.0",
-      "sha": "407e90871dae75bdcd8fcf70c3de0730c042927b",
-      "branch": "main",
-      "builtAt": "2026-09-09T12:19:54.446Z",
+      "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+      "branch": "feat/knoux-x-final-release-closure",
+      "builtAt": "2026-10-18T05:20:49.565Z",
       "packaged": true,
       "electronVersion": "32.3.3",
       "platform": "win32",
@@ -31,7 +31,7 @@
       "nodeVersion": "20.18.1"
     }
   },
-  "sourcePath": "D:\\KNOUX X\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+  "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
   "sourceSha256": "35416523A9019421906862C1AF44BB14B96F1F1DDE99CF7D9FB19FF59C41055D",
   "sourceProbe": {
     "streams": [
@@ -155,7 +155,7 @@
       }
     ],
     "format": {
-      "filename": "D:\\KNOUX X\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
       "nb_streams": 2,
       "nb_programs": 0,
       "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -180,10 +180,10 @@
     "retouchReady": true,
     "product": "Knoux X",
     "packageVersion": "2.1.0",
-    "buildSha": "407e90871dae75bdcd8fcf70c3de0730c042927b",
+    "buildSha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
     "packaged": true,
-    "sourcePath": "D:\\KNOUX X\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
-    "mediaUrl": "file:///D:/KNOUX%20X/tests/fixtures/retouch-real/army-exercise.mp4",
+    "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+    "mediaUrl": "file:///K:/Knoux%20Projects/knoux-x/Worktrees/Knoux-X-Final-Release-Closure/tests/fixtures/retouch-real/army-exercise.mp4",
     "videoWidth": 640,
     "videoHeight": 360,
     "videoDuration": 3,
@@ -199,24 +199,24 @@
     "videoStudioProviders": 5
   },
   "previewPixelDelta": 439127,
-  "workRoot": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-7212",
-  "intermediatePath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-7212\\retouch-intermediate.mp4",
+  "workRoot": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-4016",
+  "intermediatePath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-4016\\retouch-intermediate.mp4",
   "exportJob": {
-    "id": "23c7db9d-c7c0-4a1d-a5a1-e0e329fd361e",
+    "id": "2ffd44a2-de13-455e-8545-604f8ecfe31b",
     "status": "completed",
-    "inputPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-7212\\retouch-intermediate.mp4",
-    "outputPath": "D:\\KNOUX X\\reports\\retouch-packaged-e2e-output.mp4",
+    "inputPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-4016\\retouch-intermediate.mp4",
+    "outputPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
     "presetId": "high-quality",
     "progress": {
-      "jobId": "e42e6046-a534-49ca-93a2-86501a1541bf",
+      "jobId": "c07e905c-e56f-4ac6-98c0-7b96e0a38873",
       "frame": 45,
       "fps": 0,
       "timeSeconds": 2.96,
-      "speed": 4.59
+      "speed": 2.98
     },
     "error": null,
-    "createdAt": "2026-09-09T12:29:33.039Z",
-    "completedAt": "2026-09-09T12:29:33.878Z",
+    "createdAt": "2026-10-18T06:30:01.722Z",
+    "completedAt": "2026-10-18T06:30:03.182Z",
     "probe": {
       "streams": [
         {
@@ -340,7 +340,7 @@
         }
       ],
       "format": {
-        "filename": "D:\\KNOUX X\\reports\\retouch-packaged-e2e-output.mp4.23c7db9d-c7c0-4a1d-a5a1-e0e329fd361e.partial.mp4",
+        "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4.2ffd44a2-de13-455e-8545-604f8ecfe31b.partial.mp4",
         "nb_streams": 2,
         "nb_programs": 0,
         "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -360,7 +360,7 @@
     }
   },
   "exportCompleted": true,
-  "exportPath": "D:\\KNOUX X\\reports\\retouch-packaged-e2e-output.mp4",
+  "exportPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
   "outputProbe": {
     "streams": [
       {
@@ -484,7 +484,7 @@
       }
     ],
     "format": {
-      "filename": "D:\\KNOUX X\\reports\\retouch-packaged-e2e-output.mp4",
+      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
       "nb_streams": 2,
       "nb_programs": 0,
       "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -506,6 +506,6 @@
   "outputAudioCodec": "aac",
   "reopened": true,
   "reopenedBakedPixelDelta": 568896,
-  "startedAt": "2026-09-09T12:29:08.970Z",
-  "completedAt": "2026-09-09T12:29:34.351Z"
+  "startedAt": "2026-10-18T06:29:44.417Z",
+  "completedAt": "2026-10-18T06:30:03.583Z"
 }

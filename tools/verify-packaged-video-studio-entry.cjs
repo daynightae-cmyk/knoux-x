@@ -394,17 +394,54 @@ async function main() {
     // minutes, so this call rides a dedicated long-budget session.
     let opened = null;
     let dialogSocket = null;
+    let openVideoError = null;
+    let dismissExitCode = null;
+    let dismissOutput = '';
+    let dismissSpawnError = null;
     try {
       dialogSocket = await connectCdp(pageTarget.webSocketDebuggerUrl, 30000);
       const dialogSession = cdpSession(dialogSocket, 300000);
-      opened = await cdpEvaluate(dialogSession, `window.knouxCreativeAPI.media.openVideo()`);
+      // This automation environment has nobody to click the native dialog, so
+      // a watchdog dismisses it with Cancel, exercising the documented null
+      // (cancelled) round-trip. In environments where the dialog auto-cancels
+      // the watchdog simply finds no window and exits 1 harmlessly.
+      let dismissDone = null;
+      try {
+        const dismissChild = childProcess.spawn('powershell.exe', [
+          '-NoProfile',
+          '-ExecutionPolicy', 'Bypass',
+          '-File', path.join(root, 'tools', 'dismiss-native-dialog.ps1'),
+          '-TitlePattern', 'Import video',
+          '-TimeoutSeconds', '120',
+        ], { windowsHide: true });
+        dismissDone = new Promise((resolve) => {
+          let out = '';
+          dismissChild.stdout.on('data', (chunk) => { out += chunk.toString(); });
+          dismissChild.stderr.on('data', (chunk) => { out += chunk.toString(); });
+          dismissChild.on('error', (error) => { dismissSpawnError = error instanceof Error ? error.message : String(error); resolve(-1); });
+          dismissChild.on('exit', (code) => { dismissOutput = out; resolve(code === null ? -1 : code); });
+        });
+      } catch (error) {
+        dismissSpawnError = error instanceof Error ? error.message : String(error);
+      }
+      try {
+        opened = await cdpEvaluate(dialogSession, `window.knouxCreativeAPI.media.openVideo()`);
+      } catch (error) {
+        openVideoError = error instanceof Error ? error.message : String(error);
+      } finally {
+        if (dismissDone) { dismissExitCode = await dismissDone; }
+      }
     } finally {
       try {
         if (dialogSocket) dialogSocket.close();
       } catch { /* ignore */ }
     }
+    gate.openVideoError = openVideoError;
+    gate.openVideoDialogDismissExitCode = dismissExitCode;
+    gate.openVideoDialogDismissOutput = dismissOutput.trim().slice(0, 500);
+    gate.openVideoDialogDismissSpawnError = dismissSpawnError;
     gate.openVideoResult = opened;
-    gate.openVideoRoundTripNull = opened === null;
+    gate.openVideoRoundTripNull = openVideoError === null && opened === null;
     gate.openVideoRoundTripSelected = Boolean(
       opened && typeof opened.filePath === 'string' && opened.filePath.length > 0
       && typeof opened.mediaUrl === 'string' && opened.mediaUrl.startsWith('file:'),

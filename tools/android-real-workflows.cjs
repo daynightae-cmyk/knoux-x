@@ -12,7 +12,7 @@ async function until(check, message, timeout = 20000) {
   while (Date.now() - started < timeout) { if (await check()) return; await delay(250); }
   throw new Error(message);
 }
-async function nativeTap(labels) {
+async function nativeTap(labels, timeout = 12000) {
   let found;
   await until(() => {
     adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
@@ -25,12 +25,16 @@ async function nativeTap(labels) {
       }
     }
     return false;
-  }, `Native control missing: ${labels.join(', ')}`, 12000);
+  }, `Native control missing: ${labels.join(', ')}`, timeout);
   adb('shell', 'input', 'tap', String(Math.round((+found[1] + +found[3]) / 2)), String(Math.round((+found[2] + +found[4]) / 2)));
 }
 async function runCase(id, work) {
   try { const evidence = await work(); results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', evidence }); }
-  catch (error) { results.cases.push({ id, status: 'FAILED', error: error.message }); }
+  catch (error) {
+    results.cases.push({ id, status: 'FAILED', error: error.message });
+    fs.writeFileSync(`${output}/${id}-failure.png`, execFileSync('adb', ['exec-out', 'screencap', '-p']));
+    try { fs.writeFileSync(`${output}/${id}-native-ui.xml`, adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml')); } catch { /* No hierarchy yet */ }
+  }
   save();
 }
 (async () => {

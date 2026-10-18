@@ -258,6 +258,7 @@ export const UltimateMobilePlayer: React.FC = () => {
   useEffect(() => {
     let active = true;
     setError(null);
+    setBuffering(Boolean(currentMedia));
     if (!currentMedia) {
       setMediaUrl(null);
       return () => { active = false; };
@@ -738,14 +739,13 @@ export const UltimateMobilePlayer: React.FC = () => {
             className="ump-video"
             src={mediaUrl}
             style={videoStyle}
-            preload="metadata"
+            preload="auto"
             playsInline
             onPlay={() => { play(); revealControls(); }}
             onPause={() => { pause(); setShowControls(true); persistMediaPreferences(); }}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               setDuration(Number.isFinite(video.duration) ? video.duration : 0);
-              setBuffering(false);
             }}
             onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
             onTimeUpdate={(event) => {
@@ -766,6 +766,7 @@ export const UltimateMobilePlayer: React.FC = () => {
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
             onCanPlay={() => setBuffering(false)}
+            onLoadedData={() => setBuffering(false)}
             onEnded={() => { persistMediaPreferences(); next(); }}
             onError={() => setError('This video format could not be decoded. Try compatibility mode or another file.')}
           >

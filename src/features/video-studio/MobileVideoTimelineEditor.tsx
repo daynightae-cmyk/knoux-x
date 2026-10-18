@@ -14,6 +14,7 @@ import {
   createTrack,
   deleteItems,
   insertItem,
+  moveItem,
   projectDuration,
   splitTimelineItem,
 } from '../../core/creative/multitrackProject';
@@ -35,6 +36,7 @@ import {
   attachRetouchToSplit,
 } from './retouch/videoRetouchTimeline';
 import type { VideoRetouchClipState } from './retouch/videoRetouchProject';
+import { changeClipSpeed, draggedTimelineStart } from './mobileTimelineGestures';
 
 type SaveResult = {
   ok: boolean;
@@ -116,6 +118,9 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
     const [dirty, setDirty] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [recent, setRecent] = useState<string[]>([]);
+    const [zoom, setZoom] = useState(1);
+    const dragRef = useRef<{ id: string; x: number; start: number; laneWidth: number; moved: boolean } | null>(null);
+    const suppressClickRef = useRef(false);
     const historyRef = useRef<ProjectHistory>({ past: [], future: [] });
     const previewRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
 
@@ -126,6 +131,10 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       [project],
     );
     const timelineSpan = Math.max(5, duration);
+
+    useEffect(() => {
+      if (inspectorOpen) requestAnimationFrame(() => document.querySelector('.kmc-mobile-inspector')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    }, [inspectorOpen]);
 
     const activate = useCallback((next: MultitrackProject, filePath?: string, unsaved = false): void => {
       historyRef.current = { past: [], future: [] };
@@ -550,12 +559,12 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
         <div className="kmc-mobile-timeline-scroll" aria-label="Mobile multitrack timeline">
           <div className="kmc-mobile-ruler" />
           {orderedTracks.map((track) => (
-            <div key={track.id} className="kmc-mobile-track" data-kind={track.kind}>
+            <div key={track.id} className="kmc-mobile-track" data-kind={track.kind} style={{ gridTemplateColumns: `72px minmax(${420 * zoom}px, 1fr)` }}>
               <div className="kmc-mobile-track-label">
                 <strong>{track.name}</strong>
                 <span>{track.kind}</span>
               </div>
-              <div className="kmc-mobile-track-lane">
+              <div className="kmc-mobile-track-lane" data-track-id={track.id}>
                 {track.items.map((item) => (
                   <button
                     key={item.id}
@@ -565,7 +574,37 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
                       left: `${Math.max(0, item.timelineStart / timelineSpan) * 100}%`,
                       width: `${Math.max(0.02, item.duration / timelineSpan) * 100}%`,
                     }}
+                    onPointerDown={(event) => {
+                      if (track.locked || item.locked || !event.isPrimary) return;
+                      const laneWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0;
+                      dragRef.current = { id: item.id, x: event.clientX, start: item.timelineStart, laneWidth, moved: false };
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setSelectedItemId(item.id);
+                    }}
+                    onPointerMove={(event) => {
+                      const drag = dragRef.current;
+                      if (!drag || drag.id !== item.id) return;
+                      const delta = event.clientX - drag.x;
+                      if (Math.abs(delta) < 6 && !drag.moved) return;
+                      drag.moved = true;
+                      event.currentTarget.style.transform = `translateX(${delta}px)`;
+                    }}
+                    onPointerUp={(event) => {
+                      const drag = dragRef.current;
+                      dragRef.current = null;
+                      event.currentTarget.style.transform = '';
+                      if (!drag?.moved || !project) return;
+                      suppressClickRef.current = true;
+                      const targetTrack = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-track-id]')?.dataset.trackId || track.id;
+                      try {
+                        const nextStart = draggedTimelineStart(drag.start, event.clientX - drag.x, drag.laneWidth, timelineSpan, project.settings.fps);
+                        commit(moveItem(project, item.id, targetTrack, nextStart));
+                        setPlayhead(nextStart);
+                      } catch (reason) { setError(reason instanceof Error ? reason.message : 'The clip could not be moved.'); }
+                    }}
+                    onPointerCancel={(event) => { dragRef.current = null; event.currentTarget.style.transform = ''; }}
                     onClick={() => {
+                      if (suppressClickRef.current) { suppressClickRef.current = false; return; }
                       setSelectedItemId(item.id);
                       setPlayhead(item.timelineStart);
                     }}
@@ -581,6 +620,8 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           <div className="kmc-mobile-playhead-line" style={{ left: `${Math.max(0, playhead / timelineSpan) * 100}%` }} />
         </div>
 
+        <label className="kmc-mobile-playhead">Timeline zoom <input aria-label="Timeline zoom" type="range" min={1} max={4} step={0.5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /><span>{zoom}×</span></label>
+
         {inspectorOpen && selectedItem && (
           <aside className="kmc-mobile-inspector" aria-label="Clip inspector">
             <div className="kmc-mobile-inspector-grid">
@@ -592,7 +633,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
                   max={4}
                   step={0.05}
                   value={selectedItem.playbackRate}
-                  onChange={(event) => patchSelectedItem((item) => ({ ...item, playbackRate: Number(event.target.value) }))}
+                  onChange={(event) => patchSelectedItem((item) => changeClipSpeed(item, Number(event.target.value)))}
                 />
                 <span>{selectedItem.playbackRate.toFixed(2)}×</span>
               </label>

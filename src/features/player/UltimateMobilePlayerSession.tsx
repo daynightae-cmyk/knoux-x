@@ -19,6 +19,7 @@ import {
 import {
   clearResumePosition,
   getResumePosition,
+  mediaTitle,
   persistPlaybackProgress,
   readMobilePlayerSession,
 } from './mobilePlayerSession';
@@ -38,10 +39,6 @@ const DSP_EFFECTS = [
 
 function getActiveVideo(): HTMLVideoElement | null {
   return document.querySelector<HTMLVideoElement>('.ultimate-mobile-player .ump-video');
-}
-
-function mediaTitle(mediaPath: string): string {
-  return mediaPath.split(/[\\/]/).pop() || 'KNOUX X';
 }
 
 function audioDelayKey(mediaPath: string): string {

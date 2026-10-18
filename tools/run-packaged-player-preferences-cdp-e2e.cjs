@@ -42,7 +42,7 @@ const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
 const pickerScriptPath = path.join(root, 'tools', 'pick-folder-dialog.ps1');
 const evidenceDir = path.join(root, 'reports', 'player-preferences');
-const fixtureDir = path.join(os.tmpdir(), 'knoux-player-prefs-e2e');
+const fixtureDir = canonicalFixtureDir(path.join(os.tmpdir(), 'knoux-player-prefs-e2e'));
 const logPath = path.join(evidenceDir, 'packaged-app.log');
 const evidencePath = path.join(evidenceDir, 'evidence.json');
 
@@ -259,8 +259,25 @@ async function readPlaybackViaIpc(target, mediaPath) {
   }, mediaPath);
 }
 
+function canonicalizePath(value) {
+  try {
+    return fs.realpathSync.native(value);
+  } catch {
+    return path.resolve(value);
+  }
+}
+
+function canonicalFixtureDir(dirPath) {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    return fs.realpathSync.native(dirPath);
+  } catch {
+    return dirPath;
+  }
+}
+
 function sameFolderPath(left, right) {
-  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
+  return canonicalizePath(left).toLowerCase() === canonicalizePath(right).toLowerCase();
 }
 
 async function waitForValue(reader, timeoutMs, intervalMs = 300) {
@@ -310,6 +327,11 @@ async function registerLibraryFolder(folderPath) {
     log(`folder picker attempt ${attempt}: exit=${automation.status} out=${(automation.stdout || '').trim()} err=${(automation.stderr || '').trim()}`);
 
     const picked = await waitForValue(() => page.evaluate(() => window.__knouxFolderPickResult), 30000);
+    record(`library-folder-pick-attempt-${attempt}`, {
+      pickerExit: automation.status === null ? -1 : automation.status,
+      pickerOut: (automation.stdout || '').trim().slice(0, 500),
+      picked: picked ?? null,
+    });
     if (picked && !picked.error && picked.path && sameFolderPath(picked.path, folderPath)) {
       const folders = await listLibraryFolders(page).catch(() => []);
       if (folders.some((folder) => sameFolderPath(folder.path, folderPath))) {

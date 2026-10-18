@@ -62,6 +62,8 @@ export const creativeAPI = {
       invokeDesktop(IPC_INVOKE.LIBRARY_SET_FAVORITE, filePath, favorite),
     updatePlayback: (filePath: string, position: number, duration: number, completed = false): Promise<void> =>
       invokeDesktop(IPC_INVOKE.LIBRARY_UPDATE_PLAYBACK, filePath, position, duration, completed),
+    getPlayback: (filePath: string): Promise<LibraryMediaItem | null> =>
+      invokeDesktop(IPC_INVOKE.LIBRARY_GET_PLAYBACK, filePath),
     onScanProgress: (callback: (progress: ScanProgress) => void): (() => void) => {
       const listener = (_event: unknown, progress: ScanProgress) => callback(progress);
       onDesktopEvent(IPC_OUTBOUND.LIBRARY_SCAN_PROGRESS, listener);
@@ -159,7 +161,8 @@ export const creativeAPI = {
     selectSource: (): Promise<string | null> => invokeDesktop(IPC_INVOKE.EXPORT_SELECT_SOURCE),
     presets: (): Promise<ExportPreset[]> => invokeDesktop(IPC_INVOKE.EXPORT_PRESETS),
     capabilities: (): Promise<FFmpegCapabilities> => invokeDesktop(IPC_INVOKE.EXPORT_CAPABILITIES),
-    probe: (filePath: string): Promise<ProbeResult> => invokeDesktop(IPC_INVOKE.EXPORT_PROBE, filePath),
+    probe: (filePath: string, options?: { verifyVideoPacketExtent?: boolean }): Promise<ProbeResult> =>
+      invokeDesktop(IPC_INVOKE.EXPORT_PROBE, filePath, options),
     jobs: (): Promise<ExportJobSnapshot[]> => invokeDesktop(IPC_INVOKE.EXPORT_JOBS),
     start: (request: {
       inputPath: string;

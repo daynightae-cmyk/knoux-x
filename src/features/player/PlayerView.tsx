@@ -13,6 +13,7 @@ import {
   Play,
   Plus,
   Repeat,
+  Scissors,
   Shuffle,
   SkipBack,
   SkipForward,
@@ -31,8 +32,26 @@ import { useTranslation } from '../../i18n';
 import { usePlayerStore } from '../../store/playerStore';
 import type { CaptureFormat } from '../../core/creative/capture';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
+import { parseApplicationSettings } from '../../core/settings/applicationSettings';
+import { isDesktopRuntime } from '../../platform/runtime';
 
+import {
+  computeResumePosition,
+  DEFAULT_DESKTOP_PLAYER_PREFS,
+  DESKTOP_PLAYER_BOOST_MAX,
+  DESKTOP_PLAYER_BOOST_MIN,
+  DESKTOP_PLAYER_DELAY_MAX_MS,
+  DESKTOP_PLAYER_DELAY_MIN_MS,
+  DESKTOP_PLAYER_SPEED_MAX,
+  DESKTOP_PLAYER_SPEED_MIN,
+  mergeDesktopPlayerPrefs,
+  readDesktopPlayerPrefs,
+  type DesktopPlayerPrefs,
+} from './desktopPlayerPreferences';
 import { PlayerAudioManager } from './PlayerAudioManager';
+import { ClipExtractionPanel } from './ClipExtractionPanel';
+
+export const DESKTOP_SPEED_PRESETS: readonly number[] = [0.1, 0.2, 0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4];
 
 interface CapturedFrame {
   dataUrl: string;
@@ -102,6 +121,10 @@ export const PlayerView: React.FC = () => {
   const [balance, setBalance] = useState(0);
   const [equalizer, setEqualizer] = useState<number[]>(new Array(10).fill(0));
   const [activeEffect, setActiveEffect] = useState<string | null>(null);
+  const [showClipPanel, setShowClipPanel] = useState(false);
+  const [prefs, setPrefs] = useState<DesktopPlayerPrefs>(DEFAULT_DESKTOP_PLAYER_PREFS);
+  const [bufferedPercent, setBufferedPercent] = useState(0);
+  const [resumeNotice, setResumeNotice] = useState<string | null>(null);
   const subtitleRequestRef = useRef(0);
   const subtitleDelayRequestRef = useRef(0);
   const { t } = useTranslation();
@@ -143,11 +166,17 @@ export const PlayerView: React.FC = () => {
     let active = true;
     setError(null);
     lastPersistedSecondRef.current = -1;
+    setResumeNotice(null);
+    setBufferedPercent(0);
     if (!currentMedia) {
       setMediaUrl(null);
+      setPrefs({ ...DEFAULT_DESKTOP_PLAYER_PREFS });
       audioManagerRef.current?.detach();
       return () => { active = false; };
     }
+    const remembered = readDesktopPlayerPrefs(currentMedia, typeof window === 'undefined' ? null : window.localStorage);
+    setPrefs(remembered);
+    usePlayerStore.getState().setPlaybackRate(remembered.speed);
     void window.knouxCreativeAPI.media.toUrl(currentMedia)
       .then((url) => {
         if (active) setMediaUrl(url);
@@ -197,17 +226,20 @@ export const PlayerView: React.FC = () => {
 
     video.playbackRate = playbackRate;
     video.loop = loop;
+    audioManager?.setPreservesPitch(prefs.preservesPitch);
 
     if (audioManager && audioManager.isAttached()) {
       audioManager.setVolume(volume);
       audioManager.setMuted(muted);
       audioManager.setBalance(balance);
       audioManager.setEqualizer(equalizer);
+      void audioManager.setBoost(prefs.boost);
+      void audioManager.setDelay(prefs.delayMs);
     } else if (video) {
       video.volume = Math.max(0, Math.min(1, volume));
       video.muted = muted;
     }
-  }, [loop, mediaUrl, muted, playbackRate, volume, balance, equalizer]);
+  }, [loop, mediaUrl, muted, playbackRate, volume, balance, equalizer, prefs.boost, prefs.delayMs, prefs.preservesPitch]);
 
   useEffect(() => () => {
     if (controlsTimeoutRef.current !== null) window.clearTimeout(controlsTimeoutRef.current);
@@ -265,6 +297,72 @@ export const PlayerView: React.FC = () => {
       // Directly opened files do not need to be present in the library.
     }
   }, [currentMedia]);
+
+  const handleLoadedMetadata = useCallback((): void => {
+    const video = videoRef.current;
+    const audioManager = audioManagerRef.current;
+    if (!video) return;
+    const videoDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    setDuration(videoDuration);
+    setBuffering(false);
+    if (audioManager) {
+      void audioManager.setBoost(prefs.boost);
+      void audioManager.setDelay(prefs.delayMs);
+      audioManager.setPreservesPitch(prefs.preservesPitch);
+    }
+    video.playbackRate = prefs.speed;
+    if (!isDesktopRuntime() || !currentMedia || videoDuration <= 0) return;
+    const mediaAtLoad = currentMedia;
+    void (async () => {
+      try {
+        const settings = parseApplicationSettings(await window.knouxAPI.settings.getAll());
+        if (!settings.resumePlayback) return;
+      } catch { /* settings read is advisory only */ }
+      try {
+        const item = await window.knouxCreativeAPI.library.getPlayback(mediaAtLoad);
+        if (!item || mediaAtLoad !== currentMediaRef.current) return;
+        const resumeAt = computeResumePosition(Number(item.lastPosition), videoDuration, Boolean(item.completed));
+        if (resumeAt === null) return;
+        video.currentTime = resumeAt;
+        seek(resumeAt);
+        setResumeNotice(`${t('player.resumedFrom')}: ${formatTime(resumeAt)}`);
+      } catch { /* library lookup is advisory; play normally */ }
+    })();
+  }, [currentMedia, prefs.boost, prefs.delayMs, prefs.preservesPitch, prefs.speed, seek, setDuration, t]);
+
+  const handleSpeedChange = useCallback((nextSpeed: number): void => {
+    const clamped = Math.max(DESKTOP_PLAYER_SPEED_MIN, Math.min(DESKTOP_PLAYER_SPEED_MAX, nextSpeed));
+    setPlaybackRate(clamped);
+    const video = videoRef.current;
+    if (video) video.playbackRate = clamped;
+    if (currentMedia) {
+      setPrefs(mergeDesktopPlayerPrefs(currentMedia, { speed: clamped }, typeof window === 'undefined' ? null : window.localStorage));
+    }
+  }, [currentMedia, setPlaybackRate]);
+
+  const handleBoostChange = useCallback((percent: number): void => {
+    const multiplier = Math.max(DESKTOP_PLAYER_BOOST_MIN, Math.min(DESKTOP_PLAYER_BOOST_MAX, percent / 100));
+    void audioManagerRef.current?.setBoost(multiplier);
+    if (currentMedia) {
+      setPrefs(mergeDesktopPlayerPrefs(currentMedia, { boost: multiplier }, typeof window === 'undefined' ? null : window.localStorage));
+    }
+  }, [currentMedia]);
+
+  const handleDelayChange = useCallback((nextDelayMs: number): void => {
+    const clamped = Math.max(DESKTOP_PLAYER_DELAY_MIN_MS, Math.min(DESKTOP_PLAYER_DELAY_MAX_MS, Math.round(nextDelayMs)));
+    void audioManagerRef.current?.setDelay(clamped);
+    if (currentMedia) {
+      setPrefs(mergeDesktopPlayerPrefs(currentMedia, { delayMs: clamped }, typeof window === 'undefined' ? null : window.localStorage));
+    }
+  }, [currentMedia]);
+
+  const handlePitchToggle = useCallback((): void => {
+    const next = !prefs.preservesPitch;
+    audioManagerRef.current?.setPreservesPitch(next);
+    if (currentMedia) {
+      setPrefs(mergeDesktopPlayerPrefs(currentMedia, { preservesPitch: next }, typeof window === 'undefined' ? null : window.localStorage));
+    }
+  }, [currentMedia, prefs.preservesPitch]);
 
   const handlePlayPause = useCallback(async (): Promise<void> => {
     const video = videoRef.current;
@@ -563,10 +661,14 @@ export const PlayerView: React.FC = () => {
                 void persistPlayback(false);
               }
             }}
-            onLoadedMetadata={(event) => {
-              setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
-              setBuffering(false);
+            onProgress={(event) => {
+              const videoElement = event.currentTarget;
+              const buffered = videoElement.buffered;
+              if (buffered.length > 0 && Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
+                setBufferedPercent(Math.min(100, (buffered.end(buffered.length - 1) / videoElement.duration) * 100));
+              }
             }}
+            onLoadedMetadata={handleLoadedMetadata}
             onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
@@ -625,9 +727,15 @@ export const PlayerView: React.FC = () => {
               <NeonPanel variant="dark" padding="md">
                 <div className="progress-section">
                   <span className="time-display">{formatTime(currentTime)}</span>
-                  <NeonSlider value={progress} min={0} max={100} step={0.1} onChange={handleSeek} glowColor="#8b5cf6" showTooltip tooltipFormatter={(value) => formatTime((value / 100) * duration)} />
+                  <div className="progress-track">
+                    {bufferedPercent > 0 && (
+                      <div className="progress-buffered" style={{ width: `${bufferedPercent}%` }} aria-hidden="true" />
+                    )}
+                    <NeonSlider value={progress} min={0} max={100} step={0.1} onChange={handleSeek} glowColor="#8b5cf6" showTooltip tooltipFormatter={(value) => formatTime((value / 100) * duration)} />
+                  </div>
                   <span className="time-display">{formatTime(duration)}</span>
                 </div>
+                {resumeNotice && <div className="resume-notice" role="status">{resumeNotice}</div>}
 
                 <div className="control-buttons">
                   <div className="control-group">
@@ -646,7 +754,8 @@ export const PlayerView: React.FC = () => {
                   <div className="audio-controls-toggle">
                     <button type="button" className={`control-btn ${showAudioControls ? 'active' : ''}`} onClick={() => setShowAudioControls(!showAudioControls)} title={t('player.advancedAudio') ?? 'Advanced Audio'} aria-label={t('player.advancedAudio') ?? 'Advanced Audio'}><SlidersHorizontal size={18} /></button>
                   </div>
-                  <NeonSelect className="playback-rate-select" value={String(playbackRate)} onChange={(value) => setPlaybackRate(Number(value))} aria-label={t('player.speed')} options={[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => ({ value: String(rate), label: `${rate}×` }))} />
+                  <NeonSelect className="playback-rate-select" value={String(playbackRate)} onChange={(value) => handleSpeedChange(Number(value))} aria-label={t('player.speed')} options={DESKTOP_SPEED_PRESETS.map((rate) => ({ value: String(rate), label: `${rate}×` }))} />
+                  <button type="button" className={`control-btn ${showClipPanel ? 'active' : ''}`} onClick={() => setShowClipPanel((visible) => !visible)} title={t('clip.title')} aria-label={t('clip.title')} disabled={!isDesktopRuntime()}><Scissors size={18} /></button>
                   <div className="control-group">
                     <button type="button" className="control-btn" onClick={() => void togglePictureInPicture()} title={t('player.pip')} aria-label={t('player.pip')} disabled={!document.pictureInPictureEnabled}><PictureInPicture size={18} /></button>
                     <button type="button" className="control-btn" onClick={() => void toggleFullscreen()} title={t('player.fullscreen')} aria-label={t('player.fullscreen')}><Maximize size={18} /></button>
@@ -662,6 +771,59 @@ export const PlayerView: React.FC = () => {
         {showAudioControls && mediaUrl && (
           <motion.div className="advanced-audio-panel" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
             <NeonPanel variant="dark" padding="md">
+              <div className="audio-section">
+                <h4>{t('player.playbackSpeed') ?? 'Playback Speed'}</h4>
+                <div className="speed-presets-row">
+                  {DESKTOP_SPEED_PRESETS.map((rate) => (
+                    <button key={rate} type="button" className={`speed-preset ${Math.abs(prefs.speed - rate) < 0.001 ? 'active' : ''}`} onClick={() => handleSpeedChange(rate)}>{rate}×</button>
+                  ))}
+                </div>
+                <NeonSlider
+                  value={prefs.speed}
+                  min={DESKTOP_PLAYER_SPEED_MIN}
+                  max={DESKTOP_PLAYER_SPEED_MAX}
+                  step={0.05}
+                  onChange={handleSpeedChange}
+                  glowColor="#8b5cf6"
+                  height="sm"
+                  showTooltip
+                  tooltipFormatter={(v) => `${v.toFixed(2)}×`}
+                />
+              </div>
+              <div className="audio-section">
+                <h4>{t('player.boost') ?? 'Volume Boost'}</h4>
+                <NeonSlider
+                  value={prefs.boost * 100}
+                  min={DESKTOP_PLAYER_BOOST_MIN * 100}
+                  max={DESKTOP_PLAYER_BOOST_MAX * 100}
+                  step={5}
+                  onChange={handleBoostChange}
+                  glowColor="#06b6d4"
+                  height="sm"
+                  showTooltip
+                  tooltipFormatter={(v) => `${Math.round(v)}%`}
+                />
+              </div>
+              <div className="audio-section">
+                <h4>{t('player.audioDelay') ?? 'Audio Delay'}</h4>
+                <NeonSlider
+                  value={prefs.delayMs}
+                  min={DESKTOP_PLAYER_DELAY_MIN_MS}
+                  max={DESKTOP_PLAYER_DELAY_MAX_MS}
+                  step={50}
+                  onChange={handleDelayChange}
+                  glowColor="#06b6d4"
+                  height="sm"
+                  showTooltip
+                  tooltipFormatter={(v) => `${v > 0 ? '+' : ''}${Math.round(v)}ms`}
+                />
+              </div>
+              <div className="audio-section">
+                <label className="creative-check" htmlFor="desktop-preserve-pitch">
+                  <input id="desktop-preserve-pitch" type="checkbox" checked={prefs.preservesPitch} onChange={handlePitchToggle} />
+                  {t('player.preservePitch') ?? 'Preserve Pitch'}
+                </label>
+              </div>
               <div className="audio-section">
                 <h4>{t('player.balance') ?? 'Balance'}</h4>
                 <NeonSlider
@@ -715,7 +877,12 @@ export const PlayerView: React.FC = () => {
             </NeonPanel>
           </motion.div>
         )}
+
       </AnimatePresence>
+
+      {showClipPanel && (
+        <ClipExtractionPanel onClose={() => setShowClipPanel(false)} />
+      )}
     </div>
   );
 };

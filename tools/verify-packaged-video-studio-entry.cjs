@@ -345,21 +345,29 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     let shot = null;
     let shotError = null;
-    for (let attempt = 1; attempt <= 2 && !shot; attempt += 1) {
+    try {
+      await session.send('Page.bringToFront', {});
+    } catch { /* foregrounding is best-effort */ }
+    // Capture from the foregrounded primary session first — it is the session
+    // the app has been proven to paint for. A dedicated readback session can
+    // starve on some compositor states (observed as a raw CDP timeout), so it
+    // runs second with a short budget and must not stall the whole gate.
+    try {
+      shot = await session.send('Page.captureScreenshot', { format: 'png' });
+      logLine('screenshot captured via primary session');
+    } catch (error) {
+      shotError = error instanceof Error ? error.message : String(error);
+      logLine(`screenshot primary session failed: ${shotError}`);
+    }
+    if (!shot) {
       let shotSocket = null;
       try {
-        // A dedicated session isolates the compositor readback from the
-        // long-lived evaluation session.
-        // eslint-disable-next-line no-await-in-loop
         shotSocket = await connectCdp(pageTarget.webSocketDebuggerUrl, 30000);
-        const shotSession = cdpSession(shotSocket, 120000);
-        // eslint-disable-next-line no-await-in-loop
+        const shotSession = cdpSession(shotSocket, 20000);
         shot = await shotSession.send('Page.captureScreenshot', { format: 'png' });
       } catch (error) {
         shotError = error instanceof Error ? error.message : String(error);
-        logLine(`screenshot attempt ${attempt} failed: ${shotError}`);
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        logLine(`screenshot dedicated session failed: ${shotError}`);
       } finally {
         try {
           if (shotSocket) shotSocket.close();

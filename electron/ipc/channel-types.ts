@@ -91,7 +91,7 @@ export interface InvokeArgumentMap {
   'export:capabilities': [];
   'export:jobs': [];
   'export:presets': [];
-  'export:probe': [filePath: string];
+  'export:probe': [filePath: string, options?: { verifyVideoPacketExtent?: boolean }];
   'export:select-source': [];
   'export:start': [request: ExportRequest];
   'file:authorize-dropped': [filePath: string];
@@ -105,7 +105,7 @@ export interface InvokeArgumentMap {
   'file:save': [options?: object];
   'file:scan': [dirPath: string, recursive?: boolean];
   'file:stats': [filePath: string];
-  'file:write': [filePath: string, data: string | Buffer];
+  'file:write': [filePath: string, data: string | Buffer, options?: { exclusive?: boolean }];
   'library:add-history': [mediaPath: string, position: number];
   'library:cancel-scan': [jobId: string];
   'library:choose-folder': [];
@@ -115,6 +115,7 @@ export interface InvokeArgumentMap {
   'library:get-favorites': [];
   'library:get-history': [limit?: number];
   'library:get-media': [filters?: object];
+  'library:get-playback': [filePath: string];
   'library:get-playlists': [];
   'library:open-item': [filePath: string];
   'library:query': [request: LibraryQuery];
@@ -325,7 +326,7 @@ export interface InvokeResultMap {
   'editor:autosave': string; 'editor:clear-recent-projects': VoidResult; 'editor:new-project': object; 'editor:open-project': object | null; 'editor:open-recent': object; 'editor:recent-projects': string[]; 'editor:recover-autosaves': object[]; 'editor:save-project': string | null;
   'export:cancel': boolean; 'export:capabilities': object; 'export:jobs': object[]; 'export:presets': object[]; 'export:probe': object; 'export:select-source': string | null; 'export:start': object | null;
   'file:authorize-dropped': string; 'file:delete': boolean; 'file:exists': boolean; 'file:media-info': object; 'file:open': string | null; 'file:open-directory': string | null; 'file:open-multiple': string[]; 'file:read': Uint8Array; 'file:save': string | null; 'file:scan': string[]; 'file:stats': object; 'file:write': VoidResult;
-  'library:add-history': VoidResult; 'library:cancel-scan': boolean; 'library:choose-folder': object | null; 'library:create-playlist': string; 'library:delete-playlist': VoidResult; 'library:folders': object[]; 'library:get-favorites': object[]; 'library:get-history': object[]; 'library:get-media': object[]; 'library:get-playlists': object[]; 'library:open-item': object; 'library:query': object; 'library:remove-folder': VoidResult; 'library:scan': object | VoidResult; 'library:search': object[]; 'library:set-favorite': object; 'library:statistics': object; 'library:toggle-favorite': boolean; 'library:update-playback': VoidResult; 'library:update-playlist': VoidResult;
+  'library:add-history': VoidResult; 'library:cancel-scan': boolean; 'library:choose-folder': object | null; 'library:create-playlist': string; 'library:delete-playlist': VoidResult; 'library:folders': object[]; 'library:get-favorites': object[]; 'library:get-history': object[]; 'library:get-media': object[]; 'library:get-playback': object | null; 'library:get-playlists': object[]; 'library:open-item': object; 'library:query': object; 'library:remove-folder': VoidResult; 'library:scan': object | VoidResult; 'library:search': object[]; 'library:set-favorite': object; 'library:statistics': object; 'library:toggle-favorite': boolean; 'library:update-playback': VoidResult; 'library:update-playlist': VoidResult;
   'multitrack:autosave': string; 'multitrack:clear-recent': VoidResult; 'multitrack:create': object; 'multitrack:open': object | null; 'multitrack:open-recent': object; 'multitrack:recent': string[]; 'multitrack:recoveries': object[]; 'multitrack:save': string | null;
   'player:load': VoidResult; 'player:loop': VoidResult; 'player:muted': VoidResult; 'player:next': VoidResult; 'player:pause': VoidResult; 'player:play': VoidResult; 'player:previous': VoidResult; 'player:rate': VoidResult; 'player:seek': VoidResult; 'player:shuffle': VoidResult; 'player:state': object; 'player:stop': VoidResult; 'player:volume': VoidResult;
   'recording-region:select': object | null; 'recording:append': object; 'recording:begin': object | null; 'recording:cancel': object; 'recording:finish': object; 'recording:list': object[]; 'recording:pause': object; 'recording:resume': object; 'recording:show-item': VoidResult;

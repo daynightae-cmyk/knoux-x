@@ -120,8 +120,12 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
     return fs.readFile(authorizedPaths.requireAuthorized(filePath));
   });
 
-  ipc.handle(IPC_INVOKE.FILE_WRITE, async (_, filePath: string, data: Buffer | string) => {
-    await fs.writeFile(authorizedPaths.requireAuthorized(filePath), data);
+  ipc.handle(IPC_INVOKE.FILE_WRITE, async (_, filePath: string, data: Buffer | string, options?: { exclusive?: boolean }) => {
+    // Exclusive mode uses O_EXCL, so a timeline export cannot replace an existing
+    // user file even if it appears between the save dialog and the write.
+    await fs.writeFile(authorizedPaths.requireAuthorized(filePath), data, {
+      flag: options?.exclusive === true ? 'wx' : 'w',
+    });
   });
 
   ipc.handle(IPC_INVOKE.FILE_DELETE, async (_, filePath: string) => {

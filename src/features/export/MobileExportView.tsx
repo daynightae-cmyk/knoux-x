@@ -18,6 +18,7 @@ import { readActiveAndroidMultitrackProject } from '../../platform/androidMultit
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 
+import { createFramePacer, createPacedCanvasCapture, finalizePacedCapture } from './manualFrameCapture';
 import { renderMultitrackProject } from './mobileTimelineRenderer';
 
 type ResolutionId = '720p' | '1080p' | '1440p' | '4k';
@@ -110,6 +111,17 @@ export const MobileExportView: React.FC = () => {
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const activeRecorderRef = useRef<MediaRecorder | null>(null);
   const activeFrameRef = useRef<number | null>(null);
+  const progressReporterRef = useRef({ lastUpdateAt: 0, value: -1 });
+
+  const reportProgress = useCallback((percentage: number): void => {
+    const rounded = Math.max(0, Math.min(100, Math.round(percentage)));
+    const now = performance.now();
+    const reporter = progressReporterRef.current;
+    if (rounded !== 100 && now - reporter.lastUpdateAt < 250) return;
+    reporter.lastUpdateAt = now;
+    reporter.value = rounded;
+    setProgress(rounded);
+  }, []);
 
   const resolution = useMemo(() => RESOLUTIONS.find((entry) => entry.id === resolutionId) ?? RESOLUTIONS[1], [resolutionId]);
   const directMime = useMemo(() => typeof MediaRecorder !== 'undefined' ? recorderMime() : '', []);
@@ -203,7 +215,9 @@ export const MobileExportView: React.FC = () => {
     canvas.height = dimensions.height;
     const context = canvas.getContext('2d', { alpha: false });
     if (!context) throw new Error('Canvas export is unavailable on this device.');
-    const canvasStream = canvas.captureStream(fps);
+    const capture = createPacedCanvasCapture(canvas, fps);
+    const canvasStream = capture.stream;
+    const framePacer = createFramePacer(fps);
     const outputStream = new MediaStream(canvasStream.getVideoTracks());
     let audioContext: AudioContext | null = null;
     try {
@@ -228,10 +242,16 @@ export const MobileExportView: React.FC = () => {
     });
     const render = (): void => {
       drawContained(context, video, dimensions.width, dimensions.height);
-      if (Number.isFinite(video.duration) && video.duration > 0) setProgress(Math.min(100, (video.currentTime / video.duration) * 100));
+      if (capture.captureFrame && framePacer.shouldCapture(performance.now())) capture.captureFrame(video.currentTime);
+      if (Number.isFinite(video.duration) && video.duration > 0) reportProgress((video.currentTime / video.duration) * 100);
       if (!video.ended && !cancelRequestedRef.current) activeFrameRef.current = requestAnimationFrame(render);
     };
-    video.addEventListener('ended', () => { if (recorder.state !== 'inactive') recorder.stop(); }, { once: true });
+    video.addEventListener('ended', () => finalizePacedCapture(
+      capture,
+      recorder,
+      () => undefined,
+      Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0,
+    ), { once: true });
     recorder.start(1000);
     render();
     await video.play();
@@ -243,7 +263,7 @@ export const MobileExportView: React.FC = () => {
     await audioContext?.close().catch(() => undefined);
     if (blob.size === 0) throw new Error('The encoder produced an empty video.');
     return { blob, mimeType: directMime, baseName: fileName(sourcePath) };
-  }, [bitrate, directMime, fps, resolution, sourcePath, sourceUrl]);
+  }, [bitrate, directMime, fps, reportProgress, resolution, sourcePath, sourceUrl]);
 
   const startExport = useCallback(async (): Promise<void> => {
     if (exporting) return;
@@ -262,6 +282,7 @@ export const MobileExportView: React.FC = () => {
 
     setError(null);
     clearResult();
+    progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
     setProgress(0);
     setExporting(true);
     cancelRequestedRef.current = false;
@@ -275,7 +296,7 @@ export const MobileExportView: React.FC = () => {
           height: targetSize.height,
           fps,
           videoBitsPerSecond: bitrate * 1_000_000,
-          onProgress: setProgress,
+          onProgress: reportProgress,
           cancelled: () => cancelRequestedRef.current,
         });
         blob = rendered.blob;
@@ -306,7 +327,7 @@ export const MobileExportView: React.FC = () => {
       setExporting(false);
       cancelRequestedRef.current = false;
     }
-  }, [activeProject, bitrate, clearResult, exporting, fps, renderDirectMedia, resolution.label, sourceMode, sourcePath, sourceUrl, targetSize.height, targetSize.width]);
+  }, [activeProject, bitrate, clearResult, exporting, fps, renderDirectMedia, reportProgress, resolution.label, sourceMode, sourcePath, sourceUrl, targetSize.height, targetSize.width]);
 
   const saveToDevice = useCallback(async (): Promise<void> => {
     if (!result) return;

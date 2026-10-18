@@ -1,0 +1,207 @@
+{
+  "product": "Knoux X",
+  "mode": "packaged-desktop-timeline-export-e2e",
+  "commit": null,
+  "executable": "out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "fixture": {
+    "path": "reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
+    "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
+    "duration": 1.5,
+    "size": 182969,
+    "videoCodec": "h264",
+    "audioCodec": null,
+    "width": 640,
+    "height": 360,
+    "avgFrameRate": "24/1"
+  },
+  "packagedIdentity": {
+    "product": "Knoux X",
+    "version": "2.1.0",
+    "sha": "5085bab9d74f70eb425c47739f36d870b39f89f0",
+    "packaged": true
+  },
+  "project": {
+    "schema": "knoux-multitrack",
+    "version": 1,
+    "name": "Packaged Timeline Export E2E",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "trackCount": 3,
+    "itemCount": 2,
+    "videoItemCount": 1,
+    "textItemCount": 1,
+    "titleText": "KNOUX TIMELINE E2E BAKED",
+    "titleDuration": 3.5,
+    "sourcePathMatchesFixture": true
+  },
+  "output": {
+    "path": "reports\\packaged-timeline-export-e2e\\timeline-export.webm",
+    "bytes": 808287,
+    "formatName": "matroska,webm",
+    "duration": 0,
+    "size": 808287,
+    "videoCodec": "vp8",
+    "audioCodec": "opus",
+    "width": 1920,
+    "height": 1080,
+    "avgFrameRate": "0/0",
+    "measuredDuration": 3.369,
+    "durationMeasurement": "packet-pts",
+    "durationPacketCount": 74
+  },
+  "pixelProof": {
+    "sourceEarly": {
+      "width": 320,
+      "height": 180,
+      "sha256": "e5f0c981743e51ec629ef7200aea0f566f9d94d8e149f03a7ecbd4b24a98ddb4",
+      "meanChannel": 125.52526620370371,
+      "nonBlackPixelRatio": 1,
+      "brightPixelRatio": 0.9780381944444444,
+      "maxChannel": 255
+    },
+    "outputEarly": {
+      "width": 320,
+      "height": 180,
+      "sha256": "99b19b5d35a3e43e48c5e7c7b453dcd07b57eb70fb0b530f540eef2de19ed94c",
+      "meanChannel": 126.33929976851852,
+      "nonBlackPixelRatio": 1,
+      "brightPixelRatio": 0.9759548611111111,
+      "maxChannel": 255
+    },
+    "outputLate": {
+      "width": 320,
+      "height": 180,
+      "sha256": "b21f9e251fa895fe9e36482a2820a3a984f147b3427767a60d4cd6da73151645",
+      "meanChannel": 2.4770659722222224,
+      "nonBlackPixelRatio": 0.014427083333333333,
+      "brightPixelRatio": 0.007795138888888889,
+      "maxChannel": 255
+    },
+    "earlyDifference": {
+      "meanAbsoluteChannelDifference": 12.257054398148147,
+      "materiallyDifferentPixelRatio": 0.09243055555555556
+    },
+    "lateSampleSeconds": 2.5,
+    "sourceEndsBeforeLateSample": true,
+    "outputEarlyDecodeMode": "strict",
+    "outputLateDecodeMode": "strict"
+  },
+  "ui": {
+    "workspace": {
+      "view": "editor",
+      "editorMounted": true,
+      "toolbarPresent": true,
+      "projectTitle": " Packaged Timeline Export E2E",
+      "tracks": [
+        {
+          "kind": "video",
+          "selected": true,
+          "items": [
+            {
+              "kind": "video",
+              "selected": true,
+              "label": "Real packaged MP4 source00:00:01.500"
+            }
+          ]
+        },
+        {
+          "kind": "audio",
+          "selected": false,
+          "items": []
+        },
+        {
+          "kind": "text",
+          "selected": false,
+          "items": [
+            {
+              "kind": "text",
+              "selected": false,
+              "label": "KNOUX TIMELINE E2E BAKED00:00:03.500"
+            }
+          ]
+        }
+      ],
+      "previewKind": "video",
+      "previewText": "",
+      "previewVisible": false,
+      "inspectorName": "Real packaged MP4 source",
+      "playheadText": "00:00:00.000 / 00:00:03.500"
+    },
+    "titleClick": {
+      "clicked": true,
+      "label": "KNOUX TIMELINE E2E BAKED00:00:03.500"
+    },
+    "titleSelectedThroughUI": true,
+    "titleSelection": {
+      "view": "editor",
+      "editorMounted": true,
+      "toolbarPresent": true,
+      "projectTitle": " Packaged Timeline Export E2E",
+      "tracks": [
+        {
+          "kind": "video",
+          "selected": false,
+          "items": [
+            {
+              "kind": "video",
+              "selected": false,
+              "label": "Real packaged MP4 source00:00:01.500"
+            }
+          ]
+        },
+        {
+          "kind": "audio",
+          "selected": false,
+          "items": []
+        },
+        {
+          "kind": "text",
+          "selected": true,
+          "items": [
+            {
+              "kind": "text",
+              "selected": true,
+              "label": "KNOUX TIMELINE E2E BAKED00:00:03.500"
+            }
+          ]
+        }
+      ],
+      "previewKind": "text",
+      "previewText": "KNOUX TIMELINE E2E BAKED",
+      "previewVisible": true,
+      "inspectorName": "KNOUX TIMELINE E2E BAKED",
+      "playheadText": "00:00:00.000 / 00:00:03.500"
+    },
+    "projectOpenedFromRecent": true,
+    "titleVisibleBeforeExport": true,
+    "exportButton": {
+      "clicked": true,
+      "count": 2,
+      "label": "Export Current Project"
+    },
+    "exportOutcome": {
+      "status": "success",
+      "text": "Export verifiedK:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\reports\\packaged-timeline-export-e2e\\timeline-export.webmvp8 + opus"
+    }
+  },
+  "network": {
+    "guardInstalled": true,
+    "externalRequests": [
+      {
+        "source": "electron-session",
+        "method": "GET",
+        "url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap",
+        "blocked": true
+      },
+      {
+        "source": "electron-session",
+        "method": "GET",
+        "url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap",
+        "blocked": true
+      }
+    ]
+  },
+  "verdict": "PASS",
+  "error": null
+}

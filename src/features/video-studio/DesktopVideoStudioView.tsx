@@ -5,6 +5,7 @@ import { NeonButton } from '../../components/neon/NeonButton';
 import type { MultitrackProject } from '../../core/creative/multitrackProject';
 import { useTranslation } from '../../i18n';
 import { renderMultitrackProject } from '../export/mobileTimelineRenderer';
+import { measureTimelineOutputCoverage, timelineOutputCoversDuration } from '../export/timelineOutputCoverage';
 
 import { VideoStudioView } from './VideoStudioView';
 
@@ -103,6 +104,17 @@ export const DesktopVideoStudioView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [verifiedOutput, setVerifiedOutput] = useState<VerifiedOutput | null>(null);
   const cancelRequestedRef = useRef(false);
+  const progressReporterRef = useRef({ lastUpdateAt: 0, value: -1 });
+
+  const reportProgress = useCallback((percentage: number): void => {
+    const rounded = Math.max(0, Math.min(100, Math.round(percentage)));
+    const now = performance.now();
+    const reporter = progressReporterRef.current;
+    if (rounded !== 100 && now - reporter.lastUpdateAt < 250) return;
+    reporter.lastUpdateAt = now;
+    reporter.value = rounded;
+    setProgress(rounded);
+  }, []);
 
   const labels = ar ? {
     eyebrow: 'إخراج الخط الزمني على Windows',
@@ -120,6 +132,8 @@ export const DesktopVideoStudioView: React.FC = () => {
     saveFailed: 'تعذر حفظ المشروع الحالي قبل التصدير.',
     exportFailed: 'فشل تصدير مشروع الخط الزمني.',
     noVideo: 'الملف الناتج لا يحتوي على مسار فيديو صالح.',
+    truncatedOutput: 'ملف التصدير توقف قبل نهاية الخط الزمني ولم يُعتمد. أعد التصدير مرة أخرى.',
+    existingOutput: 'الملف المختار موجود بالفعل. اختر اسمًا جديدًا لحماية الملف السابق من الاستبدال.',
   } : {
     eyebrow: 'Windows Timeline Output',
     description: 'Exports the real multitrack Video Studio project — not a separately selected source file.',
@@ -136,12 +150,15 @@ export const DesktopVideoStudioView: React.FC = () => {
     saveFailed: 'The current project could not be saved before export.',
     exportFailed: 'Timeline project export failed.',
     noVideo: 'The rendered output contains no valid video stream.',
+    truncatedOutput: 'The exported file ended before the timeline finished and was not accepted. Export again to retry.',
+    existingOutput: 'The selected output already exists. Choose a new filename to preserve the previous file.',
   };
 
   const renderAndSave = useCallback(async (project: MultitrackProject): Promise<void> => {
     cancelRequestedRef.current = false;
     setError(null);
     setVerifiedOutput(null);
+    progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
     setProgress(0);
 
     try {
@@ -152,7 +169,7 @@ export const DesktopVideoStudioView: React.FC = () => {
         fps: project.settings.fps,
         videoBitsPerSecond: timelineBitrate(project),
         preferredMimeTypes: DESKTOP_TIMELINE_PREFERRED_MIME_TYPES,
-        onProgress: setProgress,
+        onProgress: reportProgress,
         cancelled: () => cancelRequestedRef.current,
       });
       if (cancelRequestedRef.current) return;
@@ -167,16 +184,25 @@ export const DesktopVideoStudioView: React.FC = () => {
       if (!destination || cancelRequestedRef.current) return;
 
       setPhase('writing');
+      // Never overwrite a pre-existing file, even when the save dialog allows it.
+      // The IPC handler enforces this atomically with O_EXCL as well.
+      if (await window.knouxAPI.file.exists(destination)) throw new Error(labels.existingOutput);
       const bytes = new Uint8Array(await rendered.blob.arrayBuffer());
       await window.knouxAPI.file.writeFile(
         destination,
         bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
+        { exclusive: true },
       );
 
       setPhase('verifying');
-      const probe = await window.knouxCreativeAPI.export.probe(destination);
+      const probe = await window.knouxCreativeAPI.export.probe(destination, { verifyVideoPacketExtent: true });
       const video = probe.streams?.find((stream) => stream.codec_type === 'video');
       if (!video?.codec_name) throw new Error(labels.noVideo);
+      const coverage = measureTimelineOutputCoverage(probe);
+      if (!timelineOutputCoversDuration(coverage, rendered.duration)) {
+        await window.knouxAPI.file.deleteFile(destination).catch(() => undefined);
+        throw new Error(labels.truncatedOutput);
+      }
       const audio = probe.streams?.find((stream) => stream.codec_type === 'audio');
       setVerifiedOutput({
         path: destination,
@@ -192,7 +218,7 @@ export const DesktopVideoStudioView: React.FC = () => {
       setPhase(null);
       cancelRequestedRef.current = false;
     }
-  }, [ar, labels.exportFailed, labels.noVideo]);
+  }, [ar, labels.existingOutput, labels.exportFailed, labels.noVideo, labels.truncatedOutput, reportProgress]);
 
   const exportCurrent = useCallback(async (): Promise<void> => {
     if (phase) return;

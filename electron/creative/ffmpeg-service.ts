@@ -4,6 +4,8 @@ import { createRequire } from 'module';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { randomUUID } from 'crypto';
 
+import { parsePacketPtsCsvExtent } from './probe-packet-extent';
+
 const requireForRuntime = createRequire(import.meta.url);
 const MAX_OUTPUT_CAPTURE = 2 * 1024 * 1024;
 
@@ -71,7 +73,11 @@ export interface ProbeResult {
     nb_read_frames?: string;
     nb_read_packets?: string;
   }>;
+  contentDurationSeconds?: number;
+  contentPacketCount?: number;
 }
+
+export { parsePacketPtsCsvExtent };
 
 function resolveOptionalModule(moduleName: string): unknown {
   try {
@@ -270,7 +276,7 @@ export class FFmpegService {
     });
   }
 
-  async probe(filePath: string): Promise<ProbeResult> {
+  async probe(filePath: string, options: { verifyVideoPacketExtent?: boolean } = {}): Promise<ProbeResult> {
     const executable = await this.resolveExecutable('ffprobe');
     if (!executable) throw new Error('FFprobe is not available in this KNOUX build.');
     const resolved = path.resolve(filePath);
@@ -285,7 +291,26 @@ export class FFmpegService {
       '-of', 'json',
       resolved,
     ]);
-    return JSON.parse(result.stdout) as ProbeResult;
+    const parsed = JSON.parse(result.stdout) as ProbeResult;
+    const muxDuration = Number.parseFloat(parsed.format?.duration ?? '');
+    const hasVideoStream = parsed.streams?.some((stream) => stream.codec_type === 'video') ?? false;
+    if (hasVideoStream && (options.verifyVideoPacketExtent === true || !Number.isFinite(muxDuration) || muxDuration <= 0)) {
+      const packets = await this.execute(executable, [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'packet=pts_time',
+        '-of', 'csv=p=0',
+        resolved,
+      ]).catch(() => null);
+      const extent = packets ? parsePacketPtsCsvExtent(packets.stdout) : null;
+      if (extent) {
+        parsed.contentDurationSeconds = extent.durationSeconds;
+        parsed.contentPacketCount = extent.packetCount;
+      } else if (options.verifyVideoPacketExtent === true) {
+        throw new Error('The exported video packet timeline could not be verified.');
+      }
+    }
+    return parsed;
   }
 
   cancel(jobId: string): boolean {

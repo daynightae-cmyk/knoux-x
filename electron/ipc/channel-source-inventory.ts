@@ -90,6 +90,7 @@ export const IPC_SOURCE_INVENTORY = {
   'library:get-favorites': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'library:get-history': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'library:get-media': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
+  'library:get-playback': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'library:get-playlists': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'library:open-item': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'library:query': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },

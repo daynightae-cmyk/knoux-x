@@ -1,5 +1,6 @@
 import type { SlideshowRenderSnapshot } from '../../electron/creative/slideshow-render-service';
 import type { SlideshowRenderFormat } from '../core/creative/slideshowRender';
+import { createFramePacer, createPacedCanvasCapture, finalizePacedCapture } from '../features/export/manualFrameCapture';
 import {
   slideTimelineRanges,
   slideshowDuration,
@@ -176,7 +177,9 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
     audioEntries.push({ track, element, gain });
   }
 
-  const stream = canvas.captureStream(project.fps);
+  const capture = createPacedCanvasCapture(canvas, project.fps);
+  const stream = capture.stream;
+  const framePacer = createFramePacer(project.fps);
   destination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
   const chunks: BlobPart[] = [];
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: Math.max(4_000_000, Math.round(size.width * size.height * project.fps * 0.08)), audioBitsPerSecond: 192_000 });
@@ -202,34 +205,39 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
           return;
         }
         const time = (performance.now() - startedAt) / 1000;
-        context.fillStyle = project.backgroundColor || '#000000';
-        context.fillRect(0, 0, size.width, size.height);
+        const shouldDraw = capture.captureFrame === null || framePacer.shouldCapture(performance.now());
+        if (shouldDraw) {
+          context.fillStyle = project.backgroundColor || '#000000';
+          context.fillRect(0, 0, size.width, size.height);
 
-        project.slides.forEach((slide, index) => {
-          const range = ranges[index];
-          if (!range || time < range.start || time >= range.end) return;
-          const local = Math.max(0, time - range.start);
-          context.save();
-          context.globalAlpha = transitionAlpha(slide, local);
-          if (slide.kind === 'title' || slide.kind === 'end-card') {
-            drawTitle(context, slide, size.width, size.height);
-          } else {
-            const media = slideMedia.get(slide.id);
-            if (media instanceof HTMLVideoElement) {
-              const target = slide.sourceIn + Math.min(slide.duration, local);
-              if (Math.abs(media.currentTime - target) > 0.18) {
-                try { media.currentTime = target; } catch { /* best effort seek */ }
+          project.slides.forEach((slide, index) => {
+            const range = ranges[index];
+            if (!range || time < range.start || time >= range.end) return;
+            const local = Math.max(0, time - range.start);
+            context.save();
+            context.globalAlpha = transitionAlpha(slide, local);
+            if (slide.kind === 'title' || slide.kind === 'end-card') {
+              drawTitle(context, slide, size.width, size.height);
+            } else {
+              const media = slideMedia.get(slide.id);
+              if (media instanceof HTMLVideoElement) {
+                const target = slide.sourceIn + Math.min(slide.duration, local);
+                if (Math.abs(media.currentTime - target) > 0.18) {
+                  try { media.currentTime = target; } catch { /* best effort seek */ }
+                }
+                media.muted = true;
+                if (media.paused) void media.play().catch(() => undefined);
+                drawFitted(context, media, media.videoWidth || 1, media.videoHeight || 1, size.width, size.height, slide);
+              } else if (media instanceof HTMLImageElement) {
+                drawFitted(context, media, media.naturalWidth || 1, media.naturalHeight || 1, size.width, size.height, slide);
               }
-              media.muted = true;
-              if (media.paused) void media.play().catch(() => undefined);
-              drawFitted(context, media, media.videoWidth || 1, media.videoHeight || 1, size.width, size.height, slide);
-            } else if (media instanceof HTMLImageElement) {
-              drawFitted(context, media, media.naturalWidth || 1, media.naturalHeight || 1, size.width, size.height, slide);
+              drawCaption(context, slide, size.width, size.height);
             }
-            drawCaption(context, slide, size.width, size.height);
-          }
-          context.restore();
-        });
+            context.restore();
+          });
+
+          capture.captureFrame?.(time);
+        }
 
         audioEntries.forEach(({ track, element, gain }) => {
           const end = audioTrackEnd(track, duration);
@@ -255,8 +263,7 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
         snapshot.progress = { jobId: snapshot.id, timeSeconds: Math.min(duration, time) };
         publish(snapshot);
         if (time >= duration) {
-          if (recorder.state !== 'inactive') recorder.stop();
-          resolve();
+          finalizePacedCapture(capture, recorder, resolve, duration);
           return;
         }
         requestAnimationFrame(frame);

@@ -28,7 +28,11 @@ describe('Windows real multitrack timeline export', () => {
   test('writes a real encoded artifact and independently probes the final file', () => {
     expect(shell).toContain('window.knouxAPI.file.saveFile');
     expect(shell).toContain('window.knouxAPI.file.writeFile');
-    expect(shell).toContain('window.knouxCreativeAPI.export.probe(destination)');
+    expect(shell).toContain('window.knouxCreativeAPI.export.probe(destination, { verifyVideoPacketExtent: true })');
+    expect(shell).toContain('window.knouxAPI.file.exists(destination)');
+    expect(shell).toContain('{ exclusive: true }');
+    expect(readSource('electron/ipc/setup.ts')).toContain("flag: options?.exclusive === true ? 'wx' : 'w'");
+    expect(readSource('electron/creative/ffmpeg-service.ts')).toContain('options.verifyVideoPacketExtent === true');
     expect(shell).toContain("stream.codec_type === 'video'");
     expect(shell).toContain("stream.codec_type === 'audio'");
   });

@@ -23,6 +23,9 @@ import { installPhase3bAcceptanceNetworkGuard } from './retouch/phase3b-acceptan
 import { maybeRunPackagedRetouchE2E } from './startup/packaged-retouch-e2e';
 import { maybeRunSettingsPersistenceSelfTest } from './startup/settings-self-test-runtime';
 
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
 let activeOrchestrator: SystemOrchestrator | null = null;
 let shutdownPromise: Promise<void> | null = null;
 let startupPromise: Promise<void> | null = null;

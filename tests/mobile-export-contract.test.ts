@@ -18,7 +18,8 @@ describe('KNOUX X Android real mobile export contract', () => {
 
   test('performs a real on-device video encode instead of presenting a mock progress screen', () => {
     expect(mobileExport).toContain('new MediaRecorder(outputStream');
-    expect(mobileExport).toContain('canvas.captureStream(fps)');
+    expect(mobileExport).toContain('createPacedCanvasCapture(canvas, fps)');
+    expect(mobileExport).toContain('finalizePacedCapture');
     expect(mobileExport).toContain('createMediaElementSource(video)');
     expect(mobileExport).toContain('createMediaStreamDestination()');
     expect(mobileExport).toContain('videoBitsPerSecond');

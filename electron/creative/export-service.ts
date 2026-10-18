@@ -142,8 +142,8 @@ export class ExportService {
     return this.ffmpeg.discoverCapabilities();
   }
 
-  async probe(filePath: string): Promise<ProbeResult> {
-    return this.ffmpeg.probe(path.resolve(filePath));
+  async probe(filePath: string, options: { verifyVideoPacketExtent?: boolean } = {}): Promise<ProbeResult> {
+    return this.ffmpeg.probe(path.resolve(filePath), options);
   }
 
   async export(

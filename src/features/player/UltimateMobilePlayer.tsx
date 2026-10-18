@@ -34,6 +34,7 @@ import {
 
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useAppStore } from '../../store/appStore';
+import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
 import { usePlayerStore } from '../../store/playerStore';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
@@ -189,6 +190,7 @@ export const UltimateMobilePlayer: React.FC = () => {
   const [abEnabled, setAbEnabled] = useState(false);
   const [cinemaMode, setCinemaMode] = useState(false);
   const [frameStepCount, setFrameStepCount] = useState<1 | 5 | 10>(1);
+  const [detectedFrameRate, setDetectedFrameRate] = useState<number>(DEFAULT_FRAME_RATE);
 
   const setView = useAppStore((state) => state.setView);
   const {
@@ -508,9 +510,35 @@ export const UltimateMobilePlayer: React.FC = () => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(video.duration)) return;
     video.pause();
-    const estimatedFrameSeconds = frameStepCount / 30;
-    seekTo(video.currentTime + direction * estimatedFrameSeconds);
-  }, [frameStepCount, seekTo]);
+    const nextTime = computeFrameStepTime(video.currentTime, direction, frameStepCount, detectedFrameRate, video.duration);
+    seekTo(nextTime);
+  }, [frameStepCount, detectedFrameRate, seekTo]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || typeof video.requestVideoFrameCallback !== 'function') return;
+    let lastMediaTime: number | null = null;
+    let handle = 0;
+    const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (lastMediaTime !== null && metadata.mediaTime > lastMediaTime) {
+        const delta = metadata.mediaTime - lastMediaTime;
+        if (delta > 0) {
+          const fps = 1 / delta;
+          if (fps > 0 && fps <= 240) {
+            setDetectedFrameRate((prev) => (Math.abs(prev - fps) > 1 ? fps : prev));
+          }
+        }
+      }
+      lastMediaTime = metadata.mediaTime;
+      handle = video.requestVideoFrameCallback(onFrame);
+    };
+    handle = video.requestVideoFrameCallback(onFrame);
+    return () => {
+      if (handle && typeof video.cancelVideoFrameCallback === 'function') {
+        video.cancelVideoFrameCallback(handle);
+      }
+    };
+  }, []);
 
   const addBookmark = useCallback(() => {
     const time = videoRef.current?.currentTime ?? currentTime;

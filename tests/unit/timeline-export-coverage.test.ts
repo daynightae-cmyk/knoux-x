@@ -32,12 +32,18 @@ describe('packet timestamp extent parsing', () => {
 });
 
 describe('timeline output coverage measurement', () => {
-  test('prefers the real mux duration when present', () => {
+  test('uses actual video packets over a longer mux duration from the audio tail', () => {
     const coverage = measureTimelineOutputCoverage({
-      format: { duration: '2.938000' },
-      contentDurationSeconds: 1.0,
-      contentPacketCount: 30,
+      format: { duration: '3.622000' },
+      contentDurationSeconds: 1.349,
+      contentPacketCount: 15,
     });
+    expect(coverage).toEqual({ measuredSeconds: 1.349, measurement: 'video-packet-extent' });
+    expect(timelineOutputCoversDuration(coverage, 3.5)).toBe(false);
+  });
+
+  test('uses container duration only when video packet measurement is absent', () => {
+    const coverage = measureTimelineOutputCoverage({ format: { duration: '2.938000' } });
     expect(coverage).toEqual({ measuredSeconds: 2.938, measurement: 'mux-duration' });
   });
 

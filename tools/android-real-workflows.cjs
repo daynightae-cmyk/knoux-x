@@ -95,7 +95,11 @@ async function runCase(id, work) {
     await nativeTap(['KNOUX-QA.mp4']);
     const video = page.locator('video').first();
     await video.waitFor();
-    await page.locator('.ump-play').click();
+    // AndroidWebView stalls Playwright clicks on "scheduled navigations" after
+    // native picker navigation, so trigger playback inside the page context and
+    // synchronize on real media progress instead of synthetic click completion.
+    await video.evaluate((element) => { void (element as HTMLMediaElement).play().catch(() => undefined); });
+    await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Media did not start advancing after play');
     await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
     const firstFrameMs = Date.now() - started;
     results.measurements.push({ name: 'chooser-to-decoded-frame', milliseconds: firstFrameMs, N: 1, includesNativeChooser: true });

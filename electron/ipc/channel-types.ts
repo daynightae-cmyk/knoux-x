@@ -91,7 +91,7 @@ export interface InvokeArgumentMap {
   'export:capabilities': [];
   'export:jobs': [];
   'export:presets': [];
-  'export:probe': [filePath: string];
+  'export:probe': [filePath: string, options?: { verifyVideoPacketExtent?: boolean }];
   'export:select-source': [];
   'export:start': [request: ExportRequest];
   'file:authorize-dropped': [filePath: string];
@@ -105,7 +105,7 @@ export interface InvokeArgumentMap {
   'file:save': [options?: object];
   'file:scan': [dirPath: string, recursive?: boolean];
   'file:stats': [filePath: string];
-  'file:write': [filePath: string, data: string | Buffer];
+  'file:write': [filePath: string, data: string | Buffer, options?: { exclusive?: boolean }];
   'library:add-history': [mediaPath: string, position: number];
   'library:cancel-scan': [jobId: string];
   'library:choose-folder': [];

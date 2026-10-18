@@ -7,21 +7,23 @@
  *
  *   1. Open media A (60 s webm fixture generated on the fly).
  *   2. Register the fixture folder through the real native "Add a folder to
- *      KNOUX Library" dialog (automated with Win32 keystrokes), then run the
- *      real SQLite scan so playback rows exist.
+ *      KNOUX Library" dialog (window-automated), then run the real SQLite scan
+ *      so playback rows exist.
  *   3. Configure speed 2.5x through the visible speed-preset UI, boost 160%,
  *      audio delay +350 ms and pitch preservation OFF through the real
  *      NeonSlider/checkbox controls, then prove the engine reacted
  *      (video.playbackRate) and localStorage holds the merged record.
- *   4. Sequentially change ONE preference (speed 1.5x) and prove unrelated
- *      preferences survive the partial update (regression guard for the
- *      per-media merge bug).
- *   5. Seek past the resume guard, pause so the renderer persists progress
- *      through the library IPC into SQLite, then verify the persisted row.
- *   6. Close and relaunch the packaged app with the same media and prove the
+ *   4. Start real playback through the UI, change speed to 0.5x mid-playback
+ *      and prove the engine reacts live while playback keeps advancing.
+ *   5. Change ONE preference again (speed 1.5x) and prove unrelated
+ *      preferences survive the partial update (merge regression guard).
+ *   6. Seek through the real progress slider and prove the video lands there.
+ *   7. Pause through the UI so the renderer persists progress through the
+ *      library IPC into SQLite, then verify the persisted row.
+ *   8. Close and relaunch the packaged app with the same media and prove the
  *      resume notice, restored position and restored speed come from real
  *      persistence.
- *   7. Open media B and prove preferences are independent per media item.
+ *   9. Open media B and prove preferences are independent per media item.
  *
  * Evidence: reports/player-preferences/evidence.json + screenshots.
  */
@@ -371,6 +373,57 @@ async function clickSpeedPreset(target, label) {
   await target.waitForTimeout(150);
 }
 
+async function clickPlayPauseButton() {
+  await ensureControlsVisible(page);
+  await page.locator('.control-group.center button').first().click();
+  await page.waitForTimeout(400);
+}
+
+async function startPlaybackViaUi() {
+  const before = await videoState(page);
+  assert(before && before.paused, 'Video should start paused before the playback test.', before);
+  await clickPlayPauseButton();
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video.video-element');
+    return video instanceof HTMLVideoElement && !video.paused;
+  }, null, { timeout: 8000 });
+  const first = await videoState(page);
+  await page.waitForTimeout(1200);
+  const after = await videoState(page);
+  assert(after && !after.paused && after.currentTime - first.currentTime >= 0.3, 'Playback did not advance in real time.', { first, after });
+  record('playback-started-via-ui', { playbackRate: after.playbackRate, advancedSeconds: Number((after.currentTime - first.currentTime).toFixed(3)) });
+}
+
+async function liveSpeedChangeDuringPlayback() {
+  await clickSpeedPreset(page, '0.5');
+  const state = await videoState(page);
+  assert(state && !state.paused, 'Changing speed interrupted playback.', state);
+  assert(Math.abs(state.playbackRate - 0.5) < 1e-6, 'Live speed change was not applied while playing.', state);
+  const first = state;
+  await page.waitForTimeout(1200);
+  const after = await videoState(page);
+  assert(after && after.currentTime - first.currentTime >= 0.15, 'Playback did not advance after the live speed change.', { first, after });
+  const prefs = (await readPrefRecord(page, FIXTURE_A)).exact;
+  assert(prefs && prefs.speed === 0.5, 'Live speed preference was not stored.', prefs);
+  record('live-speed-change-during-playback', { playbackRate: after.playbackRate, advancedSeconds: Number((after.currentTime - first.currentTime).toFixed(3)), prefs });
+}
+
+async function seekViaProgressSlider(seconds) {
+  const before = await videoState(page);
+  assert(before && before.duration > seconds * 2, 'Seek target guard failed.', before);
+  await ensureControlsVisible(page);
+  const slider = page.locator('.progress-track .neon-slider').first();
+  const box = await slider.boundingBox();
+  assert(box && box.width > 100, 'Progress slider is not measurable.', { box });
+  const fraction = seconds / before.duration;
+  const x = box.x + Math.max(2, Math.min(box.width - 2, box.width * fraction));
+  await page.mouse.click(x, box.y + box.height / 2);
+  await page.waitForTimeout(600);
+  const after = await videoState(page);
+  assert(after && Math.abs(after.currentTime - seconds) <= 2, 'UI seek did not land near the target.', { seconds, after });
+  record('seek-via-progress-slider', { targetSeconds: seconds, currentTime: Number(after.currentTime.toFixed(3)), stillPlaying: !after.paused });
+}
+
 async function clickSliderAtFraction(target, sectionIndex, fraction) {
   const slider = target.locator('.advanced-audio-panel .audio-section').nth(sectionIndex).locator('.neon-slider').first();
   const box = await slider.boundingBox();
@@ -441,28 +494,23 @@ async function persistAndVerifyPlayback() {
   const libraryRow = await readPlaybackViaIpc(page, FIXTURE_A);
   assert(libraryRow && !libraryRow.error, 'Library row for fixture A was not indexed before playback persistence.', { libraryRow });
 
-  await page.evaluate((seconds) => {
-    const video = document.querySelector('video.video-element');
-    if (video instanceof HTMLVideoElement) video.currentTime = seconds;
-  }, RESUME_SEEK_SECONDS);
-  await page.waitForTimeout(400);
+  if (!before.paused) {
+    await clickPlayPauseButton();
+    const pausedState = await videoState(page);
+    assert(pausedState && pausedState.paused, 'UI pause did not stop playback.', pausedState);
+  }
+  const positionAtPause = (await videoState(page)).currentTime;
 
   let persisted = null;
   for (let attempt = 0; attempt < 12; attempt += 1) {
     persisted = await readPlaybackViaIpc(page, FIXTURE_A);
-    if (persisted && !persisted.error && typeof persisted.lastPosition === 'number' && persisted.lastPosition >= RESUME_SEEK_SECONDS - 1) break;
-    if (attempt === 6) {
-      await page.evaluate(() => {
-        const video = document.querySelector('video.video-element');
-        if (video instanceof HTMLVideoElement) video.dispatchEvent(new Event('pause'));
-      });
-    }
+    if (persisted && !persisted.error && typeof persisted.lastPosition === 'number' && persisted.lastPosition >= RESUME_SEEK_SECONDS - 2) break;
     await page.waitForTimeout(300);
   }
-  assert(persisted && !persisted.error && typeof persisted.lastPosition === 'number' && persisted.lastPosition >= RESUME_SEEK_SECONDS - 1,
-    'Playback position was not persisted through the library IPC.', { persisted });
+  assert(persisted && !persisted.error && typeof persisted.lastPosition === 'number' && persisted.lastPosition >= RESUME_SEEK_SECONDS - 2,
+    'UI pause did not persist the playback position through the library IPC.', { persisted, positionAtPause });
   assert(persisted.completed === false, 'Playback row was flagged completed too early.', { persisted });
-  record('playback-persisted', { lastPosition: persisted.lastPosition, completed: persisted.completed });
+  record('playback-persisted-after-ui-pause', { lastPosition: persisted.lastPosition, pausedAt: Number(positionAtPause.toFixed(3)), completed: persisted.completed });
 }
 
 async function verifyResumeOnRelaunch() {
@@ -540,7 +588,10 @@ async function main() {
     record('media-a-open', { fixture: FIXTURE_A });
 
     await configureMediaA();
+    await startPlaybackViaUi();
+    await liveSpeedChangeDuringPlayback();
     await sequentialPartialUpdate();
+    await seekViaProgressSlider(RESUME_SEEK_SECONDS);
     await persistAndVerifyPlayback();
     await closeApp();
 

@@ -2,48 +2,48 @@
   "product": "Knoux X",
   "mode": "packaged-desktop-player-preferences-e2e",
   "status": "PASS",
-  "generatedAt": "2026-10-18T06:10:56.034Z",
+  "generatedAt": "2026-10-18T06:21:11.654Z",
   "executable": {
     "path": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
     "bytes": 186361344,
     "sha256": "6da42455e1d08f437bfb9a33780a9e6f63a4e801a0239590878b73f56562bb29"
   },
-  "runId": "20261018061023",
+  "runId": "20261018061839",
   "steps": [
     {
       "name": "fixtures-generated",
-      "at": "2026-10-18T06:10:30.264Z",
+      "at": "2026-10-18T06:19:19.045Z",
       "ok": true,
       "details": {
         "fixtureA": {
-          "bytes": 5503916,
-          "sha256": "003f1026ede4a930ffe22612cb8a814670a57a7726c34b1f2e461f535344a4be",
-          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261018061023.webm"
+          "bytes": 5507064,
+          "sha256": "d9dd416d8cc7d4a8bc7557162ceec3e3c61c5b867eb5c4691386229dd4464807",
+          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261018061839.webm"
         },
         "fixtureB": {
-          "bytes": 1859463,
-          "sha256": "6bec59424161f7315a9c75a85ce56f9ffcf23e839c3102e363aaa0b6ff00ae58",
-          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-b-20261018061023.webm"
+          "bytes": 1841194,
+          "sha256": "3e007f265d7cfae96176618049e3ab9bec7f4f66a05d76f2509b4484082df841",
+          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-b-20261018061839.webm"
         }
       }
     },
     {
       "name": "library-folder-registered",
-      "at": "2026-10-18T06:10:38.901Z",
+      "at": "2026-10-18T06:20:01.648Z",
       "ok": true,
       "details": {
         "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e",
         "attempt": 1,
-        "pickerMode": "DIALOG_FOUND handle=723586 title=[Add a folder to KNOUX Library] rect=0,70,960,610\r\nCHILD cls=Edit visible=True rect=179,536,935,559 text=[]\r\nCHILD cls=Button visible=True rect=728,564,835,590 text=[Select Folder]\r\nCHILD cls=Button visible=True rect=847,564,935,590 text=[Cancel]\r\nCHILD cls=Button visible=False rect=468,534,556,560 text=[&Help]\r\nCHILD cls=ComboBoxEx32 visible=False rect=115,107,685,129 text=[]\r\nCHILD cls=ComboBox visible=False rect=115,107,685,129 text=[]\r\nCHILD cls=Edit visible=False rect=139,111,665,126 text=[]\r\nCHILD cls=SearchEditBoxWrapperClass visible=True rect=742,106,936,130 text=[]\r\nNAME_EDIT_VERIFIED\r\nCLICKING_BUTTON text=[Select Folder]\r\nCLOSED_AFTER_BUTTON_CLICK"
+        "pickerMode": "DIALOG_FOUND handle=5375718 title=[Add a folder to KNOUX Library] rect=0,70,960,610\r\nCHILD cls=Edit visible=True rect=179,536,935,559 text=[]\r\nCHILD cls=Button visible=True rect=728,564,835,590 text=[Select Folder]\r\nCHILD cls=Button visible=True rect=847,564,935,590 text=[Cancel]\r\nCHILD cls=Button visible=False rect=468,534,556,560 text=[&Help]\r\nCHILD cls=ComboBoxEx32 visible=False rect=115,107,685,129 text=[]\r\nCHILD cls=ComboBox visible=False rect=115,107,685,129 text=[]\r\nCHILD cls=Edit visible=False rect=139,111,665,126 text=[]\r\nCHILD cls=SearchEditBoxWrapperClass visible=True rect=742,106,936,130 text=[]\r\nNAME_EDIT_VERIFIED\r\nCLICKING_BUTTON text=[Select Folder]\r\nCLOSED_AFTER_BUTTON_CLICK"
       }
     },
     {
       "name": "library-scan-complete",
-      "at": "2026-10-18T06:10:38.912Z",
+      "at": "2026-10-18T06:20:01.692Z",
       "ok": true,
       "details": {
         "scan": {
-          "jobId": "30072fe6-70b2-45f7-a692-f3facf7d58a9",
+          "jobId": "9771a12d-3539-4936-abc5-38e4555e8d4f",
           "folderPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e",
           "discovered": 2,
           "processed": 2,
@@ -55,15 +55,15 @@
     },
     {
       "name": "media-a-open",
-      "at": "2026-10-18T06:10:38.922Z",
+      "at": "2026-10-18T06:20:01.774Z",
       "ok": true,
       "details": {
-        "fixture": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261018061023.webm"
+        "fixture": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261018061839.webm"
       }
     },
     {
       "name": "media-a-configured",
-      "at": "2026-10-18T06:10:40.116Z",
+      "at": "2026-10-18T06:20:08.024Z",
       "ok": true,
       "details": {
         "prefs": {
@@ -76,8 +76,32 @@
       }
     },
     {
+      "name": "playback-started-via-ui",
+      "at": "2026-10-18T06:20:12.552Z",
+      "ok": true,
+      "details": {
+        "playbackRate": 2.5,
+        "advancedSeconds": 1.318
+      }
+    },
+    {
+      "name": "live-speed-change-during-playback",
+      "at": "2026-10-18T06:20:16.046Z",
+      "ok": true,
+      "details": {
+        "playbackRate": 0.5,
+        "advancedSeconds": 0.666,
+        "prefs": {
+          "speed": 0.5,
+          "preservesPitch": false,
+          "boost": 1.6,
+          "delayMs": 350
+        }
+      }
+    },
+    {
       "name": "sequential-partial-update",
-      "at": "2026-10-18T06:10:40.548Z",
+      "at": "2026-10-18T06:20:21.254Z",
       "ok": true,
       "details": {
         "prefs": {
@@ -90,21 +114,32 @@
       }
     },
     {
-      "name": "playback-persisted",
-      "at": "2026-10-18T06:10:41.026Z",
+      "name": "seek-via-progress-slider",
+      "at": "2026-10-18T06:20:23.601Z",
       "ok": true,
       "details": {
-        "lastPosition": 15,
+        "targetSeconds": 15,
+        "currentTime": 15.407,
+        "stillPlaying": true
+      }
+    },
+    {
+      "name": "playback-persisted-after-ui-pause",
+      "at": "2026-10-18T06:20:24.335Z",
+      "ok": true,
+      "details": {
+        "lastPosition": 15.849507,
+        "pausedAt": 15.85,
         "completed": false
       }
     },
     {
       "name": "resume-and-restore-on-relaunch",
-      "at": "2026-10-18T06:10:44.743Z",
+      "at": "2026-10-18T06:20:36.235Z",
       "ok": true,
       "details": {
         "noticeText": "Resumed playback at: 0:15",
-        "currentTime": 15,
+        "currentTime": 15.849507,
         "playbackRate": 1.5,
         "prefs": {
           "speed": 1.5,
@@ -116,7 +151,7 @@
     },
     {
       "name": "media-independence",
-      "at": "2026-10-18T06:10:53.439Z",
+      "at": "2026-10-18T06:20:51.707Z",
       "ok": true,
       "details": {
         "mediaA": {
@@ -135,7 +170,7 @@
     },
     {
       "name": "library-folder-cleaned-up",
-      "at": "2026-10-18T06:10:55.401Z",
+      "at": "2026-10-18T06:20:58.434Z",
       "ok": true,
       "details": {
         "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e"

@@ -21,8 +21,8 @@ async function until(check, message, timeout = 20000) {
 async function nativeTap(labels, timeout = 12000) {
   let found;
   await until(() => {
-    adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
-    const xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
+    const dump = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
+    const xml = dump.includes('<node') ? dump : adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml') + adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
     for (const label of labels) {
       const node = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]).find((value) => value.includes(`text="${label}"`) || value.includes(`content-desc="${label}"`));
       if (node) {

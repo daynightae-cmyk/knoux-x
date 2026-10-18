@@ -17,7 +17,7 @@
   "packagedIdentity": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "5085bab9d74f70eb425c47739f36d870b39f89f0",
+    "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
     "packaged": true
   },
   "project": {
@@ -37,18 +37,18 @@
   },
   "output": {
     "path": "reports\\packaged-timeline-export-e2e\\timeline-export.webm",
-    "bytes": 808287,
+    "bytes": 1172173,
     "formatName": "matroska,webm",
     "duration": 0,
-    "size": 808287,
+    "size": 1172173,
     "videoCodec": "vp8",
     "audioCodec": "opus",
     "width": 1920,
     "height": 1080,
     "avgFrameRate": "0/0",
-    "measuredDuration": 3.369,
+    "measuredDuration": 3.284,
     "durationMeasurement": "packet-pts",
-    "durationPacketCount": 74
+    "durationPacketCount": 98
   },
   "pixelProof": {
     "sourceEarly": {
@@ -63,24 +63,24 @@
     "outputEarly": {
       "width": 320,
       "height": 180,
-      "sha256": "99b19b5d35a3e43e48c5e7c7b453dcd07b57eb70fb0b530f540eef2de19ed94c",
-      "meanChannel": 126.33929976851852,
+      "sha256": "9c79c21a76da172a9517bb0502bbcd2b9e87b84dae2135a3367b47cdf275e329",
+      "meanChannel": 126.1605787037037,
       "nonBlackPixelRatio": 1,
-      "brightPixelRatio": 0.9759548611111111,
+      "brightPixelRatio": 0.9805729166666667,
       "maxChannel": 255
     },
     "outputLate": {
       "width": 320,
       "height": 180,
-      "sha256": "b21f9e251fa895fe9e36482a2820a3a984f147b3427767a60d4cd6da73151645",
-      "meanChannel": 2.4770659722222224,
+      "sha256": "53b8cf05d35190cfc7c5055ac3dae46d1bb0e6b8ae5d8ed9f6be2362fbba2c79",
+      "meanChannel": 2.476724537037037,
       "nonBlackPixelRatio": 0.014427083333333333,
       "brightPixelRatio": 0.007795138888888889,
       "maxChannel": 255
     },
     "earlyDifference": {
-      "meanAbsoluteChannelDifference": 12.257054398148147,
-      "materiallyDifferentPixelRatio": 0.09243055555555556
+      "meanAbsoluteChannelDifference": 16.856689814814814,
+      "materiallyDifferentPixelRatio": 0.13798611111111111
     },
     "lateSampleSeconds": 2.5,
     "sourceEndsBeforeLateSample": true,
@@ -182,7 +182,7 @@
     },
     "exportOutcome": {
       "status": "success",
-      "text": "Export verifiedK:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\reports\\packaged-timeline-export-e2e\\timeline-export.webmvp8 + opus"
+      "text": "Export verifiedK:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\timeline-export.webmvp8 + opus"
     }
   },
   "network": {

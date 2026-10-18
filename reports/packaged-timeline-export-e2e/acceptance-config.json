@@ -1,7 +1,7 @@
 {
   "openQueue": [
-    "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4"
+    "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4"
   ],
-  "savePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\reports\\packaged-timeline-export-e2e\\timeline-export.webm",
-  "networkLogPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\reports\\packaged-timeline-export-e2e\\network.json"
+  "savePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\timeline-export.webm",
+  "networkLogPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\network.json"
 }

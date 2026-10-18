@@ -69,13 +69,13 @@ async function runCase(id, work) {
     page.on('pageerror', (error) => {
       results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
     });
-    const QA_AUDIO_HOOK = `window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
+    const QA_AUDIO_HOOK = `(() => { window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
       if (window.__knouxQaHooked || !window.AudioContext) return;
       window.__knouxQaHooked = true;
       const Base = window.AudioContext;
       window.AudioContext = class extends Base {
         createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
-      };`;
+      }; })();`;
     const hookAudio = async (target) => {
       try { await target.addInitScript(QA_AUDIO_HOOK); } catch { /* AndroidWebView may not support init scripts */ }
       try { await target.reload(); } catch { /* best-effort refresh before the first interaction */ }

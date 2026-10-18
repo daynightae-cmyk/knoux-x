@@ -1,7 +1,13 @@
-/* Installed debug APK acceptance. No mocked Capacitor APIs or web preview. */
+/* Installed debug APK acceptance. No mocked Capacitor APIs or web preview.
+ * Uses Playwright's experimental Android API (device.webView) instead of
+ * chromium.connectOverCDP against the WebView socket: connectOverCDP issues
+ * Browser-domain commands (e.g. Browser.setDownloadBehavior) that Android
+ * System WebView does not support ("Browser context management is not
+ * supported"). device.webView attaches to the debuggable WebView page
+ * directly without browser-context management. */
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
-const { chromium } = require('playwright');
+const { _android: android } = require('playwright');
 const output = 'android-ci-output';
 const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', cases: [], measurements: [] };
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000 }).trim();
@@ -38,20 +44,39 @@ async function runCase(id, work) {
   save();
 }
 (async () => {
-  adb('shell', 'am', 'start', '-n', 'dev.knoux.playerx/.MainActivity');
-  const pid = adb('shell', 'pidof', 'dev.knoux.playerx').split(' ')[0];
-  adb('forward', 'tcp:9222', `localabstract:webview_devtools_remote_${pid}`);
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', { noDefaults: true });
-  const context = browser.contexts()[0];
-  const page = context.pages().find((entry) => entry.url().includes('localhost')) || context.pages()[0];
-  await context.addInitScript(() => {
-    window.__knouxQaAnalysers = [];
-    const Base = window.AudioContext;
-    window.AudioContext = class extends Base {
-      createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
-    };
-  });
-  await page.reload();
+  let device;
+  let webview;
+  try {
+    await until(async () => {
+      try {
+        const devices = await android.devices();
+        device = devices.find((entry) => entry.serial() === process.env.ANDROID_SERIAL) || devices[0];
+        return Boolean(device);
+      } catch { return false; }
+    }, 'No Android device/emulator visible to Playwright Android API', 60000);
+    await device.shell('am start -n dev.knoux.playerx/.MainActivity');
+    await until(async () => {
+      try {
+        webview = await device.webView({ pkg: 'dev.knoux.playerx' });
+        return Boolean(webview);
+      } catch { return false; }
+    }, 'Playwright Android API could not attach to dev.knoux.playerx WebView (is WebView debugging enabled?)', 90000);
+    const page = await webview.page();
+    page.on('console', (message) => {
+      if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
+    });
+    page.on('pageerror', (error) => {
+      results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
+    });
+    await page.evaluate(() => {
+      window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
+      if (window.__knouxQaHooked || !window.AudioContext) return;
+      window.__knouxQaHooked = true;
+      const Base = window.AudioContext;
+      window.AudioContext = class extends Base {
+        createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
+      };
+    });
   await runCase('onboarding-skip', async () => {
     await page.getByRole('button', { name: 'Skip', exact: true }).click({ timeout: 15000 });
     await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
@@ -113,7 +138,9 @@ async function runCase(id, work) {
     await page.screenshot({ path: `${output}/recording-editor.png` });
     return { bytes: bytes.length, duration: probe.format.duration, videoPackets: probe.streams.find((stream) => stream.codec_type === 'video').nb_read_packets, editor: 'actual saved project loaded with decoded preview' };
   });
-  await browser.close();
+  } finally {
+    try { if (device) await device.close(); } catch { /* best-effort cleanup */ }
+  }
   results.verdict = results.cases.every((entry) => entry.status === 'ANDROID_EMULATOR_VERIFIED') ? 'PASS_SCOPED_CASES_ONLY' : 'FAIL';
   save();
   if (results.verdict === 'FAIL') process.exitCode = 1;

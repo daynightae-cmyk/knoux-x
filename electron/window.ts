@@ -24,6 +24,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     webPreferences: {
       ...SECURE_RENDERER_PREFERENCES,
       preload: resolveTrustedPreloadPath(),
+      backgroundThrottling: false,
     },
   });
 

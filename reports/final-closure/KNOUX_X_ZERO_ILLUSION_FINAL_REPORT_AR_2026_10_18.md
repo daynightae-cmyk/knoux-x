@@ -27,7 +27,7 @@
 - جهوزية الواجهة (محلي هادئ): **p50 889ms / p95 1094ms** مقابل 4097/4183 سابقًا (تحسن ~78%)؛ قياس محمّل: p50 3143ms/p95 3186ms موثق مع سياقه. لا ادعاءات أداء غير مقيسة.
 
 ## F. الحزم والتثبيت
-- **مثبّت Squirrel (الرأس النهائي، تشغيل CI 39106294698):** `Knoux X-2.1.0 Setup.exe` — 285,465,088 بايت — SHA256 `a64620e58afda51fdfc91843dde3bce50240abfeb0042fffebf082b1cee594ae`؛ الحزمة الكاملة `KNOUX_Player_X-2.1.0-full.nupkg` — SHA256 `7fc653be02d4e912374a1763784db4efba50d04e12667d9379c7d8da5c2969ca` وSHA1 المطابق تمامًا لسجل RELEASES (تحقق تكامل داخلي ✓). السجل الكامل: `reports/release/installer-artifact.json`.
+- **مثبّت Squirrel (الرأس النهائي، تشغيل CI 39106294698):** `Knoux X-2.1.0 Setup.exe` — 285,465,088 بايت — SHA256 `a64620e58afda51fdfc91843dde3bce50240abfeb0042fffebf082b1cee594ae`؛ الحزمة الكاملة `KNOUX_Player_X-2.1.0-full.nupkg` — SHA256 `7fc653be02d4e912374a1763784db4efba50d04e12667d9379c7d8da5c2969ca` وSHA1 المطابق تمامًا لسجل RELEASES (تحقق تكامل داخلي ✓). السجل الكامل: `reports/final-closure/installer-artifact-2026-10-18.json`.
 - **ملاحظة توزيع صريحة:** المثبّت **غير موقّع رقمياً (NotSigned)** لعدم توفر شهادة توقيع في هذه البيئة؛ سيظهر تحذير SmartScreen حتى تُفعَّل الشهادة — الوظائف غير متأثرة.
 
 ## G. القيود والمخاطر (موسومة، دون تجميل)
@@ -40,4 +40,4 @@
 ## H. الخلاصة والقرار
 - **مصفوفة CI على الرأس النهائي `74cbafa`: كلها خضراء** — Timeline Export (مع بوابة اللاعب المُصلّحة)، Viewport (+ إنتاج المثبّت)، Creative+Recording، Full Rebuild، Android Release Acceptance، Android APK. (Phase 01 Closeout: مُتخطّاة بالتصميم.)
 - الحالة النهائية للمنتج: **READY_FOR_RELEASE** مع ملاحظتين للتوزيع فقط: توقيع المثبّت (شهادة) وعدم اختبار جهاز Android فيزيائي.
-- الأدلة الحاكمة: هذا الملف + `docs/audit/KNOUX_X_FINAL_RELEASE_CLOSURE_2026_10_18.md` + `reports/final-closure/discovery-audit-2026-10-18.md` + `reports/release/*.json` + أدلة الفحوص في `reports/` وقطع CI في D:\KnouxX-Builds\ci-artifacts.
+- الأدلة الحاكمة: هذا الملف + `docs/audit/KNOUX_X_FINAL_RELEASE_CLOSURE_2026_10_18.md` + `reports/final-closure/discovery-audit-2026-10-18.md` + `reports/final-closure/ci-matrix-2026-10-18.json` و`installer-artifact-2026-10-18.json` + أدلة الفحوص في `reports/` وقطع CI في D:\KnouxX-Builds\ci-artifacts.

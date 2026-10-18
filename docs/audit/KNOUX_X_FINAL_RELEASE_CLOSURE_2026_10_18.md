@@ -44,13 +44,13 @@ First cycle (head `eb64ab5`):
 - KNOUX Full Rebuild Windows: PASS.
 - Android Release Acceptance: PASS (signed APK, KVM emulator install-launch-render smoke).
 - Android APK (Capacitor): PASS.
-Final cycle (head `74cbafa`): timeline export E2E PASS including the packaged player preferences/resume gate on the short-TEMP runner (14/14 steps, folder registration on attempt 1 - fix proof, evidence artifact 12128473223); viewport PASS and produced the installer artifact 12128812550; creative+recording, full rebuild, Android acceptance and Android APK all PASS. The PR head is fully green. Machine-readable matrix: `reports/release/ci-matrix-2026-10-18.json`.
+Final cycle (head `74cbafa`): timeline export E2E PASS including the packaged player preferences/resume gate on the short-TEMP runner (14/14 steps, folder registration on attempt 1 - fix proof, evidence artifact 12128473223); viewport PASS and produced the installer artifact 12128812550; creative+recording, full rebuild, Android acceptance and Android APK all PASS. The PR head is fully green. Machine-readable matrix: `reports/final-closure/ci-matrix-2026-10-18.json`.
 
 ## Windows installer artifact (Squirrel, from CI run 39105467634)
 
 - `Knoux X-2.1.0 Setup.exe` - 285,468,672 bytes - SHA256 `d9ea93733aea210d35430618b7a1640b546042c2e43338eb264ad98989d6c86d`.
 - `KNOUX_Player_X-2.1.0-full.nupkg` - 284,730,515 bytes - SHA256 `425771b40ae1321deff281b9442649288895a569e1203a503653d865680ad52b`, SHA1 `a5fe1595568313ce34dbbb1948412df6a7f58272` matching the RELEASES feed entry.
-- Authenticode: NotSigned (no signing certificate in this environment; SmartScreen will warn until a certificate is configured). Full record: `reports/release/installer-artifact.json`.
+- Authenticode: NotSigned (no signing certificate in this environment; SmartScreen will warn until a certificate is configured). Full record: `reports/final-closure/installer-artifact-2026-10-18.json`.
 
 ## Known limitations / blocked
 

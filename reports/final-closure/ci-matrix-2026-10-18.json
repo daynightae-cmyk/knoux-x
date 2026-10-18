@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-18",
+  "pr": 55,
+  "branch": "feat/knoux-x-final-release-closure",
+  "finalHead": "74cbafac9a1f90f8a78f020dc4f2c6b35e5749c8",
+  "prMergeRef": "4ba973c80edb0d94507b27b3e7ce45b942a21957",
+  "runs": [
+    {
+      "name": "KNOUX Windows Timeline Export E2E",
+      "runId": 39106294676,
+      "conclusion": "success",
+      "notes": "Multitrack export E2E plus the packaged player preferences/resume gate: 14/14 steps PASS, folder registration on attempt 1 on the short-TEMP runner (fix proof). Evidence artifact 12128473223."
+    },
+    {
+      "name": "KNOUX Player Viewport Windows",
+      "runId": 39106294698,
+      "conclusion": "success",
+      "notes": "10 viewport scenarios on the packaged app, then npm run make producing the Squirrel installer artifact 12128812550."
+    },
+    {
+      "name": "KNOUX Windows Packaged Creative + Recording Real E2E",
+      "runId": 39106294675,
+      "conclusion": "success"
+    },
+    {
+      "name": "KNOUX Full Rebuild Windows",
+      "runId": 39106294685,
+      "conclusion": "success"
+    },
+    {
+      "name": "Android Release Acceptance",
+      "runId": 39106294673,
+      "conclusion": "success",
+      "notes": "Signed APK; KVM emulator install/launch/render smoke."
+    },
+    {
+      "name": "Android APK (Capacitor)",
+      "runId": 39106294709,
+      "conclusion": "success"
+    },
+    {
+      "name": "KNOUX Phase 01 Closeout PR",
+      "runId": 39106294735,
+      "conclusion": "skipped",
+      "notes": "Path-filtered; by design."
+    }
+  ],
+  "firstCycle": {
+    "head": "eb64ab529f387a4a45480ffc1e76bfc2586ab11b",
+    "timelineExport": {
+      "runId": 39105467790,
+      "conclusion": "failure",
+      "failedStep": "Run packaged player preferences and resume E2E",
+      "error": "The fixture folder could not be registered through the real native folder picker dialog.",
+      "rootCause": "CI runner TEMP is the 8.3 short form (C:\\Users\\RUNNER~1\\...) while the native picker returns the canonical long path; the equality check rejected every pick and retried three times.",
+      "fixCommit": "74cbafac9a1f90f8a78f020dc4f2c6b35e5749c8"
+    },
+    "otherWorkflows": "success (viewport, creative+recording, full rebuild, android acceptance, android apk)"
+  }
+}

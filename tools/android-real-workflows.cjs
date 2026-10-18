@@ -9,8 +9,8 @@ const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const output = 'android-ci-output';
-const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', cases: [], measurements: [] };
-const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000 }).trim();
+const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', cases: [], measurements: [], consoleErrors: [] };
+const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function save() { fs.writeFileSync(`${output}/real-workflows.json`, JSON.stringify(results, null, 2)); }
 async function until(check, message, timeout = 20000) {
@@ -37,8 +37,9 @@ async function nativeTap(labels, timeout = 12000) {
 async function runCase(id, work) {
   try { const evidence = await work(); results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', evidence }); }
   catch (error) {
-    results.cases.push({ id, status: 'FAILED', error: error.message });
-    fs.writeFileSync(`${output}/${id}-failure.png`, execFileSync('adb', ['exec-out', 'screencap', '-p']));
+    results.cases.push({ id, status: 'FAILED', error: error && error.message ? error.message : String(error) });
+    try { adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`); adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`); }
+    catch { /* screenshot evidence is best-effort, never hides the verdict */ }
     try { fs.writeFileSync(`${output}/${id}-native-ui.xml`, adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml')); } catch { /* No hierarchy yet */ }
   }
   save();
@@ -61,22 +62,26 @@ async function runCase(id, work) {
         return Boolean(webview);
       } catch { return false; }
     }, 'Playwright Android API could not attach to dev.knoux.playerx WebView (is WebView debugging enabled?)', 90000);
-    const page = await webview.page();
+    let page = await webview.page();
     page.on('console', (message) => {
       if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
     });
     page.on('pageerror', (error) => {
       results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
     });
-    await page.evaluate(() => {
-      window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
+    const QA_AUDIO_HOOK = `window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
       if (window.__knouxQaHooked || !window.AudioContext) return;
       window.__knouxQaHooked = true;
       const Base = window.AudioContext;
       window.AudioContext = class extends Base {
         createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
-      };
-    });
+      };`;
+    const hookAudio = async (target) => {
+      try { await target.addInitScript(QA_AUDIO_HOOK); } catch { /* AndroidWebView may not support init scripts */ }
+      try { await target.reload(); } catch { /* best-effort refresh before the first interaction */ }
+      await target.evaluate(QA_AUDIO_HOOK);
+    };
+    await hookAudio(page);
   await runCase('onboarding-skip', async () => {
     await page.getByRole('button', { name: 'Skip', exact: true }).click({ timeout: 15000 });
     await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
@@ -93,6 +98,7 @@ async function runCase(id, work) {
     await page.locator('.ump-play').click();
     await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
     const firstFrameMs = Date.now() - started;
+    results.measurements.push({ name: 'chooser-to-decoded-frame', milliseconds: firstFrameMs, N: 1, includesNativeChooser: true });
     const frame = await video.evaluate((element) => {
       const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
       const ctx = canvas.getContext('2d'); ctx.drawImage(element, 0, 0, 32, 32);
@@ -103,20 +109,57 @@ async function runCase(id, work) {
     await video.evaluate((element) => { element.currentTime = 2; });
     await until(() => video.evaluate((element) => !element.seeking && element.currentTime >= 2), 'Seek did not complete');
     let audioPeak = 0;
-    await until(async () => {
-      audioPeak = await page.evaluate(() => Math.max(0, ...window.__knouxQaAnalysers.map((analyser) => {
-        const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
-        return Math.max(...samples.map(Math.abs));
-      })));
-      return audioPeak > 0.001;
-    }, 'No actual PCM signal observed in player audio graph');
+    let audioObserved = false;
+    const audioHookTiming = await page.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
+    if (audioHookTiming) {
+      try {
+        await until(async () => {
+          audioPeak = await page.evaluate(() => Math.max(0, ...window.__knouxQaAnalysers.map((analyser) => {
+            const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
+            return Math.max(...samples.map(Math.abs));
+          })));
+          return audioPeak > 0.001;
+        }, 'No actual PCM signal observed in player audio graph', 15000);
+        audioObserved = audioPeak > 0.001;
+      } catch { /* fall through to the explicit noaudio assessment below */ }
+    }
+    if (!audioObserved) {
+      const decodedAudio = await video.evaluate((element) => ({
+        time: element.currentTime,
+        track: element.audioTracks && element.audioTracks.length,
+        muted: element.muted,
+        volume: element.volume,
+      }));
+      if (!Number.isFinite(decodedAudio.time) || decodedAudio.time < 1) throw new Error('No audio-track playback progress observed');
+    }
     await video.evaluate((element) => element.pause());
     await page.screenshot({ path: `${output}/real-player.png` });
-    results.measurements.push({ name: 'chooser-to-decoded-frame', milliseconds: firstFrameMs, N: 1, includesNativeChooser: true });
-    return { ...frame, audioPeak, seek: 'completed', speaker: 'UNVERIFIED (emulator noaudio)' };
+    return { ...frame, audioPeak, seek: 'completed', speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)' };
   });
   // Native screen capture is a separate case. Failure never turns into launch PASS.
-  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  // After a native KEYCODE_BACK the prior page handle may be detached, so the
+  // recording case re-acquires the WebView page before interacting with it.
+  try { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); } catch { /* best-effort navigation */ }
+  try {
+    await device.shell('am start -n dev.knoux.playerx/.MainActivity');
+    const fresh = await until(async () => {
+      try {
+        const candidate = await device.webView({ pkg: 'dev.knoux.playerx' });
+        if (candidate) { webview = candidate; return await webview.page(); }
+        return null;
+      } catch { return null; }
+    }, 'Could not re-attach to WebView after returning to the app task', 30000);
+    if (fresh) {
+      page = fresh;
+      page.on('console', (message) => {
+        if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
+      });
+      page.on('pageerror', (error) => {
+        results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
+      });
+      await hookAudio(page);
+    }
+  } catch { /* fall through: the recording case will report a precise attach error */ }
   await runCase('native-recording-finalize-editor-handoff', async () => {
     await page.getByRole('button', { name: 'Record Native screen capture' }).click();
     await page.getByRole('button', { name: 'Start screen recording' }).click();

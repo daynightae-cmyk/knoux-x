@@ -9,6 +9,8 @@ import { transitionFadeOpacity } from '../../core/creative/transitionFade';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
+import { createFramePacer, createPacedCanvasCapture, finalizePacedCapture } from './manualFrameCapture';
+
 /**
  * Wall-clock delivery stalls (occluded windows, throttled animation frames,
  * heavy first-frame uploads) must not corrupt the media clock: time the
@@ -276,7 +278,9 @@ export async function renderMultitrackProject(
     }
   }
 
-  const stream = canvas.captureStream(options.fps);
+  const capture = createPacedCanvasCapture(canvas, options.fps);
+  const stream = capture.stream;
+  const framePacer = createFramePacer(options.fps);
   audioDestination.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
   const chunks: BlobPart[] = [];
   const recorder = new MediaRecorder(stream, {
@@ -308,34 +312,38 @@ export async function renderMultitrackProject(
         startedAt = resynced.startedAt;
         lastWall = resynced.lastWall;
         const time = (wallNow - startedAt) / 1000;
-        context.fillStyle = project.settings.backgroundColor || '#000000';
-        context.fillRect(0, 0, canvas.width, canvas.height);
+        const shouldDraw = capture.captureFrame === null || framePacer.shouldCapture(wallNow);
+        if (shouldDraw) {
+          context.fillStyle = project.settings.backgroundColor || '#000000';
+          context.fillRect(0, 0, canvas.width, canvas.height);
 
-        for (const entry of prepared) {
-          const { item, element, gain } = entry;
-          const active = activeAt(item, time);
-          if (isMediaElement(element)) {
-            if (active) {
-              const local = Math.max(0, time - item.timelineStart);
-              const target = item.sourceIn + local * item.playbackRate;
-              if (Math.abs(element.currentTime - target) > 0.18) {
-                try { element.currentTime = Math.max(0, Math.min(Number.isFinite(element.duration) ? element.duration : target, target)); } catch { /* decoder seeking can reject transiently */ }
+          for (const entry of prepared) {
+            const { item, element, gain } = entry;
+            const active = activeAt(item, time);
+            if (isMediaElement(element)) {
+              if (active) {
+                const local = Math.max(0, time - item.timelineStart);
+                const target = item.sourceIn + local * item.playbackRate;
+                if (Math.abs(element.currentTime - target) > 0.18) {
+                  try { element.currentTime = Math.max(0, Math.min(Number.isFinite(element.duration) ? element.duration : target, target)); } catch { /* decoder seeking can reject transiently */ }
+                }
+                element.playbackRate = Math.max(0.1, Math.min(4, item.playbackRate));
+                if (gain) gain.gain.setTargetAtTime(audioGain(item, entry.track, local), audioContext.currentTime, 0.01);
+                if (element.paused) void element.play().catch(() => undefined);
+              } else {
+                if (gain) gain.gain.setTargetAtTime(0, audioContext.currentTime, 0.01);
+                if (!element.paused) element.pause();
               }
-              element.playbackRate = Math.max(0.1, Math.min(4, item.playbackRate));
-              if (gain) gain.gain.setTargetAtTime(audioGain(item, entry.track, local), audioContext.currentTime, 0.01);
-              if (element.paused) void element.play().catch(() => undefined);
-            } else {
-              if (gain) gain.gain.setTargetAtTime(0, audioContext.currentTime, 0.01);
-              if (!element.paused) element.pause();
             }
+            if (active) drawVisual(context, entry, canvas.width, canvas.height, time);
           }
-          if (active) drawVisual(context, entry, canvas.width, canvas.height, time);
+
+          capture.captureFrame?.(time);
         }
 
         options.onProgress?.(Math.min(100, (time / duration) * 100));
         if (time >= duration) {
-          if (recorder.state !== 'inactive') recorder.stop();
-          resolve();
+          finalizePacedCapture(capture, recorder, resolve, duration);
           return;
         }
         requestAnimationFrame(frame);

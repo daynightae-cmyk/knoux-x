@@ -4,6 +4,9 @@ import { ArrowLeft, FolderPlus, Gauge, Globe2, Moon, RotateCcw, ShieldCheck, Spa
 import { BrandMark } from '../../components/brand/BrandMark';
 import type { StructuredValue } from '../../../electron/ipc/channel-types';
 import { useAppStore } from '../../store/appStore';
+import { MobileOnboarding } from '../../components/mobile/MobileOnboarding';
+
+import { MobileDeveloperView } from './MobileDeveloperView';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
@@ -24,6 +27,8 @@ export const MobileSettingsView: React.FC = () => {
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [about, setAbout] = useState(false);
+  const [welcome, setWelcome] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -96,6 +101,7 @@ export const MobileSettingsView: React.FC = () => {
     }
   }, [setTheme]);
 
+  if (about) return <MobileDeveloperView onBack={() => setAbout(false)} />;
   return (
     <section className="knoux-mobile-settings" data-component="MobileSettingsView">
       <header className="kms-topbar"><button type="button" aria-label="Back" onClick={() => setView('home')}><ArrowLeft size={21} /></button><div><BrandMark size={38} /><span><strong>KNOUX <em>X</em></strong><small>SETTINGS</small></span></div><ShieldCheck size={20} /></header>
@@ -113,6 +119,9 @@ export const MobileSettingsView: React.FC = () => {
 
       <section className="kms-card"><div className="kms-card-title"><ShieldCheck size={18} /><span><strong>Privacy</strong><small>Playback, editing and local rendering do not upload your media by themselves.</small></span></div><p className="kms-copy">Any future AI action that sends selected data off-device must request explicit consent at that action.</p></section>
 
+      <button type="button" className="kms-wide-button" onClick={() => setAbout(true)}>Eng. Sadek Elgazar · {locale === 'ar' ? 'عن المطوّر' : 'About the developer'}</button>
+      <button type="button" className="kms-wide-button" onClick={() => setWelcome(true)}>{locale === 'ar' ? 'جولة في التطبيق' : 'Replay welcome tour'}</button>
+      {welcome && <MobileOnboarding replay onClose={() => setWelcome(false)} />}
       <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> Reset mobile settings</button>
     </section>
   );

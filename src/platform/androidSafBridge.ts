@@ -181,4 +181,20 @@ export function installAndroidSafBridge(): void {
       toUrl: async (filePath: string): Promise<string> => filePath.startsWith('content://') ? playableUrl(filePath) : creativeBase.media.toUrl(filePath),
     },
   } as Window['knouxCreativeAPI'];
+
+  // Slideshow previously bypassed SAF and registered files in a different
+  // process-only map from the preview resolver. Store the persisted URI in the
+  // project itself; video previews stream through Capacitor without base64.
+  const importAssets = async () => {
+    const result = await saf.pick({ mode: 'files', mimeTypes: ['image/*', 'video/*', 'audio/*'] });
+    const items = result.items ?? [];
+    const assets = items.flatMap((item) => {
+      const family = item.mime.startsWith('image/') ? 'image' as const
+        : item.mime.startsWith('video/') ? 'video' as const
+          : item.mime.startsWith('audio/') ? 'audio' as const : null;
+      return family ? [{ filePath: item.uri, mediaUrl: playableUrl(item.uri), family, duration: null }] : [];
+    });
+    return { assets, accepted: assets.length, skipped: items.length - assets.length, failed: 0, issues: [], rootPath: null };
+  };
+  window.knouxSlideshowAPI = { ...window.knouxSlideshowAPI, importFiles: importAssets, importFolder: importAssets };
 }

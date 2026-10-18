@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BrandMark } from '../brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
 
+import { MobileOnboarding } from './MobileOnboarding';
+
 interface MobileSplashOverlayProps {
   onComplete?: () => void;
 }
@@ -55,7 +57,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
     return () => clearTimeout(exitTimer);
   }, [onComplete, phase]);
 
-  if (phase === 'hidden') return null;
+  if (phase === 'hidden') return <MobileOnboarding />;
 
   return (
     <div

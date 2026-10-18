@@ -8,6 +8,7 @@ html[data-platform='android'] .knoux-mobile-creative-surface {
   position: relative;
   display: flex;
   flex-direction: column;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -24,6 +25,20 @@ html[data-platform='android'] .knoux-mobile-creative-surface {
     linear-gradient(180deg, #05030a 0%, #020205 58%, #05030a 100%);
   -webkit-overflow-scrolling: touch;
 }
+
+/* These are sections in one scroll container. Prevent flex shrinking from
+   pulling the toolbar, preview and project controls on top of each other. */
+html[data-platform='android'] .knoux-mobile-creative-surface > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+html[data-platform='android'] .brand-mark { flex: 0 0 auto; }
+html[data-platform='android'] .kmc-brand-lockup .brand-mark { width: auto; }
+html[data-platform='android'] .kmh-brand-lockup > div { min-width: 0; }
+html[data-platform='android'] .kmh-brand-lockup small { display: none; }
+html[data-platform='android'] .kmh-hero-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+html[data-platform='android'] .kmc-mobile-media-row { flex-wrap: wrap; overflow-x: visible; }
+html[data-platform='android'] .kmc-mobile-media-row button { min-height: 48px; }
 
 html[data-platform='android'] .knoux-mobile-creative-surface::before {
   content: '';

@@ -1,4 +1,6 @@
 // Vite's ?worker virtual module intentionally exports the worker constructor.
+import { withDeadline } from '../../../platform/withDeadline';
+
 // eslint-disable-next-line import/default
 import FaceAnalysisWorker from './faceAnalysis.worker?worker';
 import type { FaceAnalysisRequest, FaceAnalysisResult } from './faceAnalysisContract';
@@ -66,15 +68,22 @@ export class FaceAnalysisClient {
 
   private async runAnalysis(request: FaceAnalysisRequest): Promise<FaceAnalysisResult> {
     try {
-      await this.ensureConfigured();
+      await withDeadline(this.ensureConfigured(), 20_000, 'Local face model setup timed out. Check your connection and retry.');
     } catch (error) {
+      this.configured = null;
       return faceAnalysisUnavailable(error instanceof Error ? error.message : String(error));
     }
     const requestId = `face-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    return new Promise<FaceAnalysisResult>((resolve) => {
-      this.pending.set(requestId, resolve);
-      this.worker.postMessage({ type: 'analyze', requestId, request });
-    });
+    try {
+      return await withDeadline(new Promise<FaceAnalysisResult>((resolve) => {
+        this.pending.set(requestId, resolve);
+        this.worker.postMessage({ type: 'analyze', requestId, request });
+      }), 15_000, 'Local face analysis timed out. Manual photo tools remain available.');
+    } catch (error) {
+      return faceAnalysisUnavailable(error instanceof Error ? error.message : String(error));
+    } finally {
+      this.pending.delete(requestId);
+    }
   }
 
   private storeResult(key: string, result: FaceAnalysisResult): void {

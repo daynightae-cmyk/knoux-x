@@ -70,6 +70,7 @@ async function loadVerifiedModel(manifest: VerifiedModelManifest): Promise<Uint8
   }
 
   const response = await fetch(manifest.url, {
+    signal: AbortSignal.timeout(15_000),
     method: 'GET',
     mode: 'cors',
     credentials: 'omit',

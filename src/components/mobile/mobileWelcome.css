@@ -1,0 +1,7 @@
+.km-welcome { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); overflow-y: auto; color: #f7f1ff; background: radial-gradient(ellipse at top, #291046, #060409 65%); }
+.km-welcome-card { display: grid; gap: 20px; max-width: 440px; width: 100%; padding: 26px; border: 1px solid #7740a5; border-radius: 28px; background: #120b1e; box-shadow: 0 24px 80px #0008; }
+.km-welcome-card h1 { margin: 0; font-size: clamp(26px, 7vw, 38px); line-height: 1.2; }
+.km-welcome-card p { line-height: 1.7; margin: 0; color: #ddcaec; }
+.km-welcome-card small { color: #bd91e7; overflow-wrap: anywhere; }
+.km-welcome-card > div { display: flex; gap: 12px; flex-wrap: wrap; }
+.km-welcome-card button { min-height: 48px; padding: 12px 20px; flex: 1; border: 1px solid #a46cda; border-radius: 14px; background: #6e23b2; color: white; font: inherit; }

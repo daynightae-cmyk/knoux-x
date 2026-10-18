@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { AndroidOptionalRuntime } from './platform/AndroidOptionalRuntime';
+import { installAndroidBackButton } from './platform/androidBackButton';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
@@ -68,6 +69,7 @@ if (androidRuntimeInstalled) {
   installAndroidRetouchModels();
   installAndroidMultitrackExportBridge();
   installAndroidSlideshowRenderBridge();
+  installAndroidBackButton();
 } else {
   document.documentElement.dataset.runtime = 'desktop';
   installBrowserPreviewBridge();

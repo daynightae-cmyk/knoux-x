@@ -265,46 +265,65 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "KnouxScreenCapture")
 public class KnouxScreenCapturePlugin extends Plugin {
+    private PluginCall pendingStart;
     private PluginCall pendingStop;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final BroadcastReceiver completionReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (!KnouxScreenCaptureService.ACTION_COMPLETE.equals(intent.getAction()) || pendingStop == null) return;
+            if (KnouxScreenCaptureService.ACTION_STARTED.equals(intent.getAction())) {
+                if (pendingStart != null) { PluginCall call = pendingStart; pendingStart = null; call.resolve(new JSObject().put("recording", true)); }
+                return;
+            }
+            if (!KnouxScreenCaptureService.ACTION_COMPLETE.equals(intent.getAction())) return;
             String output = intent.getStringExtra(KnouxScreenCaptureService.EXTRA_OUTPUT_URI);
             String error = intent.getStringExtra(KnouxScreenCaptureService.EXTRA_ERROR);
-            PluginCall call = pendingStop;
+            PluginCall call = pendingStop != null ? pendingStop : pendingStart;
+            pendingStart = null;
             pendingStop = null;
+            if (call == null) return;
             call.setKeepAlive(false);
             if (error != null && !error.isEmpty()) call.reject(error);
             else call.resolve(new JSObject().put("recording", false).put("outputUri", output));
         }
     };
 
-    @Override protected void handleOnStart() {
-        super.handleOnStart();
+    @Override public void load() {
+        super.load();
         IntentFilter filter = new IntentFilter(KnouxScreenCaptureService.ACTION_COMPLETE);
+        filter.addAction(KnouxScreenCaptureService.ACTION_STARTED);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getContext().registerReceiver(completionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else getContext().registerReceiver(completionReceiver, filter);
     }
 
-    @Override protected void handleOnStop() {
+    @Override protected void handleOnDestroy() {
         try { getContext().unregisterReceiver(completionReceiver); } catch (Exception ignored) {}
-        super.handleOnStop();
+        handler.removeCallbacksAndMessages(null);
+        if (pendingStart != null) pendingStart.reject("Recording activity was destroyed; check recording status after reopening.");
+        if (pendingStop != null) pendingStop.reject("Recording activity was destroyed; check saved recording after reopening.");
+        pendingStart = null; pendingStop = null;
+        super.handleOnDestroy();
     }
 
     @PluginMethod
     public void startScreenRecording(PluginCall call) {
+        if (pendingStart != null || KnouxScreenCaptureService.isActive()) { call.reject("A screen recording is already starting or active."); return; }
+        if (Boolean.TRUE.equals(call.getBoolean("microphone", false)) && getContext().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            call.reject("Microphone permission is not granted. Turn microphone off or grant it in Android settings."); return;
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             call.reject("Android screen recording requires Android 5.0 or newer.");
             return;
         }
         MediaProjectionManager manager = (MediaProjectionManager) getContext().getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (manager == null) { call.reject("Android MediaProjection is unavailable."); return; }
+        pendingStart = call;
         startActivityForResult(call, manager.createScreenCaptureIntent(), "projectionPermissionCallback");
     }
 
     @ActivityCallback
     private void projectionPermissionCallback(PluginCall call, ActivityResult result) {
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+            pendingStart = null;
             call.reject("Screen recording permission was not granted.");
             return;
         }
@@ -317,15 +336,19 @@ public class KnouxScreenCapturePlugin extends Plugin {
         service.putExtra(KnouxScreenCaptureService.EXTRA_FPS, Math.max(15, Math.min(60, call.getInt("fps", 30))));
         service.putExtra(KnouxScreenCaptureService.EXTRA_BITRATE, Math.max(2_000_000, Math.min(50_000_000, call.getInt("bitrate", 12_000_000))));
         service.putExtra(KnouxScreenCaptureService.EXTRA_MIC, Boolean.TRUE.equals(call.getBoolean("microphone", false)));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(service);
-        else getContext().startService(service);
-        call.resolve(new JSObject().put("recording", true));
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(service);
+            else getContext().startService(service);
+            handler.postDelayed(() -> {
+                if (pendingStart == call) { pendingStart = null; call.reject("Screen encoder did not confirm startup within 15 seconds. Check recording status before retrying."); }
+            }, 15000);
+        } catch (Exception error) { pendingStart = null; call.reject("Screen recording service could not start: " + error.getMessage()); }
     }
 
     @PluginMethod
     public void stopScreenRecording(PluginCall call) {
         if (!KnouxScreenCaptureService.isActive()) {
-            call.resolve(new JSObject().put("recording", false).put("outputUri", KnouxScreenCaptureService.getLastOutputUri()));
+            call.resolve(new JSObject().put("recording", false).put("outputUri", savedOutput()));
             return;
         }
         pendingStop = call;
@@ -333,12 +356,16 @@ public class KnouxScreenCapturePlugin extends Plugin {
         Intent service = new Intent(getContext(), KnouxScreenCaptureService.class);
         service.setAction(KnouxScreenCaptureService.ACTION_STOP);
         getContext().startService(service);
+        handler.postDelayed(() -> {
+            if (pendingStop == call) { pendingStop = null; call.setKeepAlive(false); call.reject("MP4 finalization timed out. Check saved recording status."); }
+        }, 15000);
     }
 
     @PluginMethod
     public void status(PluginCall call) {
-        call.resolve(new JSObject().put("recording", KnouxScreenCaptureService.isActive()).put("outputUri", KnouxScreenCaptureService.getLastOutputUri()));
+        call.resolve(new JSObject().put("recording", KnouxScreenCaptureService.isActive()).put("outputUri", savedOutput()));
     }
+    private String savedOutput() { return getContext().getSharedPreferences("knoux-capture", Context.MODE_PRIVATE).getString("lastOutputUri", null); }
 }
 `;
 
@@ -374,6 +401,7 @@ public class KnouxScreenCaptureService extends Service {
     public static final String ACTION_START = "${appId}.screen.START";
     public static final String ACTION_STOP = "${appId}.screen.STOP";
     public static final String ACTION_COMPLETE = "${appId}.screen.COMPLETE";
+    public static final String ACTION_STARTED = "${appId}.screen.STARTED";
     public static final String EXTRA_RESULT_CODE = "resultCode";
     public static final String EXTRA_RESULT_DATA = "resultData";
     public static final String EXTRA_WIDTH = "width";
@@ -393,6 +421,10 @@ public class KnouxScreenCaptureService extends Service {
     private MediaRecorder recorder;
     private ParcelFileDescriptor outputDescriptor;
     private Uri outputUri;
+    private boolean finishing;
+    private final MediaProjection.Callback projectionCallback = new MediaProjection.Callback() {
+        @Override public void onStop() { if (!finishing) finishRecording(null); }
+    };
 
     public static boolean isActive() { return active; }
     public static String getLastOutputUri() { return lastOutputUri; }
@@ -403,8 +435,8 @@ public class KnouxScreenCaptureService extends Service {
         if (intent == null) return START_NOT_STICKY;
         if (ACTION_STOP.equals(intent.getAction())) { finishRecording(null); return START_NOT_STICKY; }
         if (!ACTION_START.equals(intent.getAction()) || active) return START_STICKY;
-        startProjectionForeground();
-        try { startRecording(intent); }
+        finishing = false;
+        try { startProjectionForeground(); startRecording(intent); }
         catch (Exception error) { finishRecording(error.getMessage() == null ? "Android screen recording failed." : error.getMessage()); }
         return START_STICKY;
     }
@@ -431,6 +463,7 @@ public class KnouxScreenCaptureService extends Service {
         if (manager == null || projectionData == null) throw new IllegalStateException("MediaProjection permission data is unavailable.");
         projection = manager.getMediaProjection(resultCode, projectionData);
         if (projection == null) throw new IllegalStateException("MediaProjection could not be created.");
+        projection.registerCallback(projectionCallback, new android.os.Handler(android.os.Looper.getMainLooper()));
 
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         int requestedWidth = request.getIntExtra(EXTRA_WIDTH, 0);
@@ -468,25 +501,40 @@ public class KnouxScreenCaptureService extends Service {
         virtualDisplay = projection.createVirtualDisplay("KNOUX-X-Screen", width, height, metrics.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, recorder.getSurface(), null, null);
         recorder.start();
         active = true;
-        lastOutputUri = outputUri.toString();
+        sendBroadcast(new Intent(ACTION_STARTED).setPackage(getPackageName()));
     }
 
     private void finishRecording(String failure) {
-        if (!active && recorder == null && outputUri == null) { stopSelf(); return; }
+        if (finishing) return;
+        finishing = true;
         String error = failure;
         try { if (recorder != null) recorder.stop(); } catch (Exception stopError) { if (error == null) error = "Recording stopped before a valid MP4 was produced."; }
         try { if (recorder != null) recorder.release(); } catch (Exception ignored) {}
         try { if (virtualDisplay != null) virtualDisplay.release(); } catch (Exception ignored) {}
-        try { if (projection != null) projection.stop(); } catch (Exception ignored) {}
+        try { if (projection != null) { projection.unregisterCallback(projectionCallback); projection.stop(); } } catch (Exception ignored) {}
         try { if (outputDescriptor != null) outputDescriptor.close(); } catch (Exception ignored) {}
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && outputUri != null) {
+        if (error == null && outputUri != null) {
+            android.media.MediaMetadataRetriever probe = new android.media.MediaMetadataRetriever();
+            try {
+                probe.setDataSource(this, outputUri);
+                long duration = Long.parseLong(probe.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION));
+                int width = Integer.parseInt(probe.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                if (duration <= 0 || width <= 0) throw new IllegalStateException();
+            } catch (Exception invalid) { error = "Recording output has no valid video duration. It was not published as a saved MP4."; }
+            finally { try { probe.release(); } catch (Exception ignored) {} }
+        } else if (error == null) error = "Recording output is unavailable.";
+        if (error == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && outputUri != null) {
             ContentValues done = new ContentValues();
             done.put(MediaStore.Video.Media.IS_PENDING, 0);
-            try { getContentResolver().update(outputUri, done, null, null); } catch (Exception ignored) {}
+            try { getContentResolver().update(outputUri, done, null, null); } catch (Exception publishError) { error = "The MP4 could not be published to the media library."; }
+        }
+        if (error == null && outputUri != null) {
+            lastOutputUri = outputUri.toString();
+            getSharedPreferences("knoux-capture", MODE_PRIVATE).edit().putString("lastOutputUri", lastOutputUri).apply();
         }
         active = false;
         Intent complete = new Intent(ACTION_COMPLETE).setPackage(getPackageName());
-        if (outputUri != null) complete.putExtra(EXTRA_OUTPUT_URI, outputUri.toString());
+        if (error == null && outputUri != null) complete.putExtra(EXTRA_OUTPUT_URI, outputUri.toString());
         if (error != null) complete.putExtra(EXTRA_ERROR, error);
         sendBroadcast(complete);
         recorder = null; virtualDisplay = null; projection = null; outputDescriptor = null; outputUri = null;

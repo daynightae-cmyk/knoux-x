@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Crop,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { registerAndroidBackInterceptor } from '../../platform/androidBackButton';
 import { useAppStore } from '../../store/appStore';
 
 import {
@@ -51,6 +52,21 @@ export const MobileVideoStudioView: React.FC = () => {
       setExportPending(false);
     }
   }, [exportPending, setView]);
+
+  // Hardware back must persist the active timeline before leaving the studio.
+  // The multitrack autosave keeps a rolling draft, and this guard additionally
+  // performs the explicit save; if persistence fails the press is consumed and
+  // the inline error is shown instead of silently dropping project changes.
+  useEffect(() => {
+    return registerAndroidBackInterceptor(async () => {
+      const editor = editorRef.current;
+      if (!editor) return false;
+      const result = await editor.save();
+      if (result.ok) return false;
+      setExportError(result.error || 'The project could not be saved before leaving. Your autosaved draft is kept.');
+      return true;
+    });
+  }, []);
 
   return (
     <section

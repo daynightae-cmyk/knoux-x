@@ -54,6 +54,7 @@ concurrency:
 
 env:
   CAPACITOR_VERSION: '8.5.0'
+  CAPACITOR_APP_VERSION: '8.1.2'
 
 jobs:
   build-debug-apk:
@@ -111,8 +112,11 @@ jobs:
           @capacitor/core@${CAPACITOR_VERSION}
           @capacitor/cli@${CAPACITOR_VERSION}
           @capacitor/android@${CAPACITOR_VERSION}
+          @capacitor/app@${CAPACITOR_APP_VERSION}
 
       - name: Build KNOUX Android renderer
+        env:
+          KNOUX_RELEASE_SHA: ${{ github.sha }}
         run: npx vite build --config vite.renderer.config.ts --outDir dist
 
       - name: Generate and synchronize Android project
@@ -223,6 +227,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Generate legal encoded QA fixture
+        run: |
+          node - <<'JS'
+          const ffmpeg = require('ffmpeg-static');
+          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','12','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-output/KNOUX-QA.mp4']);
+          JS
+          sha256sum android-ci-output/KNOUX-QA.mp4 > android-ci-output/fixture.sha256
+
       - name: Install and launch APK on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -237,7 +249,11 @@ jobs:
           emulator-boot-timeout: 300
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
-          script: bash tools/android-emulator-smoke.sh
+          script: |
+            bash tools/android-emulator-smoke.sh
+            adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
+            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
+            node tools/android-real-workflows.cjs
 
       - name: Upload installable APK and launch evidence
         if: always()

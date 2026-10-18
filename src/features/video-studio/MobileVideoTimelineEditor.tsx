@@ -25,6 +25,7 @@ import type {
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
 import { isAndroidRuntime } from '../../platform/runtime';
+import { RECORDING_EDITOR_HANDOFF_KEY } from '../recording/recordingEditorHandoff';
 
 import { VideoRetouchInspector } from './retouch/VideoRetouchInspector';
 import { VideoRetouchPreviewOverlay } from './retouch/VideoRetouchPreviewOverlay';
@@ -135,6 +136,18 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       setDirty(unsaved);
       setError(null);
     }, []);
+
+    useEffect(() => {
+      const path = localStorage.getItem(RECORDING_EDITOR_HANDOFF_KEY);
+      if (!path) return;
+      let active = true;
+      void window.knouxMultitrackAPI.openRecent(path).then((opened) => {
+        if (!active) return;
+        activate(opened.project, opened.filePath);
+        localStorage.removeItem(RECORDING_EDITOR_HANDOFF_KEY);
+      }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Recording project could not be reopened.'); });
+      return () => { active = false; };
+    }, [activate]);
 
     const commit = useCallback((next: MultitrackProject): void => {
       setProject((current) => {

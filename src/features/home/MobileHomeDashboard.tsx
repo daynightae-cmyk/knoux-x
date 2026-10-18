@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { registerAndroidBackInterceptor } from '../../platform/androidBackButton';
 import { useAppStore, type ViewType } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { readRecentMedia, type RecentMediaEntry } from '../player/mobilePlayerSession';
@@ -69,6 +70,16 @@ export const MobileHomeDashboard: React.FC = () => {
     });
     return () => cancelAnimationFrame(frame);
   }, [setHomeReady]);
+
+  // Hardware back must close the open home overlay sheet before any
+  // navigation attempt (search / notifications / create / projects).
+  useEffect(() => {
+    if (!overlay) return undefined;
+    return registerAndroidBackInterceptor(() => {
+      setOverlay(null);
+      return true;
+    });
+  }, [overlay]);
 
   const recents = useMemo(() => readRecentMedia(window.localStorage).slice(0, 8), []);
   const continueWatching = recents.find((entry) => entry.duration > 0 && entry.progress > 0 && entry.progress < 0.98) ?? null;

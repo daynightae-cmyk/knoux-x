@@ -36,7 +36,11 @@ export function mobilePlayerStorageKey(mediaPath: string): string {
 }
 
 export function mediaTitle(mediaPath: string): string {
-  return mediaPath.split(/[\\/]/).pop() ?? mediaPath;
+  let decoded = mediaPath;
+  try { decoded = decodeURIComponent(decoded); } catch { /* malformed provider escape */ }
+  const name = Array.from(decoded.split(/[\\/]/).pop() || '').filter((char) => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127).join('').trim();
+  if (mediaPath.startsWith('content://') && (!name || /^(?:video|image|audio|primary):?\d*$/i.test(name) || /^\d+$/.test(name))) return 'Local media';
+  return name || 'Local media';
 }
 
 export function readMobilePlayerSession(storage: StorageLike, mediaPath: string): MobilePlayerSessionSnapshot {
@@ -94,7 +98,7 @@ export function readRecentMedia(storage: StorageLike): RecentMediaEntry[] {
         && typeof candidate.duration === 'number'
         && typeof candidate.progress === 'number'
         && typeof candidate.updatedAt === 'string';
-    });
+    }).map((entry) => ({ ...entry, title: entry.title.includes('%') || entry.title.startsWith('content://') ? mediaTitle(entry.mediaPath) : entry.title }));
   } catch {
     return [];
   }

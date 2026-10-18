@@ -7,6 +7,7 @@ import {
   stopAndroidMediaSession,
   syncAndroidMediaSession,
 } from '../../platform/androidNativeMedia';
+import { registerAndroidBackInterceptor } from '../../platform/androidBackButton';
 import { usePlayerStore } from '../../store/playerStore';
 
 import {
@@ -240,6 +241,26 @@ export const UltimateMobilePlayerSession: React.FC = () => {
     setDspEffects(next);
     await setActivePlayerAudioEffect(effectId, enabled, { amount: 6, clarity: 6, delay: 12 });
   }, [dspEffects]);
+
+  // Hardware back closes the open Android playback panel first.
+  useEffect(() => {
+    if (!nativeToolsOpen) return undefined;
+    return registerAndroidBackInterceptor(() => {
+      setNativeToolsOpen(false);
+      return true;
+    });
+  }, [nativeToolsOpen]);
+
+  // Hardware back dismisses the resume prompt without destroying the stored
+  // resume point or starting playback; the user can still press play manually.
+  useEffect(() => {
+    if (!promptVisible) return undefined;
+    return registerAndroidBackInterceptor(() => {
+      promptResolvedRef.current = true;
+      setPromptVisible(false);
+      return true;
+    });
+  }, [promptVisible]);
 
   const enterPip = useCallback(async (): Promise<void> => {
     const video = getActiveVideo();

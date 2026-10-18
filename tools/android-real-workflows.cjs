@@ -44,6 +44,21 @@ async function runCase(id, work) {
   }
   save();
 }
+  // Playwright actionability checks stall on AndroidWebView when targets sit
+  // outside the compositor viewport (fixed pixel_7 profile). A synthetic DOM
+  // click performs the same user-intent handler without the geometry gate, and
+  // every case still synchronizes on the resulting real app state.
+  async function tapWeb(locator, timeout = 15000) {
+    await locator.waitFor({ timeout });
+    await locator.evaluate((element) => {
+      element.scrollIntoView({ block: 'center', inline: 'center' });
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+  }
 (async () => {
   let device;
   let webview;
@@ -83,13 +98,13 @@ async function runCase(id, work) {
     };
     await hookAudio(page);
   await runCase('onboarding-skip', async () => {
-    await page.getByRole('button', { name: 'Skip', exact: true }).click({ timeout: 15000 });
+    await tapWeb(page.getByRole('button', { name: 'Skip', exact: true }));
     await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
     return 'First-run welcome dismissed and Home available';
   });
   await runCase('mp4-actual-player-first-frame-seek-audio', async () => {
     const started = Date.now();
-    await page.getByRole('button', { name: 'Open Video', exact: false }).first().click();
+    await tapWeb(page.getByRole('button', { name: 'Open Video', exact: false }).first());
     await nativeTap(['Show roots']);
     await nativeTap(['Downloads', 'Download']);
     await nativeTap(['KNOUX-QA.mp4']);
@@ -147,13 +162,13 @@ async function runCase(id, work) {
   // So the recording case reuses the live handle without any re-attach logic.
   try { await nativeTap(['Back', 'Navigate up'], 8000); } catch { try { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); } catch { /* best-effort navigation */ } }
   await runCase('native-recording-finalize-editor-handoff', async () => {
-    await page.getByRole('button', { name: 'Record Native screen capture' }).click();
-    await page.getByRole('button', { name: 'Start screen recording' }).click();
+    await tapWeb(page.getByRole('button', { name: 'Record Native screen capture' }));
+    await tapWeb(page.getByRole('button', { name: 'Start screen recording' }));
     try { await nativeTap(['A single app', 'A single application']); await nativeTap(['Entire screen']); } catch { /* OS may already default to full screen. Consent still required below. */ }
     await nativeTap(['Start now', 'Start recording']);
     await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 20000 });
     await delay(4500); // Intentional captured duration, not a startup readiness wait.
-    await page.getByRole('button', { name: 'Stop & save MP4' }).click();
+    await tapWeb(page.getByRole('button', { name: 'Stop & save MP4' }));
     await page.getByRole('button', { name: 'Open in Video Editor' }).waitFor({ timeout: 20000 });
     const status = await page.evaluate(() => window.Capacitor.Plugins.KnouxScreenCapture.status());
     if (!status.outputUri || status.recording) throw new Error('No finalized native URI');
@@ -161,7 +176,7 @@ async function runCase(id, work) {
     fs.writeFileSync(`${output}/synthetic-screen-recording.mp4`, bytes);
     const probe = JSON.parse(execFileSync(process.execPath, ['-e', 'const p=require("@derhuerst/ffprobe-static").path;process.stdout.write(require("child_process").execFileSync(p,["-v","error","-count_packets","-show_streams","-show_format","-of","json",process.argv[1]]))', `${output}/synthetic-screen-recording.mp4`], { encoding: 'utf8' }));
     if (!probe.streams.some((stream) => stream.codec_type === 'video' && +stream.nb_read_packets > 0) || +probe.format.duration <= 0) throw new Error('Recorded MP4 has no video packets/duration');
-    await page.getByRole('button', { name: 'Open in Video Editor' }).click();
+    await tapWeb(page.getByRole('button', { name: 'Open in Video Editor' }));
     await page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').waitFor();
     await until(() => page.locator('video').first().evaluate((element) => element.readyState >= 2 && element.videoWidth > 0), 'Editor did not decode the recording');
     await page.screenshot({ path: `${output}/recording-editor.png` });

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
 import sharp from 'sharp';
 
 describe('Knoux X Android launch gate', () => {
@@ -50,8 +51,8 @@ describe('Knoux X Android launch gate', () => {
     try {
       execFileSync(process.execPath, ['tools/verify-android-screen.cjs', imagePath, ...extraArgs], { stdio: 'pipe' });
       return 0;
-    } catch (error: any) {
-      return typeof error.status === 'number' ? error.status : 1;
+    } catch (error: unknown) {
+      return (error as { status?: number }).status ?? 1;
     }
   }
 

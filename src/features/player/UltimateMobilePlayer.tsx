@@ -34,10 +34,10 @@ import {
 
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useAppStore } from '../../store/appStore';
-import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
 import { usePlayerStore } from '../../store/playerStore';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
+import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
 import { PlayerAudioManager } from './PlayerAudioManager';
 import '../../styles/ultimate-mobile-player.css';
 

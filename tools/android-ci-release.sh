@@ -77,6 +77,7 @@ else
   SIGNING_LABEL="TEST_SIGNED"
   SIGNING_MODE_JSON="acceptance"
   PRODUCTION_SIGNED="false"
+  # acceptance mode never claims production signing: "productionSigned": false
   SIGNED_NAME="KNOUX-X-Android-release-ci-signed.apk"
 fi
 

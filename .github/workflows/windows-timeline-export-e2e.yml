@@ -71,6 +71,12 @@ jobs:
           node tools/run-packaged-timeline-export-cdp-e2e.cjs
           if ($LASTEXITCODE -ne 0) { throw 'DESKTOP TIMELINE EXPORT PACKAGED E2E failed.' }
 
+      - name: Run packaged player preferences and resume E2E
+        shell: pwsh
+        run: |
+          node tools/run-packaged-player-preferences-cdp-e2e.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'PACKAGED PLAYER PREFERENCES AND RESUME E2E failed.' }
+
       - name: Upload timeline export evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,3 +93,7 @@ jobs:
             reports/packaged-timeline-export-e2e/*.mp4
             reports/packaged-timeline-export-e2e/*.webm
             reports/packaged-timeline-export-e2e/*.knouxedit
+            reports/player-preferences/evidence.json
+            reports/player-preferences/failure.json
+            reports/player-preferences/packaged-app.log
+            reports/player-preferences/*.png

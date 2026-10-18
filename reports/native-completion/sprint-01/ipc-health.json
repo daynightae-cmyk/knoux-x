@@ -1659,12 +1659,12 @@
   ],
   "missing": [],
   "duplicates": [],
-  "preloadPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Production-Closure-20261017\\out\\Knoux X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
+  "preloadPath": "D:\\KnouxX-Builds\\Knoux-X-Final-Release-Closure\\Knoux X-win32-x64\\resources\\app.asar\\.vite\\build\\preload-entry.js",
   "preloadExists": true,
   "packaged": true,
   "version": "2.1.0",
-  "sha": "5085bab9d74f70eb425c47739f36d870b39f89f0",
-  "branch": "feat/knoux-x-production-closure-20261017",
-  "buildTimestamp": "2026-10-18T03:10:12.701Z",
+  "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+  "branch": "feat/knoux-x-final-release-closure",
+  "buildTimestamp": "2026-10-18T05:20:49.565Z",
   "electronVersion": "32.3.3"
 }

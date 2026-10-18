@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "product": "Knoux X",
+  "kind": "windows-squirrel-installer-artifact",
+  "generatedAt": "2026-10-18T07:20:00.000Z",
+  "canonical": {
+    "source": {
+      "ciRun": 39106294698,
+      "artifact": "knoux-player-viewport-4ba973c80edb0d94507b27b3e7ce45b942a21957 (id 12128812550)",
+      "workflow": "KNOUX Player Viewport Windows",
+      "runner": "windows-2022",
+      "headSha": "74cbafac9a1f90f8a78f020dc4f2c6b35e5749c8",
+      "prMergeRef": "4ba973c80edb0d94507b27b3e7ce45b942a21957",
+      "productCode": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+      "buildCommand": "npm run make (electron-forge make, squirrel.windows)",
+      "note": "Head contains tooling/evidence/docs commits only; product code is identical to merged main db0160b."
+    },
+    "files": {
+      "setupExe": {
+        "name": "Knoux X-2.1.0 Setup.exe",
+        "bytes": 285465088,
+        "sha256": "a64620e58afda51fdfc91843dde3bce50240abfeb0042fffebf082b1cee594ae"
+      },
+      "fullNupkg": {
+        "name": "KNOUX_Player_X-2.1.0-full.nupkg",
+        "bytes": 284727991,
+        "sha256": "7fc653be02d4e912374a1763784db4efba50d04e12667d9379c7d8da5c2969ca",
+        "sha1": "23fa0df67fed41a225c8a1c23410a50ffcc81442"
+      },
+      "releases": {
+        "content": "23FA0DF67FED41A225C8A1C23410A50FFCC81442 KNOUX_Player_X-2.1.0-full.nupkg 284727991",
+        "matchesNupkg": true
+      }
+    },
+    "verification": {
+      "releasesSha1MatchesNupkg": true,
+      "nupkgSizeMatchesReleases": true,
+      "authenticode": "NotSigned",
+      "authenticodeNote": "Squirrel installer is not code-signed (no signing certificate available in this environment). Distribution note: Windows SmartScreen will warn until a signing certificate is configured; functionality is unaffected."
+    },
+    "downloadPath": "D:\\KnouxX-Builds\\ci-artifacts\\viewport-39106294698"
+  },
+  "earlierCycleArtifact": {
+    "source": {
+      "ciRun": 39105467634,
+      "artifact": "knoux-player-viewport-92a203c77b465d0f2b4dbf23620ddaaf9e8075a3 (id 12127768111)",
+      "headSha": "eb64ab529f387a4a45480ffc1e76bfc2586ab11b"
+    },
+    "files": {
+      "setupExe": {
+        "name": "Knoux X-2.1.0 Setup.exe",
+        "bytes": 285468672,
+        "sha256": "d9ea93733aea210d35430618b7a1640b546042c2e43338eb264ad98989d6c86d"
+      },
+      "fullNupkg": {
+        "name": "KNOUX_Player_X-2.1.0-full.nupkg",
+        "bytes": 284730515,
+        "sha256": "425771b40ae1321deff281b9442649288895a569e1203a503653d865680ad52b",
+        "sha1": "a5fe1595568313ce34dbbb1948412df6a7f58272"
+      }
+    }
+  }
+}

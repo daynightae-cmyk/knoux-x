@@ -236,7 +236,8 @@ export function setupCreativeSuiteHandlers(ipc: IpcRegistrar): CreativeSuiteCont
   ipc.handle(IPC_INVOKE.EXPORT_CAPABILITIES, trusted(async () => exports.getCapabilities()));
   ipc.handle(IPC_INVOKE.EXPORT_JOBS, trusted(async () => exports.listJobs()));
   ipc.handle(IPC_INVOKE.EXPORT_CANCEL, trusted(async (_event, jobId: string) => exports.cancel(validateString(jobId, 'Export job ID', 128))));
-  ipc.handle(IPC_INVOKE.EXPORT_PROBE, trusted(async (_event, filePath: string) => exports.probe(requireCreativePath(filePath))));
+  ipc.handle(IPC_INVOKE.EXPORT_PROBE, trusted(async (_event, filePath: string, options?: { verifyVideoPacketExtent?: boolean }) =>
+    exports.probe(requireCreativePath(filePath), { verifyVideoPacketExtent: options?.verifyVideoPacketExtent === true })));
   ipc.handle(IPC_INVOKE.EXPORT_START, trusted(async (event, request: ExportRequest) => {
     const authorizedRequest: ExportRequest = {
       ...request,

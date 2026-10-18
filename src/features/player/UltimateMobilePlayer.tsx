@@ -808,7 +808,7 @@ export const UltimateMobilePlayer: React.FC = () => {
 
               <div className="ump-center-controls">
                 <button type="button" className="ump-skip" onClick={() => skipBy(-10)}><RotateCcw size={25} /><span>10</span></button>
-                <button type="button" className="ump-play" onClick={() => void handlePlayPause()}>{isPlaying ? <Pause size={34} fill="currentColor" /> : <Play size={34} fill="currentColor" />}</button>
+                <button type="button" className="ump-play" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={() => void handlePlayPause()}>{isPlaying ? <Pause size={34} fill="currentColor" /> : <Play size={34} fill="currentColor" />}</button>
                 <button type="button" className="ump-skip" onClick={() => skipBy(10)}><RotateCcw size={25} className="flip-x" /><span>10</span></button>
               </div>
 

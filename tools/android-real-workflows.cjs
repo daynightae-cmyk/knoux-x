@@ -41,7 +41,7 @@ async function runCase(id, work) {
   adb('shell', 'am', 'start', '-n', 'dev.knoux.playerx/.MainActivity');
   const pid = adb('shell', 'pidof', 'dev.knoux.playerx').split(' ')[0];
   adb('forward', 'tcp:9222', `localabstract:webview_devtools_remote_${pid}`);
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', { noDefaults: true });
   const context = browser.contexts()[0];
   const page = context.pages().find((entry) => entry.url().includes('localhost')) || context.pages()[0];
   await context.addInitScript(() => {
@@ -65,7 +65,7 @@ async function runCase(id, work) {
     await nativeTap(['KNOUX-QA.mp4']);
     const video = page.locator('video').first();
     await video.waitFor();
-    await video.evaluate((element) => element.play());
+    await page.locator('.ump-play').click();
     await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
     const firstFrameMs = Date.now() - started;
     const frame = await video.evaluate((element) => {

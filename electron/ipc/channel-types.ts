@@ -371,17 +371,11 @@ export interface InboundPayloadMap {
 }
 
 export interface OutboundPayloadMap {
-  'ai:stream': [chunk: string];
   'app:open-media': [paths: string[]];
   'audio-tools:progress': [snapshot: AudioToolJobSnapshot];
-  'audio:visualizer-data': [data: Uint8Array];
   'clip:progress': [progress: FFmpegProgress];
   'export:progress': [job: ExportJobSnapshot];
   'library:scan-progress': [progress: ScanProgress];
-  'player:ended': [];
-  'player:error': [message: string];
-  'player:state-change': [state: object];
-  'player:time-update': [time: number];
   'settings:change': [key: string, value: StructuredValue | undefined, oldValue: StructuredValue | undefined];
   'slideshow:render-progress': [snapshot: SlideshowRenderSnapshot];
   'system:resume': [];

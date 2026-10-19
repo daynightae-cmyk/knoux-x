@@ -1,0 +1,11 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "out": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Android-Visual-20261019\\design-evidence\\android-visual-20261019\\screenshots-ar",
+  "profile": {
+    "theme": null,
+    "locale": "ar",
+    "reducedMotion": false
+  },
+  "failures": [],
+  "generatedAt": "2026-10-19T07:42:55.106Z"
+}

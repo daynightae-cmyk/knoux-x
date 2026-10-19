@@ -42,5 +42,11 @@ Measured with live DOM probes (Playwright, msedge) before/after; all fixes are C
 
 Re-capture after fixes: tools/visual-capture.cjs full matrix, 0 failures, 33 screenshots regenerated at 2026-10-19T07:11Z; typecheck + full unit suite green (148 suites / 1285 tests) before capture.
 
-## Still pending (not yet captured)
-- Dark 'Deep Black' theme variants, AR-RTL, reduced-motion, keyboard pass (next: extend capture tool; on-screen keyboard likely BLOCKED_ENVIRONMENT in browser, deferred to device)
+## 2026-10-19 - Profile captures: Deep Black, AR-RTL, reduced-motion
+
+- tools/visual-capture.cjs extended with capture profiles: `--theme deep-black|system-light`, `--locale ar|en`, `--reduced-motion` (Playwright `reducedMotion: 'reduce'` context). Profile is applied per browser context inside Settings and then VERIFIED (documentElement data-theme / settings section dir / data-motion); any mismatch lands in capture-log.json failures instead of being silently skipped.
+- Deep Black pass -> screenshots-deep-black (33 files, 0 failures, 2026-10-19T07:40Z): dock shows all 7 tools; the daylight contrast overrides stayed scoped to system-light (dark chips/heroes render as designed); recording active chips white-on-deep-purple; player empty state unchanged (always-dark stage).
+- AR-RTL pass -> screenshots-ar (0 failures, 2026-10-19T07:42Z): home hero/cards, bottom nav and the studio tool dock all mirror correctly (dock order runs Effects..Split right-to-left); dir=rtl verified per section.
+  - Honest note (content/i18n gap, NOT fixed in this presentation pass): Video Studio start card and several export strings remain English under AR; when English sentences render under dir=rtl a few bidi punctuation artifacts appear ('.Make it yours to share', 'a .project', 'FPS 30'). Proper fix is UI-string localization plus dir=ltr isolation on English segments - follow-up i18n work, not a CSS patch.
+- Reduced-motion pass -> screenshots-reduced-motion (0 failures, 2026-10-19T07:45Z): context-level prefers-reduced-motion: reduce; app reflects data-motion='reduced' (verified in-tool); stills match the default pass (motion removal does not alter layout).
+- Keyboard pass remains BLOCKED_ENVIRONMENT in the browser runtime (no Android IME); deferred to the device pass. All profile captures carry status VISUAL_RUNTIME_VERIFIED (browser runtime adapter; no touch events were sent).

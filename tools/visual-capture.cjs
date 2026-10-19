@@ -10,6 +10,11 @@ const argValue = (name) => {
 };
 const BASE_URL = argValue('--base-url') || 'http://127.0.0.1:4173';
 const OUT_DIR = path.resolve(argValue('--out') || 'design-evidence/android-visual-20261019/screenshots');
+const PROFILE = {
+  theme: argValue('--theme') || null,
+  locale: argValue('--locale') || null,
+  reducedMotion: process.argv.includes('--reduced-motion'),
+};
 
 const VIEWPORTS = [
   { tag: '360x800', width: 360, height: 800 },
@@ -73,6 +78,37 @@ async function ensureHome(page, failures, tag, targetId) {
   }
 }
 
+async function applyProfile(page, failures, tag) {
+  if (!PROFILE.theme && !PROFILE.locale && !PROFILE.reducedMotion) return;
+  try {
+    await page.locator('.kmh-bottom-nav button[aria-label="Settings"]').first().click();
+    await page.waitForTimeout(900);
+    if (PROFILE.theme) {
+      const label = PROFILE.theme === 'deep-black' ? 'Deep Black' : 'Daylight';
+      await page.locator('.kms-segment button').filter({ hasText: label }).first().click();
+      await page.waitForTimeout(500);
+    }
+    if (PROFILE.locale) {
+      const label = PROFILE.locale === 'ar' ? 'العربية' : 'English';
+      await page.locator('.kms-segment button').filter({ hasText: label }).first().click();
+      await page.waitForTimeout(700);
+    }
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1600);
+    await dismissFirstRunOverlays(page);
+    const state = await page.evaluate(() => ({
+      theme: document.documentElement.dataset.theme,
+      motion: document.documentElement.dataset.motion,
+      homeDir: document.querySelector('.knoux-mobile-home')?.getAttribute('dir') ?? null,
+    }));
+    if (PROFILE.theme && state.theme !== PROFILE.theme) failures.push(`profile-${tag}: theme ${PROFILE.theme} not applied (got ${state.theme})`);
+    if (PROFILE.locale && state.homeDir !== (PROFILE.locale === 'ar' ? 'rtl' : 'ltr')) failures.push(`profile-${tag}: locale ${PROFILE.locale} not applied (homeDir ${state.homeDir})`);
+    if (PROFILE.reducedMotion && state.motion !== 'reduced') failures.push(`profile-${tag}: reduced motion not reflected (got ${state.motion})`);
+  } catch (error) {
+    failures.push(`profile-${tag}: ${error && error.message ? error.message.split('\n')[0] : String(error)}`);
+  }
+}
+
 async function run() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const browser = await chromium.launch(process.env.VISUAL_BROWSER_CHANNEL ? { channel: process.env.VISUAL_BROWSER_CHANNEL } : {});
@@ -82,11 +118,13 @@ async function run() {
       viewport: { width: viewport.width, height: viewport.height },
       deviceScaleFactor: 2,
       locale: 'en-US',
+      ...(PROFILE.reducedMotion ? { reducedMotion: 'reduce' } : {}),
     });
     const page = await context.newPage();
     try {
       await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' });
       await dismissFirstRunOverlays(page);
+      await applyProfile(page, failures, viewport.tag);
       for (const target of TARGETS) {
         try {
           await ensureHome(page, failures, viewport.tag, target.id);
@@ -152,7 +190,7 @@ async function run() {
     }
   }
   await browser.close();
-  const report = { base: BASE_URL, out: OUT_DIR, failures, generatedAt: new Date().toISOString() };
+  const report = { base: BASE_URL, out: OUT_DIR, profile: PROFILE, failures, generatedAt: new Date().toISOString() };
   fs.writeFileSync(path.join(OUT_DIR, 'capture-log.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 }

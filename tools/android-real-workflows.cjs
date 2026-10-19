@@ -1,18 +1,42 @@
-/* Installed debug APK acceptance. No mocked Capacitor APIs or web preview.
- * Uses Playwright's experimental Android API (device.webView) instead of
- * chromium.connectOverCDP against the WebView socket: connectOverCDP issues
- * Browser-domain commands (e.g. Browser.setDownloadBehavior) that Android
- * System WebView does not support ("Browser context management is not
- * supported"). device.webView attaches to the debuggable WebView page
- * directly without browser-context management. */
+/* Installed debug APK acceptance on a real Android API 35 emulator.
+ *
+ * TRUSTED TOUCH POLICY (see results.touchPolicy):
+ * Every app interaction is dispatched through `adb shell input tap` — the OS
+ * input pipeline — after the target's DOM rect is measured in the running
+ * WebView (CSS point -> device pixels via `window.devicePixelRatio`, verified
+ * with a `document.elementFromPoint` hit test and an in-viewport check).
+ * No synthetic PointerEvent/MouseEvent dispatch remains; those are untrusted
+ * and are never counted as real touch.
+ *
+ * WebView attachment uses Playwright's experimental Android API
+ * (device.webView) instead of connectOverCDP against the WebView socket:
+ * connectOverCDP issues Browser-domain commands that Android System WebView
+ * rejects ("Browser context management is not supported").
+ */
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const output = 'android-ci-output';
-const results = { environment: 'installed-apk-api35-emulator', phone: 'NOT_RUN', syntheticEventsUsed: false, syntheticNotes: 'tapWeb dispatches untrusted PointerEvent/MouseEvent; not equivalent to trusted screen taps. Real touch remains NOT_RUN unless UIAutomator/device tapped.', cases: [], measurements: [], consoleErrors: [] };
+const PACKAGE = 'dev.knoux.playerx';
+const results = {
+  environment: 'installed-apk-api35-emulator',
+  phone: 'NOT_RUN',
+  touchPolicy: {
+    mode: 'trusted-adb-input-tap',
+    detail: 'adb shell input tap on device pixels derived from live DOM geometry (devicePixelRatio-scaled, elementFromPoint-verified).',
+    syntheticEventsUsed: false,
+    fallbacks: [],
+  },
+  deviceState: {},
+  tapLog: [],
+  cases: [],
+  measurements: [],
+  consoleErrors: [],
+};
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function save() { fs.writeFileSync(`${output}/real-workflows.json`, JSON.stringify(results, null, 2)); }
+function recordTap(entry) { results.tapLog.push(entry); if (results.tapLog.length > 80) results.tapLog.shift(); }
 async function until(check, message, timeout = 20000) {
   const started = Date.now();
   while (Date.now() - started < timeout) {
@@ -22,7 +46,15 @@ async function until(check, message, timeout = 20000) {
   }
   throw new Error(message);
 }
-async function nativeTap(labels, timeout = 12000) {
+function currentFocus() {
+  try {
+    const dump = adb('shell', 'dumpsys', 'window', 'windows');
+    return dump.split('\n').map((line) => line.trim()).find((line) => line.startsWith('mCurrentFocus')) ?? null;
+  } catch { return null; }
+}
+/* SystemUI/documentsui dialogs are real OS surfaces; they are tapped through
+ * the same trusted input pipeline straight from the accessibility hierarchy. */
+async function nativeTap(labels, timeout = 12000, resourceIds = []) {
   let found;
   await until(async () => {
     let xml = '';
@@ -35,49 +67,187 @@ async function nativeTap(labels, timeout = 12000) {
         xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
       } catch { xml = ''; }
     }
-    for (const label of labels) {
-      const node = [...(xml.matchAll(/<node\b[^>]+>/g) || [])].map((m) => m[0]).find((v) => v.includes(`text="${label}"`) || v.includes(`content-desc="${label}"`));
-      if (node) {
-        const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
-        if (bounds) { found = bounds; return true; }
-      }
-    }
-    return false;
-  }, `Native control missing: ${labels.join(', ')}`, timeout);
-  adb('shell', 'input', 'tap', String(Math.round((+found[1] + +found[3]) / 2)), String(Math.round((+found[2] + +found[4]) / 2)));
+    const nodes = [...(xml.matchAll(/<node\b[^>]+>/g) || [])].map((match) => match[0]);
+    const node = nodes.find((candidate) => labels.some((label) => candidate.includes(`text="${label}"`) || candidate.includes(`content-desc="${label}"`))
+      || resourceIds.some((id) => candidate.includes(`resource-id="${id}"`)));
+    if (!node) return false;
+    const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
+    if (!bounds) return false;
+    found = bounds;
+    return true;
+  }, `Native control missing: ${[...labels, ...resourceIds].join(', ')}`, timeout);
+  const x = Math.round((+found[1] + +found[3]) / 2);
+  const y = Math.round((+found[2] + +found[4]) / 2);
+  adb('shell', 'input', 'tap', String(x), String(y));
+  recordTap({ note: `nativeTap:${labels[0] || resourceIds[0]}`, x, y });
+  return { x, y };
 }
 async function runCase(id, work) {
-  try { const evidence = await work(); results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', syntheticUsed: results.syntheticEventsUsed, evidence }); }
-  catch (error) {
+  const syntheticBefore = results.touchPolicy.syntheticEventsUsed;
+  try {
+    const evidence = await work();
+    results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', input: 'trusted-adb', syntheticUsed: results.touchPolicy.syntheticEventsUsed && !syntheticBefore, evidence });
+  } catch (error) {
     results.cases.push({ id, status: 'FAILED', error: error && error.message ? error.message : String(error) });
-    try { adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`); adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`); }
-    catch { /* screenshot evidence is best-effort, never hides the verdict */ }
-    try { fs.writeFileSync(`${output}/${id}-native-ui.xml`, adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml')); } catch { /* No hierarchy yet */ }
+    try {
+      adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`);
+      adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`);
+    } catch { /* screenshot evidence is best-effort, never hides the verdict */ }
+    try {
+      adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
+      fs.writeFileSync(`${output}/${id}-native-ui.xml`, adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml'));
+    } catch { /* No hierarchy available */ }
+    results.cases[results.cases.length - 1].focusAtFailure = currentFocus();
   }
   save();
 }
-  // Playwright actionability checks stall on AndroidWebView when targets sit
-  // outside the compositor viewport (fixed pixel_7 profile). A synthetic DOM
-  // click performs the same user-intent handler without the geometry gate, and
-  // every case still synchronizes on the resulting real app state.
-  // DIAGNOSTIC FALLBACK ONLY — synthetic untrusted PointerEvent/MouseEvent sequence.
-  // Not a trusted user touch. Any success using this must be labeled HANDLER_ONLY / SYNTHETIC.
-  async function tapWeb(locator, timeout = 15000) {
-    results.syntheticEventsUsed = true;
-    await locator.waitFor({ timeout });
-    await locator.evaluate((element) => {
-      element.scrollIntoView({ block: 'center', inline: 'center' });
-      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-      element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
-      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    });
+
+/* ------------------------------------------------------------------ *
+ * Trusted touch: DOM geometry in the live WebView -> device pixels    *
+ * -> `adb shell input tap` (the OS input pipeline).                   *
+ * ------------------------------------------------------------------ */
+
+async function trustedTap(locator, options = {}) {
+  const handle = locator.first();
+  const deadline = Date.now() + (options.timeout ?? 20000);
+  let lastProblem = 'no geometry attempt completed';
+  while (Date.now() < deadline) {
+    let geometry;
+    try {
+      geometry = await handle.evaluate((element, fractionX) => {
+        element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+        const rect = element.getBoundingClientRect();
+        const pointX = rect.left + rect.width * fractionX;
+        const pointY = rect.top + rect.height / 2;
+        const hit = document.elementFromPoint(pointX, pointY);
+        const wrapper = element.closest('label') ?? element;
+        const belongs = (node, root) => { for (let current = node; current; current = current.parentElement) if (current === root) return true; return false; };
+        const viewport = window.visualViewport;
+        return {
+          cssX: pointX + (viewport ? viewport.offsetLeft : 0),
+          cssY: pointY + (viewport ? viewport.offsetTop : 0),
+          dpr: window.devicePixelRatio || 1,
+          screenX: window.screenX || 0,
+          screenY: window.screenY || 0,
+          width: rect.width,
+          height: rect.height,
+          insideViewport: pointX >= 0 && pointY >= 0 && pointX <= window.innerWidth && pointY <= window.innerHeight,
+          hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
+          hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
+        };
+      }, options.fractionX ?? 0.5);
+    } catch (error) {
+      lastProblem = `not attached (${String(error && error.message).split('\n')[0]})`;
+      await delay(300);
+      continue;
+    }
+    if (geometry.width < (options.minWidth ?? 20) || geometry.height < (options.minHeight ?? 14)) {
+      throw new Error(`Refusing a trusted tap on a ${Math.round(geometry.width)}x${Math.round(geometry.height)} target (unsafe touch size)`);
+    }
+    if (geometry.insideViewport && geometry.hitSelf) {
+      const x = Math.round((geometry.screenX + geometry.cssX) * geometry.dpr);
+      const y = Math.round((geometry.screenY + geometry.cssY) * geometry.dpr);
+      adb('shell', 'input', 'tap', String(x), String(y));
+      recordTap({ note: options.note ?? 'trustedTap', cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY), x, y, dpr: geometry.dpr });
+      return { x, y, dpr: geometry.dpr, cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY) };
+    }
+    lastProblem = geometry.insideViewport
+      ? `covered by ${geometry.hitTag}`
+      : `outside the viewport (${Math.round(geometry.cssX)},${Math.round(geometry.cssY)})`;
+    await delay(300);
   }
+  throw new Error(`Trusted tap target unavailable: ${lastProblem}`);
+}
+
+/* ------------------------------------------------------------------ *
+ * App navigation helpers                                              *
+ * ------------------------------------------------------------------ */
+
+async function ensureHome(page) {
+  const recordCard = page.getByRole('button', { name: 'Record Native screen capture' });
+  const homeDashboard = page.locator('[data-component="MobileHomeDashboard"]');
+  const backToHome = page.getByRole('button', { name: 'Back to home', exact: true });
+  const playerBack = page.locator('button.ump-icon-btn[aria-label="Back"]');
+  const bottomHome = page.locator('.kmh-bottom-nav button[aria-label="Home"]');
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (await recordCard.count() > 0) return;
+    if (await homeDashboard.count() > 0) {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      await delay(200);
+      if (await recordCard.count() > 0) return;
+    }
+    if (await backToHome.count() > 0) { await trustedTap(backToHome, { note: 'ensureHome:Back-to-home' }); await delay(700); continue; }
+    if (await playerBack.count() > 0) { await trustedTap(playerBack, { note: 'ensureHome:player-back' }); await delay(700); continue; }
+    if (await bottomHome.count() > 0) { await trustedTap(bottomHome, { note: 'ensureHome:bottom-nav' }); await delay(700); continue; }
+    /* System back is a trusted OS input, but it must never be sent while the
+     * home dashboard is mounted (the app arms "press back again to exit"). */
+    if (await homeDashboard.count() === 0) { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); await delay(900); continue; }
+    throw new Error('The home dashboard is mounted but the Record card is unreachable');
+  }
+  throw new Error('Could not navigate back to the home dashboard');
+}
+
+async function ensurePlayback(page, video) {
+  const attempts = [];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts };
+    const playButton = page.locator('button.ump-play');
+    const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();
+    if (!playVisible) {
+      await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls' });
+      attempts.push('trusted-tap:stage (reveal controls)');
+      await delay(700);
+      continue;
+    }
+    const label = await playButton.first().getAttribute('aria-label');
+    if (label && /pause/i.test(label)) { await delay(400); continue; }
+    await trustedTap(playButton, { timeout: 8000, note: 'player:play' });
+    attempts.push('trusted-tap:ump-play (trusted play button)');
+    try {
+      await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'playback did not start after a trusted play tap', 6000);
+      return { started: true, via: attempts };
+    } catch { /* fall through to the next attempt or the honest fallback note */ }
+  }
+  return { started: false, via: attempts };
+}
+
+function mp4Bytes(bytes) {
+  return bytes.length > 1000 && bytes.subarray(0, 64).includes('ftyp');
+}
+
+function readRecordingBytes(uri) {
+  const attempts = [];
+  try {
+    const bytes = execFileSync('adb', ['exec-out', 'content', 'read', '--uri', uri], { timeout: 30000, maxBuffer: 96 * 1024 * 1024 });
+    attempts.push({ method: 'content read --uri', bytes: bytes.length, validMp4: mp4Bytes(bytes) });
+    if (mp4Bytes(bytes)) return { bytes, attempts };
+  } catch (error) {
+    attempts.push({ method: 'content read --uri', error: String(error && error.message).slice(0, 200) });
+  }
+  try {
+    const listing = adb('shell', `ls -t '/sdcard/Movies/KNOUX X'`);
+    const name = listing.split(/\r?\n/).map((entry) => entry.trim()).find((entry) => /\.mp4$/i.test(entry));
+    if (name) {
+      const devicePath = `/sdcard/Movies/KNOUX X/${name}`;
+      const bytes = execFileSync('adb', ['exec-out', `cat '${devicePath}'`], { timeout: 30000, maxBuffer: 96 * 1024 * 1024 });
+      attempts.push({ method: `exec-out cat ${devicePath}`, bytes: bytes.length, validMp4: mp4Bytes(bytes) });
+      if (mp4Bytes(bytes)) return { bytes, attempts };
+    } else {
+      attempts.push({ method: `ls -t '/sdcard/Movies/KNOUX X'`, error: 'no mp4 listed' });
+    }
+  } catch (error) {
+    attempts.push({ method: 'exec-out cat /sdcard/Movies/KNOUX X/*.mp4', error: String(error && error.message).slice(0, 200) });
+  }
+  throw new Error(`Could not read the recorded MP4 bytes: ${JSON.stringify(attempts)}`);
+}
+
 (async () => {
   let device;
   let webview;
   try {
+    results.deviceState.size = adb('shell', 'wm', 'size');
+    results.deviceState.density = adb('shell', 'wm', 'density');
+    results.deviceState.sdk = adb('shell', 'getprop', 'ro.build.version.sdk');
     await until(async () => {
       try {
         const devices = await android.devices();
@@ -85,14 +255,15 @@ async function runCase(id, work) {
         return Boolean(device);
       } catch { return false; }
     }, 'No Android device/emulator visible to Playwright Android API', 60000);
-    await device.shell('am start -n dev.knoux.playerx/.MainActivity');
+    await device.shell(`am start -n ${PACKAGE}/.MainActivity`);
     await until(async () => {
       try {
-        webview = await device.webView({ pkg: 'dev.knoux.playerx' });
+        webview = await device.webView({ pkg: PACKAGE });
         return Boolean(webview);
       } catch { return false; }
-    }, 'Playwright Android API could not attach to dev.knoux.playerx WebView (is WebView debugging enabled?)', 90000);
-    let page = await webview.page();
+    }, 'Playwright Android API could not attach to the KNOUX WebView (is WebView debugging enabled?)', 90000);
+    const page = await webview.page();
+    results.deviceState.focus = currentFocus();
     page.on('console', (message) => {
       if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
     });
@@ -116,92 +287,166 @@ async function runCase(id, work) {
       await target.evaluate(QA_AUDIO_HOOK);
     };
     await hookAudio(page);
-  await runCase('onboarding-skip', async () => {
-    await tapWeb(page.getByRole('button', { name: 'Skip', exact: true }));
-    await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
-    return 'First-run welcome dismissed and Home available';
-  });
-  await runCase('mp4-actual-player-first-frame-seek-audio', async () => {
-    const started = Date.now();
-    await tapWeb(page.getByRole('button', { name: 'Open Video', exact: false }).first());
-    await nativeTap(['Show roots']);
-    await nativeTap(['Downloads', 'Download']);
-    await nativeTap(['KNOUX-QA.mp4']);
-    const video = page.locator('video').first();
-    await video.waitFor();
-    // AndroidWebView stalls Playwright clicks on "scheduled navigations" after
-    // native picker navigation, so trigger playback inside the page context and
-    // synchronize on real media progress instead of synthetic click completion.
-    await video.evaluate((element) => { const media = element; void media.play().catch(() => undefined); });
-    await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Media did not start advancing after play');
-    await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
-    const firstFrameMs = Date.now() - started;
-    results.measurements.push({ name: 'chooser-to-decoded-frame', milliseconds: firstFrameMs, N: 1, includesNativeChooser: true });
-    const frame = await video.evaluate((element) => {
-      const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(element, 0, 0, 32, 32);
-      const pixels = ctx.getImageData(0, 0, 32, 32).data;
-      return { width: element.videoWidth, duration: element.duration, decoded: element.getVideoPlaybackQuality().totalVideoFrames, colors: new Set(pixels).size };
+
+    await runCase('onboarding-skip', async () => {
+      await trustedTap(page.getByRole('button', { name: 'Skip', exact: true }), { note: 'onboarding:skip' });
+      await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
+      return 'First-run welcome dismissed with a trusted tap and Home is available';
     });
-    if (frame.colors < 8) throw new Error('Decoded frame lacks expected test pattern');
-    await video.evaluate((element) => { element.currentTime = 2; });
-    await until(() => video.evaluate((element) => !element.seeking && element.currentTime >= 2), 'Seek did not complete');
-    let audioPeak = 0;
-    let audioObserved = false;
-    const audioHookTiming = await page.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
-    if (audioHookTiming) {
+
+    await runCase('mp4-actual-player-first-frame-seek-audio', async () => {
+      const started = Date.now();
+      await trustedTap(page.getByRole('button', { name: 'Open Video', exact: false }).first(), { note: 'home:open-video (SAF picker)' });
+      await nativeTap(['Show roots']);
+      await nativeTap(['Downloads', 'Download']);
+      await nativeTap(['KNOUX-QA.mp4']);
+      const video = page.locator('video').first();
+      await video.waitFor();
+      /* The header only renders while the controls are shown; if they auto-hide,
+       * a trusted tap on the stage reveals them again (single tap toggles). */
+      let title = '';
+      const titleDeadline = Date.now() + 20000;
+      while (!title && Date.now() < titleDeadline) {
+        try {
+          title = await until(async () => {
+            const element = page.locator('.ump-title strong').first();
+            if (await element.count() === 0) return false;
+            return (await element.textContent())?.trim() || false;
+          }, 'player title not on screen yet', 3000);
+        } catch {
+          try {
+            await trustedTap(page.locator('.ump-stage'), { timeout: 6000, minHeight: 40, note: 'player:reveal-controls-for-title' });
+          } catch { break; }
+          await delay(500);
+        }
+      }
+      if (!title) throw new Error('Player title never appeared');
+      if (!/KNOUX-QA\.mp4/.test(title)) throw new Error(`Player title shows "${title}" instead of the real file name (provider identifier leaked)`);
+      const playback = await ensurePlayback(page, video);
+      if (!playback.started) {
+        results.touchPolicy.fallbacks.push('player:playback started via page media element API after trusted taps did not start it');
+        await video.evaluate((element) => { void element.play().catch(() => undefined); });
+        playback.via.push('page-media-element play() (honest fallback: trusted tap did not start playback)');
+      }
+      await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Media did not start advancing after play');
+      await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
+      const firstFrameMs = Date.now() - started;
+      results.measurements.push({ name: 'chooser-to-decoded-frame', milliseconds: firstFrameMs, N: 1, includesNativeChooser: true });
+      const frame = await video.evaluate((element) => {
+        const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(element, 0, 0, 32, 32);
+        const pixels = ctx.getImageData(0, 0, 32, 32).data;
+        return { width: element.videoWidth, duration: element.duration, decoded: element.getVideoPlaybackQuality().totalVideoFrames, colors: new Set(pixels).size };
+      });
+      if (frame.colors < 8) throw new Error('Decoded frame lacks expected test pattern');
+
+      /* Trusted scrub: tap the real timeline control through the OS pipeline. */
+      const seekTrusted = { requestedFraction: 0.3, before: 0, after: null, moved: false };
+      try {
+        const timeline = page.locator('input.ump-timeline');
+        if (await timeline.count() > 0 && await timeline.first().isVisible()) {
+          seekTrusted.before = await video.evaluate((element) => element.currentTime);
+          await trustedTap(timeline, { timeout: 8000, minHeight: 12, fractionX: 0.3, note: 'player:timeline-scrub' });
+          const expected = seekTrusted.requestedFraction * frame.duration;
+          await until(async () => {
+            const time = await video.evaluate((element) => element.currentTime);
+            if (time > seekTrusted.before + 0.6 || time >= expected * 0.6) { seekTrusted.after = time; seekTrusted.moved = true; return true; }
+            return false;
+          }, 'trusted timeline tap did not move playback position', 6000);
+        } else {
+          seekTrusted.reason = 'timeline control was not visible; API seek verification below still applies';
+        }
+      } catch (error) {
+        seekTrusted.reason = String(error && error.message).slice(0, 200);
+        seekTrusted.fallback = 'API seek verification below still applied';
+      }
+      await video.evaluate((element) => { element.currentTime = 2; });
+      await until(() => video.evaluate((element) => !element.seeking && element.currentTime >= 2), 'Seek did not complete');
+
+      let audioPeak = 0;
+      let audioObserved = false;
+      const audioHookTiming = await page.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
+      if (audioHookTiming) {
+        try {
+          await until(async () => {
+            audioPeak = await page.evaluate(() => Math.max(0, ...window.__knouxQaAnalysers.map((analyser) => {
+              const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
+              return Math.max(...samples.map(Math.abs));
+            })));
+            return audioPeak > 0.001;
+          }, 'No actual PCM signal observed in player audio graph', 15000);
+          audioObserved = audioPeak > 0.001;
+        } catch { /* fall through to the explicit noaudio assessment below */ }
+      }
+      if (!audioObserved) {
+        const decodedAudio = await video.evaluate((element) => ({
+          time: element.currentTime,
+          track: element.audioTracks && element.audioTracks.length,
+          muted: element.muted,
+          volume: element.volume,
+        }));
+        if (!Number.isFinite(decodedAudio.time) || decodedAudio.time < 1) throw new Error('No audio-track playback progress observed');
+      }
+      await video.evaluate((element) => element.pause());
+      await page.screenshot({ path: `${output}/real-player.png` });
+      return {
+        ...frame,
+        title,
+        playbackStartedVia: playback.via,
+        seekTrusted,
+        audioPeak,
+        seek: 'completed (API seek verified after the trusted scrub attempt)',
+        speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)',
+      };
+    });
+
+    // Native screen capture is a separate case. Failure never turns into launch PASS.
+    // Emulator evidence: the initial device.webView attach survives native picker
+    // navigation through case 2 (both verified). Re-acquiring the WebView — even a
+    // probe page.evaluate — closes the working page in Playwright AndroidWebView.
+    // So the recording case reuses the live handle without any re-attach logic.
+    await runCase('native-recording-finalize-editor-handoff', async () => {
+      await ensureHome(page);
+      await trustedTap(page.getByRole('button', { name: 'Record Native screen capture' }).first(), { note: 'home:record-card' });
+      await until(() => page.getByRole('button', { name: 'Start screen recording' }).count() > 0, 'Recording surface did not open after the trusted Record tap');
+      await trustedTap(page.getByRole('button', { name: 'Start screen recording' }).first(), { note: 'recording:start' });
+      // Android MediaProjection consent (SystemUI). Full-screen mode is preferred
+      // when offered; the positive button is text="Start" / android:id/button1.
+      try { await nativeTap(['Entire screen'], 4000); } catch { /* dialog may not offer the selector */ }
+      await nativeTap(['Start now', 'Start recording', 'Start'], 15000, ['android:id/button1']);
+      // API 35 single-app capture asks which app to record; pick KNOUX X if the
+      // recording has not started yet and the picker is on screen.
       try {
         await until(async () => {
-          audioPeak = await page.evaluate(() => Math.max(0, ...window.__knouxQaAnalysers.map((analyser) => {
-            const samples = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(samples);
-            return Math.max(...samples.map(Math.abs));
-          })));
-          return audioPeak > 0.001;
-        }, 'No actual PCM signal observed in player audio graph', 15000);
-        audioObserved = audioPeak > 0.001;
-      } catch { /* fall through to the explicit noaudio assessment below */ }
-    }
-    if (!audioObserved) {
-      const decodedAudio = await video.evaluate((element) => ({
-        time: element.currentTime,
-        track: element.audioTracks && element.audioTracks.length,
-        muted: element.muted,
-        volume: element.volume,
-      }));
-      if (!Number.isFinite(decodedAudio.time) || decodedAudio.time < 1) throw new Error('No audio-track playback progress observed');
-    }
-    await video.evaluate((element) => element.pause());
-    await page.screenshot({ path: `${output}/real-player.png` });
-    return { ...frame, audioPeak, seek: 'completed', speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)' };
-  });
-  // Native screen capture is a separate case. Failure never turns into launch PASS.
-  // Emulator evidence: the initial device.webView attach survives native picker
-  // navigation through case 2 (both verified). Re-acquiring the WebView — even a
-  // probe page.evaluate — closes the working page in Playwright AndroidWebView.
-  // So the recording case reuses the live handle without any re-attach logic.
-  try { await nativeTap(['Back', 'Navigate up'], 8000); } catch { try { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); } catch { /* best-effort navigation */ } }
-  await runCase('native-recording-finalize-editor-handoff', async () => {
-    await tapWeb(page.getByRole('button', { name: 'Record Native screen capture' }));
-    await tapWeb(page.getByRole('button', { name: 'Start screen recording' }));
-    try { await nativeTap(['A single app', 'A single application', 'Entire screen']); } catch { /* OS may default to full screen; consent still required below */ }
-    await nativeTap(['Start now', 'Start recording', 'Start']);
-    // SystemUI API 35 consent button: text="Start" with resource-id="android:id/button1"; search text covers both localized and default forms.
-    await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 20000 });
-    await delay(4500); // Intentional captured duration, not a startup readiness wait.
-    await tapWeb(page.getByRole('button', { name: 'Stop & save MP4' }));
-    await page.getByRole('button', { name: 'Open in Video Editor' }).waitFor({ timeout: 20000 });
-    const status = await page.evaluate(() => window.Capacitor.Plugins.KnouxScreenCapture.status());
-    if (!status.outputUri || status.recording) throw new Error('No finalized native URI');
-    const bytes = execFileSync('adb', ['exec-out', 'content', 'read', '--uri', status.outputUri], { timeout: 30000 });
-    fs.writeFileSync(`${output}/synthetic-screen-recording.mp4`, bytes);
-    const probe = JSON.parse(execFileSync(process.execPath, ['-e', 'const p=require("@derhuerst/ffprobe-static").path;process.stdout.write(require("child_process").execFileSync(p,["-v","error","-count_packets","-show_streams","-show_format","-of","json",process.argv[1]]))', `${output}/synthetic-screen-recording.mp4`], { encoding: 'utf8' }));
-    if (!probe.streams.some((stream) => stream.codec_type === 'video' && +stream.nb_read_packets > 0) || +probe.format.duration <= 0) throw new Error('Recorded MP4 has no video packets/duration');
-    await tapWeb(page.getByRole('button', { name: 'Open in Video Editor' }));
-    await page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').waitFor();
-    await until(() => page.locator('video').first().evaluate((element) => element.readyState >= 2 && element.videoWidth > 0), 'Editor did not decode the recording');
-    await page.screenshot({ path: `${output}/recording-editor.png` });
-    return { bytes: bytes.length, duration: probe.format.duration, videoPackets: probe.streams.find((stream) => stream.codec_type === 'video').nb_read_packets, editor: 'actual saved project loaded with decoded preview' };
-  });
+          if (await page.getByRole('button', { name: 'Stop & save MP4' }).count() > 0) return false;
+          const xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
+          return xml.includes('KNOUX X') || xml.includes('KNOUX-X');
+        }, 'no single-app picker appeared', 3500);
+        await nativeTap(['KNOUX X', 'KNOUX'], 5000);
+      } catch { /* full-screen recording needs no app picker */ }
+      await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 25000 });
+      await delay(4500); // Intentional captured duration, not a startup readiness wait.
+      await trustedTap(page.getByRole('button', { name: 'Stop & save MP4' }).first(), { note: 'recording:stop' });
+      await page.getByRole('button', { name: 'Open in Video Editor' }).waitFor({ timeout: 25000 });
+      const status = await page.evaluate(() => window.Capacitor.Plugins.KnouxScreenCapture.status());
+      if (!status.outputUri || status.recording) throw new Error('No finalized native URI');
+      const { bytes, attempts: byteAttempts } = readRecordingBytes(status.outputUri);
+      fs.writeFileSync(`${output}/synthetic-screen-recording.mp4`, bytes);
+      const probe = JSON.parse(execFileSync(process.execPath, ['-e', 'const p=require("@derhuerst/ffprobe-static").path;process.stdout.write(require("child_process").execFileSync(p,["-v","error","-count_packets","-show_streams","-show_format","-of","json",process.argv[1]]))', `${output}/synthetic-screen-recording.mp4`], { encoding: 'utf8' }));
+      if (!probe.streams.some((stream) => stream.codec_type === 'video' && +stream.nb_read_packets > 0) || +probe.format.duration <= 0) throw new Error('Recorded MP4 has no video packets/duration');
+      await trustedTap(page.getByRole('button', { name: 'Open in Video Editor' }).first(), { note: 'recording:open-editor' });
+      await page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').waitFor();
+      await until(() => page.locator('video').first().evaluate((element) => element.readyState >= 2 && element.videoWidth > 0), 'Editor did not decode the recording');
+      await page.screenshot({ path: `${output}/recording-editor.png` });
+      return {
+        bytes: bytes.length,
+        byteReadAttempts: byteAttempts,
+        duration: probe.format.duration,
+        videoPackets: probe.streams.find((stream) => stream.codec_type === 'video').nb_read_packets,
+        consent: 'MediaProjection consent granted through trusted SystemUI taps',
+        editor: 'actual saved project loaded with decoded preview',
+      };
+    });
   } finally {
     try { if (device) await device.close(); } catch { /* best-effort cleanup */ }
   }

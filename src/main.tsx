@@ -28,6 +28,7 @@ import { installAndroidSafBridge } from './platform/androidSafBridge';
 import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
+import './styles/android-visual-system.css';
 
 const SystemOverlay = lazy(async () => {
   const module = await import('./components/system/SystemOverlay');

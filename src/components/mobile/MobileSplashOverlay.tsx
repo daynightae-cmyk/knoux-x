@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BrandMark } from '../brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
@@ -9,43 +9,63 @@ interface MobileSplashOverlayProps {
   onComplete?: () => void;
 }
 
+const MIN_SPLASH_HOLD_MS = 750;
+const MAX_SPLASH_SAFETY_MS = 1800;
+
 export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComplete }) => {
   const isHomeReady = useAppStore((state) => state.isHomeReady);
   const [phase, setPhase] = useState<'entering' | 'holding' | 'exiting' | 'hidden'>('entering');
-  const minDurationPassedRef = useRef(false);
+  const shownAtRef = useRef<number>(performance.now());
+  const minHoldTimerRef = useRef<number | null>(null);
+  const activeRef = useRef(true);
 
   useEffect(() => {
     // Entry animation phase
     const enterTimer = setTimeout(() => {
-      setPhase('holding');
+      setPhase((current) => current === 'entering' ? 'holding' : current);
     }, 200);
 
-    // Minimum visual duration threshold (750ms)
-    const minTimer = setTimeout(() => {
-      minDurationPassedRef.current = true;
-      if (useAppStore.getState().isHomeReady) {
-        setPhase('exiting');
-      }
-    }, 750);
-
-    // Maximum safety fallback timeout (1800ms)
-    const safetyTimer = setTimeout(() => {
-      setPhase((prev) => (prev === 'holding' || prev === 'entering' ? 'exiting' : prev));
-    }, 1800);
-
+    const clearMinHoldTimer = minHoldTimerRef.current;
     return () => {
+      activeRef.current = false;
       clearTimeout(enterTimer);
-      clearTimeout(minTimer);
-      clearTimeout(safetyTimer);
+      if (clearMinHoldTimer !== null) clearTimeout(clearMinHoldTimer);
     };
   }, []);
 
-  // Exit trigger when readiness signal fires after min duration
-  useEffect(() => {
-    if (isHomeReady && minDurationPassedRef.current && phase === 'holding') {
-      setPhase('exiting');
+  const requestExit = useCallback(() => {
+    if (!activeRef.current) return;
+    const elapsed = performance.now() - shownAtRef.current;
+    const remaining = MIN_SPLASH_HOLD_MS - elapsed;
+    const exit = () => {
+      if (!activeRef.current) return;
+      setPhase((prev) => (prev === 'holding' || prev === 'entering' ? 'exiting' : prev));
+    };
+    if (remaining > 0 && typeof window !== 'undefined') {
+      if (minHoldTimerRef.current !== null) clearTimeout(minHoldTimerRef.current);
+      minHoldTimerRef.current = window.setTimeout(exit, remaining);
+    } else {
+      exit();
     }
-  }, [isHomeReady, phase]);
+  }, []);
+
+  // Maximum safety fallback timeout (1800ms)
+  const safetyTimer = useRef<number | null>(null);
+  useEffect(() => {
+    safetyTimer.current = window.setTimeout(() => {
+      if (activeRef.current) setPhase((prev) => (prev === 'holding' || prev === 'entering' ? 'exiting' : prev));
+    }, MAX_SPLASH_SAFETY_MS);
+    return () => {
+      if (safetyTimer.current !== null) clearTimeout(safetyTimer.current);
+    };
+  }, []);
+
+  // Reveal the actionable Home when it is genuinely ready; branding never adds a fixed wait beyond the 750ms minimum hold.
+  useEffect(() => {
+    if (isHomeReady && (phase === 'entering' || phase === 'holding')) {
+      requestExit();
+    }
+  }, [isHomeReady, phase, requestExit]);
 
   // Complete unmount after 300ms exit transition
   useEffect(() => {
@@ -53,7 +73,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
     const exitTimer = setTimeout(() => {
       setPhase('hidden');
       onComplete?.();
-    }, 300);
+    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300);
     return () => clearTimeout(exitTimer);
   }, [onComplete, phase]);
 

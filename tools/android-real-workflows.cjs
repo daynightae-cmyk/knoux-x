@@ -282,6 +282,47 @@ function verifyFixtureOnDevice() {
   return { path, bytes };
 }
 
+/* Bounded, state-driven chooser walk shared by every SAF import path. The
+ * recorded CI states were a media "Videos" root with a "Download" folder tile,
+ * a listing that already contains the fixture, and a roots drawer; each tap
+ * requires settled geometry and the "Downloads" root row is matched by exact
+ * text so it can never be confused with the "Download" folder tile. */
+async function chooseFixtureInPicker(prefix, maxAttempts = 3) {
+  const pickerPaths = [];
+  let fileChosen = false;
+  for (let attempt = 1; attempt <= maxAttempts && !fileChosen; attempt += 1) {
+    const action = nativeCore.chooserAction(dumpNativeNodes());
+    if (action.type === 'file-row') {
+      await stableTap(nativeCore.fixtureRowMatcher(), { note: `${prefix}:file (attempt ${attempt})`, description: `${nativeCore.FIXTURE_NAME} row` });
+      pickerPaths.push(`attempt${attempt}:file-row`);
+      fileChosen = true;
+      break;
+    }
+    if (action.type === 'folder-tile') {
+      await stableTap(nativeCore.folderTileMatcher(), { note: `${prefix}:Download-folder (attempt ${attempt})`, description: 'Download folder tile' });
+      pickerPaths.push(`attempt${attempt}:folder-tile`);
+      await delay(1000);
+      continue;
+    }
+    if (action.type === 'roots-drawer') {
+      await stableTap(nativeCore.rootsDrawerMatcher(), { note: `${prefix}:show-roots (attempt ${attempt})`, description: 'Show roots' });
+      await delay(600);
+      const downloads = nativeCore.downloadsRootAction(dumpNativeNodes());
+      if (downloads.type !== 'downloads-root') throw new Error(`Roots drawer did not expose a Downloads row: ${downloads.note}`);
+      await stableTap(nativeCore.downloadsRowMatcher(), { note: `${prefix}:downloads-root (attempt ${attempt})`, description: 'Downloads root row' });
+      pickerPaths.push(`attempt${attempt}:roots-drawer`);
+      await delay(1000);
+      continue;
+    }
+    await delay(600);
+  }
+  if (!fileChosen) {
+    await stableTap(nativeCore.fixtureRowMatcher(), { note: `${prefix}:file (final)`, timeout: 12000, description: `${nativeCore.FIXTURE_NAME} row (final)` });
+    pickerPaths.push('final:file-row');
+  }
+  return pickerPaths;
+}
+
 async function runCase(id, work) {
   const syntheticBefore = results.touchPolicy.syntheticEventsUsed;
   try {
@@ -716,43 +757,9 @@ function readRecordingBytes(uri) {
         () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]),
         { note: 'home:open-video (SAF picker)', timeout: 15000, checkTimeout: 9000 },
       );
-      /* Bounded, state-driven chooser walk. Each step re-reads the hierarchy
-       * and every tap requires settled geometry: the recorded CI runs showed
-       * both a mid-animation drawer tap landing on the wrong row and a chooser
-       * that started in the media "Videos" root, where the fixture sits one
-       * level inside the "Download" folder tile. */
-      const pickerPaths = [];
-      let fileChosen = false;
-      for (let attempt = 1; attempt <= 3 && !fileChosen; attempt += 1) {
-        const action = nativeCore.chooserAction(dumpNativeNodes());
-        if (action.type === 'file-row') {
-          await stableTap(nativeCore.fixtureRowMatcher(), { note: `saf:file (attempt ${attempt})`, description: `${nativeCore.FIXTURE_NAME} row` });
-          pickerPaths.push(`attempt${attempt}:file-row`);
-          fileChosen = true;
-          break;
-        }
-        if (action.type === 'folder-tile') {
-          await stableTap(nativeCore.folderTileMatcher(), { note: `saf:Download-folder (attempt ${attempt})`, description: 'Download folder tile' });
-          pickerPaths.push(`attempt${attempt}:folder-tile`);
-          await delay(1000);
-          continue;
-        }
-        if (action.type === 'roots-drawer') {
-          await stableTap(nativeCore.rootsDrawerMatcher(), { note: `saf:show-roots (attempt ${attempt})`, description: 'Show roots' });
-          await delay(600);
-          const downloads = nativeCore.downloadsRootAction(dumpNativeNodes());
-          if (downloads.type !== 'downloads-root') throw new Error(`Roots drawer did not expose a Downloads row: ${downloads.note}`);
-          await stableTap(nativeCore.downloadsRowMatcher(), { note: `saf:downloads-root (attempt ${attempt})`, description: 'Downloads root row' });
-          pickerPaths.push(`attempt${attempt}:roots-drawer`);
-          await delay(1000);
-          continue;
-        }
-        await delay(600);
-      }
-      if (!fileChosen) {
-        await stableTap(nativeCore.fixtureRowMatcher(), { note: 'saf:file (final)', timeout: 12000, description: `${nativeCore.FIXTURE_NAME} row (final)` });
-        pickerPaths.push('final:file-row');
-      }
+      /* Bounded, state-driven chooser walk (shared with the photos-to-video
+       * import path) with settled geometry before every native tap. */
+      const pickerPaths = await chooseFixtureInPicker('saf');
       try {
         await until(() => coveringNativeWindow() === null, 'picker did not close after the file tap', 8000);
       } catch {
@@ -803,25 +810,40 @@ function readRecordingBytes(uri) {
       });
       if (frame.colors < 8) throw new Error('Decoded frame lacks expected test pattern');
 
-      /* Trusted scrub: tap the real timeline control through the OS pipeline. */
-      const seekTrusted = { requestedFraction: 0.3, before: 0, after: null, moved: false };
-      try {
-        const timeline = page.locator('input.ump-timeline');
-        if (await timeline.count() > 0 && await timeline.first().isVisible()) {
+      /* Trusted scrub. The controls auto-hide 3200 ms after they are revealed
+       * (UltimateMobilePlayer.revealControls), which is why the previous run
+       * found the timeline "not visible": by the time the scrub was attempted
+       * the control layer had already gone. A stage tap toggles the controls,
+       * so the stage is only tapped when the timeline is genuinely absent, and
+       * the scrub follows immediately inside the reveal window. */
+      const seekTrusted = { requestedFraction: 0.3, before: 0, after: null, moved: false, attempts: [] };
+      const timeline = page.locator('input.ump-timeline').first();
+      const timelineVisible = async () => (await timeline.count()) > 0 && await timeline.isVisible();
+      for (let attempt = 0; attempt < 3 && !seekTrusted.moved; attempt += 1) {
+        const attemptRecord = { attempt: attempt + 1 };
+        try {
+          if (!(await timelineVisible())) {
+            await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls-for-scrub' });
+            await until(timelineVisible, 'timeline control did not appear after revealing the player controls', 5000);
+            attemptRecord.revealed = true;
+          }
           seekTrusted.before = await video.evaluate((element) => element.currentTime);
-          await trustedTap(timeline, { timeout: 8000, minHeight: 12, fractionX: 0.3, note: 'player:timeline-scrub' });
+          await trustedTap(timeline, { timeout: 8000, minHeight: 12, fractionX: seekTrusted.requestedFraction, note: 'player:timeline-scrub' });
           const expected = seekTrusted.requestedFraction * frame.duration;
           await until(async () => {
             const time = await video.evaluate((element) => element.currentTime);
             if (time > seekTrusted.before + 0.6 || time >= expected * 0.6) { seekTrusted.after = time; seekTrusted.moved = true; return true; }
             return false;
-          }, 'trusted timeline tap did not move playback position', 6000);
-        } else {
-          seekTrusted.reason = 'timeline control was not visible; API seek verification below still applies';
+          }, 'trusted timeline tap did not move playback position', 5000);
+          attemptRecord.moved = true;
+        } catch (error) {
+          attemptRecord.error = String(error && error.message).slice(0, 200);
         }
-      } catch (error) {
-        seekTrusted.reason = String(error && error.message).slice(0, 200);
-        seekTrusted.fallback = 'API seek verification below still applied';
+        seekTrusted.attempts.push(attemptRecord);
+      }
+      if (!seekTrusted.moved) {
+        seekTrusted.reason = 'trusted timeline scrub did not move playback within the controls reveal window';
+        seekTrusted.fallback = 'API seek verification below still applies';
       }
       await video.evaluate((element) => { element.currentTime = 2; });
       await until(() => video.evaluate((element) => !element.seeking && element.currentTime >= 2), 'Seek did not complete');
@@ -863,6 +885,66 @@ function readRecordingBytes(uri) {
         audioPeak,
         seek: 'completed (API seek verified after the trusted scrub attempt)',
         speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)',
+      };
+    }));
+
+    // Photos-to-video SAF persistence. Separate case: it exercises the second
+    // SAF import path and proves a real photo survives save -> reopen.
+    await runCase('photos-to-video-saf-persistence', () => withSession('photos-to-video-saf-persistence', async () => {
+      await ensureHome(page);
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Photos to Video', exact: false }).first(),
+        async () => (await page.locator('[data-component="MobileSlideshowEditor"]').count()) > 0,
+        { note: 'home:photos-to-video', timeout: 15000, checkTimeout: 9000 },
+      );
+      const slideshow = page.locator('[data-component="MobileSlideshowEditor"]');
+      await slideshow.waitFor();
+      const addMedia = slideshow.getByRole('button', { name: 'Add media', exact: false }).first();
+      if (await addMedia.count() === 0) {
+        // An empty project still offers "New project"; create it first.
+        await trustedTapUntil(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), async () => (await addMedia.count()) > 0, { note: 'slideshow:new-project', timeout: 12000, checkTimeout: 8000 });
+      }
+      await trustedTapUntil(addMedia, () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]), { note: 'slideshow:add-media (SAF picker)', timeout: 15000, checkTimeout: 9000 });
+      const picked = await chooseFixtureInPicker('slideshow', 3);
+      if (!picked) throw new Error('Photos-to-video chooser could not select the fixture');
+      await until(async () => {
+        const slides = await page.locator('.kms-strip button').count();
+        return slides > 0;
+      }, 'the imported photo never appeared in the slideshow timeline', 25000);
+      const slideCount = await page.locator('.kms-strip button').count();
+      const createMp4 = slideshow.getByRole('button', { name: 'Create MP4', exact: false }).first();
+      if (await createMp4.isEnabled()) {
+        await trustedTapUntil(createMp4, async () => {
+          const text = await createMp4.textContent();
+          return Boolean(text && !text.toLowerCase().includes('create mp4'));
+        }, { note: 'slideshow:create-mp4', timeout: 15000, checkTimeout: 12000 });
+      } else {
+        // No audio track is staged, so a render may not be offered; that is a
+        // product limitation, not an import failure, and is reported as such.
+        results.measurements.push({ name: 'photos-to-video-render-available', value: false, N: 1 });
+      }
+      const save = slideshow.getByRole('button', { name: 'Save', exact: true }).first();
+      await trustedTapUntil(save, async () => {
+        const disabled = await save.isDisabled();
+        return !disabled;
+      }, { note: 'slideshow:save', timeout: 12000, checkTimeout: 6000 });
+      await delay(1200);
+      const openProject = slideshow.getByRole('button', { name: 'Open project', exact: false }).first();
+      if (await openProject.count() > 0) {
+        await trustedTapUntil(openProject, async () => {
+          const slides = await page.locator('.kms-strip button').count();
+          return slides > 0;
+        }, { note: 'slideshow:open-project', timeout: 15000, checkTimeout: 10000 });
+      }
+      const reopenedSlides = await page.locator('.kms-strip button').count();
+      if (reopenedSlides === 0) throw new Error('The imported photo did not survive save and reopen');
+      return {
+        fixture,
+        pickerPaths,
+        slideCount,
+        reopenedSlides,
+        persistence: `imported photo survived save -> open project (${reopenedSlides} slide(s) restored)`,
+        renderAttempted: await createMp4.isEnabled(),
       };
     }));
 

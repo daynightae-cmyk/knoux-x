@@ -298,3 +298,24 @@ describe('device and session health decisions', () => {
     expect(core.isSessionDeath("Cannot read properties of null (reading 'getByRole')")).toBe(false);
   });
 });
+
+/* Both SAF import paths (the MP4 player and the photos-to-video editor) drive
+ * the same chooser walk, so the decision must be identical for identical
+ * hierarchies regardless of which surface opened the picker. */
+describe('shared chooser walk', () => {
+  test('the same picker state yields the same action for both import paths', () => {
+    const states = { videos: videoRootChooser, listing: downloadFolderListing, drawer: rootsDrawer };
+    const first = Object.fromEntries(Object.entries(states).map(([key, xml]) => [key, core.chooserAction(core.parseNodes(xml)).type]));
+    const second = Object.fromEntries(Object.entries(states).map(([key, xml]) => [key, core.chooserAction(core.parseNodes(xml)).type]));
+    expect(second).toEqual(first);
+    expect(first).toEqual({ videos: 'folder-tile', listing: 'file-row', drawer: 'roots-drawer' });
+  });
+
+  test('a fixture row wins over a folder tile in the same hierarchy', () => {
+    const mixed = hierarchy([
+      node({ package: DOCUMENTSUI, text: 'Download', resourceId: 'android:id/title', bounds: '[188,721][352,772]' }),
+      node({ package: DOCUMENTSUI, text: 'KNOUX-QA.mp4', resourceId: 'android:id/title', bounds: '[40,180][1040,260]' }),
+    ]);
+    expect(core.chooserAction(core.parseNodes(mixed)).type).toBe('file-row');
+  });
+});

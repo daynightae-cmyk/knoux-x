@@ -117,8 +117,8 @@ function consentAction(nodes, state = {}) {
   if (!dialog) return { type: 'wait', note: `no-native-consent-window (packages=${packagesIn(nodes).join(',') || 'none'})` };
   const inDialog = (node) => attrOf(node, 'package') === dialog;
   const labelOf = (node) => attrOf(node, 'text') || attrOf(node, 'content-desc');
+  const inDialogLabels = nodes.filter((node) => inDialog(node) && labelOf(node));
   if (!state.entireScreenChosen) {
-    const inDialogLabels = nodes.filter((node) => inDialog(node) && labelOf(node));
     const exact = inDialogLabels.find((node) => ENTIRE_SCREEN_LABELS.includes(labelOf(node)));
     const fuzzy = inDialogLabels.find((node) => {
       const label = labelOf(node);
@@ -126,6 +126,15 @@ function consentAction(nodes, state = {}) {
     });
     const entire = exact ?? fuzzy;
     if (entire) return { type: 'tap-entire', node: entire, kind: 'entire', note: 'prefer-entire-screen' };
+    /* Recorded on API 35 (run 39192720751): the dialog shows the *current* mode
+     * in a single clickable row ("A single app") and the whole-screen option is
+     * only reachable by opening that selector. Tapping the row is what reveals
+     * it; the positive button is only pressed once the mode is settled. */
+    if (!state.modeSelectorTapped) {
+      const modeRow = inDialogLabels.find((node) => SINGLE_APP_PATTERN.test(labelOf(node)) && node.includes('clickable="true"'))
+        ?? inDialogLabels.find((node) => SINGLE_APP_PATTERN.test(labelOf(node)));
+      if (modeRow) return { type: 'tap-mode-selector', node: modeRow, kind: 'mode', note: 'open-mode-selector' };
+    }
   }
   const start = nodes.find((node) => inDialog(node)
     && (START_LABELS.includes(attrOf(node, 'text')) || attrOf(node, 'resource-id') === POSITIVE_BUTTON_ID));

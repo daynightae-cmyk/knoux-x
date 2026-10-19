@@ -180,12 +180,48 @@ describe('native Android surface decisions', () => {
     expect(core.consentAction(nodes, { entireScreenChosen: true }).type).toBe('tap-start');
   });
 
-  test('a single-app-only dialog never selects the single-app option', () => {
+  test('a single-app-only dialog opens the selector rather than confirming it', () => {
     const singleAppOnly = hierarchy([
       node({ package: SYSTEMUI, text: 'Only a single app', bounds: '[40,900][500,1000]' }),
       node({ package: SYSTEMUI, text: 'Start', resourceId: 'android:id/button1', bounds: '[640,1650][1040,1740]' }),
     ]);
-    expect(core.consentAction(core.parseNodes(singleAppOnly)).type).toBe('tap-start');
+    // A single-app label is treated as the mode row and opened first, so the
+    // positive button is only ever reached after the mode is settled.
+    expect(core.consentAction(core.parseNodes(singleAppOnly)).type).toBe('tap-mode-selector');
+    expect(core.consentAction(core.parseNodes(singleAppOnly), { modeSelectorTapped: true }).type).toBe('tap-start');
+  });
+
+  /* Recorded verbatim from CI run 39192720751 (consent-state-1.xml): API 35
+   * exposes the capture mode as ONE clickable row showing the current mode, so
+   * the whole-screen option only exists after that row is opened. The run
+   * confirmed the single-app path instead and was denied. */
+  const recordedApi35Dialog = hierarchy([
+    node({ package: SYSTEMUI, text: 'Start recording or casting with KNOUX X?', resourceId: 'android:id/alertTitle', bounds: '[105,900][975,1000]' }),
+    node({ package: SYSTEMUI, text: 'A single app', bounds: '[105,1074][975,1263]', clickable: true }),
+    node({ package: SYSTEMUI, text: "When you're sharing, recording, or casting an app, KNOUX X has access to anything shown or played on that app.", resourceId: 'android:id/message', bounds: '[105,1300][975,1600]' }),
+    node({ package: SYSTEMUI, text: 'Cancel', bounds: '[105,1642][301,1768]', clickable: true }),
+    node({ package: SYSTEMUI, text: 'Start', bounds: '[811,1642][975,1768]', clickable: true }),
+  ]);
+
+  test('opens the recorded API 35 mode row instead of confirming single-app capture', () => {
+    const nodes = core.parseNodes(recordedApi35Dialog);
+    const action = core.consentAction(nodes);
+    expect(action.type).toBe('tap-mode-selector');
+    expect(action.note).toBe('open-mode-selector');
+    expect(core.attrOf(action.node, 'text')).toBe('A single app');
+    // After the selector has been opened, the dialog may only be confirmed.
+    expect(core.consentAction(nodes, { modeSelectorTapped: true }).type).toBe('tap-start');
+  });
+
+  test('picks the whole-screen option once the recorded selector is open', () => {
+    const selectorOpen = hierarchy([
+      ...[core.parseNodes(recordedApi35Dialog)].flat().filter((node) => core.attrOf(node, 'text') !== 'A single app'),
+      node({ package: SYSTEMUI, text: 'Entire screen', bounds: '[105,700][975,800]', clickable: true }),
+    ]);
+    const action = core.consentAction(core.parseNodes(selectorOpen), { modeSelectorTapped: true });
+    expect(action.type).toBe('tap-entire');
+    expect(core.attrOf(action.node, 'text')).toBe('Entire screen');
+    expect(core.consentAction(core.parseNodes(selectorOpen), { modeSelectorTapped: true, entireScreenChosen: true }).type).toBe('tap-start');
   });
 
   test('consent recognises the API 35 single-app picker row', () => {

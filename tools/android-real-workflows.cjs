@@ -357,6 +357,7 @@ async function grantScreenCaptureConsent(page) {
   const seenDialogs = new Set();
   const stabilityByKind = new Map();
   let entireScreenChosen = false;
+  let modeSelectorTapped = false;
   const deadline = Date.now() + 90000;
   const stopButton = page.getByRole('button', { name: 'Stop & save MP4' });
   while (Date.now() < deadline) {
@@ -365,7 +366,7 @@ async function grantScreenCaptureConsent(page) {
     try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { xml = ''; }
     if (!xml.includes('<node')) { await delay(700); continue; }
     const nodes = nativeCore.parseNodes(xml);
-    const action = nativeCore.consentAction(nodes, { entireScreenChosen });
+    const action = nativeCore.consentAction(nodes, { entireScreenChosen, modeSelectorTapped });
     const evidence = { packages: nativeCore.packagesIn(nodes), focus: currentFocus() };
     const tapNode = (node, note) => {
       const bounds = nativeCore.nodeBoundsOf(node);
@@ -394,10 +395,12 @@ async function grantScreenCaptureConsent(page) {
         try { fs.writeFileSync(`${output}/consent-state-${seenDialogs.size}.xml`, xml); } catch { /* evidence write is best-effort */ }
       }
     }
-    if (action.type === 'tap-entire' || action.type === 'tap-start' || action.type === 'tap-app-row') {
+    if (action.type === 'tap-entire' || action.type === 'tap-start' || action.type === 'tap-app-row' || action.type === 'tap-mode-selector') {
       if (settled(action.node)) {
         if (action.type === 'tap-entire') entireScreenChosen = true;
-        tapNode(action.node, `consent:${action.kind === 'entire' ? 'entire-screen' : action.kind === 'start' ? 'start' : 'app-row'}`);
+        if (action.type === 'tap-mode-selector') modeSelectorTapped = true;
+        const note = { entire: 'consent:entire-screen', start: 'consent:start', app: 'consent:app-row', mode: 'consent:mode-selector' }[action.kind];
+        tapNode(action.node, note);
         await delay(900);
       } else await delay(350);
       continue;

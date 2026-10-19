@@ -4,8 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const BASE_URL = process.argv[process.argv.indexOf('--base-url') + 1] || 'http://127.0.0.1:4173';
-const OUT_DIR = path.resolve(process.argv[process.argv.indexOf('--out') + 1] || 'design-evidence/android-visual-20261019/screenshots');
+const argValue = (name) => {
+  const index = process.argv.indexOf(name);
+  return index !== -1 ? process.argv[index + 1] : undefined;
+};
+const BASE_URL = argValue('--base-url') || 'http://127.0.0.1:4173';
+const OUT_DIR = path.resolve(argValue('--out') || 'design-evidence/android-visual-20261019/screenshots');
 
 const VIEWPORTS = [
   { tag: '360x800', width: 360, height: 800 },

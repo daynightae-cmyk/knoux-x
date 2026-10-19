@@ -169,9 +169,12 @@
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-track-lane button { border-radius: 10px; border-color: #a166e6; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kms-strip > button { border-radius: 15px; border-color: #5a3b78; }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-tool-dock, .kmc-photo-tool-dock) { background: #14101ff5; border-color: #65507e; box-shadow: 0 12px 30px #0008; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock { display: flex; overflow-x: auto; overscroll-behavior-x: contain; gap: 4px; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock button { flex: 1 0 54px; min-width: 54px; min-height: 60px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock { display: flex; gap: 4px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock button { flex: 1 1 0; min-width: 0; min-height: 60px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock span { font-size: 10px; white-space: normal; line-height: 1.25; }
+@media (max-width: 390px) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock { gap: 3px; padding-inline: 4px; }
+}
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-tool-tabs, .kmc-filter-grid) { gap: 8px; overflow-x: auto; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmc-filter-chip { font-size: 12px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmc-slider-group label { font-size: 13px; justify-content: space-between; }
@@ -288,6 +291,23 @@
 :root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-overlay-sheet, .ump-sheet) { background: #faf7ff; color: var(--kx-text); }
 :root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-overlay-list > button, .kmh-overlay-list strong) { color: var(--kx-text); }
 :root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kml-search input, .kms-card input, .kme-panel input, .kmc-photo-tool-dock input) { color-scheme: light; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kme-hero > span, .kme-section-title > span, .kme-source-copy small, .kme-source-copy span) { color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kme-section-title strong { color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kme-source-card > button { box-shadow: inset 0 0 0 1px #cbaef5; background: #efe4ff; color: #5b21b6; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kme-resolution-grid button:not(.active), .kme-chip-row button:not(.active)) { border-color: var(--kx-line); background: #fff; color: #4a3d5c; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kme-resolution-grid button.active, .kme-chip-row button.active) { border-color: #7c2fe8; background: linear-gradient(145deg, #6d28d9, #8b3dff); color: #fff; box-shadow: 0 6px 18px #7c2fe83d; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kme-local-badge { border-color: #cbaef5; background: #efe4ff; color: #5b21b6; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kme-source-icon { background: linear-gradient(145deg, #e9dcff, #f7f0ff); color: #6d28d9; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kme-export-primary:disabled { opacity: 1; border-color: #d7c7f2; background: #e9defc; color: #6b4fa0; box-shadow: none; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kmc-mobile-start-card > span { color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kmc-creative-footer { color: #6a5b7d; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kmr-toggle input { color-scheme: light; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .ump-empty h1 { color: #f6f0ff; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .ump-empty p { color: #b7a8c8; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmr-hero > span, .kmr-field > span) { color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kmr-field button.active { color: #fff; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-greeting h1 em, .kmr-hero h1 em, .kme-hero h1 em, .kms-hero h1 em, .kmc-intro-card h1 em) { color: #a855f7; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-section-heading span, .kmh-section-heading > button) { color: var(--kx-lavender); }
 
 :root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet { display: flex; flex-direction: column; overflow: hidden; max-height: min(86dvh, 760px); }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.ump-sheet-handle, .ump-sheet-head) { flex-shrink: 0; }

@@ -208,14 +208,14 @@
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome { background: radial-gradient(ellipse at 90% 0, #4c206e66, transparent 60%), #08060f; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card { padding: 32px 24px; border: 1px solid #59406e; border-radius: 30px; background: linear-gradient(155deg, #24162f, #100c19 70%); box-shadow: 0 20px 60px #0007; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card > .brand-mark { margin-block: 24px; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card h1 { color: var(--kx-text); font-size: 32px; line-height: 1.2; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card p { color: var(--kx-muted); line-height: 1.7; font-size: 15px; }
+/* The onboarding surface stays cinematic-dark in every theme, so its type must not follow theme tokens. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card h1 { color: #f5efff; font-size: 32px; line-height: 1.2; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card p { color: #cbbdda; line-height: 1.7; font-size: 15px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card small { color: #cda9f6; letter-spacing: .1em; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card button { min-width: 100px; min-height: 52px; border-radius: 16px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots { display: flex; gap: 7px; justify-content: center; margin: 22px 0; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots span { width: 7px; height: 7px; background: #61506f; border-radius: 8px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots .active { width: 25px; background: #d3a7ff; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-splash-overlay { background: radial-gradient(ellipse at 50% 42%, #35144980, transparent 60%), #06060d; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-logo-wrapper { padding: 16px; border: 1px solid #8b56be80; border-radius: 50%; box-shadow: 0 0 0 15px #713f9420; animation: kx-brand-enter 420ms ease-out both; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-logo-wrapper img { width: 112px; height: 112px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-title { font-size: 32px; letter-spacing: .12em; margin-top: 16px; }

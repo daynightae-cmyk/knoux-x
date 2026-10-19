@@ -26,6 +26,7 @@ import type {
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
 import { isAndroidRuntime } from '../../platform/runtime';
+import { useAppStore } from '../../store/appStore';
 import { RECORDING_EDITOR_HANDOFF_KEY } from '../recording/recordingEditorHandoff';
 
 import { VideoRetouchInspector } from './retouch/VideoRetouchInspector';
@@ -74,6 +75,20 @@ function formatTime(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${remainder.toFixed(2).padStart(5, '0')}`;
 }
 
+const TRACK_KIND_AR: Record<TrackKind, string> = {
+  video: 'فيديو',
+  audio: 'صوت',
+  image: 'صورة',
+  text: 'نص',
+  subtitle: 'ترجمة',
+  overlay: 'طبقة',
+};
+
+const ERROR_COPY_AR: Record<string, string> = {
+  'Clip could not be deleted.': 'تعذّر حذف المقطع.',
+  'The clip could not be moved.': 'تعذّر نقل المقطع.',
+};
+
 function readMediaMetadata(mediaUrl: string, kind: 'video' | 'audio'): Promise<number> {
   return new Promise((resolve, reject) => {
     const media = document.createElement(kind);
@@ -109,6 +124,7 @@ function selectedItemOf(project: MultitrackProject | null, itemId: string | null
 
 export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHandle, MobileVideoTimelineEditorProps>(
   ({ inspectorOpen }, ref) => {
+    const ar = useAppStore((state) => state.locale) === 'ar';
     const [project, setProject] = useState<MultitrackProject | null>(null);
     const [projectPath, setProjectPath] = useState<string | undefined>();
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -477,18 +493,18 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       return (
         <section className="kmc-mobile-timeline kmc-mobile-timeline--empty" data-component="MobileVideoTimelineEditor">
           <div className="kmc-mobile-start-card">
-            <strong>Your next great story</strong>
-            <span>Every great story starts with a first cut. Create a project or return to one you have saved.</span>
+            <strong>{ar ? 'قصتك الكبيرة القادمة' : 'Your next great story'}</strong>
+            <span>{ar ? 'كل قصة كبيرة تبدأ بأول مونتاج. أنشئ مشروعًا جديدًا أو عُد إلى مشروع حفظته.' : 'Every great story starts with a first cut. Create a project or return to one you have saved.'}</span>
             <div className="kmc-mobile-start-actions">
-              <button type="button" onClick={() => void createProject()} disabled={busy}>New project</button>
-              <button type="button" onClick={() => void openProject()} disabled={busy}>Open project</button>
+              <button type="button" onClick={() => void createProject()} disabled={busy}>{ar ? 'مشروع جديد' : 'New project'}</button>
+              <button type="button" onClick={() => void openProject()} disabled={busy}>{ar ? 'فتح مشروع' : 'Open project'}</button>
             </div>
             {recent.slice(0, 4).map((entry) => (
               <button key={entry} type="button" className="kmc-mobile-recent" onClick={() => void openRecent(entry)} disabled={busy}>
-                {basename(entry)}
+                <bdi>{basename(entry)}</bdi>
               </button>
             ))}
-            {error && <p className="kmc-mobile-video-error" role="alert">{error}</p>}
+            {error && <p className="kmc-mobile-video-error" role="alert">{ar ? ERROR_COPY_AR[error] ?? error : error}</p>}
           </div>
         </section>
       );
@@ -498,22 +514,22 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       <section className="kmc-mobile-timeline" data-component="MobileVideoTimelineEditor" data-dirty={dirty ? 'true' : 'false'}>
         <div className="kmc-mobile-projectbar">
           <div>
-            <strong>{project.name}</strong>
-            <span>{dirty ? 'Unsaved changes' : projectPath ? 'Saved' : 'Local project'} · {formatTime(duration)}</span>
+            <strong><bdi>{project.name}</bdi></strong>
+            <span>{dirty ? (ar ? 'تغييرات غير محفوظة' : 'Unsaved changes') : projectPath ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مشروع محلي' : 'Local project')} · <bdi>{formatTime(duration)}</bdi></span>
           </div>
           <div className="kmc-mobile-project-actions">
-            <button type="button" onClick={undo} disabled={historyRef.current.past.length === 0}>Undo</button>
-            <button type="button" onClick={redo} disabled={historyRef.current.future.length === 0}>Redo</button>
-            <button type="button" onClick={() => void save()} disabled={busy}>Save</button>
+            <button type="button" onClick={undo} disabled={historyRef.current.past.length === 0}>{ar ? 'تراجع' : 'Undo'}</button>
+            <button type="button" onClick={redo} disabled={historyRef.current.future.length === 0}>{ar ? 'إعادة' : 'Redo'}</button>
+            <button type="button" onClick={() => void save()} disabled={busy}>{ar ? 'حفظ' : 'Save'}</button>
           </div>
         </div>
 
-        <div className="kmc-mobile-media-row" aria-label="Add media">
-          <button type="button" onClick={() => void addMedia('video')} disabled={busy}>+ Video</button>
-          <button type="button" onClick={() => void addMedia('audio')} disabled={busy}>+ Audio</button>
-          <button type="button" onClick={() => void addMedia('image')} disabled={busy}>+ Photo</button>
-          <button type="button" onClick={addText} disabled={busy}>+ Text</button>
-          <button type="button" onClick={deleteSelected} disabled={!selectedItem || busy}>Delete</button>
+        <div className="kmc-mobile-media-row" aria-label={ar ? 'إضافة وسائط' : 'Add media'}>
+          <button type="button" onClick={() => void addMedia('video')} disabled={busy}>{ar ? '+ فيديو' : '+ Video'}</button>
+          <button type="button" onClick={() => void addMedia('audio')} disabled={busy}>{ar ? '+ صوت' : '+ Audio'}</button>
+          <button type="button" onClick={() => void addMedia('image')} disabled={busy}>{ar ? '+ صورة' : '+ Photo'}</button>
+          <button type="button" onClick={addText} disabled={busy}>{ar ? '+ نص' : '+ Text'}</button>
+          <button type="button" onClick={deleteSelected} disabled={!selectedItem || busy}>{ar ? 'حذف' : 'Delete'}</button>
         </div>
 
         <div className="kmc-mobile-preview" data-kind={selectedItem?.kind ?? 'none'}>
@@ -539,11 +555,11 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           )}
           {selectedItem && previewUrl && selectedItem.kind === 'image' && <img src={previewUrl} alt={selectedItem.name} />}
           {selectedItem?.kind === 'text' && <div className="kmc-mobile-title-preview">{selectedItem.text?.text ?? selectedItem.name}</div>}
-          {!selectedItem && <div className="kmc-mobile-preview-empty">Select a clip or add media.</div>}
+          {!selectedItem && <div className="kmc-mobile-preview-empty">{ar ? 'اختر مقطعًا أو أضف وسائط.' : 'Select a clip or add media.'}</div>}
         </div>
 
         <div className="kmc-mobile-playhead">
-          <span>{formatTime(playhead)}</span>
+          <span><bdi>{formatTime(playhead)}</bdi></span>
           <input
             type="range"
             min={0}
@@ -551,18 +567,18 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
             step={0.01}
             value={Math.min(playhead, timelineSpan)}
             onChange={(event) => setPlayhead(Number(event.target.value))}
-            aria-label="Timeline playhead"
+            aria-label={ar ? 'مؤشر المخطط الزمني' : 'Timeline playhead'}
           />
-          <span>{formatTime(duration)}</span>
+          <span><bdi>{formatTime(duration)}</bdi></span>
         </div>
 
-        <div className="kmc-mobile-timeline-scroll" aria-label="Mobile multitrack timeline">
+        <div className="kmc-mobile-timeline-scroll" aria-label={ar ? 'المخطط الزمني متعدد المسارات' : 'Mobile multitrack timeline'}>
           <div className="kmc-mobile-ruler" />
           {orderedTracks.map((track) => (
             <div key={track.id} className="kmc-mobile-track" data-kind={track.kind} style={{ gridTemplateColumns: `72px minmax(${420 * zoom}px, 1fr)` }}>
               <div className="kmc-mobile-track-label">
-                <strong>{track.name}</strong>
-                <span>{track.kind}</span>
+                <strong><bdi>{track.name}</bdi></strong>
+                <span>{ar ? TRACK_KIND_AR[track.kind] : track.kind}</span>
               </div>
               <div className="kmc-mobile-track-lane" data-track-id={track.id}>
                 {track.items.map((item) => (
@@ -610,8 +626,8 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
                     }}
                     aria-label={`${item.name}, ${formatTime(item.duration)}`}
                   >
-                    <strong>{item.name}</strong>
-                    <span>{formatTime(item.duration)}</span>
+                    <strong><bdi>{item.name}</bdi></strong>
+                    <span><bdi>{formatTime(item.duration)}</bdi></span>
                   </button>
                 ))}
               </div>
@@ -620,13 +636,13 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           <div className="kmc-mobile-playhead-line" style={{ left: `${Math.max(0, playhead / timelineSpan) * 100}%` }} />
         </div>
 
-        <label className="kmc-mobile-playhead">Timeline zoom <input aria-label="Timeline zoom" type="range" min={1} max={4} step={0.5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /><span>{zoom}×</span></label>
+        <label className="kmc-mobile-playhead">{ar ? 'تكبير المخطط الزمني' : 'Timeline zoom'} <input aria-label={ar ? 'تكبير المخطط الزمني' : 'Timeline zoom'} type="range" min={1} max={4} step={0.5} value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /><span><bdi>{zoom}×</bdi></span></label>
 
         {inspectorOpen && selectedItem && (
-          <aside className="kmc-mobile-inspector" aria-label="Clip inspector">
+          <aside className="kmc-mobile-inspector" aria-label={ar ? 'خصائص المقطع' : 'Clip inspector'}>
             <div className="kmc-mobile-inspector-grid">
               <label>
-                Speed
+                {ar ? 'السرعة' : 'Speed'}
                 <input
                   type="range"
                   min={0.25}
@@ -638,7 +654,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
                 <span>{selectedItem.playbackRate.toFixed(2)}×</span>
               </label>
               <label>
-                Opacity
+                {ar ? 'الشفافية' : 'Opacity'}
                 <input
                   type="range"
                   min={0}
@@ -654,7 +670,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
               </label>
               {(selectedItem.kind === 'audio' || selectedItem.kind === 'video') && (
                 <label>
-                  Volume
+                  {ar ? 'مستوى الصوت' : 'Volume'}
                   <input
                     type="range"
                     min={0}
@@ -681,7 +697,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
           </aside>
         )}
 
-        {error && <p className="kmc-mobile-video-error" role="alert">{error}</p>}
+        {error && <p className="kmc-mobile-video-error" role="alert">{ar ? ERROR_COPY_AR[error] ?? error : error}</p>}
       </section>
     );
   },

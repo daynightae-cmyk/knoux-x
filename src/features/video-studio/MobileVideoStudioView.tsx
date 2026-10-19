@@ -21,7 +21,14 @@ import {
 } from './MobileVideoTimelineEditor';
 import './mobileVideoTimeline.css';
 
+const ERROR_COPY_AR: Record<string, string> = {
+  'The mobile timeline is not ready.': 'المخطط الزمني على الهاتف غير جاهز.',
+  'The project could not be saved. Export was not started.': 'تعذّر حفظ المشروع. لم يبدأ التصدير.',
+  'The project could not be saved before leaving. Your autosaved draft is kept.': 'تعذّر حفظ المشروع قبل المغادرة. تم الاحتفاظ بالمسودة المحفوظة تلقائيًا.',
+};
+
 export const MobileVideoStudioView: React.FC = () => {
+  const ar = useAppStore((state) => state.locale) === 'ar';
   const setView = useAppStore((state) => state.setView);
   const editorRef = useRef<MobileVideoTimelineEditorHandle | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -74,35 +81,35 @@ export const MobileVideoStudioView: React.FC = () => {
       data-component="MobileVideoStudioView"
     >
       <header className="kmc-topbar">
-        <button type="button" className="kmc-round-button" aria-label="Back to home" onClick={() => setView('home')}>
+        <button type="button" className="kmc-round-button" aria-label={ar ? 'الرجوع إلى الرئيسية' : 'Back to home'} onClick={() => setView('home')}>
           <ArrowLeft size={21} />
         </button>
         <div className="kmc-brand-lockup">
           <BrandMark size={38} />
-          <div><strong>KNOUX <span>X</span></strong><small>VIDEO STUDIO</small></div>
+          <div><strong>KNOUX <span>X</span></strong><small>{ar ? 'استوديو الفيديو' : 'VIDEO STUDIO'}</small></div>
         </div>
         <div className="kmc-topbar-actions">
           <span className="kmc-quality-pill">1080P</span>
           <button type="button" className="kmc-export-button" disabled={exportPending} aria-busy={exportPending} onClick={() => void openExport()}>
-            <Download size={17} /> {exportPending ? 'Saving…' : 'Export'}
+            <Download size={17} /> {exportPending ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'تصدير' : 'Export')}
           </button>
         </div>
       </header>
 
-      {exportError && <div className="kmc-inline-error" role="alert">{exportError}</div>}
+      {exportError && <div className="kmc-inline-error" role="alert">{ar ? ERROR_COPY_AR[exportError] ?? exportError : exportError}</div>}
 
       <div className="kmc-engine kmc-video-engine">
         <MobileVideoTimelineEditor ref={editorRef} inspectorOpen={inspectorOpen} />
       </div>
 
-      <nav className="kmc-tool-dock" aria-label="Video editing tools">
-        <button type="button" onClick={() => editorRef.current?.splitSelected()}><Scissors size={20} /><span>Split</span></button>
-        <button type="button" onClick={() => editorRef.current?.trimIn()}><Crop size={20} /><span>Trim</span></button>
-        <button type="button" onClick={() => setInspectorOpen((value) => !value)} className={inspectorOpen ? 'active' : ''}><Gauge size={20} /><span>Speed</span></button>
-        <button type="button" onClick={() => setInspectorOpen(true)}><SlidersHorizontal size={20} /><span>Adjust</span></button>
-        <button type="button" onClick={() => setInspectorOpen(true)}><Music size={20} /><span>Audio</span></button>
-        <button type="button" onClick={() => setInspectorOpen(true)}><Type size={20} /><span>Text</span></button>
-        <button type="button" onClick={() => setInspectorOpen(true)}><Sparkles size={20} /><span>Effects</span></button>
+      <nav className="kmc-tool-dock" aria-label={ar ? 'أدوات تحرير الفيديو' : 'Video editing tools'}>
+        <button type="button" onClick={() => editorRef.current?.splitSelected()}><Scissors size={20} /><span>{ar ? 'تقسيم' : 'Split'}</span></button>
+        <button type="button" onClick={() => editorRef.current?.trimIn()}><Crop size={20} /><span>{ar ? 'اقتصاص' : 'Trim'}</span></button>
+        <button type="button" onClick={() => setInspectorOpen((value) => !value)} className={inspectorOpen ? 'active' : ''}><Gauge size={20} /><span>{ar ? 'السرعة' : 'Speed'}</span></button>
+        <button type="button" onClick={() => setInspectorOpen(true)}><SlidersHorizontal size={20} /><span>{ar ? 'تعديل' : 'Adjust'}</span></button>
+        <button type="button" onClick={() => setInspectorOpen(true)}><Music size={20} /><span>{ar ? 'الصوت' : 'Audio'}</span></button>
+        <button type="button" onClick={() => setInspectorOpen(true)}><Type size={20} /><span>{ar ? 'نص' : 'Text'}</span></button>
+        <button type="button" onClick={() => setInspectorOpen(true)}><Sparkles size={20} /><span>{ar ? 'مؤثرات' : 'Effects'}</span></button>
       </nav>
     </section>
   );

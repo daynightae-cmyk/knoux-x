@@ -23,6 +23,29 @@ export interface AtomicWriteResult {
   bytesWritten: number;
 }
 
+// Windows can hold a transient lock on the destination (antivirus, search
+// indexer, a reader that has not closed yet). These codes are retried with a
+// short bounded backoff; every other rename error fails fast.
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 200, 400];
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, milliseconds); });
+}
+
+async function renameWithRetry(source: string, destination: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(source, destination);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code;
+      if (attempt >= RENAME_RETRY_DELAYS_MS.length || !code || !RENAME_RETRY_CODES.has(code)) throw error;
+      await sleep(RENAME_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 /**
  * Write `bytes` to `destination` atomically. On any failure the destination
  * is left untouched and the temporary file is removed.
@@ -38,7 +61,7 @@ export async function writeFileAtomic(destination: string, bytes: Uint8Array): P
     await file.sync();
     await file.close();
     file = undefined;
-    await rename(temporary, destination);
+    await renameWithRetry(temporary, destination);
     return { destination, bytesWritten: bytes.byteLength };
   } catch (error) {
     if (file) await file.close().catch(() => undefined);

@@ -29,7 +29,7 @@ Independent pixel check of the captured PNGs: `android-phone-360x800.png` = 360x
 
 `android-launch.png` shows the cold-launch transition: native Pearl splash window (light status bar, `#F8F7FC`) cross-fading into the themed in-app splash (white "Knoux X" ink, violet X) — both legible.
 
-## Run 39311673504 — "Android APK (Capacitor)" real-workflows — **FAIL (emulator infrastructure)**
+## Run 39311673504 — "Android APK (Capacitor)" real-workflows — **FAIL (device loss mid-run)**
 
 The installed-APK functional loop (`tools/android-real-workflows.cjs`) did not complete because the emulator died mid-run. Trusted-tap onboarding skip and the Home→SAF open were performed and verified first; the emulator then vanished during the system file-picker phase (h264 frame-decode spam at 19:39:36, `device 'emulator-5554' not found` from 19:41:25; `real-workflows-run-39311673504.json` records `diagnosticsAtExit`).
 

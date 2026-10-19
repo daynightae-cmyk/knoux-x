@@ -40,11 +40,32 @@ The installed-APK functional loop (`tools/android-real-workflows.cjs`) did not c
 | `photos-to-video-saf-persistence` | `BLOCKED_NO_LIVE_WEBVIEW_SESSION` |
 | `native-recording-finalize-editor-handoff` | `BLOCKED_NO_LIVE_WEBVIEW_SESSION` |
 
-This is the same signature as the pre-existing failures on the recovery head (runs 39205968095, 39204331679, 39203107074, 39202259463 — same `device 'emulator-5554' not found` exit, same case statuses). Playback / SAF persistence / recording handoff therefore remain **untested on this CI emulator** and are reported as such; a retry run (39315915167) was dispatched after this artifact set was captured.
+This is the same signature as the pre-existing failures on the recovery head (runs 39205968095, 39204331679, 39203107074, 39202259463 — same `device 'emulator-5554' not found` exit, same case statuses). Playback / SAF persistence / recording handoff therefore remain **untested on this CI emulator** and are reported as such.
+
+## Retry run 39315915167 — **FAIL (same external device-loss, progressed further)**
+
+`real-workflows-run-39315915167.json` records this attempt. What the harness actually accomplished before the device vanished:
+
+| Step | Result |
+| --- | --- |
+| `onboarding-skip` | `ANDROID_EMULATOR_VERIFIED` — trusted adb tap (308,1615), Home reachable |
+| SAF walk | `home:open-video` → `saf:show-roots` (attempt 1) → `saf:downloads-root` (attempt 1) → `saf:file` (attempt 2) — the full state-driven chooser walk succeeded |
+| Playback | `player:play` and `player:reveal-controls-for-scrub` taps issued through the OS input pipeline |
+| Subsequent loss | `locator.evaluate: Target page, context or browser has been closed` — the post-chooser renderer-death signature already recorded on runs 39188659686 / 39196654875 — then adb transport loss: `device 'emulator-5554' not found`, surviving 5 bounded recovery attempts |
+| Cases | `mp4...` → `BLOCKED_NO_ADB_DEVICE` (bounded recovery exhausted, no tap behind a dead session); `photos-to-video-saf-persistence` and `native-recording-finalize-editor-handoff` → `BLOCKED_NO_LIVE_WEBVIEW_SESSION` |
+| Measurement | chooser-to-decoded-frame 36,960 ms (N=1, includes the native chooser; not a performance claim) |
+
+## Functional acceptance status — proven on an ancestor build, not re-provable on this emulator
+
+The full installed-APK functional loop **is green on PR head `a3ee6d8`** (an ancestor of this branch), run [39195490261](https://github.com/daynightae-cmyk/knoux-x/actions/runs/39195490261): 3/3 scoped cases `ANDROID_EMULATOR_VERIFIED` with `syntheticEventsUsed=false` and zero touch fallbacks — playback decoded 65 frames / 130 distinct colors with the real document title `KNOUX-QA.mp4`; recording produced a real 161,785-byte h264 MP4 (7 packets, 6.517 s) and opened it in the timeline editor; onboarding skip via trusted tap. The committed acceptance record is `release-closure-artifacts/PHASE-04-20261019-0000/03-REAL-ANDROID-ACCEPTANCE.json`.
+
+After that green run, every attempt on this CI emulator (recovery head runs 39203107074 / 39204331679 / 39205968095, and this head's 39311673504 / 39315915167) lost the device mid-run; doubling emulator cores/RAM did not prevent it, so the loss is **not** a resource-margin problem and its cause remains unestablished. The integrated head's own re-run is therefore reported as blocked by that infrastructure phenomenon — not as a pass, and not as an app regression. DEF-16 (trusted timeline touch scrub) and DEF-17 (photos-to-video SAF persistence) remain **unit-verified, device-pending** for the same reason.
 
 ## Honest gaps
 
 - No touch-typing (no Android IME driving) — verbatim text entry untested.
-- No audio assertions (`-noaudio` emulator).
-- No MediaProjection consent-flow completion in CI; the recording handoff case is blocked with the rest.
+- No audio assertions (`-noaudio` emulator) — `BLOCKED_HARDWARE`; audio-track presence and advancing position are the verifiable claims.
+- No MediaProjection consent-flow completion in CI; the recording handoff case is blocked with the rest (the flow itself is covered by the green ancestor run).
 - Production signing key is not available in CI; `TEST_SIGNED` only.
+- Timeline touch-scrub and photo-to-video SAF persistence on the integrated head: device-pending (DEF-16/DEF-17).
+- Windows interactive recording acceptance is **not covered**: the CI job for it is an echo-only step and the committed `reports/recording-real-e2e/evidence.json` is a stale 2026-09-10 file stating `NOT_TESTED`; desktopCapturer needs an interactive desktop session (evidence in `../windows/`).

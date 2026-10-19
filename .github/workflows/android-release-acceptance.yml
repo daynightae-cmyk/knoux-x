@@ -18,6 +18,7 @@ on:
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
       - 'tools/verify-android-screen.cjs'
@@ -44,6 +45,7 @@ on:
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
       - 'tools/verify-android-screen.cjs'
@@ -212,13 +214,7 @@ jobs:
           emulator-boot-timeout: 420
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
-          script: |
-            bash tools/android-acceptance-diagnostics.sh android-ci-release-output bash -euo pipefail -c '
-              bash tools/android-emulator-smoke.sh android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk dev.knoux.playerx android-ci-release-output
-              adb push android-ci-release-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
-              adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
-              KNOUX_ANDROID_EVIDENCE_DIR=android-ci-release-output node tools/android-real-workflows.cjs
-            '
+          script: bash tools/android-acceptance-diagnostics.sh android-ci-release-output bash tools/run-android-installed-acceptance.sh android-ci-release-output android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk
 
       - name: Preserve generated App plugin registration evidence
         if: always()

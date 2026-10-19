@@ -17,6 +17,7 @@ on:
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
@@ -42,6 +43,7 @@ on:
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
@@ -257,13 +259,7 @@ jobs:
           emulator-boot-timeout: 420
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
-          script: |
-            bash tools/android-acceptance-diagnostics.sh android-ci-output bash -euo pipefail -c '
-              bash tools/android-emulator-smoke.sh
-              adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
-              adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
-              node tools/android-real-workflows.cjs
-            '
+          script: bash tools/android-acceptance-diagnostics.sh android-ci-output bash tools/run-android-installed-acceptance.sh android-ci-output android-ci-output/KNOUX-X-Android-debug.apk
 
       - name: Upload installable APK and launch evidence
         if: always()

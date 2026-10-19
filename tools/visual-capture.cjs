@@ -16,11 +16,20 @@ const PROFILE = {
   reducedMotion: process.argv.includes('--reduced-motion'),
 };
 
-const VIEWPORTS = [
-  { tag: '360x800', width: 360, height: 800 },
-  { tag: '390x844', width: 390, height: 844 },
-  { tag: '412x915', width: 412, height: 915 },
-];
+const VIEWPORT_ARG = argValue('--viewports');
+const VIEWPORTS = VIEWPORT_ARG
+  ? VIEWPORT_ARG.split(',').map((entry) => {
+      const [width, height] = entry.trim().split('x').map(Number);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        throw new Error(`Invalid --viewports entry: ${entry}`);
+      }
+      return { tag: `${width}x${height}`, width, height };
+    })
+  : [
+      { tag: '360x800', width: 360, height: 800 },
+      { tag: '390x844', width: 390, height: 844 },
+      { tag: '412x915', width: 412, height: 915 },
+    ];
 
 const TARGETS = [
   { id: 'home', nav: null },

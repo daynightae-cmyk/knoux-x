@@ -111,34 +111,45 @@ async function trustedTap(locator, options = {}) {
   const handle = locator.first();
   const deadline = Date.now() + (options.timeout ?? 20000);
   let lastProblem = 'no geometry attempt completed';
+  const sample = async () => handle.evaluate((element, fractionX) => {
+    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const rect = element.getBoundingClientRect();
+    const pointX = rect.left + rect.width * fractionX;
+    const pointY = rect.top + rect.height / 2;
+    const hit = document.elementFromPoint(pointX, pointY);
+    const wrapper = element.closest('label') ?? element;
+    const belongs = (node, root) => { for (let current = node; current; current = current.parentElement) if (current === root) return true; return false; };
+    const viewport = window.visualViewport;
+    return {
+      cssX: pointX + (viewport ? viewport.offsetLeft : 0),
+      cssY: pointY + (viewport ? viewport.offsetTop : 0),
+      dpr: window.devicePixelRatio || 1,
+      screenX: window.screenX || 0,
+      screenY: window.screenY || 0,
+      width: rect.width,
+      height: rect.height,
+      insideViewport: pointX >= 0 && pointY >= 0 && pointX <= window.innerWidth && pointY <= window.innerHeight,
+      hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
+      hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
+    };
+  }, options.fractionX ?? 0.5);
   while (Date.now() < deadline) {
+    let first;
     let geometry;
     try {
-      geometry = await handle.evaluate((element, fractionX) => {
-        element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
-        const rect = element.getBoundingClientRect();
-        const pointX = rect.left + rect.width * fractionX;
-        const pointY = rect.top + rect.height / 2;
-        const hit = document.elementFromPoint(pointX, pointY);
-        const wrapper = element.closest('label') ?? element;
-        const belongs = (node, root) => { for (let current = node; current; current = current.parentElement) if (current === root) return true; return false; };
-        const viewport = window.visualViewport;
-        return {
-          cssX: pointX + (viewport ? viewport.offsetLeft : 0),
-          cssY: pointY + (viewport ? viewport.offsetTop : 0),
-          dpr: window.devicePixelRatio || 1,
-          screenX: window.screenX || 0,
-          screenY: window.screenY || 0,
-          width: rect.width,
-          height: rect.height,
-          insideViewport: pointX >= 0 && pointY >= 0 && pointX <= window.innerWidth && pointY <= window.innerHeight,
-          hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
-          hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
-        };
-      }, options.fractionX ?? 0.5);
+      first = await sample();
+      await delay(220);
+      geometry = await sample();
     } catch (error) {
       lastProblem = `not attached (${String(error && error.message).split('\n')[0]})`;
       await delay(300);
+      continue;
+    }
+    /* Overlay cards animate in; a tap computed on a moving target lands in
+     * dead space. Require two consecutive samples at the same spot. */
+    if (Math.abs(first.cssX - geometry.cssX) > 2 || Math.abs(first.cssY - geometry.cssY) > 2 || Math.abs(first.width - geometry.width) > 2) {
+      lastProblem = 'target still moving (settling)';
+      await delay(250);
       continue;
     }
     if (geometry.width < (options.minWidth ?? 20) || geometry.height < (options.minHeight ?? 14)) {
@@ -159,11 +170,48 @@ async function trustedTap(locator, options = {}) {
   throw new Error(`Trusted tap target unavailable: ${lastProblem}`);
 }
 
+/* Tap through the OS input pipeline and confirm the tap actually changed app
+ * state; Playwright visibility is overlay-blind, so only a real state change
+ * (or a native window appearing) proves the touch landed. */
+async function trustedTapUntil(locator, check, options = {}) {
+  const attempts = options.attempts ?? 3;
+  let lastError = new Error(`no tap attempt made for ${options.note ?? 'target'}`);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await trustedTap(locator, options);
+    } catch (error) {
+      lastError = error;
+      await delay(400);
+      continue;
+    }
+    try {
+      await until(check, `state did not change after trusted tap ${options.note ?? ''}`, options.checkTimeout ?? 7000);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 /* ------------------------------------------------------------------ *
  * App navigation helpers                                              *
  * ------------------------------------------------------------------ */
 
+async function nativeTextPresent(labels) {
+  let xml = '';
+  try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { return false; }
+  if (!xml.includes('<node')) return false;
+  return labels.some((label) => xml.includes(`text="${label}"`) || xml.includes(`content-desc="${label}"`));
+}
+
 async function ensureHome(page) {
+  const onboardingSkip = page.getByRole('button', { name: 'Skip', exact: true });
+  if (await onboardingSkip.count() > 0) {
+    try {
+      await trustedTapUntil(onboardingSkip, async () => (await onboardingSkip.count()) === 0, { note: 'ensureHome:dismiss-onboarding', timeout: 12000, checkTimeout: 8000 });
+    } catch { /* the navigation checks below decide whether we ever reach home */ }
+  }
   const recordCard = page.getByRole('button', { name: 'Record Native screen capture' });
   const homeDashboard = page.locator('[data-component="MobileHomeDashboard"]');
   const backToHome = page.getByRole('button', { name: 'Back to home', exact: true });
@@ -289,14 +337,19 @@ function readRecordingBytes(uri) {
     await hookAudio(page);
 
     await runCase('onboarding-skip', async () => {
-      await trustedTap(page.getByRole('button', { name: 'Skip', exact: true }), { note: 'onboarding:skip' });
+      const skip = page.getByRole('button', { name: 'Skip', exact: true });
+      await trustedTapUntil(skip, async () => (await skip.count()) === 0, { note: 'onboarding:skip', timeout: 15000, checkTimeout: 8000 });
       await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
       return 'First-run welcome dismissed with a trusted tap and Home is available';
     });
 
     await runCase('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
-      await trustedTap(page.getByRole('button', { name: 'Open Video', exact: false }).first(), { note: 'home:open-video (SAF picker)' });
+      await trustedTapUntil(
+        page.locator('.kmh-hero-card'),
+        () => nativeTextPresent(['Show roots', 'Downloads', 'Download', 'KNOUX-QA.mp4']),
+        { note: 'home:open-video (SAF picker)', timeout: 15000, checkTimeout: 9000 },
+      );
       await nativeTap(['Show roots']);
       await nativeTap(['Downloads', 'Download']);
       await nativeTap(['KNOUX-QA.mp4']);
@@ -407,9 +460,17 @@ function readRecordingBytes(uri) {
     // So the recording case reuses the live handle without any re-attach logic.
     await runCase('native-recording-finalize-editor-handoff', async () => {
       await ensureHome(page);
-      await trustedTap(page.getByRole('button', { name: 'Record Native screen capture' }).first(), { note: 'home:record-card' });
-      await until(() => page.getByRole('button', { name: 'Start screen recording' }).count() > 0, 'Recording surface did not open after the trusted Record tap');
-      await trustedTap(page.getByRole('button', { name: 'Start screen recording' }).first(), { note: 'recording:start' });
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Record Native screen capture' }).first(),
+        async () => (await page.getByRole('button', { name: 'Start screen recording' }).count()) > 0,
+        { note: 'home:record-card', timeout: 12000, checkTimeout: 8000 },
+      );
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Start screen recording' }).first(),
+        async () => (await page.getByRole('button', { name: 'Stop & save MP4' }).count()) > 0
+          || nativeTextPresent(['Entire screen', 'Start now', 'Start recording', 'A single app']),
+        { note: 'recording:start', timeout: 12000, checkTimeout: 8000 },
+      );
       // Android MediaProjection consent (SystemUI). Full-screen mode is preferred
       // when offered; the positive button is text="Start" / android:id/button1.
       try { await nativeTap(['Entire screen'], 4000); } catch { /* dialog may not offer the selector */ }
@@ -426,17 +487,28 @@ function readRecordingBytes(uri) {
       } catch { /* full-screen recording needs no app picker */ }
       await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 25000 });
       await delay(4500); // Intentional captured duration, not a startup readiness wait.
-      await trustedTap(page.getByRole('button', { name: 'Stop & save MP4' }).first(), { note: 'recording:stop' });
-      await page.getByRole('button', { name: 'Open in Video Editor' }).waitFor({ timeout: 25000 });
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Stop & save MP4' }).first(),
+        async () => (await page.getByRole('button', { name: 'Open in Video Editor' }).count()) > 0,
+        { note: 'recording:stop', timeout: 12000, checkTimeout: 12000 },
+      );
       const status = await page.evaluate(() => window.Capacitor.Plugins.KnouxScreenCapture.status());
       if (!status.outputUri || status.recording) throw new Error('No finalized native URI');
       const { bytes, attempts: byteAttempts } = readRecordingBytes(status.outputUri);
       fs.writeFileSync(`${output}/synthetic-screen-recording.mp4`, bytes);
       const probe = JSON.parse(execFileSync(process.execPath, ['-e', 'const p=require("@derhuerst/ffprobe-static").path;process.stdout.write(require("child_process").execFileSync(p,["-v","error","-count_packets","-show_streams","-show_format","-of","json",process.argv[1]]))', `${output}/synthetic-screen-recording.mp4`], { encoding: 'utf8' }));
       if (!probe.streams.some((stream) => stream.codec_type === 'video' && +stream.nb_read_packets > 0) || +probe.format.duration <= 0) throw new Error('Recorded MP4 has no video packets/duration');
-      await trustedTap(page.getByRole('button', { name: 'Open in Video Editor' }).first(), { note: 'recording:open-editor' });
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Open in Video Editor' }).first(),
+        async () => (await page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').count()) > 0,
+        { note: 'recording:open-editor', timeout: 12000, checkTimeout: 10000 },
+      );
       await page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').waitFor();
-      await until(() => page.locator('video').first().evaluate((element) => element.readyState >= 2 && element.videoWidth > 0), 'Editor did not decode the recording');
+      await until(async () => {
+        const editorVideo = page.locator('video').first();
+        if (await editorVideo.count() === 0) return false;
+        return editorVideo.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0);
+      }, 'Editor did not decode the recording');
       await page.screenshot({ path: `${output}/recording-editor.png` });
       return {
         bytes: bytes.length,

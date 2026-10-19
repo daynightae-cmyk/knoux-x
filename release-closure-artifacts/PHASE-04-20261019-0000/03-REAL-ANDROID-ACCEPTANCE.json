@@ -5,12 +5,13 @@
     "ci_workflow": "Android APK (Capacitor)",
     "ci_run_id": "39195490261",
     "ci_run_url": "https://github.com/daynightae-cmyk/knoux-x/actions/runs/39195490261",
-    "commit_sha": "a3ee6d8730d0e5b6dc2f1a0b5f5f2a7c7d3d5a3e",
-    "commit_subject": "fix(android): resolve the ffprobe binary from both module export shapes",
+    "commit_sha": "2fcf46603e3f712da51d927cb5222c4ff58857a9",
+    "commit_subject": "fix(android): resolve the ffprobe binary from both module export shapes (PR head a3ee6d8)",
     "branch": "fix/knoux-x-recovery-20261018-01a1503f",
     "pr": "#58 (open, not merged)",
     "artifact": "KNOUX-X-Android-debug-a3ee6d8 (run artifact 39195490261)",
-    "verdict_field": "PASS_SCOPED_CASES_ONLY"
+    "verdict_field": "PASS_SCOPED_CASES_ONLY",
+    "provenance_note": "CORRECTED. The acceptance APK was NOT compiled directly from a3ee6d8. The run was a pull_request run, so GitHub Actions built the synthetic merge commit c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (parents: main 173008b7 + PR head a3ee6d8). Its Git tree 3c33e00c244035a54c7819bbc8fe8b3d8a3e372c is byte-identical to the PR head tree, so the accepted binary corresponds exactly to PR head a3ee6d8. The artifact name KNOUX-X-Android-debug-c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d is named after the merge SHA, not the PR head."
   },
   "platform_environment": {
     "android_emulator": "PASS (API 35 pixel_7, 1080x2400 @ 420dpi, DPR 2.625, -noaudio, WebView origin [0,136][1080,2337])",
@@ -54,7 +55,9 @@
       "input": "trusted-adb",
       "syntheticUsed": false,
       "evidence": "MediaProjection consent driven from the live hierarchy with a full step trace: consent:mode-selector ('A single app' row at (540,1169)) -> consent:entire-screen ('Entire screen' at (462,1358)) -> consent:start ('Start' at (893,1705)). Capture service verified recording===true before capture. Trusted taps on Stop & save MP4 and Open in Video Editor. Real MP4 read back via `content read --uri` (primary path), 161785 bytes, ftyp-validated, ffprobe: h264, 7 video packets, duration 6.517156 s. The saved project then loaded in the timeline editor and decoded a preview frame.",
-      "consent_packages": ["com.android.systemui"],
+      "consent_packages": [
+        "com.android.systemui"
+      ],
       "synthetic_or_real": "real OS touch only"
     },
     {
@@ -142,5 +145,19 @@
     "State-driven chooser walk with settled-geometry taps (the recorded mid-animation drawer tap had landed on the wrong row) and exact 'Downloads' vs 'Download' disambiguation.",
     "MediaProjection consent decided from the live hierarchy only, opening the API 35 capture-mode selector before confirming, and never matching the app name from a dialog title.",
     "WebView session recovery so a dead renderer cannot cascade into later cases, plus an independent on-device fixture check so a staging failure is never reported as a navigation failure."
+  ],
+  "superseded_findings": [
+    {
+      "claim": "The failed run 39196654875 shows a mid-run emulator reboot (logcat \"beginning of kernel\")",
+      "correction": "WITHDRAWN. Both the green and the failed artifact contain exactly one \"beginning of kernel\" line; it is the normal logcat buffer header at boot, not a reboot marker. No reboot is evidenced."
+    },
+    {
+      "claim": "The startup message \"Unable to connect to adb daemon on port: 5037\" indicates the failing run lost its adb daemon",
+      "correction": "CORRECTED. That message appears once in BOTH runs at emulator startup (green 03:42:02, failed 03:57:50) and is a benign startup race. The failed run's device loss happened later, during the harness phase."
+    },
+    {
+      "claim": "Runner infrastructure failure (adb/emulator service)",
+      "correction": "NOT ESTABLISHED. The reproducible, evidence-backed defect is in the harness: the WebView renderer died right after the SAF chooser returned (runs 39188659686 and 39196654875) and the harness had no bounded transport recovery and no session precondition, so case 3 failed with a raw null-handle TypeError. Fixed in this change; no cause for the renderer death itself is asserted."
+    }
   ]
 }

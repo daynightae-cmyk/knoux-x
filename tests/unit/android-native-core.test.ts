@@ -259,3 +259,42 @@ describe('native Android surface decisions', () => {
     expect(core.attrOf(recorded, 'resource-id')).toBe('android:id/title');
   });
 });
+
+/* Run 39196654875 failed with "adb: device 'emulator-5554' not found" while the
+ * harness was still running, and the next case then threw a raw TypeError on a
+ * null page handle. The decisions below are what make those outcomes honest. */
+describe('device and session health decisions', () => {
+  test('parses adb device listings, including the long form', () => {
+    expect(core.adbDeviceSerials('List of devices attached\nemulator-5554          device product:sdk_gphone64_x86_64 model:Pixel_7\n')).toEqual(['emulator-5554']);
+    expect(core.adbDeviceSerials('List of devices attached\n')).toEqual([]);
+    expect(core.adbDeviceSerials('adb: device \'emulator-5554\' not found')).toEqual([]);
+  });
+
+  test('distinguishes a usable device, an offline transport and no device', () => {
+    expect(core.adbDeviceHealth('List of devices attached\nemulator-5554 device\n').state).toBe('device');
+    expect(core.adbDeviceHealth('List of devices attached\nemulator-5554 offline\n').state).toBe('offline');
+    expect(core.adbDeviceHealth("adb: device 'emulator-5554' not found").state).toBe('no-device');
+  });
+
+  test('recovery ladder escalates and is bounded, and never runs on a healthy device', () => {
+    expect(core.transportRecoveryPlan('device', 0)).toBeNull();
+    expect(core.transportRecoveryPlan('offline', 0)).toEqual(['adb-wait-for-device', 'adb-reconnect-offline']);
+    expect(core.transportRecoveryPlan('no-device', 1)).toEqual(['adb-reconnect-device', 'adb-wait-for-device']);
+    expect(core.transportRecoveryPlan('no-device', 2)).toEqual(['adb-start-server']);
+  });
+
+  test('a case never starts against a dead session handle', () => {
+    expect(core.casePrecondition({ page: null }).ok).toBe(false);
+    expect(core.casePrecondition(null)).toEqual({
+      ok: false,
+      status: 'BLOCKED_NO_LIVE_WEBVIEW_SESSION',
+      detail: 'no live WebView session is attached; the case was not attempted',
+    });
+    expect(core.casePrecondition({ page: { id: 1 } }).ok).toBe(true);
+  });
+
+  test('session-death detection stays narrower than a blocked session', () => {
+    expect(core.isSessionDeath('BLOCKED_NO_LIVE_WEBVIEW_SESSION: recording case')).toBe(false);
+    expect(core.isSessionDeath("Cannot read properties of null (reading 'getByRole')")).toBe(false);
+  });
+});

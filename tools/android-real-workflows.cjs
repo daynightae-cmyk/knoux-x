@@ -48,6 +48,72 @@ const results = {
   sessionRecoveries: [],
 };
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
+/* adb diagnostics never throw: during a transport loss every call fails, and
+ * that failure is exactly the evidence being collected. */
+function adbQuiet(...args) {
+  try { return { ok: true, output: adb(...args) }; } catch (error) { return { ok: false, output: String(error && error.message).slice(0, 200) }; }
+}
+/* Host + emulator health captured BEFORE any cleanup, so a later transport loss
+ * can be told apart from an emulator process exit or host pressure instead of
+ * being guessed at. Nothing here asserts a cause; it records what was true. */
+function collectDeviceDiagnostics(reason) {
+  const record = { reason, at: new Date().toISOString(), adb: {}, host: {}, emulator: {}, app: {} };
+  record.adb.devices = adbQuiet('devices', '-l');
+  record.adb.getState = adbQuiet('get-state');
+  record.adb.version = adbQuiet('version');
+  record.host.uptime = adbQuiet('shell', 'uptime');
+  record.host.meminfo = adbQuiet('shell', 'cat', '/proc/meminfo');
+  record.host.loadavg = adbQuiet('shell', 'cat', '/proc/loadavg');
+  record.emulator.bootReason = adbQuiet('shell', 'getprop', 'ro.boot.bootreason');
+  record.emulator.firstBoot = adbQuiet('get-state');
+  record.emulator.qemuProcess = adbQuiet('shell', 'ps', '-A', '-o', 'PID,NAME,RSS');
+  record.app.pid = adbQuiet('shell', 'pidof', PACKAGE);
+  record.app.crashLog = adbQuiet('shell', 'logcat', '-d', '-b', 'crash', '-t', '60');
+  const trimmed = {
+    devices: record.adb.devices.output,
+    getState: record.adb.getState.output,
+    uptime: record.host.uptime.output,
+    loadavg: record.host.loadavg.output,
+    memTotal: (/MemTotal:\s*(\d+)/.exec(record.host.meminfo.output)?.[0]) ?? 'unreadable',
+    bootReason: record.emulator.bootReason.output,
+    qemu: (record.emulator.qemuProcess.output || '').split('\n').filter((line) => /qemu|emulator|system_server/.test(line)).slice(0, 6).join(' | '),
+    appPid: record.app.pid.output,
+    crashLog: (record.app.crashLog.output || '').split('\n').slice(0, 20).join('\n'),
+  };
+  try { fs.writeFileSync(`${output}/device-diagnostics-${reason}.json`, JSON.stringify({ summary: trimmed, full: record }, null, 2)); } catch { /* evidence write is best-effort */ }
+  return { summary: trimmed };
+}
+/* Bounded adb transport recovery. The observed failure mode was a device that
+ * Playwright could no longer see; this distinguishes "adb cannot reach it" from
+ * "the app/webview is gone" before concluding anything, and never blocks the
+ * case longer than the original wait it replaces. */
+async function ensureDeviceTransport(timeoutMs = 45000) {
+  const attempts = [];
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  let health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
+  while (Date.now() < deadline) {
+    if (health.state === 'device') return { health, attempts };
+    const plan = nativeCore.transportRecoveryPlan(health.state, attempt);
+    if (!plan) {
+      await delay(1000);
+    } else {
+      for (const step of plan) {
+        if (step === 'adb-wait-for-device') adbQuiet('wait-for-device');
+        if (step === 'adb-reconnect-offline') adbQuiet('reconnect', 'offline');
+        if (step === 'adb-reconnect-device') adbQuiet('reconnect', 'device');
+        if (step === 'adb-start-server') { adbQuiet('kill-server'); adbQuiet('start-server'); }
+        await delay(700);
+        health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
+        attempts.push({ step, state: health.state });
+        if (health.state === 'device') return { health, attempts };
+      }
+      attempt += 1;
+    }
+    await delay(700);
+  }
+  return { health, attempts };
+}
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function save() { fs.writeFileSync(`${output}/real-workflows.json`, JSON.stringify(results, null, 2)); }
 function recordTap(entry) { results.tapLog.push(entry); if (results.tapLog.length > 80) results.tapLog.shift(); }
@@ -223,10 +289,12 @@ async function runCase(id, work) {
     results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', input: 'trusted-adb', syntheticUsed: results.touchPolicy.syntheticEventsUsed && !syntheticBefore, evidence });
   } catch (error) {
     const message = error && error.message ? error.message : String(error);
-    /* A case blocked by a native window it is not allowed to tap through is
-     * reported as its own honest status, never as a pass or a bare failure. */
-    const blocked = /^BLOCKED_[A-Z_]+/.exec(message);
-    results.cases.push({ id, status: blocked ? blocked[0] : 'FAILED', error: message });
+    /* A case blocked by a native window, a missing adb device or a dead
+     * session is reported as its own honest status, never as a pass and never
+     * as a bare failure with no explanation. */
+    const explicitBlocked = error && error.blockedStatus;
+    const blocked = explicitBlocked || (/^BLOCKED_[A-Z_]+/.exec(message)?.[0]);
+    results.cases.push({ id, status: blocked || 'FAILED', error: message });
     try {
       adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`);
       adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`);
@@ -560,6 +628,12 @@ function readRecordingBytes(uri) {
     await hookAudio(page);
   };
   const openSession = async () => {
+    const transport = await ensureDeviceTransport();
+    results.deviceState.adbTransport = { state: transport.health.state, attempts: transport.attempts };
+    if (transport.health.state !== 'device') {
+      results.deviceState.diagnosticsOnNoDevice = collectDeviceDiagnostics('adb-no-device').summary;
+      throw new Error(`BLOCKED_NO_ADB_DEVICE: adb reports "${transport.health.state}" (serials: ${transport.health.serials.join(',') || 'none'}) after ${transport.attempts.length} bounded recovery attempts`);
+    }
     await until(async () => {
       try {
         const devices = await android.devices();
@@ -593,10 +667,18 @@ function readRecordingBytes(uri) {
     await openSession();
     const surface = foregroundSurface();
     if (surface.package !== PACKAGE) {
-      throw new Error(`BLOCKED_SESSION_RECOVERY: after re-attaching for ${label}, the foreground is ${JSON.stringify(surface)} (${String(error).slice(0, 160)})`);
+      const diagnostics = collectDeviceDiagnostics('recovery-surface-mismatch').summary;
+      throw new Error(`BLOCKED_SESSION_RECOVERY: after re-attaching for ${label}, the foreground is ${JSON.stringify(surface)} (${String(error).slice(0, 160)}); diagnostics=${JSON.stringify(diagnostics).slice(0, 600)}`);
     }
   };
   const withSession = async (label, work) => {
+    /* Isolation first: a case must never run against a dead handle. */
+    const precondition = nativeCore.casePrecondition({ page });
+    if (!precondition.ok) {
+      const blocked = new Error(`${precondition.status}: ${label} (${precondition.detail})`);
+      blocked.blockedStatus = precondition.status;
+      throw blocked;
+    }
     try {
       return await work();
     } catch (error) {
@@ -851,6 +933,11 @@ function readRecordingBytes(uri) {
         editor: 'actual saved project loaded with decoded preview',
       };
     }));
+    /* Evidence first, cleanup second: the device state is only meaningful while
+     * the emulator still exists, so it is captured before device.close(). A
+     * fully verified run needs no exit diagnostics. */
+    const allVerified = results.cases.length > 0 && results.cases.every((entry) => entry.status === 'ANDROID_EMULATOR_VERIFIED');
+    if (!allVerified) results.deviceState.diagnosticsAtExit = collectDeviceDiagnostics('exit').summary;
   } finally {
     try { if (device) await device.close(); } catch { /* best-effort cleanup */ }
   }

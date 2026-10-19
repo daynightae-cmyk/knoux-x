@@ -1,0 +1,34 @@
+{
+  "recovery_commit_sha": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
+  "recovery_commit_message": "fix(android): repair real-workflow harness until return, native picker resilience, synthetic event tracking, SystemUI consent, WebView reload guard",
+  "recovery_branch": "fix/knoux-x-recovery-20261018-01a1503f",
+  "main_sha": "173008b7b3874fd3c7acd1366efe5d45c3b113b0",
+  "remote_recovery_head": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
+  "pr_58_state": "open, mergeable, not merged, 24 commits ahead of main after this push",
+  "pr_57_branch": "feat/knoux-x-ultimate-delivery (preserved, not merged into recovery)",
+  "pr_52_state": "preserved",
+  "worktrees_preserved": [
+    "Knoux-X-Recovery-20261018-01a1503f",
+    "knoux-x-authority",
+    "Knoux-X-Local-Test",
+    "Knoux-X-Production-Closure-20261017",
+    "Knoux-X-Final-Release-Closure",
+    "Knoux-X-OpenCode-Final-20261018"
+  ],
+  "stashes_preserved": true,
+  "destructive_actions_avoided": [
+    "git reset --hard",
+    "git clean -f",
+    "git push --force",
+    "git worktree prune",
+    "git stash drop",
+    "deleting _temp/",
+    "deleting historical APK artifacts",
+    "deleting active agent work"
+  ],
+  "changed_files_in_session": ["tools/android-real-workflows.cjs", "CHECKPOINT.json", "tests/unit/mobile-onboarding.test.tsx (historical fix preserved)"],
+  "exact_apk_artifact_reference": "Historical APK from CI artifact 39154605826 / sha aa85ba6; SHA-256 58a4afd8ef62aab818b0cec99de1be6f58d2d42a752f78c7ef4d3c7026c7dc0f (Android Debug signer); NOT production-signed.",
+  "new_apk_built_in_session": false,
+  "apk_provenance_verifiable": false,
+  "source_identity_verification": "Source identity manifest (main.tsx) preserved; no secret exposure in this session."
+}

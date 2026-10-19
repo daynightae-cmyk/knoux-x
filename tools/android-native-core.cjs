@@ -151,6 +151,61 @@ function isSessionDeath(message) {
   return SESSION_DEATH.test(String(message ?? ''));
 }
 
+/* ------------------------------------------------------------------ *
+ * Device/session health, extracted so the decisions are unit tested. *
+ * ------------------------------------------------------------------ */
+
+/* "adb devices -l" output -> the serials adb currently sees. */
+function adbDeviceSerials(output) {
+  const text = String(output ?? '');
+  if (!text.includes('\n')) return [];
+  return text.split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('*') && !line.startsWith('List of devices'))
+    .map((line) => line.split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+/* Classify what adb can still see. This is deliberately conservative: an
+ * empty list means the transport/device is gone, `offline` means the daemon
+ * still knows the serial but cannot reach it, and only a `device` entry counts
+ * as usable. Without this the harness used to assume "app not listed" meant
+ * "app crashed" or "runner ran out of memory" — neither is provable. */
+function adbDeviceHealth(output) {
+  const serials = adbDeviceSerials(output);
+  if (serials.length === 0) return { state: 'no-device', serials: [] };
+  const offline = /\boffline\b/.test(String(output));
+  if (offline) return { state: 'offline', serials };
+  return { state: 'device', serials };
+}
+
+/* Bounded transport recovery ladder. Each step is attempted at most once and
+ * the ladder stops at the first state that reports a usable device. Steps are
+ * ordered cheapest-first so a routine transport hiccup never escalates. */
+function transportRecoveryPlan(state, attempt) {
+  if (state === 'device') return null;
+  const steps = attempt === 0
+    ? ['adb-wait-for-device', 'adb-reconnect-offline']
+    : attempt === 1
+      ? ['adb-reconnect-device', 'adb-wait-for-device']
+      : ['adb-start-server'];
+  return steps;
+}
+
+/* A case may only run against a live page. When recovery failed, the honest
+ * result is a blocked case with diagnostics, never a TypeError from a null
+ * handle and never a pass. */
+function casePrecondition(session) {
+  if (!session || !session.page) {
+    return {
+      ok: false,
+      status: 'BLOCKED_NO_LIVE_WEBVIEW_SESSION',
+      detail: 'no live WebView session is attached; the case was not attempted',
+    };
+  }
+  return { ok: true };
+}
+
 module.exports = {
   APP_PACKAGE,
   FIXTURE_NAME,
@@ -174,4 +229,8 @@ module.exports = {
   downloadsRootAction,
   consentAction,
   isSessionDeath,
+  adbDeviceSerials,
+  adbDeviceHealth,
+  transportRecoveryPlan,
+  casePrecondition,
 };

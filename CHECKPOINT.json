@@ -55,7 +55,7 @@
     "PR #57, PR #52 preserved; all worktrees preserved; no destructive git operations performed",
     "_temp/live-evidence/ preserved (local media proof, video gate evidence)"
   ],
-  "next_exact_action": "Android APK gate is GREEN on a3ee6d8 (run 39195490261). Remaining: owner review of PR #58, physical-device handoff (owner-authorized, TEST ONLY debug build), production signing for release. No merge without owner instruction.",
+  "next_exact_action": "Harness failure isolation hardened (bounded adb transport recovery, session precondition, pre-cleanup diagnostics) with 20 focused unit tests. One controlled CI attempt only. Remaining gaps: physical phone, real audio PCM, touch timeline editing, photos-to-video persistence, Beauty Studio, production signing, visual integration. PR #58 stays open; no merge to main.",
   "post_acceptance_runner_incident": {
     "corroboration": "In 39196654875 the smoke launch itself reported android-launch.verdict=PASS and android-ui-readiness=javascript-marker+foreground+visual, and the logcat contains \"beginning of kernel\": the emulator rebooted mid-run and adb/Playwright lost the device.",
     "action": "No code change is warranted. Re-dispatch \"Android APK (Capacitor)\" on the recovery branch once the GitHub Actions emulator/adb service recovers to obtain a green run at head.",
@@ -73,5 +73,11 @@
       "39197814887 (workflow_dispatch, 2fcf466)",
       "39198846290 (workflow_dispatch, 2fcf466)"
     ]
-  }
+  },
+  "provenance_correction": "The accepted APK was built by the pull_request synthetic merge c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (parents main 173008b7 + PR head a3ee6d8). Git tree 3c33e00c244035a54c7819bbc8fe8b3d8a3e372c is identical to the PR head tree, so the binary matches PR head a3ee6d8 exactly. Earlier CHECKPOINT text that said \"compiled from a3ee6d8\" was imprecise and is corrected.",
+  "withdrawn_claims": [
+    "Mid-run emulator reboot inferred from logcat \"beginning of kernel\": WITHDRAWN, the marker appears once in the green run too and is a normal logcat buffer header",
+    "\"Unable to connect to adb daemon on port: 5037\" as the failure cause: CORRECTED, it appears at emulator startup in both runs and is a benign startup race",
+    "Runner-infrastructure cause: NOT ESTABLISHED, no OOM or kill evidence"
+  ]
 }

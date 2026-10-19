@@ -1,6 +1,6 @@
 {
   "apk_built_in_this_session": true,
-  "exact_source_sha_for_apk_build": "a3ee6d8730d0e5b6dc2f1a0b5f5f2a7c7d3d5a3e",
+  "exact_source_sha_for_apk_build": "c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (synthetic pull_request merge; identical tree to PR head a3ee6d8)",
   "ci_run_id": "39195490261",
   "ci_workflow": "Android APK (Capacitor)",
   "apk_sha256": "7e4f90101730ce5a728fe27a39fd015a5b705f77a0df5a8e627ec0fc72d83b29",
@@ -29,5 +29,15 @@
     "exact_source_sha_for_apk_build": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
     "historical_apk_sha256": "58a4afd8ef62aab818b0cec99de1be6f58d2d42a752f78c7ef4d3c7026c7dc0f",
     "note": "The prior entry was never installed or accepted; this build replaces it."
+  },
+  "build_provenance": {
+    "synthetic_merge_sha_actually_built": "c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d",
+    "git_tree_of_both": "3c33e00c244035a54c7819bbc8fe8b3d8a3e372c",
+    "statement": "pull_request runs build the synthetic merge commit, not the PR head directly. The merge tree is identical to the PR head tree, so the accepted APK corresponds exactly to PR head a3ee6d8. Artifact directory is named after the merge SHA.",
+    "pr_head_sha": "a3ee6d8bb16c7c1c0d08a37e1634331fff59f93f",
+    "merge_parents": [
+      "173008b7b3874fd3c7acd1366efe5d45c3b113b0 (main)",
+      "a3ee6d8bb16c7c1c0d08a37e1634331fff59f93f (PR #58 head)"
+    ]
   }
 }

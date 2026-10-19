@@ -11,6 +11,15 @@
  * No synthetic PointerEvent/MouseEvent dispatch remains; those are untrusted
  * and are never counted as real touch.
  *
+ * FOREGROUND IDENTITY (see results.deviceState.foregroundAtStart):
+ * The app's WebView stays mounted behind native dialogs, so a React locator
+ * count()/isVisible() is never foreground evidence. A fresh uiautomator
+ * hierarchy reflects the topmost window, so a foreign package in a dump means a
+ * native window covers the app and every DOM-derived tap is refused.
+ * `dumpsys window windows` printed no mCurrentFocus on the observed runner, so
+ * window-manager focus is evidence only; other dumpsys sources are probed as a
+ * fallback and "unknown" fails closed rather than assuming the app.
+ *
  * WebView attachment uses Playwright's experimental Android API
  * (device.webView) instead of connectOverCDP against the WebView socket:
  * connectOverCDP issues Browser-domain commands that Android System WebView
@@ -19,8 +28,9 @@
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
+const nativeCore = require('./android-native-core.cjs');
 const output = 'android-ci-output';
-const PACKAGE = 'dev.knoux.playerx';
+const PACKAGE = nativeCore.APP_PACKAGE;
 const results = {
   environment: 'installed-apk-api35-emulator',
   phone: 'NOT_RUN',
@@ -35,6 +45,7 @@ const results = {
   cases: [],
   measurements: [],
   consoleErrors: [],
+  sessionRecoveries: [],
 };
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,20 +60,72 @@ async function until(check, message, timeout = 20000) {
   }
   throw new Error(message);
 }
-function currentFocus() {
-  try {
-    const dump = adb('shell', 'dumpsys', 'window', 'windows');
-    return dump.split('\n').map((line) => line.trim()).find((line) => line.startsWith('mCurrentFocus')) ?? null;
-  } catch { return null; }
+/* Window-manager focus is EVIDENCE ONLY. `dumpsys window windows` printed no
+ * mCurrentFocus on the observed CI runner (deviceState.focus and every
+ * focusAtFailure were null while DocumentsUI owned the screen), so nothing may
+ * gate on it. Several sources are probed and the first that answers is reused. */
+const FOCUS_PROBES = [
+  { command: ['dumpsys', 'window', 'displays'], pattern: /mCurrentFocus=Window\{[^}]*?\s([A-Za-z0-9_.]+)\// },
+  { command: ['dumpsys', 'activity', 'activities'], pattern: /mResumedActivity[:=][^\n]*?\bu0\s+([A-Za-z0-9_.]+)\// },
+  { command: ['dumpsys', 'activity', 'top'], pattern: /ACTIVITY[^\n]*?\bu0\s+([A-Za-z0-9_.]+)\// },
+  { command: ['dumpsys', 'window'], pattern: /mCurrentFocus=Window\{[^}]*?\s([A-Za-z0-9_.]+)\// },
+  { command: ['dumpsys', 'window', 'windows'], pattern: /mCurrentFocus=Window\{[^}]*?\s([A-Za-z0-9_.]+)\// },
+];
+let focusProbe = null;
+function foregroundPackage() {
+  const probes = focusProbe
+    ? [focusProbe, ...FOCUS_PROBES.filter((probe) => probe !== focusProbe)]
+    : FOCUS_PROBES;
+  for (const probe of probes) {
+    try {
+      const found = probe.pattern.exec(adb('shell', ...probe.command));
+      if (found && found[1]) {
+        focusProbe = probe;
+        results.deviceState.foregroundProbe = probe.command.join(' ');
+        return found[1];
+      }
+    } catch { /* this source did not answer; try the next one */ }
+  }
+  return null;
 }
-/* A native OS window (SAF picker, SystemUI consent) on top of the app makes
- * every DOM-derived tap land on the wrong surface: Playwright geometry is
- * overlay-blind, so only the window-manager focus proves what is really on
- * screen. Returns the covering window line, or null when the app is on top. */
-function nativeWindowCoveringApp() {
-  const focus = currentFocus();
-  if (!focus || !focus.includes('Window{')) return null;
-  return /playerx/i.test(focus) ? null : focus;
+function currentFocus() {
+  const pkg = foregroundPackage();
+  return pkg ? `Window{${pkg}/#0 (via ${results.deviceState.foregroundProbe ?? 'dumpsys'})` : null;
+}
+/* Foreground identity used to gate every app tap. A fresh uiautomator hierarchy
+ * reflects the topmost window — proved by the recorded failure dumps, where the
+ * app's Home WebView stayed mounted underneath `package="com.google.android.documentsui"`.
+ * So a foreign package in a dump is the authoritative "a native window covers
+ * the app" signal; the window manager is only consulted when no dump is
+ * readable, and "unknown" is reported rather than assumed to be the app. */
+function foregroundSurface() {
+  const nodes = dumpNativeNodes();
+  if (nodes.length > 0) {
+    return { package: nativeCore.coveringNativeSurface(nodes) ?? PACKAGE, source: 'uiautomator', packages: nativeCore.packagesIn(nodes) };
+  }
+  const fromWindowManager = foregroundPackage();
+  if (fromWindowManager) return { package: fromWindowManager, source: results.deviceState.foregroundProbe ?? 'dumpsys', packages: [] };
+  return { package: null, source: 'unverified', packages: [] };
+}
+function coveringNativeWindow() {
+  const surface = foregroundSurface();
+  return surface.package && surface.package !== PACKAGE ? surface : null;
+}
+/* Bounded native-window cleanup. Each KEYCODE_BACK is re-verified and the loop
+ * stops the moment the app owns the foreground, so the app's own back policy
+ * (which arms "press back again to exit") is never triggered blindly. */
+async function dismissNativeWindows(attempts = 4) {
+  const presses = [];
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const covering = coveringNativeWindow();
+    if (!covering) return { dismissed: true, presses, foreground: PACKAGE };
+    adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+    recordTap({ note: 'dismiss-native-window', keyevent: 'KEYCODE_BACK', package: covering.package });
+    presses.push(covering.package);
+    await delay(900);
+  }
+  const still = coveringNativeWindow();
+  return { dismissed: still === null && foregroundPackage() === PACKAGE, presses, foreground: still ?? foregroundPackage() };
 }
 /* Device-pixels origin of the Capacitor WebView's page viewport. The WebView
  * is inset below the status bar and above the navigation bar, so a CSS point
@@ -92,15 +155,10 @@ function dumpNativeNodes() {
       xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
     } catch { return []; }
   }
-  return [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
+  return nativeCore.parseNodes(xml);
 }
-function nodeBounds(node) {
-  const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
-  return bounds ? { left: +bounds[1], top: +bounds[2], right: +bounds[3], bottom: +bounds[4] } : null;
-}
-function matchesLabels(node, labels) {
-  return labels.some((label) => node.includes(`text="${label}"`) || node.includes(`content-desc="${label}"`));
-}
+const nodeBounds = nativeCore.nodeBoundsOf;
+const matchesLabels = nativeCore.matchesLabelsOf;
 function tapBounds(bounds, note) {
   const x = Math.round((bounds.left + bounds.right) / 2);
   const y = Math.round((bounds.top + bounds.bottom) / 2);
@@ -127,13 +185,32 @@ async function stableTap(match, options = {}) {
   throw new Error(`Stable native target unavailable: ${options.description ?? options.note ?? 'unnamed target'}`);
 }
 
+/* Independent fixture check: a missing or empty file on the device is a staging
+ * failure and must be reported as such, never as a chooser-navigation failure. */
+function verifyFixtureOnDevice() {
+  const path = `/sdcard/Download/${nativeCore.FIXTURE_NAME}`;
+  let listing;
+  try {
+    listing = adb('shell', 'ls', '-l', path);
+  } catch (error) {
+    throw new Error(`Fixture ${nativeCore.FIXTURE_NAME} is not staged on the device (ls failed: ${String(error && error.message).slice(0, 120)})`);
+  }
+  const bytes = Number((/\s(\d+)\s+\d{4}-\d{2}-\d{2}/.exec(listing)?.[1]) ?? 0);
+  if (!bytes) throw new Error(`Fixture ${nativeCore.FIXTURE_NAME} is not readable on the device: ${listing.trim() || '(no listing)'}`);
+  return { path, bytes };
+}
+
 async function runCase(id, work) {
   const syntheticBefore = results.touchPolicy.syntheticEventsUsed;
   try {
     const evidence = await work();
     results.cases.push({ id, status: 'ANDROID_EMULATOR_VERIFIED', input: 'trusted-adb', syntheticUsed: results.touchPolicy.syntheticEventsUsed && !syntheticBefore, evidence });
   } catch (error) {
-    results.cases.push({ id, status: 'FAILED', error: error && error.message ? error.message : String(error) });
+    const message = error && error.message ? error.message : String(error);
+    /* A case blocked by a native window it is not allowed to tap through is
+     * reported as its own honest status, never as a pass or a bare failure. */
+    const blocked = /^BLOCKED_[A-Z_]+/.exec(message);
+    results.cases.push({ id, status: blocked ? blocked[0] : 'FAILED', error: message });
     try {
       adb('shell', 'screencap', '-p', `/sdcard/${id}-failure.png`);
       adb('pull', `/sdcard/${id}-failure.png`, `${output}/${id}-failure.png`);
@@ -142,6 +219,7 @@ async function runCase(id, work) {
       adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
       fs.writeFileSync(`${output}/${id}-native-ui.xml`, adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml'));
     } catch { /* No hierarchy available */ }
+    results.cases[results.cases.length - 1].foregroundAtFailure = foregroundSurface();
     results.cases[results.cases.length - 1].focusAtFailure = currentFocus();
   }
   save();
@@ -201,13 +279,19 @@ async function trustedTap(locator, options = {}) {
       throw new Error(`Refusing a trusted tap on a ${Math.round(geometry.width)}x${Math.round(geometry.height)} target (unsafe touch size)`);
     }
     if (geometry.insideViewport && geometry.hitSelf) {
-      /* A native window on top (leftover SAF picker, OS dialog) is invisible
-       * to DOM geometry; tapping through it would hit the native surface.
-       * Wait for the app to regain window focus instead of mistapping. */
-      const covering = nativeWindowCoveringApp();
-      if (covering) {
-        lastProblem = `a native window covers the app (${covering})`;
-        await delay(300);
+      /* A native window on top (leftover chooser, OS dialog) is invisible to
+       * DOM geometry: elementFromPoint happily reports the app's own element
+       * while the tap would land on the chooser. Refuse until the app owns the
+       * foreground, and fail closed when the foreground cannot be verified. */
+      const surface = foregroundSurface();
+      if (surface.package && surface.package !== PACKAGE) {
+        lastProblem = `${surface.package} covers the app (${surface.source})`;
+        await delay(400);
+        continue;
+      }
+      if (!surface.package) {
+        lastProblem = 'the foreground window could not be verified';
+        await delay(400);
         continue;
       }
       /* The Capacitor WebView is inset (status/navigation bars): the page
@@ -263,57 +347,55 @@ async function nativeTextPresent(labels) {
   return labels.some((label) => xml.includes(`text="${label}"`) || xml.includes(`content-desc="${label}"`));
 }
 
-/* Drive the Android MediaProjection consent autonomously: read the live
- * hierarchy each round, prefer the "Entire screen" option, confirm with the
- * positive button, and pick the KNOUX X row if API 35 routes to the
- * single-app picker. Every distinct dialog state is recorded as evidence. */
+/* Drive the Android MediaProjection consent from the live hierarchy alone.
+ * window-manager focus is unusable on this runner, so every decision comes from
+ * the accessibility dump: which native package owns the screen, which control is
+ * inside that dialog, and whether the dialog settled. Every tap, every distinct
+ * dialog state and the package evidence are recorded for the run report. */
 async function grantScreenCaptureConsent(page) {
   const consentSteps = [];
   const seenDialogs = new Set();
   const stabilityByKind = new Map();
   let entireScreenChosen = false;
-  const deadline = Date.now() + 60000;
+  const deadline = Date.now() + 90000;
   const stopButton = page.getByRole('button', { name: 'Stop & save MP4' });
   while (Date.now() < deadline) {
     if (await stopButton.count() > 0) return { granted: true, consentSteps };
-    const focus = currentFocus() ?? '';
-    const nativeOnTop = /(systemui|permissioncontroller|documentsui)/i.test(focus) && !/playerx/i.test(focus);
-    if (!nativeOnTop) { await delay(600); continue; }
     let xml = '';
     try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { xml = ''; }
     if (!xml.includes('<node')) { await delay(700); continue; }
-    const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
+    const nodes = nativeCore.parseNodes(xml);
+    const action = nativeCore.consentAction(nodes, { entireScreenChosen });
+    const evidence = { packages: nativeCore.packagesIn(nodes), focus: currentFocus() };
     const tapNode = (node, note) => {
-      const bounds = nodeBounds(node);
+      const bounds = nativeCore.nodeBoundsOf(node);
       if (!bounds) return false;
-      const text = /text="([^"]*)"/.exec(node)?.[1] ?? '';
+      const text = nativeCore.attrOf(node, 'text') || nativeCore.attrOf(node, 'content-desc');
       const { x, y } = tapBounds(bounds, note);
-      consentSteps.push({ note, focus, text, x, y });
+      consentSteps.push({ note, ...evidence, text, x, y });
       return true;
     };
-    /* Consent dialogs animate in too; never tap a control whose bounds have
-     * only been observed once. */
-    const stableFor = (kind, node) => {
-      const bounds = nodeBounds(node);
+    /* Consent dialogs animate in: never tap a control observed only once. */
+    const settled = (node) => {
+      const bounds = nativeCore.nodeBoundsOf(node);
       const signature = bounds ? `${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}` : '';
-      const previous = stabilityByKind.get(kind);
-      stabilityByKind.set(kind, signature);
+      const previous = stabilityByKind.get(action.kind);
+      stabilityByKind.set(action.kind, signature);
       return Boolean(signature) && previous === signature;
     };
-    const findNode = (predicate) => nodes.find((node) => node.includes('bounds="') && predicate(node));
-    if (!entireScreenChosen) {
-      const entireScreen = findNode((node) => /text="(Entire screen|Share your entire screen)"/.test(node));
-      if (entireScreen && stableFor('entire', entireScreen)) { entireScreenChosen = true; tapNode(entireScreen, 'consent:entire-screen'); await delay(900); continue; }
-      if (entireScreen) { await delay(300); continue; }
+    if (action.type === 'tap-entire' || action.type === 'tap-start' || action.type === 'tap-app-row') {
+      if (settled(action.node)) {
+        if (action.type === 'tap-entire') entireScreenChosen = true;
+        tapNode(action.node, `consent:${action.kind === 'entire' ? 'entire-screen' : action.kind === 'start' ? 'start' : 'app-row'}`);
+        await delay(900);
+      } else await delay(350);
+      continue;
     }
-    const startButton = findNode((node) => /text="(Start now|Start recording|Start sharing)"/.test(node) || /resource-id="android:id\/button1"/.test(node));
-    if (startButton && stableFor('start', startButton)) { tapNode(startButton, 'consent:start'); await delay(900); continue; }
-    const appRow = findNode((node) => /(text|content-desc)="KNOUX X"/.test(node) && node.includes('clickable="true"')) ?? findNode((node) => /(text|content-desc)="KNOUX X"/.test(node));
-    if (appRow && stableFor('app', appRow)) { tapNode(appRow, 'consent:app-row'); await delay(900); continue; }
-    const signature = nodes.map((node) => /text="([^"]*)"/.exec(node)?.[1] ?? '').filter(Boolean).slice(0, 12).join('|');
+    if (action.type === 'wait') { await delay(600); continue; }
+    const signature = nodes.map((node) => nativeCore.attrOf(node, 'text')).filter(Boolean).slice(0, 12).join('|');
     if (signature && !seenDialogs.has(signature)) {
       seenDialogs.add(signature);
-      consentSteps.push({ note: 'consent:unrecognized-dialog', focus, signature });
+      consentSteps.push({ note: 'consent:unrecognized-dialog', ...evidence, signature });
       try { fs.writeFileSync(`${output}/consent-dialog-${seenDialogs.size}.xml`, xml); } catch { /* evidence write is best-effort */ }
     }
     await delay(800);
@@ -324,6 +406,13 @@ async function grantScreenCaptureConsent(page) {
 }
 
 async function ensureHome(page) {
+  /* Case isolation: a leftover chooser/dialog from an earlier case must be gone
+   * before any DOM state is trusted. Cleanup is bounded and re-verified; if it
+   * fails the caller must report a blocked case, never tap behind the window. */
+  const cleanup = await dismissNativeWindows();
+  if (!cleanup.dismissed) {
+    throw new Error(`BLOCKED_PREVIOUS_CASE_NATIVE_WINDOW: native window still owns the screen (${JSON.stringify(cleanup.foreground)}) after ${cleanup.presses.length} bounded BACK presses`);
+  }
   const onboardingSkip = page.getByRole('button', { name: 'Skip', exact: true });
   if (await onboardingSkip.count() > 0) {
     try {
@@ -335,15 +424,13 @@ async function ensureHome(page) {
   const backToHome = page.getByRole('button', { name: 'Back to home', exact: true });
   const playerBack = page.locator('button.ump-icon-btn[aria-label="Back"]');
   const bottomHome = page.locator('.kmh-bottom-nav button[aria-label="Home"]');
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    /* A leftover native picker covers the app while the WebView DOM still
-     * reports Home: DOM checks cannot see it, and every DOM-derived tap would
-     * land on the picker. Back out of it before trusting any DOM state. */
-    const covering = nativeWindowCoveringApp();
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    /* Re-checked every pass: a native window may appear while navigating, and
+     * the app's DOM keeps reporting Home while it is covered. */
+    const covering = coveringNativeWindow();
     if (covering) {
-      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
-      recordTap({ note: 'ensureHome:dismiss-native-window', keyevent: 'KEYCODE_BACK' });
-      await delay(900);
+      const extra = await dismissNativeWindows(2);
+      if (!extra.dismissed) throw new Error(`BLOCKED_NATIVE_WINDOW_DURING_NAVIGATION: ${JSON.stringify(extra.foreground)}`);
       continue;
     }
     if (await recordCard.count() > 0) return;
@@ -420,10 +507,35 @@ function readRecordingBytes(uri) {
 (async () => {
   let device;
   let webview;
-  try {
-    results.deviceState.size = adb('shell', 'wm', 'size');
-    results.deviceState.density = adb('shell', 'wm', 'density');
-    results.deviceState.sdk = adb('shell', 'getprop', 'ro.build.version.sdk');
+  let page;
+  const QA_AUDIO_HOOK = `(() => { window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
+      if (window.__knouxQaHooked || !window.AudioContext) return;
+      window.__knouxQaHooked = true;
+      const Base = window.AudioContext;
+      window.AudioContext = class extends Base {
+        createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
+      }; })();`;
+  const hookAudio = async (target) => {
+    try { await target.addInitScript(QA_AUDIO_HOOK); } catch { /* AndroidWebView may not support init scripts */ }
+    // Only reload if the page is stale or the hook has not been evaluated; reload closes active Playwright pages and must be avoided when a live WebView handle is already working.
+    try {
+      const hooked = await target.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
+      if (!hooked) await target.reload();
+    } catch { /* best-effort; do not break the running case */ }
+    try { await target.evaluate(QA_AUDIO_HOOK); } catch { /* the audio analyser evidence stays optional, never a pass criterion */ }
+  };
+  /* Prepare the live page: console capture plus the audio analyser hook, both
+   * re-applied after a session recovery. */
+  const prepareSession = async () => {
+    page.on('console', (message) => {
+      if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
+    });
+    page.on('pageerror', (error) => {
+      results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
+    });
+    await hookAudio(page);
+  };
+  const openSession = async () => {
     await until(async () => {
       try {
         const devices = await android.devices();
@@ -438,91 +550,115 @@ function readRecordingBytes(uri) {
         return Boolean(webview);
       } catch { return false; }
     }, 'Playwright Android API could not attach to the KNOUX WebView (is WebView debugging enabled?)', 90000);
-    const page = await webview.page();
+    page = await webview.page();
     await until(() => {
       webViewOrigin = readWebViewOrigin();
       return Boolean(webViewOrigin);
     }, 'Could not read the native WebView bounds through uiautomator', 45000);
     results.deviceState.webViewOrigin = webViewOrigin;
+    await prepareSession();
+    return page;
+  };
+  /* A WebView session can die mid-run (the observed runner lost the app process
+   * right after the chooser returned: "Target page, context or browser has been
+   * closed", and even adb screenshots timed out). Re-attach instead of letting
+   * one dead renderer cascade into every later case. */
+  const recoverSession = async (label, error) => {
+    try { if (device) await device.close(); } catch { /* the session is already gone */ }
+    device = null; webview = null; page = null;
+    await openSession();
+    const surface = foregroundSurface();
+    if (surface.package !== PACKAGE) {
+      throw new Error(`BLOCKED_SESSION_RECOVERY: after re-attaching for ${label}, the foreground is ${JSON.stringify(surface)} (${String(error).slice(0, 160)})`);
+    }
+  };
+  const withSession = async (label, work) => {
+    try {
+      return await work();
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error);
+      if (!nativeCore.isSessionDeath(message)) throw error;
+      const recovery = { case: label, error: message.slice(0, 200), recovered: false };
+      results.sessionRecoveries = [...results.sessionRecoveries, recovery];
+      save();
+      await recoverSession(label, message);
+      recovery.recovered = true;
+      return await work();
+    }
+  };
+  try {
+    results.deviceState.size = adb('shell', 'wm', 'size');
+    results.deviceState.density = adb('shell', 'wm', 'density');
+    results.deviceState.sdk = adb('shell', 'getprop', 'ro.build.version.sdk');
+    results.deviceState.appPid = (() => { try { return adb('shell', 'pidof', PACKAGE); } catch { return null; } })();
+    await openSession();
     results.deviceState.focus = currentFocus();
-    page.on('console', (message) => {
-      if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);
-    });
-    page.on('pageerror', (error) => {
-      results.consoleErrors = [...(results.consoleErrors || []), String(error && error.message ? error.message : error)].slice(-50);
-    });
-    const QA_AUDIO_HOOK = `(() => { window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
-      if (window.__knouxQaHooked || !window.AudioContext) return;
-      window.__knouxQaHooked = true;
-      const Base = window.AudioContext;
-      window.AudioContext = class extends Base {
-        createAnalyser() { const analyser = super.createAnalyser(); window.__knouxQaAnalysers.push(analyser); return analyser; }
-      }; })();`;
-    const hookAudio = async (target) => {
-      try { await target.addInitScript(QA_AUDIO_HOOK); } catch { /* AndroidWebView may not support init scripts */ }
-      // Only reload if the page is stale or the hook has not been evaluated; reload closes active Playwright pages and must be avoided when a live WebView handle is already working.
-      try {
-        const hooked = await target.evaluate(() => Boolean(window.__knouxQaHooked && Array.isArray(window.__knouxQaAnalysers)));
-        if (!hooked) await target.reload();
-      } catch { /* best-effort; do not break the running case */ }
-      await target.evaluate(QA_AUDIO_HOOK);
-    };
-    await hookAudio(page);
+    results.deviceState.foregroundAtStart = foregroundSurface();
 
-    await runCase('onboarding-skip', async () => {
+    await runCase('onboarding-skip', () => withSession('onboarding-skip', async () => {
       const skip = page.getByRole('button', { name: 'Skip', exact: true });
       await trustedTapUntil(skip, async () => (await skip.count()) === 0, { note: 'onboarding:skip', timeout: 15000, checkTimeout: 8000 });
       await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
       return 'First-run welcome dismissed with a trusted tap and Home is available';
-    });
+    }));
 
-    await runCase('mp4-actual-player-first-frame-seek-audio', async () => {
+    await runCase('mp4-actual-player-first-frame-seek-audio', () => withSession('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
+      const fixture = verifyFixtureOnDevice();
       await trustedTapUntil(
         page.locator('.kmh-hero-card'),
-        () => nativeTextPresent(['Show roots', 'Downloads', 'Download', 'KNOUX-QA.mp4']),
+        () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]),
         { note: 'home:open-video (SAF picker)', timeout: 15000, checkTimeout: 9000 },
       );
-      /* The picker's starting root varies (it can restore the last-used
-       * root): the fixture is either listed directly, one level inside the
-       * media "Download" folder tile, or only reachable through the roots
-       * drawer. Walk all three, requiring stable geometry before every
-       * native tap — a mid-animation drawer tap had landed on the wrong row. */
+      /* Bounded, state-driven chooser walk. Each step re-reads the hierarchy
+       * and every tap requires settled geometry: the recorded CI runs showed
+       * both a mid-animation drawer tap landing on the wrong row and a chooser
+       * that started in the media "Videos" root, where the fixture sits one
+       * level inside the "Download" folder tile. */
       const pickerPaths = [];
       let fileChosen = false;
       for (let attempt = 1; attempt <= 3 && !fileChosen; attempt += 1) {
-        const nodes = dumpNativeNodes();
-        if (nodes.some((node) => matchesLabels(node, ['KNOUX-QA.mp4']))) {
-          await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: `saf:file (attempt ${attempt})` });
+        const action = nativeCore.chooserAction(dumpNativeNodes());
+        if (action.type === 'file-row') {
+          await stableTap(nativeCore.fixtureRowMatcher(), { note: `saf:file (attempt ${attempt})`, description: `${nativeCore.FIXTURE_NAME} row` });
           pickerPaths.push(`attempt${attempt}:file-row`);
           fileChosen = true;
           break;
         }
-        if (nodes.some((node) => node.includes('text="Download"') && node.includes('resource-id="android:id/title"'))) {
-          await stableTap((node) => node.includes('text="Download"') && node.includes('resource-id="android:id/title"'), { note: `saf:Download-folder (attempt ${attempt})` });
+        if (action.type === 'folder-tile') {
+          await stableTap(nativeCore.folderTileMatcher(), { note: `saf:Download-folder (attempt ${attempt})`, description: 'Download folder tile' });
           pickerPaths.push(`attempt${attempt}:folder-tile`);
           await delay(1000);
           continue;
         }
-        await stableTap((node) => matchesLabels(node, ['Show roots']), { note: `saf:show-roots (attempt ${attempt})` });
+        if (action.type === 'roots-drawer') {
+          await stableTap(nativeCore.rootsDrawerMatcher(), { note: `saf:show-roots (attempt ${attempt})`, description: 'Show roots' });
+          await delay(600);
+          const downloads = nativeCore.downloadsRootAction(dumpNativeNodes());
+          if (downloads.type !== 'downloads-root') throw new Error(`Roots drawer did not expose a Downloads row: ${downloads.note}`);
+          await stableTap(nativeCore.downloadsRowMatcher(), { note: `saf:downloads-root (attempt ${attempt})`, description: 'Downloads root row' });
+          pickerPaths.push(`attempt${attempt}:roots-drawer`);
+          await delay(1000);
+          continue;
+        }
         await delay(600);
-        await stableTap((node) => node.includes('text="Downloads"'), { note: `saf:downloads-root (attempt ${attempt})` });
-        pickerPaths.push(`attempt${attempt}:roots-drawer`);
-        await delay(1000);
       }
       if (!fileChosen) {
-        await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: 'saf:file (final)', timeout: 12000 });
+        await stableTap(nativeCore.fixtureRowMatcher(), { note: 'saf:file (final)', timeout: 12000, description: `${nativeCore.FIXTURE_NAME} row (final)` });
         pickerPaths.push('final:file-row');
       }
       try {
-        await until(() => nativeWindowCoveringApp() === null, 'picker did not close after the file tap', 8000);
+        await until(() => coveringNativeWindow() === null, 'picker did not close after the file tap', 8000);
       } catch {
-        await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: 'saf:file (retry after picker stayed open)', timeout: 8000 });
+        await stableTap(nativeCore.fixtureRowMatcher(), { note: 'saf:file (retry after picker stayed open)', timeout: 8000, description: `${nativeCore.FIXTURE_NAME} row (retry)` });
         pickerPaths.push('retry:file-row');
-        await until(() => nativeWindowCoveringApp() === null, 'SAF picker did not close after choosing the fixture', 10000);
+        await until(() => coveringNativeWindow() === null, 'SAF picker did not close after choosing the fixture', 10000);
       }
+      /* The app process is the thing that died on the observed runner right
+       * after the chooser returned; its pid is recorded either way. */
+      const appPidAfterChooser = (() => { try { return adb('shell', 'pidof', PACKAGE); } catch { return null; } })();
       const video = page.locator('video').first();
-      await video.waitFor();
+      await video.waitFor({ timeout: 45000 });
       /* The header only renders while the controls are shown; if they auto-hide,
        * a trusted tap on the stage reveals them again (single tap toggles). */
       let title = '';
@@ -613,21 +749,22 @@ function readRecordingBytes(uri) {
       return {
         ...frame,
         title,
+        fixture,
         pickerPaths,
+        appPidAfterChooser,
         playbackStartedVia: playback.via,
         seekTrusted,
         audioPeak,
         seek: 'completed (API seek verified after the trusted scrub attempt)',
         speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)',
       };
-    });
+    }));
 
     // Native screen capture is a separate case. Failure never turns into launch PASS.
-    // Emulator evidence: the initial device.webView attach survives native picker
-    // navigation through case 2 (both verified). Re-acquiring the WebView — even a
-    // probe page.evaluate — closes the working page in Playwright AndroidWebView.
-    // So the recording case reuses the live handle without any re-attach logic.
-    await runCase('native-recording-finalize-editor-handoff', async () => {
+    // The live device.webView handle is reused while it is healthy — re-acquiring
+    // it speculatively would close working pages — but withSession() re-attaches
+    // when the renderer is gone, so a dead session cannot cascade into this case.
+    await runCase('native-recording-finalize-editor-handoff', () => withSession('native-recording-finalize-editor-handoff', async () => {
       await ensureHome(page);
       await trustedTapUntil(
         page.getByRole('button', { name: 'Record Native screen capture' }).first(),
@@ -640,14 +777,20 @@ function readRecordingBytes(uri) {
           || nativeTextPresent(['Entire screen', 'Start now', 'Start recording', 'A single app']),
         { note: 'recording:start', timeout: 12000, checkTimeout: 8000 },
       );
-      // Android MediaProjection consent (SystemUI): the adaptive loop reads the
-      // live hierarchy while the OS window has focus, prefers "Entire screen",
-      // confirms with the positive button and resolves the API 35 single-app
-      // picker. Every dialog state and tap is recorded as evidence.
+      // Android MediaProjection consent is driven from the live hierarchy by
+      // grantScreenCaptureConsent(): it prefers "Entire screen", confirms with the
+      // positive button, and resolves the API 35 single-app picker. Every dialog
+      // state, package and tap is recorded as evidence.
       const consent = await grantScreenCaptureConsent(page);
       if (!consent.granted) {
-        throw new Error(`MediaProjection consent was not granted: ${JSON.stringify(consent.consentSteps).slice(0, 1500)}`);
+        throw new Error(`BLOCKED_MEDIAPROJECTION_CONSENT_NOT_GRANTED: ${JSON.stringify(consent.consentSteps).slice(0, 1500)}`);
       }
+      /* Consent alone is not proof: the capture service must report an active
+       * recording before anything is captured. */
+      await until(async () => {
+        const live = await page.evaluate(() => window.Capacitor.Plugins.KnouxScreenCapture.status());
+        return Boolean(live && live.recording === true);
+      }, 'Capture service never reported recording=true after consent', 15000);
       await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 15000 });
       await delay(4500); // Intentional captured duration, not a startup readiness wait.
       await trustedTapUntil(
@@ -680,9 +823,10 @@ function readRecordingBytes(uri) {
         videoPackets: probe.streams.find((stream) => stream.codec_type === 'video').nb_read_packets,
         consent: consent.consentSteps.map((step) => step.note).join(' -> ') || 'consent dialog confirmed',
         consentSteps: consent.consentSteps,
+        captureRecordingFlagVerified: true,
         editor: 'actual saved project loaded with decoded preview',
       };
-    });
+    }));
   } finally {
     try { if (device) await device.close(); } catch { /* best-effort cleanup */ }
   }

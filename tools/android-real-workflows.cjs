@@ -185,6 +185,22 @@ async function stableTap(match, options = {}) {
   throw new Error(`Stable native target unavailable: ${options.description ?? options.note ?? 'unnamed target'}`);
 }
 
+/* ffprobe-static exports the binary as a plain string on some versions and as
+ * {path} on others; resolve both and fail loudly if neither is present. */
+function ffprobeBinary() {
+  const mod = require('@derhuerst/ffprobe-static');
+  const binary = typeof mod === 'string' ? mod : (mod && (mod.path ?? (mod.default && mod.default.path)));
+  if (!binary || typeof binary !== 'string') throw new Error('ffprobe-static did not expose a binary path');
+  return binary;
+}
+function probeMedia(file) {
+  return JSON.parse(execFileSync(
+    ffprobeBinary(),
+    ['-v', 'error', '-count_packets', '-show_streams', '-show_format', '-of', 'json', file],
+    { encoding: 'utf8', timeout: 60000, maxBuffer: 32 * 1024 * 1024 },
+  ));
+}
+
 /* Independent fixture check: a missing or empty file on the device is a staging
  * failure and must be reported as such, never as a chooser-navigation failure. */
 function verifyFixtureOnDevice() {
@@ -810,7 +826,7 @@ function readRecordingBytes(uri) {
       if (!status.outputUri || status.recording) throw new Error('No finalized native URI');
       const { bytes, attempts: byteAttempts } = readRecordingBytes(status.outputUri);
       fs.writeFileSync(`${output}/synthetic-screen-recording.mp4`, bytes);
-      const probe = JSON.parse(execFileSync(process.execPath, ['-e', 'const p=require("@derhuerst/ffprobe-static").path;process.stdout.write(require("child_process").execFileSync(p,["-v","error","-count_packets","-show_streams","-show_format","-of","json",process.argv[1]]))', `${output}/synthetic-screen-recording.mp4`], { encoding: 'utf8' }));
+      const probe = probeMedia(`${output}/synthetic-screen-recording.mp4`);
       if (!probe.streams.some((stream) => stream.codec_type === 'video' && +stream.nb_read_packets > 0) || +probe.format.duration <= 0) throw new Error('Recorded MP4 has no video packets/duration');
       await trustedTapUntil(
         page.getByRole('button', { name: 'Open in Video Editor' }).first(),

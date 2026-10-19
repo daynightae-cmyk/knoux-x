@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef } from 'react';
 
+import { KnouxModuleSkeleton } from './components/mobile/KnouxVisualPrimitives';
 import { MobileSplashOverlay } from './components/mobile/MobileSplashOverlay';
 import { sprint02SurfaceForView } from './core/commands/sprint02CommandSystem';
 import { DEFAULT_WORKSPACE_SETTINGS, type WorkspaceSettings } from './core/settings/productCustomization';
@@ -317,7 +318,7 @@ const App: React.FC = () => {
             className="view-transition"
             data-sprint02-surface={android ? undefined : sprint02SurfaceForView(currentView)}
           >
-            <Suspense fallback={<div className="creative-loading">{t('app.loadingModule')}</div>}>
+            <Suspense fallback={android ? <KnouxModuleSkeleton label={t('app.loadingModule')} /> : <div className="creative-loading">{t('app.loadingModule')}</div>}>
               {viewFor(currentView, android)}
             </Suspense>
           </div>

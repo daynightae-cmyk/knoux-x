@@ -6,16 +6,16 @@ const sharp = require('sharp');
 
 const root = path.resolve(__dirname, '..');
 const resRoot = path.join(root, 'android', 'app', 'src', 'main', 'res');
-const logoPath = path.join(root, 'assets', 'branding', 'knoux-logo-day.png');
+const logoPath = path.join(root, 'assets', 'branding', 'knoux-logo-master.png');
 const stylesPath = path.join(resRoot, 'values', 'styles.xml');
 const colorsPath = path.join(resRoot, 'values', 'colors.xml');
-const PEARL = '#F8F7FC';
-const SOFT_WHITE = '#FCFBFF';
-const LAVENDER = '#EEE8FF';
-const GRAPHITE = '#15121C';
-const MUTED = '#625B70';
-const PURPLE = '#7828E8';
-const PURPLE_STRONG = '#6D21D9';
+const PEARL = '#06060D';
+const SOFT_WHITE = '#080610';
+const LAVENDER = '#1B102A';
+const GRAPHITE = '#F8F5FF';
+const MUTED = '#B8AFCB';
+const PURPLE = '#A76BFF';
+const PURPLE_STRONG = '#C4A6FF';
 
 const portraitSplashes = [
   ['mdpi', 320, 480],
@@ -75,7 +75,7 @@ async function premiumSplash(width, height) {
         <path d="M ${-width * 0.1} ${height * 0.18} C ${width * 0.22} ${height * 0.06}, ${width * 0.42} ${height * 0.32}, ${width * 1.1} ${height * 0.10}" stroke-width="${Math.max(4, width * 0.018)}" opacity="0.46"/>
         <path d="M ${-width * 0.1} ${height * 0.72} C ${width * 0.28} ${height * 0.58}, ${width * 0.52} ${height * 0.92}, ${width * 1.1} ${height * 0.70}" stroke-width="${Math.max(4, width * 0.021)}" opacity="0.42"/>
       </g>
-      <circle cx="${width / 2}" cy="${logoY}" r="${ringRadius}" fill="#ffffff" fill-opacity="0.34" stroke="#8B3DFF" stroke-opacity="0.16" stroke-width="${Math.max(1, width * 0.002)}"/>
+      <circle cx="${width / 2}" cy="${logoY}" r="${ringRadius}" fill="#522470" fill-opacity="0.18" stroke="#8B3DFF" stroke-opacity="0.16" stroke-width="${Math.max(1, width * 0.002)}"/>
       <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.12)}" fill="none" stroke="#C4A6FF" stroke-opacity="0.16" stroke-width="${Math.max(1, width * 0.0015)}"/>
       <text x="50%" y="${titleY}" text-anchor="middle" fill="${GRAPHITE}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">Knoux <tspan fill="${PURPLE}">X</tspan></text>
       <text x="50%" y="${titleY + titleSize * 0.72}" text-anchor="middle" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="${subSize}" letter-spacing="${Math.max(2, subSize * 0.55)}">CREATE · PLAY · ENHANCE</text>
@@ -128,21 +128,33 @@ function patchLaunchTheme() {
   const start = styles.indexOf('    <style name="AppTheme.NoActionBarLaunch"');
   const end = styles.indexOf('    </style>', start);
   if (start < 0 || end < 0) throw new Error('Knoux X launch theme was not found.');
-  const replacement = `    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n        <item name="windowSplashScreenBackground">@color/knoux_splash_background</item>\n        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>\n        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>\n        <item name="android:background">@drawable/splash</item>\n        <item name="android:statusBarColor">@color/knoux_system_background</item>\n        <item name="android:navigationBarColor">@color/knoux_system_background</item>\n        <item name="android:windowLightStatusBar">true</item>\n        <item name="android:windowLightNavigationBar">true</item>\n    </style>`;
+  const replacement = `    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n        <item name="windowSplashScreenBackground">@color/knoux_splash_background</item>\n        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>\n        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>\n        <item name="android:background">@drawable/splash</item>\n        <item name="android:statusBarColor">@color/knoux_system_background</item>\n        <item name="android:navigationBarColor">@color/knoux_system_background</item>\n        <item name="android:windowLightStatusBar">false</item>\n        <item name="android:windowLightNavigationBar">false</item>\n    </style>`;
   styles = `${styles.slice(0, start)}${replacement}${styles.slice(end + '    </style>'.length)}`;
   fs.writeFileSync(stylesPath, styles, 'utf8');
 }
 
 async function main() {
   if (!fs.existsSync(resRoot)) throw new Error('Generated Android resources not found. Run Capacitor sync first.');
-  if (!fs.existsSync(logoPath)) throw new Error('Official Knoux X daylight logo is missing.');
+  if (!fs.existsSync(logoPath)) throw new Error('Official Knoux X master logo is missing.');
   await writeSplashes();
   patchColors();
   patchLaunchTheme();
-  console.log('Knoux X premium daylight Android splash and system chrome prepared.');
+  console.log('Knoux X Violet Cinema Android splash and system chrome prepared.');
 }
 
-main().catch((error) => {
+// Preview writes visual evidence only; no generated Android project is required.
+async function run() {
+  const preview = process.argv.indexOf('--preview');
+  if (preview >= 0) {
+    const output = path.resolve(process.argv[preview + 1] || 'design-evidence/android-visual-20261019/native');
+    ensureDir(output);
+    fs.writeFileSync(path.join(output, 'splash-390x844.png'), await premiumSplash(390, 844));
+    fs.writeFileSync(path.join(output, 'splash-844x390.png'), await premiumSplash(844, 390));
+    return;
+  }
+  await main();
+}
+run().catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exitCode = 1;
 });

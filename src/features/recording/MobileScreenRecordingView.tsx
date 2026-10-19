@@ -122,9 +122,9 @@ export const MobileScreenRecordingView: React.FC = () => {
 
       <div className="kmr-hero">
         <div className="kmr-orb"><MonitorUp size={46} /></div>
-        <span>NATIVE MEDIAPROJECTION</span>
-        <h1>Record the screen <em>without WebView capture hacks.</em></h1>
-        <p>Android owns the capture permission, H.264 encoding and MP4 output. The recording is written into Movies/KNOUX X.</p>
+        <span>CAPTURE YOUR NEXT IDEA</span>
+        <h1>Capture moments.<em> Create without limits.</em></h1>
+        <p>Record tutorials, gameplay and ideas. Android will ask for permission before you start. Find saved videos in Movies/KNOUX X.</p>
       </div>
 
       {error && <div className="kmr-error" role="alert">{error}</div>}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { BrandMark } from '../brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
@@ -12,21 +12,12 @@ interface MobileSplashOverlayProps {
 export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComplete }) => {
   const isHomeReady = useAppStore((state) => state.isHomeReady);
   const [phase, setPhase] = useState<'entering' | 'holding' | 'exiting' | 'hidden'>('entering');
-  const minDurationPassedRef = useRef(false);
 
   useEffect(() => {
     // Entry animation phase
     const enterTimer = setTimeout(() => {
-      setPhase('holding');
+      setPhase((current) => current === 'entering' ? 'holding' : current);
     }, 200);
-
-    // Minimum visual duration threshold (750ms)
-    const minTimer = setTimeout(() => {
-      minDurationPassedRef.current = true;
-      if (useAppStore.getState().isHomeReady) {
-        setPhase('exiting');
-      }
-    }, 750);
 
     // Maximum safety fallback timeout (1800ms)
     const safetyTimer = setTimeout(() => {
@@ -35,14 +26,13 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
 
     return () => {
       clearTimeout(enterTimer);
-      clearTimeout(minTimer);
       clearTimeout(safetyTimer);
     };
   }, []);
 
-  // Exit trigger when readiness signal fires after min duration
+  // Reveal the actionable Home immediately; branding never adds a fixed wait.
   useEffect(() => {
-    if (isHomeReady && minDurationPassedRef.current && phase === 'holding') {
+    if (isHomeReady && (phase === 'entering' || phase === 'holding')) {
       setPhase('exiting');
     }
   }, [isHomeReady, phase]);
@@ -53,7 +43,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
     const exitTimer = setTimeout(() => {
       setPhase('hidden');
       onComplete?.();
-    }, 300);
+    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240);
     return () => clearTimeout(exitTimer);
   }, [onComplete, phase]);
 

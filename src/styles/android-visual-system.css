@@ -1,0 +1,315 @@
+/* KNOuX X · Violet Cinema. Android-only presentation boundary.
+ * Engine state, pointer handling and native capabilities remain authoritative. */
+:root[data-platform='android'][data-runtime='android'][data-theme] {
+  --kx-ink: #06060d;
+  --kx-surface: #11101e;
+  --kx-raised: #1b172c;
+  --kx-line: #39304f;
+  --kx-accent: #8b3dff;
+  --kx-lavender: #d5baff;
+  --kx-text: #f8f5ff;
+  --kx-muted: #b8afcb;
+  --kx-success: #9ae6c2;
+  --kx-error: #ffb4c3;
+  --kx-warning: #f4cf91;
+  --kx-radius: 22px;
+  --kx-fast: 150ms;
+  --kx-sheet: 240ms;
+  --km-bg: var(--kx-ink);
+  --km-surface: var(--kx-surface);
+  --km-surface-strong: var(--kx-raised);
+  --km-border: var(--kx-line);
+  --km-text: var(--kx-text);
+  --km-muted: var(--kx-muted);
+  --km-purple: var(--kx-accent);
+  --km-violet: var(--kx-lavender);
+  --knoux-bg-0: var(--kx-ink);
+  --knoux-bg-1: #0c0b15;
+  --knoux-bg-2: var(--kx-raised);
+  --knoux-surface: var(--kx-surface);
+  --knoux-surface-raised: var(--kx-raised);
+  --knoux-text: var(--kx-text);
+  --knoux-text-primary: var(--kx-text);
+  --knoux-text-secondary: var(--kx-muted);
+  --knoux-muted: var(--kx-muted);
+  --knoux-border: var(--kx-line);
+  --knoux-border-strong: #65517e;
+  --knoux-accent: #aa78ff;
+  --knoux-accent-secondary: var(--kx-lavender);
+  --knoux-danger: var(--kx-error);
+  --knoux-success: var(--kx-success);
+  --knoux-warning: var(--kx-warning);
+  --text-muted: var(--kx-muted);
+  --border-subtle: var(--kx-line);
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  color-scheme: dark;
+  background: var(--kx-ink);
+}
+
+:root[data-platform='android'][data-runtime='android'][data-theme] #root { box-sizing: border-box; height: 100dvh; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .app-shell { height: 100%; background: var(--kx-ink); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.app-body, .main-content, .view-transition) { min-width: 0; background: transparent; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(button, input, select, textarea) { font-family: inherit; }
+:root[data-platform='android'][data-runtime='android'][data-theme] button { min-height: 48px; touch-action: manipulation; transition: background var(--kx-fast), border-color var(--kx-fast), box-shadow var(--kx-fast), transform var(--kx-fast); }
+:root[data-platform='android'][data-runtime='android'][data-theme] button:active:not(:disabled) { transform: scale(.98); }
+:root[data-platform='android'][data-runtime='android'][data-theme] button:disabled { opacity: .48; box-shadow: none; cursor: default; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(button, input, select, textarea):focus-visible { outline: 2px solid #e3caff; outline-offset: 3px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] input[type='range'] { accent-color: #b78aff; min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(input[type='checkbox'], input[type='radio']) { accent-color: #a76bff; width: 24px; height: 24px; flex-shrink: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(label:has(input[type='checkbox']), label:has(input[type='radio'])) { min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(h1, h2, h3, p, strong, small, code) { overflow-wrap: anywhere; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.brand-mark, .brand-mark img) { flex-shrink: 0; object-fit: contain; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-ambient, .kme-ambient) { display: none; }
+
+/* Home: compact brand bar, cinematic invitation, individual tool signatures. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-home {
+  padding: 18px 18px calc(112px + env(safe-area-inset-bottom, 0px));
+  background: radial-gradient(ellipse at 90% 0, #29144580, transparent 45%), var(--kx-ink);
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-header { grid-template-columns: 48px minmax(0, 1fr) auto; gap: 9px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-icon-button { width: 48px; height: 48px; border-radius: 17px; background: #15111f; border-color: var(--kx-line); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup { gap: 9px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup strong { font-size: clamp(16px, 4.6vw, 21px); letter-spacing: .045em; white-space: nowrap; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup small { display: block; font-size: 7px; letter-spacing: .15em; color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-header-actions { gap: 6px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-header-actions .kmh-icon-button { width: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting { padding: 27px 2px 21px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting > span { color: var(--kx-lavender); font-size: 10px; letter-spacing: .22em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting h1 { margin-block: 10px; font-size: clamp(32px, 9vw, 44px); line-height: 1.12; letter-spacing: -.045em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting h1 em { color: #d3acff; text-shadow: none; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting p { color: var(--kx-muted); font-size: 13px; line-height: 1.6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-card {
+  min-height: 218px; padding: 23px; border-radius: 25px; text-align: start;
+  border-color: #7550a4; background: radial-gradient(ellipse at 100% 40%, #5f2ca5a0, transparent 64%), linear-gradient(125deg, #20132f, #0f0b1b);
+  box-shadow: inset 0 1px #dfbbff26, 0 16px 32px #0004;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy { max-width: 65%; align-items: flex-start; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy > span { color: #dac0ff; font-size: 9px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy > strong { white-space: normal; font-size: 28px; line-height: 1.15; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy p { color: #c7b9dc; font-size: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-action { min-height: 48px; border-radius: 14px; margin-top: 8px; background: linear-gradient(120deg, #9d52ff, #6e26e5); box-shadow: 0 4px 20px #8134ee50, inset 0 1px #ffffff50; font-size: 13px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-brand { position: absolute; inset-inline-end: -24px; top: 30px; opacity: .85; transform: rotate(-12deg); pointer-events: none; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-brand img { width: 158px; height: 158px; filter: drop-shadow(0 12px 28px #0009); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-glow { animation: none; opacity: .6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-section-heading { padding: 23px 2px 12px; align-items: center; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-section-heading h2 { font-size: 21px; letter-spacing: -.025em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-section-heading > button { min-width: 60px; color: var(--kx-lavender); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-actions-grid { gap: 10px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card {
+  min-height: 148px; padding: 15px; border-radius: 20px; text-align: start;
+  border-color: #463356; background: linear-gradient(145deg, #27193c, #10101d 80%);
+  box-shadow: inset 0 1px #ffffff0d;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-icon { width: 46px; height: 46px; border-radius: 15px; color: #e0c7ff; background: linear-gradient(145deg, #6734ac, #261742); border: 1px solid #9b69d861; box-shadow: 0 5px 14px #0005; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card[data-tool='recording'] .kmh-action-icon { color: #ffc2d5; background: linear-gradient(145deg, #602741, #271521); border-color: #b8597a; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card[data-tool='slideshow'] .kmh-action-icon { color: #e2d4ff; background: linear-gradient(145deg, #46347d, #191c35); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card strong { margin-top: 14px; font-size: 14px; line-height: 1.3; padding-inline-end: 6px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card small { font-size: 11px; line-height: 1.5; color: var(--kx-muted); max-width: calc(100% - 14px); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-chevron { right: auto; inset-inline-end: 10px; bottom: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-recent-card, .kmh-empty-recent) { background: var(--kx-surface); border-color: var(--kx-line); border-radius: 20px; text-align: start; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-empty-recent { line-height: 1.5; font-size: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { inset-inline: 12px; bottom: max(10px, env(safe-area-inset-bottom)); height: 76px; border-color: #66507f; border-radius: 25px; background: #100d1ef5; box-shadow: 0 12px 35px #0008, inset 0 1px #e0c5ff16; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button { color: #beb2cf; font-size: 10px; gap: 5px; position: relative; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button.active { color: #f7edff; background: #6b36ab35; text-shadow: none; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button.active::after { content: ''; position: absolute; bottom: 0; width: 18px; height: 3px; background: #d7b6ff; border-radius: 4px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button[aria-label='Create'] svg { border: 1px solid #bd83ff; border-radius: 50%; padding: 6px; width: 36px; height: 36px; background: #8233ed; box-shadow: 0 2px 12px #8b3dff65; }
+
+/* Shared surface, sheet, status and stage language. */
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.knoux-mobile-library, .knoux-mobile-recording, .knoux-mobile-settings, .knoux-mobile-export, .knoux-mobile-creative-surface) { min-height: 0; height: 100%; overflow-y: auto; padding-inline: 16px; background: radial-gradient(ellipse at 100% 0, #27133f66, transparent 48%), var(--kx-ink); color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-topbar, .kml-header, .kms-topbar, .kmr-topbar, .kme-topbar) { min-height: 66px; padding-block: 6px 12px; gap: 10px; background: #090810f5; border-bottom: 1px solid #35283d; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-round-button, .kml-round, .kme-round, .kms-topbar > button, .kmr-topbar > button) { width: 48px; min-width: 48px; height: 48px; border-color: var(--kx-line); background: #14101f; border-radius: 17px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-brand-lockup, .kml-brand, .kme-brand) { min-width: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-brand-lockup strong, .kml-brand strong, .kme-brand strong) { font-size: 16px; white-space: nowrap; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-intro-card, .kmr-panel, .kms-card, .kme-panel, .kme-source-card, .kms-inspector, .kmc-photo-tool-dock, .kmc-mobile-inspector, .kmc-mobile-start-card, .kms-start-card) { border-radius: var(--kx-radius); background: linear-gradient(145deg, #20162d, #11101e 75%); border: 1px solid var(--kx-line); box-shadow: inset 0 1px #ffffff0a; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-intro-card p, .kmr-hero p, .kms-hero p, .kme-hero p, .kms-copy, .kms-card-title small, .kmr-toggle small) { color: var(--kx-muted); font-size: 13px; line-height: 1.6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-intro-card h1, .kmr-hero h1, .kms-hero h1, .kme-hero h1) { font-size: clamp(27px, 7vw, 36px); line-height: 1.15; letter-spacing: -.035em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-export-button, .kmc-primary-action-btn, .kme-export-primary) { border: 1px solid #b77afb; color: #fff; border-radius: 15px; background: linear-gradient(125deg, #9750f4, #6b26d6); box-shadow: inset 0 1px #ffffff30, 0 5px 20px #7032b838; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-overlay, .ump-sheet-backdrop) { background: #030207b8; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-overlay-sheet, .ump-sheet) { border: 1px solid #74568e; background: linear-gradient(155deg, #261b35, #100d1c 52%); border-radius: 28px 28px 18px 18px; box-shadow: 0 -16px 50px #0007; overscroll-behavior: contain; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-overlay-sheet::before { content: ''; display: block; width: 36px; height: 4px; margin: 0 auto 16px; background: #ae9bbb; border-radius: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-overlay-head button { min-width: 48px; min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-overlay-list small, .kmh-overlay-empty small) { font-size: 12px; color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-overlay-list strong { font-size: 14px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-overlay-list > button { text-align: start; min-height: 68px; border-color: var(--kx-line); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kml-inline-error, .kmr-error, .kme-error, .kms-error, .kmc-inline-error, .kmc-mobile-video-error, .kmc-photo-error) { padding: 14px; border: 1px solid #a04a64; background: #371321; color: var(--kx-error); border-radius: 16px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kme-result, .kms-notice, .kms-render-job.completed) { border-color: #42765f; background: #10251e; color: var(--kx-success); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.creative-loading, .global-loading-overlay) { color: var(--kx-lavender); background: #100c1bf0; font-size: 14px; gap: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] progress { accent-color: #b98aff; width: 100%; height: 10px; }
+
+/* Library: true file metadata, readable empty/import state. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-tabs { gap: 6px; padding-block: 18px 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-tabs button { min-height: 56px; padding: 8px; border-radius: 16px; font-size: 12px; color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-tabs button.active { color: #fff; border-color: #a16ae0; background: linear-gradient(135deg, #682bc0, #301650); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-library-toolbar { flex-wrap: wrap; gap: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-search { flex: 1 1 180px; min-width: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-media-card { text-align: start; border-color: var(--kx-line); background: #14101f; border-radius: 18px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-media-card strong { font-size: 13px; line-height: 1.45; unicode-bidi: plaintext; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-media-card small { font-size: 12px; color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-import-hero { min-height: 230px; padding: 28px 22px; border-radius: 24px; background: radial-gradient(at 90% 0, #4a2166, transparent 75%), #151020; border-color: #775190; }
+
+/* Recording: red reserved for actual capture actions, live state from native. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-hero { padding-block: 25px 22px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-orb { width: 92px; height: 92px; border-radius: 50%; color: #f0c7ec; background: #29152e; border: 1px solid #8d527c; box-shadow: 0 0 0 9px #59204522, 0 0 0 19px #59204512; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-panel { padding: 17px; gap: 18px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-field { align-items: flex-start; flex-direction: column; gap: 9px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-field > div { width: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-field button { font-size: 13px; color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-field button.active { color: #fff; background: #51227e; border-color: #ab7bda; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-primary { min-height: 64px; border-radius: 21px; background: linear-gradient(120deg, #b52e60, #811d53); border: 1px solid #fa8aaa; box-shadow: 0 8px 24px #8e275e30, inset 0 1px #ffffff40; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmr-output { overflow-wrap: anywhere; border-color: #486e59; background: #11251d; }
+
+/* Creator canvases and timeline retain all pointer bindings. */
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-mobile-preview, .kms-preview-card, .kmc-photo-canvas-container, .kmc-beauty-preview-engine) { border: 1px solid #544264; border-radius: 22px; overflow: hidden; background: #030306; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-mobile-start-card, .kms-start-card) { min-height: 240px; padding: 28px 20px; text-align: center; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-mobile-start-actions, .kms-start-actions) { gap: 10px; flex-wrap: wrap; justify-content: center; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-mobile-projectbar, .kms-project-bar) { flex-wrap: wrap; gap: 10px; padding-block: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-mobile-track, .kmc-mobile-ruler) { border-color: #34283f; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-track-label { min-width: 64px; background: #161020; color: #cfbbdf; font-size: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-track-lane { min-height: 64px; background: #0c0912; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-track-lane button { border-radius: 10px; border-color: #a166e6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kms-strip > button { border-radius: 15px; border-color: #5a3b78; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-tool-dock, .kmc-photo-tool-dock) { background: #14101ff5; border-color: #65507e; box-shadow: 0 12px 30px #0008; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock { display: flex; overflow-x: auto; overscroll-behavior-x: contain; gap: 4px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock button { flex: 1 0 54px; min-width: 54px; min-height: 60px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-tool-dock span { font-size: 10px; white-space: normal; line-height: 1.25; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-tool-tabs, .kmc-filter-grid) { gap: 8px; overflow-x: auto; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-filter-chip { font-size: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-slider-group label { font-size: 13px; justify-content: space-between; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-beauty-picker { background: linear-gradient(145deg, #23172f, #10101c); border: 1px solid #6c4e83; border-radius: 24px; color: var(--kx-text); }
+
+/* Player surfaces do not place any artwork over the actual video. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .ultimate-mobile-player { height: 100%; min-height: 0; --ump-text: var(--kx-text); --ump-muted: var(--kx-muted); --ump-glass-strong: #140f20f5; --ump-border: #614477; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-empty { background: radial-gradient(ellipse at 50% 40%, #30184299, transparent 65%); padding-inline: 24px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-empty-orb { border-color: #a06bcf; background: #32154d; box-shadow: 0 0 0 12px #4a236428, 0 0 0 26px #4a236412; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-icon-btn { min-width: 48px; min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-play { border-color: #dac0ff; background: linear-gradient(135deg, #9b48ff, #5320b2); box-shadow: 0 0 24px #8730ee50; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet-head strong { font-size: 21px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet-head button { min-width: 48px; min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-group { border: 1px solid var(--kx-line); border-radius: 18px; background: #0c0a14; padding: 14px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-group h3 { color: var(--kx-lavender); font-size: 12px; letter-spacing: .07em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-group > div > button { min-height: 64px; border-radius: 14px; background: linear-gradient(145deg, #272034, #12101e); border-color: #554065; font-size: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-eq-grid { overflow-x: auto; grid-template-columns: repeat(10, minmax(48px, 1fr)); padding-block: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-media-info { direction: ltr; unicode-bidi: isolate; }
+
+/* Reachable DSP route is a single mobile scroll surface. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-view { height: 100%; min-height: 0; overflow: auto; padding: 16px 16px 40px; background: var(--kx-ink); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-sidebar { position: static; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-waveform { height: 130px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.audio-tools-view .neon-panel, .audio-tools-view .creative-header) { background: var(--kx-surface); border: 1px solid var(--kx-line); border-radius: 20px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-view .creative-header { flex-wrap: wrap; padding: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-view .creative-header-actions { flex-wrap: wrap; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-eq-grid { overflow-x: auto; }
+
+/* Onboarding and splash: one asset, restrained reveal, no progress simulation. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome { background: radial-gradient(ellipse at 90% 0, #4c206e66, transparent 60%), #08060f; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card { padding: 32px 24px; border: 1px solid #59406e; border-radius: 30px; background: linear-gradient(155deg, #24162f, #100c19 70%); box-shadow: 0 20px 60px #0007; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card > .brand-mark { margin-block: 24px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card h1 { color: var(--kx-text); font-size: 32px; line-height: 1.2; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card p { color: var(--kx-muted); line-height: 1.7; font-size: 15px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card small { color: #cda9f6; letter-spacing: .1em; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card button { min-width: 100px; min-height: 52px; border-radius: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots { display: flex; gap: 7px; justify-content: center; margin: 22px 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots span { width: 7px; height: 7px; background: #61506f; border-radius: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-dots .active { width: 25px; background: #d3a7ff; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-splash-overlay { background: radial-gradient(ellipse at 50% 42%, #35144980, transparent 60%), #06060d; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-logo-wrapper { padding: 16px; border: 1px solid #8b56be80; border-radius: 50%; box-shadow: 0 0 0 15px #713f9420; animation: kx-brand-enter 420ms ease-out both; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-logo-wrapper img { width: 112px; height: 112px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-title { font-size: 32px; letter-spacing: .12em; margin-top: 16px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .km-splash-ambient-glow { display: none; }
+@keyframes kx-brand-enter { from { opacity: .2; transform: scale(.93) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] [dir='rtl'] :is(.kmh-action-chevron, .kmh-section-heading svg, .kmc-round-button svg, .kml-round svg) { transform: scaleX(-1); }
+:root[data-platform='android'][data-runtime='android'][data-theme][dir='rtl'] :is(h1, h2, h3) { letter-spacing: 0; line-height: 1.4; }
+:root[data-platform='android'][data-runtime='android'][data-theme] [dir='rtl'] :is(.kmh-greeting h1, .kmh-section-heading h2) { letter-spacing: 0; line-height: 1.4; }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kme-source-copy, .kmc-mobile-projectbar > strong) { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 374px) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-home { padding-inline: 14px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-header { gap: 6px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup { gap: 6px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup .brand-mark img { width: 36px; height: 36px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-brand-lockup small { font-size: 6px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card { padding: 13px; }
+}
+@media (min-width: 600px) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-home { padding-inline: max(24px, calc((100vw - 820px) / 2)); }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-actions-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { max-width: 620px; margin-inline: auto; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting { padding-block: 18px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-card { min-height: 180px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { height: 64px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet { max-height: 92dvh; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card { max-height: 92dvh; overflow: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] *, :root[data-platform='android'][data-runtime='android'][data-theme] *::before, :root[data-platform='android'][data-runtime='android'][data-theme] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] button:active:not(:disabled) { transform: none; }
+}
+
+/* Override legacy daylight foregrounds wherever the Android cinema skin owns the surface. */
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-brand-lockup strong, .kmh-greeting h1, .kmh-section-heading h2, .kmh-action-card strong, .kmh-empty-recent strong, .kmc-intro-card h1, .kmc-photo-empty-state h3) { color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-icon-button, .kmh-action-card, .kmh-empty-recent) { color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy > strong { font-size: 25px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-card { min-height: 210px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card { min-height: 132px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-card strong { margin-top: 10px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting { padding-block: 24px 18px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting h1 { font-size: clamp(32px, 8.8vw, 40px); }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-module-loading { padding: 28px 20px; display: grid; gap: 20px; background: var(--kx-ink); height: 100%; align-content: start; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-module-loading p { color: var(--kx-muted); font-size: 14px; text-align: center; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-skeleton { display: block; min-height: 64px; border-radius: 20px; background: #1b1428; border: 1px solid #30223e; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-skeleton-heading { width: 60%; min-height: 36px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-skeleton-stage { min-height: 240px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kx-skeleton-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-brand { inset-inline-end: -42px; opacity: .6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy { max-width: 62%; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-copy > strong { max-width: 100%; }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-library-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 48px 48px; gap: 8px; align-items: center; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-search { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; padding-inline: 12px; border: 1px solid var(--kx-line); border-radius: 15px; color: var(--kx-muted); background: var(--kx-surface); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-search input { min-width: 0; width: 100%; background: transparent; border: 0; color: var(--kx-text); outline-offset: -3px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-search input::placeholder { color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kml-sort-select { min-width: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .knoux-mobile-creative-surface .kmc-topbar { background: #090810; }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(input, select, textarea) { color-scheme: dark; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-motion='reduced'] *, :root[data-platform='android'][data-runtime='android'][data-theme][data-motion='reduced'] *::before, :root[data-platform='android'][data-runtime='android'][data-theme][data-motion='reduced'] *::after { animation: none !important; transition: none !important; }
+/* Preserve the existing Daylight preference as an intentional pearl companion. */
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] { --kx-ink: #f5f2fa; --kx-surface: #fff; --kx-raised: #ece5f5; --kx-line: #d5c9e0; --kx-text: #201629; --kx-muted: #65566f; --kx-lavender: #7133a5; --km-bg: var(--kx-ink); --km-text: var(--kx-text); --km-muted: var(--kx-muted); color-scheme: light; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.knoux-mobile-home, .knoux-mobile-library, .knoux-mobile-recording, .knoux-mobile-settings, .knoux-mobile-export, .knoux-mobile-creative-surface) { background: radial-gradient(at 100% 0, #ddc9f577, transparent 55%), var(--kx-ink); color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-icon-button, .kmh-action-card, .kmh-empty-recent, .kmh-recent-card, .kmh-bottom-nav, .kmc-intro-card, .kmr-panel, .kms-card, .kme-panel, .kme-source-card, .kms-inspector, .kmc-photo-tool-dock, .kmc-mobile-inspector, .kmc-mobile-start-card, .kms-start-card, .kml-media-card, .kmc-beauty-picker) { background: var(--kx-surface); color: var(--kx-text); border-color: var(--kx-line); box-shadow: inset 0 1px #fff, 0 8px 24px #5831770d; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmc-topbar, .kml-header, .kms-topbar, .kmr-topbar, .kme-topbar) { background: #f5f2faf5; border-color: var(--kx-line); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-bottom-nav button, .kmr-field button) { color: var(--kx-muted); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] .kmh-bottom-nav button.active { color: #6026aa; background: #eee4ff; }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-overlay-sheet, .ump-sheet) { background: #faf7ff; color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kmh-overlay-list > button, .kmh-overlay-list strong) { color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme][data-theme='system-light'] :is(.kml-search input, .kms-card input, .kme-panel input, .kmc-photo-tool-dock input) { color-scheme: light; }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet { display: flex; flex-direction: column; overflow: hidden; max-height: min(86dvh, 760px); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.ump-sheet-handle, .ump-sheet-head) { flex-shrink: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet-head { position: relative; background: #1c1428; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-block: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet-body > * { flex-shrink: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-session-shell:has(.ump-sheet-backdrop) .ump-native-tools { visibility: hidden; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-group { padding: 12px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-native-trigger { min-height: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .ump-empty-back { min-width: 140px; border: 1px solid var(--kx-line); border-radius: 15px; background: #181021; color: #ded0ed; padding-inline: 20px; margin-top: 12px; }
+
+/* Keep the working preview above dense editing chrome. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-projectbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 12px; gap: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-projectbar > div:first-child { min-width: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-project-actions { gap: 5px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-project-actions button { padding-inline: 10px; min-width: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-media-row { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmc-mobile-media-row button { flex: 0 0 auto; min-width: 60px; padding-inline: 10px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-export-primary { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 60px; margin-block: 18px 8px; font-size: 16px; font-weight: 700; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-chip-row { display: flex; gap: 8px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-chip-row button { flex: 1 1 0; min-width: 48px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-result { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px; border: 1px solid #477b61; border-radius: 22px; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-result > div { flex: 1 1 180px; min-width: 0; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-result strong, :root[data-platform='android'][data-runtime='android'][data-theme] .kme-result span { display: block; overflow-wrap: anywhere; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kme-result button { flex: 1 1 120px; border: 1px solid #618d72; border-radius: 14px; padding-inline: 14px; color: #d5f8e6; background: #1b3d2d; }

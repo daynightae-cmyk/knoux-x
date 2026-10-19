@@ -36,9 +36,9 @@ function releaseVersionContract() {
   return { version, code: derivedCode };
 }
 const { version: VERSION_NAME, code: VERSION_CODE } = releaseVersionContract();
-const BRAND_BACKGROUND = '#F8F7FC';
-const BRAND_ACCENT = '#7828E8';
-const BRAND_BACKGROUND_RGBA = { r: 248, g: 247, b: 252, alpha: 1 };
+const BRAND_BACKGROUND = '#06060D';
+const BRAND_ACCENT = '#8B3DFF';
+const BRAND_BACKGROUND_RGBA = { r: 6, g: 6, b: 13, alpha: 1 };
 const TRANSPARENT_RGBA = { r: 0, g: 0, b: 0, alpha: 0 };
 
 const densities = [
@@ -217,7 +217,7 @@ function writeThemeResources() {
     <color name="colorPrimary">${BRAND_BACKGROUND}</color>
     <color name="colorPrimaryDark">${BRAND_BACKGROUND}</color>
     <color name="colorAccent">${BRAND_ACCENT}</color>
-    <color name="ic_launcher_background">#00FFFFFF</color>
+    <color name="ic_launcher_background">#06060D</color>
     <color name="knoux_system_background">${BRAND_BACKGROUND}</color>
     <color name="knoux_splash_background">${BRAND_BACKGROUND}</color>
 </resources>`;
@@ -398,7 +398,7 @@ function buildReport(sourceInfo, launcherChecks) {
       branded: true,
       source: 'assets/branding/knoux-logo-master.png',
       background: BRAND_BACKGROUND,
-      mode: 'daylight',
+      mode: 'violet-cinema',
     },
   };
   writeText(reportPath, JSON.stringify(report, null, 2));
@@ -420,7 +420,26 @@ async function main() {
   console.log(`Launcher xxxhdpi SHA-256: ${report.launcher.xxxhdpiSha256}`);
 }
 
-main().catch((error) => {
+async function run() {
+  const preview = process.argv.indexOf('--preview');
+  if (preview >= 0) {
+    const output = path.resolve(process.argv[preview + 1] || 'design-evidence/android-visual-20261019/native');
+    ensureDir(output);
+    await verifySource();
+    const foreground = await circularIcon(masterLogoPath, 432, 0.66);
+    const monochrome = await monochromeAdaptiveIcon(masterLogoPath, 432);
+    fs.writeFileSync(path.join(output, 'launcher-foreground.png'), foreground);
+    fs.writeFileSync(path.join(output, 'launcher-monochrome.png'), monochrome);
+    for (const [shape, radius] of [['round', 216], ['squircle', 86]]) {
+      const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="432" height="432"><rect width="432" height="432" rx="${radius}" fill="white"/></svg>`);
+      const icon = await sharp({ create: { width: 432, height: 432, channels: 4, background: BRAND_BACKGROUND_RGBA } }).composite([{ input: foreground }]).png().toBuffer();
+      await sharp(icon).composite([{ input: mask, blend: 'dest-in' }]).png().toFile(path.join(output, `launcher-${shape}.png`));
+    }
+    return;
+  }
+  await main();
+}
+run().catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exitCode = 1;
 });

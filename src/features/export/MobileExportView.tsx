@@ -376,7 +376,7 @@ export const MobileExportView: React.FC = () => {
         <span className="kme-local-badge"><Sparkles size={14} /> ON DEVICE</span>
       </header>
 
-      <div className="kme-hero"><span>FINAL OUTPUT</span><h1>Export the <em>actual timeline.</em></h1><p>Video Studio projects render from their tracks, trims, transforms, text and audio. A standalone video can still be exported directly.</p></div>
+      <div className="kme-hero"><span>FINAL OUTPUT</span><h1>Make it <em>yours to share.</em></h1><p>Choose the finishing touches for your story. Export your Video Studio project or a video from your device.</p></div>
 
       {activeProject && (
         <div className="kme-source-mode">

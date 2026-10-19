@@ -103,6 +103,19 @@ export function androidSafAvailable(): boolean {
   return plugin() !== null;
 }
 
+/** Real document display name for a persisted content:// URI, when the SAF plugin can describe it. */
+export async function androidDocumentTitle(uri: string): Promise<string | null> {
+  const saf = plugin();
+  if (!saf || !uri.startsWith('content://')) return null;
+  try {
+    const stat = await saf.stat({ uri });
+    const name = stat?.name?.trim();
+    return name ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readAndroidPersistentAsset(uri: string): Promise<{ bytes: Uint8Array; blob: Blob; mime: string; name: string }> {
   const saf = plugin();
   if (!saf || !uri.startsWith('content://')) throw new Error('The Android persisted document is unavailable.');
@@ -176,7 +189,7 @@ export function installAndroidSafBridge(): void {
         const result = await saf.pick({ mode: 'file', mimeTypes: ['video/*', 'audio/*'] });
         const item = result.items?.[0];
         if (!item) return null;
-        return { filePath: item.uri, mediaUrl: playableUrl(item.uri) };
+        return { filePath: item.uri, mediaUrl: playableUrl(item.uri), mediaName: item.name };
       },
       toUrl: async (filePath: string): Promise<string> => filePath.startsWith('content://') ? playableUrl(filePath) : creativeBase.media.toUrl(filePath),
     },

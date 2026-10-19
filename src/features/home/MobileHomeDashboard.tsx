@@ -60,6 +60,7 @@ export const MobileHomeDashboard: React.FC = () => {
   const notifications = useAppStore((state) => state.notifications);
   const removeNotification = useAppStore((state) => state.removeNotification);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectCounts, setProjectCounts] = useState({ video: 0, slideshow: 0 });
@@ -96,9 +97,10 @@ export const MobileHomeDashboard: React.FC = () => {
   const openMediaPicker = useCallback(async (): Promise<void> => {
     const selection = await window.knouxCreativeAPI.media.open();
     if (!selection) return;
+    if (selection.mediaName) setMediaTitle(selection.filePath, selection.mediaName);
     setCurrentMedia(selection.filePath);
     setView('player');
-  }, [setCurrentMedia, setView]);
+  }, [setCurrentMedia, setMediaTitle, setView]);
 
   const launchAction = useCallback(async (action: (typeof quickActions)[number]): Promise<void> => {
     setOverlay(null);

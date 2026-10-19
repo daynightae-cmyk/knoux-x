@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Mic2, MonitorUp, Play, Square, Video } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { registerAndroidBackInterceptor } from '../../platform/androidBackButton';
@@ -31,6 +32,7 @@ function dimensionsFor(resolution: Resolution): { width: number; height: number 
 export const MobileScreenRecordingView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
   const [resolution, setResolution] = useState<Resolution>('1080p');
   const [fps, setFps] = useState<30 | 60>(30);
   const [bitrateMbps, setBitrateMbps] = useState<8 | 12 | 20>(12);
@@ -98,11 +100,13 @@ export const MobileScreenRecordingView: React.FC = () => {
     }
   }, [busy, capture, recording]);
 
-  const openRecording = useCallback((): void => {
+  const openRecording = useCallback(async (): Promise<void> => {
     if (!outputUri) return;
+    const title = await androidDocumentTitle(outputUri);
+    setMediaTitle(outputUri, title ?? 'KNOUX screen recording');
     setCurrentMedia(outputUri);
     setView('player');
-  }, [outputUri, setCurrentMedia, setView]);
+  }, [outputUri, setCurrentMedia, setMediaTitle, setView]);
 
   const editRecording = async (): Promise<void> => {
     if (!outputUri || busy) return;
@@ -153,7 +157,7 @@ export const MobileScreenRecordingView: React.FC = () => {
 
       {outputUri && (
         <div>
-        <button type="button" className="kmr-output" onClick={openRecording}>
+        <button type="button" className="kmr-output" onClick={() => void openRecording()}>
           <CheckCircle2 size={22} /><span><strong>Recording saved</strong><small>Tap to open it in KNOUX Player.</small></span><Video size={20} />
         </button>
         <button type="button" className="kmr-primary" disabled={busy || recording} onClick={() => void editRecording()}>Open in Video Editor</button>

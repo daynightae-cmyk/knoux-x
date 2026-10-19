@@ -35,12 +35,40 @@ export function mobilePlayerStorageKey(mediaPath: string): string {
   return `${MOBILE_PLAYER_MEDIA_PREFIX}${mediaPath}`;
 }
 
+const PROVIDER_LABEL_PATTERN = /^(?:msf|raw|image|video|audio|document|content|primary|external|media)[:._-]/i;
+const OPAQUE_ID_PATTERN = /^(?:[0-9]+|[0-9a-f]{8,})$/i;
+
+/** Provider-scoped identifiers (msf:…, video:17, raw:…) are not file names. */
+export function isOpaqueMediaLabel(label: string): boolean {
+  const clean = label.trim();
+  if (!clean) return true;
+  return PROVIDER_LABEL_PATTERN.test(clean) || OPAQUE_ID_PATTERN.test(clean);
+}
+
+function printable(value: string): string {
+  return Array.from(value).filter((char) => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127).join('').trim();
+}
+
+/**
+ * Turns any candidate label (SAF display name, path segment, stored title)
+ * into a printable file name, or null when it is only a provider identifier.
+ */
+export function sanitizeMediaTitle(title: string): string | null {
+  const raw = printable(String(title ?? ''));
+  if (!raw) return null;
+  let candidate = raw;
+  try { candidate = printable(decodeURIComponent(raw)); } catch { /* '%' in a real file name is not an escape */ }
+  if (!candidate) return null;
+  const hasExtension = /\.[a-z0-9]{2,5}$/i.test(candidate);
+  if (!hasExtension && isOpaqueMediaLabel(candidate)) return null;
+  return candidate.slice(0, 160);
+}
+
 export function mediaTitle(mediaPath: string): string {
   let decoded = mediaPath;
   try { decoded = decodeURIComponent(decoded); } catch { /* malformed provider escape */ }
-  const name = Array.from(decoded.split(/[\\/]/).pop() || '').filter((char) => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127).join('').trim();
-  if (mediaPath.startsWith('content://') && (!name || /^(?:video|image|audio|primary):?\d*$/i.test(name) || /^\d+$/.test(name))) return 'Local media';
-  return name || 'Local media';
+  const segment = decoded.split(/[\\/]/).pop() || '';
+  return sanitizeMediaTitle(segment) ?? 'Local media';
 }
 
 export function readMobilePlayerSession(storage: StorageLike, mediaPath: string): MobilePlayerSessionSnapshot {

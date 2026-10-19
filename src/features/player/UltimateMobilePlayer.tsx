@@ -38,6 +38,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
 import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
+import { mediaTitle } from './mobilePlayerSession';
 import { PlayerAudioManager } from './PlayerAudioManager';
 import '../../styles/ultimate-mobile-player.css';
 
@@ -129,7 +130,7 @@ function formatTime(seconds: number, includeMillis = false): string {
 }
 
 function mediaName(filePath: string | null): string {
-  return filePath?.split(/[\\/]/).pop() ?? 'KNOUX X';
+  return filePath ? mediaTitle(filePath) : 'KNOUX X';
 }
 
 function storageKey(filePath: string): string {
@@ -195,6 +196,8 @@ export const UltimateMobilePlayer: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const {
     currentMedia,
+    mediaTitles,
+    setMediaTitle,
     isPlaying,
     currentTime,
     duration,
@@ -212,6 +215,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     next,
   } = usePlayerStore();
 
+  const mediaLabel = currentMedia ? mediaTitles[currentMedia] ?? mediaName(currentMedia) : 'KNOUX X';
   const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0;
   const videoStyle = useMemo<React.CSSProperties>(() => {
     const objectFit = fitMode === 'cover' ? 'cover' : fitMode === 'fill' ? 'fill' : fitMode === 'original' ? 'none' : 'contain';
@@ -357,6 +361,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     try {
       const selected = await window.knouxCreativeAPI.media.open();
       if (!selected) return;
+      if (selected.mediaName) setMediaTitle(selected.filePath, selected.mediaName);
       // Android intentionally does not route through the desktop ffprobe bridge.
       setCurrentMedia(selected.filePath);
       setMediaUrl(selected.mediaUrl);
@@ -365,7 +370,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     } catch {
       setError('This media could not be opened on this device.');
     }
-  }, [setCurrentMedia]);
+  }, [setCurrentMedia, setMediaTitle]);
 
   const handlePlayPause = useCallback(async () => {
     const video = videoRef.current;
@@ -439,7 +444,7 @@ export const UltimateMobilePlayer: React.FC = () => {
       const time = videoRef.current?.currentTime ?? currentTime;
       await window.knouxCreativeAPI.capture.saveFrame({
         dataUrl: captureDataUrl(format),
-        mediaName: mediaName(currentMedia),
+        mediaName: mediaLabel,
         timestampSeconds: time,
         format,
       });
@@ -449,7 +454,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     } finally {
       setCapturing(false);
     }
-  }, [captureDataUrl, captureFormat, capturing, currentMedia, currentTime]);
+  }, [captureDataUrl, captureFormat, capturing, currentMedia, currentTime, mediaLabel]);
 
   const copyFrame = useCallback(async () => {
     if (capturing) return;
@@ -474,11 +479,11 @@ export const UltimateMobilePlayer: React.FC = () => {
       for (const position of positions) {
         video.currentTime = position;
         await new Promise<void>((resolve) => video.addEventListener('seeked', () => resolve(), { once: true }));
-        frames.push({ dataUrl: captureDataUrl(), mediaName: mediaName(currentMedia), timestampSeconds: video.currentTime, format: captureFormat });
+        frames.push({ dataUrl: captureDataUrl(), mediaName: mediaLabel, timestampSeconds: video.currentTime, format: captureFormat });
       }
       if (mode === 'burst') await window.knouxCreativeAPI.capture.saveBurst(frames);
       else await window.knouxCreativeAPI.capture.createContactSheet({
-        mediaName: mediaName(currentMedia),
+        mediaName: mediaLabel,
         columns: 4,
         frames: frames.map((frame) => ({ dataUrl: frame.dataUrl, label: formatTime(frame.timestampSeconds) })),
       });
@@ -489,7 +494,7 @@ export const UltimateMobilePlayer: React.FC = () => {
       if (wasPlaying) void video.play();
       setCapturing(false);
     }
-  }, [captureDataUrl, captureFormat, capturing, currentMedia]);
+  }, [captureDataUrl, captureFormat, capturing, currentMedia, mediaLabel]);
 
   const selectSubtitle = useCallback(async () => {
     try {
@@ -802,7 +807,7 @@ export const UltimateMobilePlayer: React.FC = () => {
             <motion.div className="ump-controls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <header className="ump-topbar">
                 <button type="button" className="ump-icon-btn" onClick={() => setView('library')} aria-label="Back"><ArrowLeft size={22} /></button>
-                <div className="ump-title"><strong>{mediaName(currentMedia)}</strong><span>KNOUX X · ULTIMATE PLAYER</span></div>
+                <div className="ump-title"><strong>{mediaLabel}</strong><span>KNOUX X · ULTIMATE PLAYER</span></div>
                 <button type="button" className="ump-icon-btn" onClick={() => setSheet('quick')} aria-label="More"><MoreHorizontal size={23} /></button>
               </header>
 

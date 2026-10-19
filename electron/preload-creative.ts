@@ -40,9 +40,9 @@ export interface CaptureFrameInput {
 
 export const creativeAPI = {
   media: {
-    open: (): Promise<{ filePath: string; mediaUrl: string } | null> =>
+    open: (): Promise<{ filePath: string; mediaUrl: string; mediaName?: string } | null> =>
       invokeDesktop(IPC_INVOKE.CREATIVE_OPEN_MEDIA),
-    openVideo: (): Promise<{ filePath: string; mediaUrl: string } | null> =>
+    openVideo: (): Promise<{ filePath: string; mediaUrl: string; mediaName?: string } | null> =>
       invokeDesktop(IPC_INVOKE.CREATIVE_OPEN_VIDEO),
     toUrl: (filePath: string): Promise<string> =>
       invokeDesktop(IPC_INVOKE.CREATIVE_PATH_TO_MEDIA_URL, filePath),

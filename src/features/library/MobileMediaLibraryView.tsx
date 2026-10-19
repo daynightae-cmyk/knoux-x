@@ -16,6 +16,7 @@ import {
 
 import { BrandMark } from '../../components/brand/BrandMark';
 import { NeonSelect } from '../../components/neon/NeonSelect';
+import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -90,6 +91,7 @@ export const MobileMediaLibraryView: React.FC = () => {
   const addNotification = useAppStore((state) => state.addNotification);
   const locale = useAppStore((state) => state.locale);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
   const setImageSource = useImageEditorStore((state) => state.setSource);
   const [tab, setTab] = useState<MediaTab>('videos');
   const [busy, setBusy] = useState(false);
@@ -186,7 +188,7 @@ export const MobileMediaLibraryView: React.FC = () => {
     }
   }, [ar, busy, loadLibrary]);
 
-  const openPlayable = useCallback(async (kind: 'video' | 'audio', existingUri?: string): Promise<void> => {
+  const openPlayable = useCallback(async (kind: 'video' | 'audio', existingUri?: string, existingName?: string): Promise<void> => {
     if (busy) return;
     setBusy(true);
     try {
@@ -196,6 +198,8 @@ export const MobileMediaLibraryView: React.FC = () => {
       const filePath = existingUri ?? await window.knouxAPI.file.openFile({ title: kind === 'video' ? 'Open video' : 'Open audio', filters, properties: ['openFile'] });
       if (!filePath) return;
       if (!(await window.knouxAPI.file.exists(filePath))) throw new Error('The selected media is no longer accessible.');
+      const title = existingName ?? await androidDocumentTitle(filePath);
+      if (title) setMediaTitle(filePath, title);
       setCurrentMedia(filePath);
       setView('player');
     } catch (reason) {
@@ -208,7 +212,7 @@ export const MobileMediaLibraryView: React.FC = () => {
     } finally {
       setBusy(false);
     }
-  }, [addNotification, busy, setCurrentMedia, setView]);
+  }, [addNotification, busy, setCurrentMedia, setMediaTitle, setView]);
 
   const openPhoto = useCallback(async (existingUri?: string): Promise<void> => {
     if (busy) return;
@@ -265,7 +269,7 @@ export const MobileMediaLibraryView: React.FC = () => {
 
   const openEntry = useCallback((entry: LibraryEntry): void => {
     if (entry.kind === 'photos') void openPhoto(entry.uri);
-    else void openPlayable(entry.kind === 'audio' ? 'audio' : 'video', entry.uri);
+    else void openPlayable(entry.kind === 'audio' ? 'audio' : 'video', entry.uri, entry.name);
   }, [openPhoto, openPlayable]);
 
   return (
@@ -311,7 +315,7 @@ export const MobileMediaLibraryView: React.FC = () => {
         {tab === 'recents' && recents.length > 0 ? (
           <div className="kml-card-grid">
             {recents.slice(0, 12).map((entry) => (
-              <button type="button" className="kml-media-card" key={entry.mediaPath} onClick={() => { setCurrentMedia(entry.mediaPath); setView('player'); }}>
+              <button type="button" className="kml-media-card" key={entry.mediaPath} onClick={() => { setMediaTitle(entry.mediaPath, entry.title); setCurrentMedia(entry.mediaPath); setView('player'); }}>
                 <span className="kml-media-art"><Play size={24} fill="currentColor" /><small>{Math.round(entry.progress * 100)}%</small></span>
                 <strong>{entry.title}</strong>
                 <small>{formatTime(entry.lastTime)} / {formatTime(entry.duration)}</small>

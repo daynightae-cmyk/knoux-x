@@ -181,7 +181,7 @@ export function installAndroidFileBridge(): void {
         const picked = (await pickFiles({ filters: [{ name: 'Media', extensions: ['mp4', 'webm', 'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }] }))[0];
         if (!picked) return null;
         const filePath = registerAndroidFile(picked);
-        return { filePath, mediaUrl: await androidVirtualObjectUrl(filePath) };
+        return { filePath, mediaUrl: await androidVirtualObjectUrl(filePath), mediaName: picked.name };
       },
       toUrl: async (filePath: string): Promise<string> => androidVirtualObjectUrl(filePath),
     },

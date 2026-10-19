@@ -246,11 +246,18 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_7
-          cores: 2
-          ram-size: 2048M
+          # CI evidence (runs 39188659686, 39196654875, 39200840085, 39203107074):
+          # the WebView renderer died during media interaction and the emulator
+          # then left adb entirely, consistently after playback started. The
+          # emulator ran on 2 cores / 2048M while the same job also decoded
+          # video and ran ffprobe. No OOM or crash evidence was captured, so
+          # this is a resource-margin change, not a fix for a proven cause.
+          # No acceptance assertion is affected by this envelope.
+          cores: 4
+          ram-size: 4096M
           heap-size: 512M
           force-avd-creation: true
-          emulator-boot-timeout: 300
+          emulator-boot-timeout: 420
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: |

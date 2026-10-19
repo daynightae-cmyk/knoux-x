@@ -87,11 +87,15 @@ function collectDeviceDiagnostics(reason) {
  * Playwright could no longer see; this distinguishes "adb cannot reach it" from
  * "the app/webview is gone" before concluding anything, and never blocks the
  * case longer than the original wait it replaces. */
-async function ensureDeviceTransport(timeoutMs = 45000) {
+async function ensureDeviceTransport(timeoutMs = 120000) {
   const attempts = [];
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
   let health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
+  /* A device that has left adb entirely can still be restarting; `adb kill-server
+   * / start-server` is attempted once, and the wait itself is generous because
+   * this replaces a wait that used to fail while the emulator was mid-restart. */
+  let restarted = false;
   while (Date.now() < deadline) {
     if (health.state === 'device') return { health, attempts };
     const plan = nativeCore.transportRecoveryPlan(health.state, attempt);
@@ -102,15 +106,15 @@ async function ensureDeviceTransport(timeoutMs = 45000) {
         if (step === 'adb-wait-for-device') adbQuiet('wait-for-device');
         if (step === 'adb-reconnect-offline') adbQuiet('reconnect', 'offline');
         if (step === 'adb-reconnect-device') adbQuiet('reconnect', 'device');
-        if (step === 'adb-start-server') { adbQuiet('kill-server'); adbQuiet('start-server'); }
-        await delay(700);
+        if (step === 'adb-start-server' && !restarted) { restarted = true; adbQuiet('kill-server'); adbQuiet('start-server'); }
+        await delay(1200);
         health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
         attempts.push({ step, state: health.state });
         if (health.state === 'device') return { health, attempts };
       }
       attempt += 1;
     }
-    await delay(700);
+    await delay(1200);
   }
   return { health, attempts };
 }

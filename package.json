@@ -41,6 +41,7 @@
     "verify:packaged-retouch-e2e": "node tools/run-packaged-retouch-e2e.cjs",
     "verify:packaged-video-studio-entry": "node tools/verify-packaged-video-studio-entry.cjs",
     "verify:packaged-player-preferences": "node tools/run-packaged-player-preferences-cdp-e2e.cjs",
+    "verify:evidence": "node tools/verify-evidence-integrity.cjs",
     "measure:performance": "node tools/knoux-performance-probe.cjs"
   },
   "jest": {

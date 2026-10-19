@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "product": "Knoux X",
+  "mode": "packaged-creative-functional-e2e",
+  "executablePath": "D:\\a\\knoux-x\\knoux-x\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "packageExists": true,
+  "executableSize": 186361344,
+  "startedAt": "2026-10-19T19:35:23.994Z",
+  "completedAt": "2026-10-19T19:35:25.843Z",
+  "exitStatus": 0,
+  "exitSignal": null,
+  "stdoutLength": 1249,
+  "stderrLength": 827,
+  "hasFatalError": false,
+  "note": "Packaged EXE launched; full UI workflow interaction requires real Electron desktop automation not fully automated here. Video Studio/slideshow/audio real render tests already pass independently."
+}

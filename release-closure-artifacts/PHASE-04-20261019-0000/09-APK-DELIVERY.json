@@ -1,0 +1,33 @@
+{
+  "apk_built_in_this_session": true,
+  "exact_source_sha_for_apk_build": "a3ee6d8730d0e5b6dc2f1a0b5f5f2a7c7d3d5a3e",
+  "ci_run_id": "39195490261",
+  "ci_workflow": "Android APK (Capacitor)",
+  "apk_sha256": "7e4f90101730ce5a728fe27a39fd015a5b705f77a0df5a8e627ec0fc72d83b29",
+  "apk_size_bytes": 47293225,
+  "apk_version_name": "2.1.0",
+  "apk_version_code": 20100,
+  "apk_package": "dev.knoux.playerx",
+  "apk_label": "KNOUX X",
+  "compile_sdk": 36,
+  "target_sdk": 36,
+  "min_sdk": 24,
+  "packaged_branding_verification": "PASS (android-apk-verification.json: unique packaged launcher entries per density, adaptive icons with monochrome for API 33+)",
+  "signer_classification": "Android Debug signer — NOT PRODUCTION READY",
+  "production_signing_available": false,
+  "install_result_in_this_session": "VERIFIED on API 35 emulator (install + launch performed by the CI workflow)",
+  "launch_result_in_this_session": "VERIFIED (onboarding case passed on the installed APK)",
+  "acceptance_on_installed_apk": "3/3 scoped cases ANDROID_EMULATOR_VERIFIED, syntheticEventsUsed=false, no touch fallbacks (run 39195490261)",
+  "physical_device_install_plan": "Requires owner authorization. Install the exact a3ee6d8 build; deliver as TEST ONLY (debug-signed) until a production signing key is provided.",
+  "artifact_location": "GitHub Actions run 39195490261, artifact KNOUX-X-Android-debug-a3ee6d8 (APK, sha256 sidecar, launch evidence, real-workflows.json, consent-state XML snapshots, recorded MP4)",
+  "artifacts_in_local_evidence": [
+    "_temp/live-evidence/local-media-workflow-2026-10-18T20-16-18-278Z.json",
+    "_temp/live-evidence/video-gate-2026-10-18T20-16-11-424Z.json",
+    "_temp/live-evidence/video-gate-2026-10-18T20-16-11-509Z.json"
+  ],
+  "supersedes": {
+    "exact_source_sha_for_apk_build": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
+    "historical_apk_sha256": "58a4afd8ef62aab818b0cec99de1be6f58d2d42a752f78c7ef4d3c7026c7dc0f",
+    "note": "The prior entry was never installed or accepted; this build replaces it."
+  }
+}

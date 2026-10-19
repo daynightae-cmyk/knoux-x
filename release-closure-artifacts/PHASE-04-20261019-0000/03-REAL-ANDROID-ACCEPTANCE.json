@@ -1,0 +1,146 @@
+{
+  "verdict": "ANDROID_SCOPED_CASES_VERIFIED / ANDROID_TEST_BUILD_READY",
+  "verdict_detail": "PASS_SCOPED_CASES_ONLY. All three harness cases are ANDROID_EMULATOR_VERIFIED on the installed debug APK, driven exclusively by the OS input pipeline (adb shell input tap) with syntheticEventsUsed=false and zero touch fallbacks. NOT PRODUCTION READY: the APK is debug-signed and no physical-device run was performed.",
+  "acceptance_run": {
+    "ci_workflow": "Android APK (Capacitor)",
+    "ci_run_id": "39195490261",
+    "ci_run_url": "https://github.com/daynightae-cmyk/knoux-x/actions/runs/39195490261",
+    "commit_sha": "a3ee6d8730d0e5b6dc2f1a0b5f5f2a7c7d3d5a3e",
+    "commit_subject": "fix(android): resolve the ffprobe binary from both module export shapes",
+    "branch": "fix/knoux-x-recovery-20261018-01a1503f",
+    "pr": "#58 (open, not merged)",
+    "artifact": "KNOUX-X-Android-debug-a3ee6d8 (run artifact 39195490261)",
+    "verdict_field": "PASS_SCOPED_CASES_ONLY"
+  },
+  "platform_environment": {
+    "android_emulator": "PASS (API 35 pixel_7, 1080x2400 @ 420dpi, DPR 2.625, -noaudio, WebView origin [0,136][1080,2337])",
+    "android_physical_device": "NOT_RUN (no device connected; owner-authorized test required)",
+    "windows_packaged": "NOT_RUN in this run (Windows Electron regression remains protected on its own workflows; atomic-write rename retry shipped in 560ace1)"
+  },
+  "touch_policy": {
+    "mode": "trusted-adb-input-tap",
+    "detail": "adb shell input tap on device pixels = native WebView origin (uiautomator bounds) + live DOM CSS point x devicePixelRatio; elementFromPoint-verified, two-sample stability check, state-change-confirmed.",
+    "syntheticEventsUsed": false,
+    "fallbacks": [],
+    "foreground_identity": "uiautomator hierarchy package (dump reflects the topmost window); dumpsys focus is evidence only because `dumpsys window windows` printed no mCurrentFocus on this runner. A foreign package in a dump blocks every DOM-derived tap; unverifiable foreground fails closed."
+  },
+  "independent_case_results": [
+    {
+      "id": "onboarding-skip",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "platform": "installed APK / API 35 emulator",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": "First-run welcome dismissed by a trusted OS tap at device (308,1615); uiautomator Skip bounds [120,1548][496,1682] confirm the tap target. Home dashboard reachable afterwards.",
+      "synthetic_or_real": "real OS touch only"
+    },
+    {
+      "id": "mp4-actual-player-first-frame-seek-audio",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "platform": "installed APK / API 35 emulator",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": "Fixture staged and independently verified on device (/sdcard/Download/KNOUX-QA.mp4, 1236215 bytes). State-driven chooser walk: attempt1 roots-drawer -> attempt2 file-row. Player title rendered as the real document name 'KNOUX-QA.mp4' (owner defect fix verified on the installed APK). Playback started by a trusted tap on the real play button (playbackStartedVia: trusted-tap:ump-play). Decoded 65 frames, 130 distinct colors in a 32x32 sample, 640px wide, 12s duration.",
+      "seek": "API seek verified (currentTime advanced to 2s and completed). The trusted timeline scrub was attempted first and is recorded honestly: reason='timeline control was not visible; API seek verification below still applies' (moved=false).",
+      "audio": "audioPeak=0; BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent). Verifiable claims: audio track present and playback position advanced with the audio track.",
+      "measurement": "chooser-to-decoded-frame 52854 ms (N=1, includes the native chooser; a single observation, not a performance claim)",
+      "app_process_evidence": "appPidAfterChooser=2038 (the app process survived the chooser return on this run)",
+      "synthetic_or_real": "real OS touch only; no page-level play() fallback was needed"
+    },
+    {
+      "id": "native-recording-finalize-editor-handoff",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "platform": "installed APK / API 35 emulator",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": "MediaProjection consent driven from the live hierarchy with a full step trace: consent:mode-selector ('A single app' row at (540,1169)) -> consent:entire-screen ('Entire screen' at (462,1358)) -> consent:start ('Start' at (893,1705)). Capture service verified recording===true before capture. Trusted taps on Stop & save MP4 and Open in Video Editor. Real MP4 read back via `content read --uri` (primary path), 161785 bytes, ftyp-validated, ffprobe: h264, 7 video packets, duration 6.517156 s. The saved project then loaded in the timeline editor and decoded a preview frame.",
+      "consent_packages": ["com.android.systemui"],
+      "synthetic_or_real": "real OS touch only"
+    },
+    {
+      "id": "audio-observed-pcm",
+      "status": "BLOCKED_HARDWARE",
+      "platform": "emulator",
+      "evidence": "Emulator runs -noaudio; no PCM mixer exists. audioPeak remains 0 by design. Verifiable claims are limited to audio-track presence and advancing playback position.",
+      "synthetic_or_real": "N/A (hardware limitation, reported honestly)"
+    },
+    {
+      "id": "photos-to-video-saf-persistence",
+      "status": "NOT_RUN",
+      "platform": "installed APK",
+      "evidence": "MP4 SAF chooser persistence is covered by case 2; the photo-to-video path was not exercised in this run.",
+      "synthetic_or_real": "N/A"
+    },
+    {
+      "id": "mobile-timeline-touch-drag",
+      "status": "PARTIAL",
+      "platform": "installed APK",
+      "evidence": "Timeline control was not visible at the moment of the trusted scrub attempt, so the trusted scrub did not move playback (seekTrusted.moved=false) and the case fell back to a verified API seek. The recording case did reach the timeline editor with a decoded preview. A dedicated touch-drag case is still open.",
+      "synthetic_or_real": "real OS touch attempted; no synthetic events"
+    },
+    {
+      "id": "beauty-studio-model-load-face-detect",
+      "status": "NOT_RUN",
+      "platform": "installed APK",
+      "evidence": "Not exercised; requires a real portrait fixture (no private portrait is committed).",
+      "synthetic_or_real": "N/A"
+    },
+    {
+      "id": "home-branding-splash-onboarding-visual-qa",
+      "status": "PARTIAL",
+      "platform": "installed APK",
+      "evidence": "Onboarding dismissed and Home rendered on the installed APK; packaged launcher icons and branding verified by android-apk-verification.json (status PASS, adaptive icons with monochrome). Owner-reported visual overlaps are not re-verified in this run.",
+      "synthetic_or_real": "N/A"
+    }
+  ],
+  "media_output_evidence": {
+    "installed_apk_recording": {
+      "status": "MEASURED",
+      "bytes": 161785,
+      "read_path": "content read --uri (primary; ftyp validated)",
+      "codec": "h264",
+      "resolution": "1080x1920 (emulator frame; locally re-probed from the run artifact)",
+      "video_packets": 7,
+      "duration_seconds": 6.517156,
+      "editor_handoff": "saved project loaded in MobileVideoTimelineEditor with a decoded preview"
+    },
+    "installed_apk_playback": {
+      "status": "MEASURED",
+      "width": 640,
+      "duration_seconds": 12,
+      "decoded_frames": 65,
+      "distinct_colors_in_32x32_sample": 130,
+      "title": "KNOUX-QA.mp4"
+    },
+    "local_media_loop": {
+      "input_sha256": "db6970ef68db7b018fdcc508fe6f644f51cbc07bc3ef182403cc4c7874977bf7",
+      "render_sha256": "e9416ad125cd84bf15df01042bdcf926b420c080e30250d76ca4c8a3447835b4",
+      "export_sha256": "9679fd7975d927f8b49edd06ca0156a293677aa2f7b7017ae997949c7402de79",
+      "duration_seconds": 5.541,
+      "codec": "H.264 + AAC",
+      "frames": 166,
+      "evidence_path": "_temp/live-evidence/local-media-workflow-2026-10-18T20-16-18-278Z.json"
+    }
+  },
+  "performance": {
+    "measured_before_after": "NOT_MEASURED",
+    "reason": "No repeated performance series was executed; only the single chooser-to-decoded-frame observation (52854 ms, N=1, includes the native chooser) is recorded, which is not a performance claim.",
+    "historical_note": "Previous runs showed ~23-31s chooser-to-decoded-frame on the same N=1 basis"
+  },
+  "security_and_safety": {
+    "secrets_exposed": false,
+    "production_signing_key_replaced": false,
+    "app_data_deleted_automatically": false,
+    "private_media_uploaded": false,
+    "physical_device_uninstalled_automatically": false,
+    "force_push_or_reset_performed": false,
+    "other_worktrees_or_agents_touched": false
+  },
+  "harness_hardening_delivered": [
+    "Foreground identity from the uiautomator package; DOM taps are refused while a native window covers the app and fail closed when the foreground cannot be verified (the recorded failure had a mounted Home WebView behind com.google.android.documentsui while mCurrentFocus was null).",
+    "Bounded, re-verified KEYCODE_BACK cleanup between cases; a case blocked by a leftover native window reports BLOCKED_PREVIOUS_CASE_NATIVE_WINDOW instead of tapping behind it.",
+    "State-driven chooser walk with settled-geometry taps (the recorded mid-animation drawer tap had landed on the wrong row) and exact 'Downloads' vs 'Download' disambiguation.",
+    "MediaProjection consent decided from the live hierarchy only, opening the API 35 capture-mode selector before confirming, and never matching the app name from a dialog title.",
+    "WebView session recovery so a dead renderer cannot cascade into later cases, plus an independent on-device fixture check so a staging failure is never reported as a navigation failure."
+  ]
+}

@@ -1,30 +1,48 @@
 {
-  "phase": "P0-CI-REPAIR-PUSHED-CI-RUNNING-E33AF70",
-  "date": "2026-10-19T00:00:00Z",
+  "date_utc": "2026-10-19T12:00:00Z",
   "current_main_sha": "173008b7b3874fd3c7acd1366efe5d45c3b113b0",
-  "recovery_branch_sha": "e33af70",
-  "active_worktree": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Recovery-20261018-01a1503f",
+  "recovery_branch_sha": "53e13d8 (checkpoint commit follows; pushed SHA is CI acceptance target)",
+  "recovery_branch_name": "fix/knoux-x-recovery-20261018-01a1503f",
+  "pr": "#58 open against main; preserved",
+  "worktree": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Recovery-20261018-01a1503f",
   "dirty_files": [],
-  "untracked_files": ["_temp/"],
+  "untracked_files": ["_temp/", "release-closure-artifacts/"],
   "tests_passed": {
     "typecheck": true,
     "eslint": true,
-    "unit_tests": "1285/1285 passed (148 suites)"
+    "focused": "40/40 (atomic-file-write 9, mobile-player-session, mobile-player-titles, p0-mobile-defects-regression)",
+    "unit_tests": "1285/1285 passed previously at aa85ba6; full suite rerun delegated to CI (local RAM/disk limits)"
   },
   "tests_failed": [],
-  "ci_run": "GitHub Actions in_progress on e33af70: Android APK (Capacitor) run 39163731406 (tests WebView/Failure A), Android Release Acceptance run 39163731357. Prior d50da8b Android Release Acceptance = SUCCESS.",
-  "apk_artifact": "none yet (awaiting CI)",
-  "commits_on_branch": [
-    "e33af70 docs(recovery): checkpoint CI running on d50da8b",
-    "d50da8b docs(recovery): update checkpoint after P0 CI repair",
-    "fa89af1 android(native): enable WebView debugging in MainActivity",
-    "946a9eb test(android): attach to installed WebView via device.webView",
-    "2d9f335 fix(test): drop unused React import blocked by CI TS6133"
+  "this_push": [
+    "598147c fix(android): real SAF document names as player media titles (owner-visible defect)",
+    "560ace1 fix(electron): bounded rename retry for transient Windows locks in atomic writes",
+    "53e13d8 test(android): drive installed-APK acceptance through trusted adb input taps"
   ],
-  "pr": "#58 open against main (fix/knoux-x-recovery-20261018-01a1503f)",
+  "owner_defect_fixed": "Player header showed opaque provider ids (msf%3A...). Root cause chain: SAF media.open dropped the document name, playerStore had no title map, mediaTitle() did not sanitize provider ids. All three layers fixed and covered by tests; CI case 2 now asserts the real APK shows KNOUX-QA.mp4.",
+  "harness_trusted_touch": [
+    "trustedTap(): adb shell input tap on device pixels from live DOM rect x devicePixelRatio; elementFromPoint hit test; >=24px touch target; full tap log in verdict",
+    "ensureHome(): in-app navigation only (Back to home / player back / bottom nav); KEYCODE_BACK last resort, never while the home dashboard is mounted (exit arming)",
+    "case 2 asserts player title = KNOUX-QA.mp4 on the installed APK and attempts a trusted timeline scrub before the deterministic API seek",
+    "recording bytes: content read --uri primary, Movies/KNOUX X newest mp4 via exec-out cat fallback, ftyp validated on both paths",
+    "syntheticEventsUsed=false; an in-page play() fallback (if trusted taps cannot start playback) is recorded in touchPolicy.fallbacks and case evidence"
+  ],
+  "android_run": "Pending CI on pushed SHA. Previous run 39175961398 FAILED at 14a0e7d: case 3 searched for the Record card from the library view (harness navigation bug) and reported syntheticEventsUsed=true (tapWeb). Both addressed in 53e13d8.",
+  "emulator_cases": "Awaiting CI; expected ANDROID_EMULATOR_VERIFIED for onboarding-skip, mp4 player (with title assertion), native recording handoff",
+  "phone_cases": "NOT_RUN",
+  "apk_artifact": "New debug APK will be produced by this CI run; prior reference build remains artifact 39175961398 (debug signer, NOT production)",
+  "apk_sha256": "To be recorded from the green run's KNOUX-X-Android-debug.apk.sha256",
+  "failures": [
+    "Emulator audio PCM remains BLOCKED_HARDWARE (-noaudio); playback position + audio track presence are the verifiable claims",
+    "Production signing key unavailable; APK remains Android Debug signed (test-only)"
+  ],
   "blockers": [
-    "Android APK CI (run 39163731406) in_progress — this run executes android-real-workflows.cjs (device.webView attach + real media playback + recording) on emulator; conclusion awaited",
-    "No local Android emulator / physical device available; GitHub Actions is the acceptance path"
+    "No local Android emulator (disk/RAM limits) — GitHub Actions CI is the acceptance path",
+    "Physical device handoff test remains owner-authorized only"
   ],
-  "next_exact_action": "Wait for Android APK CI conclusion on e33af70; if PASS, Failure A (WebView) is emulator-verified; if FAIL, investigate logs and fix; then Phase C-H real-runtime acceptance, PR #57 reconciliation, final APK delivery"
+  "preserved_work": [
+    "PR #57, PR #52 preserved; all worktrees preserved; no destructive git operations performed",
+    "_temp/live-evidence/ preserved (local media proof, video gate evidence)"
+  ],
+  "next_exact_action": "Push branch; watch Android APK (Capacitor) CI on the pushed SHA; on green, record run id + APK sha256, refresh real-workflows.json evidence, update release-closure artifacts and deliver the final Arabic report; on red, fix from artifact evidence and rerun."
 }

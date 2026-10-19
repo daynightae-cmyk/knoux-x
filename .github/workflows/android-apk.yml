@@ -15,6 +15,8 @@ on:
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-app-plugin.cjs'
+      - 'tools/android-acceptance-diagnostics.sh'
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
@@ -38,6 +40,8 @@ on:
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-app-plugin.cjs'
+      - 'tools/android-acceptance-diagnostics.sh'
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
@@ -55,10 +59,6 @@ permissions:
 concurrency:
   group: knoux-x-android-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  CAPACITOR_VERSION: '8.5.0'
-  CAPACITOR_APP_VERSION: '8.1.2'
 
 jobs:
   build-debug-apk:
@@ -110,13 +110,8 @@ jobs:
       - name: Unit test gate
         run: npm test -- --runInBand
 
-      - name: Install pinned Capacitor build tooling without mutating lockfile
-        run: >-
-          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
-          @capacitor/core@${CAPACITOR_VERSION}
-          @capacitor/cli@${CAPACITOR_VERSION}
-          @capacitor/android@${CAPACITOR_VERSION}
-          @capacitor/app@${CAPACITOR_APP_VERSION}
+      - name: Verify locked Capacitor and @capacitor/app toolchain
+        run: node tools/verify-android-app-plugin.cjs --toolchain-only
 
       - name: Build KNOUX Android renderer
         env:
@@ -129,6 +124,7 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync android
+          node tools/verify-android-app-plugin.cjs
 
       - name: Install KNOUX native media foundations
         shell: bash
@@ -208,6 +204,7 @@ jobs:
           rm -rf android-ci-output
           mkdir -p android-ci-output
           cp android/app/build/outputs/apk/debug/app-debug.apk android-ci-output/KNOUX-X-Android-debug.apk
+          cp android/knoux-app-plugin-report.json android-ci-output/android-app-plugin-report.json
           cp android/knoux-branding-report.json android-ci-output/android-branding-report.json
           cp android/app/src/main/AndroidManifest.xml android-ci-output/android-manifest.xml
           cp android/app/src/main/res/values/strings.xml android-ci-output/android-strings.xml
@@ -261,10 +258,12 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: |
-            bash tools/android-emulator-smoke.sh
-            adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
-            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
-            node tools/android-real-workflows.cjs
+            bash tools/android-acceptance-diagnostics.sh android-ci-output bash -euo pipefail -c '
+              bash tools/android-emulator-smoke.sh
+              adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
+              adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
+              node tools/android-real-workflows.cjs
+            '
 
       - name: Upload installable APK and launch evidence
         if: always()

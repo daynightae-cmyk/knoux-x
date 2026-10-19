@@ -96,6 +96,7 @@ public class KnouxSafPlugin extends Plugin {
 
     @ActivityCallback
     private void pickCallback(PluginCall call, ActivityResult result) {
+        android.util.Log.i("KnouxSafLifecycle", "picker-result code=" + result.getResultCode() + " pid=" + android.os.Process.myPid());
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
             call.resolve(new JSObject().put("items", new JSArray()));
             return;
@@ -108,6 +109,7 @@ public class KnouxSafPlugin extends Plugin {
         } else if (data.getData() != null) {
             addUri(items, data.getData(), data.getFlags());
         }
+        android.util.Log.i("KnouxSafLifecycle", "picker-resolved count=" + items.length());
         call.resolve(new JSObject().put("items", items));
     }
 

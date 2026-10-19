@@ -46,6 +46,17 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KnouxMediaSessionPlugin.class);
         super.onCreate(savedInstanceState);
+        logLifecycle("create");
+        getBridge().addWebViewListener(new com.getcapacitor.WebViewListener() {
+            @Override public void onPageStarted(WebView view) { logLifecycle("page-started"); }
+            @Override public void onPageLoaded(WebView view) { logLifecycle("page-loaded"); }
+            @Override public void onReceivedError(WebView view) { logLifecycle("page-error"); }
+            @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                android.util.Log.e("KnouxLifecycle", "renderer-gone crashed=" + detail.didCrash() + " priority=" + detail.rendererPriorityAtExit());
+                // Observation only. Preserve Capacitor's unhandled failure behavior.
+                return false;
+            }
+        });
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
             android.webkit.WebView.setWebContentsDebuggingEnabled(true);
         }
@@ -56,6 +67,15 @@ public class MainActivity extends BridgeActivity {
             registerReceiver(mediaCommandReceiver, filter);
         }
     }
+
+    private void logLifecycle(String phase) {
+        android.util.Log.i("KnouxLifecycle", "phase=" + phase + " pid=" + android.os.Process.myPid() + " elapsedMs=" + android.os.SystemClock.elapsedRealtime());
+    }
+
+    @Override public void onResume() { super.onResume(); logLifecycle("resume"); }
+    @Override public void onPause() { logLifecycle("pause"); super.onPause(); }
+    @Override public void onTrimMemory(int level) { android.util.Log.w("KnouxLifecycle", "trim-memory level=" + level); super.onTrimMemory(level); }
+    @Override public void onLowMemory() { logLifecycle("low-memory"); super.onLowMemory(); }
 
     private void dispatchMediaCommand(String command, Double position) {
         if (getBridge() == null || getBridge().getWebView() == null) return;
@@ -69,6 +89,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onStop() {
+        logLifecycle("stop");
         super.onStop();
         if (!KnouxPlaybackService.isActive() || getBridge() == null || getBridge().getWebView() == null) return;
         WebView webView = getBridge().getWebView();
@@ -78,6 +99,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        logLifecycle("destroy");
         try {
             unregisterReceiver(mediaCommandReceiver);
         } catch (IllegalArgumentException ignored) {

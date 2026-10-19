@@ -28,8 +28,13 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForCdp(deadline) {
+async function waitForCdp(deadline, exitInfo) {
   while (Date.now() < deadline) {
+    if (exitInfo && exitInfo.code !== null) {
+      const error = new Error(`PACKAGED_EARLY_EXIT code=${exitInfo.code} signal=${exitInfo.signal ?? 'none'}`);
+      error.earlyExit = true;
+      throw error;
+    }
     try {
       const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
       if (response.ok) return true;
@@ -109,26 +114,73 @@ async function readRendererMetrics(page) {
 async function runOnce(index) {
   const traceFile = path.join(traceDir, `run-${index + 1}.log`);
   fs.rmSync(traceFile, { force: true });
-  const startedAt = Date.now();
-  const child = childProcess.spawn(executablePath, [`--remote-debugging-port=${cdpPort}`], {
-    cwd: packageRoot,
-    env: { ...process.env, KNOUX_STARTUP_TRACE_FILE: traceFile },
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+  const preClean = listAppProcesses();
+  killAppTree();
+  await waitForProcessExit(Date.now() + 20000);
+  const preCleanSurvivors = listAppProcesses();
+  const launches = [];
+
+  async function launchAndAttach(attempt) {
+    const startedAt = Date.now();
+    const exitInfo = { code: null, signal: null };
+    const child = childProcess.spawn(executablePath, [`--remote-debugging-port=${cdpPort}`], {
+      cwd: packageRoot,
+      env: { ...process.env, KNOUX_STARTUP_TRACE_FILE: traceFile },
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.on('exit', (code, signal) => {
+      exitInfo.code = code;
+      exitInfo.signal = signal;
+    });
+    try {
+      try {
+        await waitForCdp(startedAt + 60000, exitInfo);
+      } catch (error) {
+        launches.push({ attempt, startedAtMs: startedAt, cdpMs: null, earlyExit: error.earlyExit === true, error: error.message });
+        error.launchPhase = true;
+        throw error;
+      }
+      const cdpUpMs = Date.now() - startedAt;
+      const browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`, { timeout: 10000 });
+      const pageDeadline = Date.now() + 30000;
+      let page = null;
+      while (!page && Date.now() < pageDeadline) {
+        const contexts = browser.contexts();
+        page = contexts.length > 0 ? contexts[0].pages()[0] || null : null;
+        if (!page) await sleep(50);
+      }
+      if (!page) {
+        await browser.close().catch(() => {});
+        throw new Error('PACKAGED_RENDERER_PAGE_MISSING');
+      }
+      launches.push({ attempt, startedAtMs: startedAt, cdpMs: cdpUpMs, earlyExit: false, error: null });
+      return { child, browser, page, startedAt, cdpUpMs };
+    } catch (error) {
+      if (!error.launchPhase) {
+        launches.push({ attempt, startedAtMs: startedAt, cdpMs: null, earlyExit: false, error: error.message });
+        error.launchPhase = true;
+      }
+      if (!child.killed) child.unref();
+      throw error;
+    }
+  }
+
+  let launch = null;
+  let relaunchReason = null;
   let browser = null;
   try {
-    await waitForCdp(startedAt + 60000);
-    const cdpUpMs = Date.now() - startedAt;
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`, { timeout: 10000 });
-    const pageDeadline = Date.now() + 30000;
-    let page = null;
-    while (!page && Date.now() < pageDeadline) {
-      const contexts = browser.contexts();
-      page = contexts.length > 0 ? contexts[0].pages()[0] || null : null;
-      if (!page) await sleep(50);
+    try {
+      launch = await launchAndAttach(1);
+    } catch (error) {
+      if (error.launchPhase !== true) throw error;
+      relaunchReason = error.message;
+      killAppTree();
+      await waitForProcessExit(Date.now() + 20000);
+      launch = await launchAndAttach(2);
     }
-    if (!page) throw new Error('PACKAGED_RENDERER_PAGE_MISSING');
+    browser = launch.browser;
+    const { page, startedAt, cdpUpMs } = launch;
     const pageUpMs = Date.now() - startedAt;
     await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
     const domMs = Date.now() - startedAt;
@@ -154,12 +206,15 @@ async function runOnce(index) {
       memorySettled,
       trace: parseTrace(traceFile),
       traceFile,
+      preClean,
+      preCleanSurvivors,
+      launches,
+      relaunchReason,
     };
   } finally {
     if (browser) await browser.close().catch(() => {});
     killAppTree();
     await waitForProcessExit(Date.now() + 15000);
-    if (!child.killed) child.unref();
   }
 }
 
@@ -167,6 +222,14 @@ function percentile(sortedValues, p) {
   if (sortedValues.length === 0) return null;
   const rank = Math.ceil((p / 100) * sortedValues.length) - 1;
   return sortedValues[Math.max(0, Math.min(sortedValues.length - 1, rank))];
+}
+
+function writeEvidence(evidencePath, evidence) {
+  const payload = `${JSON.stringify(evidence, null, 2)}\n`;
+  const tmpPath = `${evidencePath}.tmp`;
+  fs.writeFileSync(tmpPath, payload, 'utf8');
+  fs.renameSync(tmpPath, evidencePath);
+  if (fs.readFileSync(evidencePath, 'utf8') !== payload) throw new Error('EVIDENCE_WRITE_CORRUPTED');
 }
 
 async function main() {
@@ -234,10 +297,11 @@ async function main() {
     notes: [
       'Wall times measured from process spawn to observable milestone on this machine.',
       `cold = first launch after the process tree was fully terminated; warm = subsequent relaunches without rebuild. runs=${runCount}.`,
+      'Launch-phase failures (early single-instance exit, CDP attach) are retried once after a full process-tree termination; every attempt is recorded in run.launches.',
     ],
   };
   const evidencePath = path.join(evidenceDir, `windows-performance-${artifact.head.slice(0, 7)}-${Date.now()}.json`);
-  fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+  writeEvidence(evidencePath, evidence);
   process.stdout.write(`\nEvidence: ${evidencePath}\n`);
   process.stdout.write(`uiReady p50=${evidence.aggregates.uiReadyMs.p50}ms p95=${evidence.aggregates.uiReadyMs.p95}ms; heap p50=${evidence.aggregates.usedJsHeapBytes.p50}B; ws p50=${evidence.aggregates.workingSetBytes.p50}B\n`);
   const failed = runs.filter((run) => !run.ok);

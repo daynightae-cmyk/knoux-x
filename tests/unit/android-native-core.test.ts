@@ -283,6 +283,12 @@ describe('device and session health decisions', () => {
     expect(core.transportRecoveryPlan('no-device', 2)).toEqual(['adb-start-server']);
   });
 
+  /* Run 39204331679 logged 26 attempts, most of them the same restart step. */
+  test('the ladder stops issuing steps once the adb server has been restarted', () => {
+    expect(core.transportRecoveryPlan('no-device', 2, { serverRestarted: true })).toEqual([]);
+    expect(core.transportRecoveryPlan('device', 0, { serverRestarted: true })).toBeNull();
+  });
+
   test('a case never starts against a dead session handle', () => {
     expect(core.casePrecondition({ page: null }).ok).toBe(false);
     expect(core.casePrecondition(null)).toEqual({

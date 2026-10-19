@@ -181,9 +181,13 @@ function adbDeviceHealth(output) {
 
 /* Bounded transport recovery ladder. Each step is attempted at most once and
  * the ladder stops at the first state that reports a usable device. Steps are
- * ordered cheapest-first so a routine transport hiccup never escalates. */
-function transportRecoveryPlan(state, attempt) {
+ * ordered cheapest-first so a routine transport hiccup never escalates, and
+ * once the daemon has been restarted the ladder returns an empty plan so the
+ * remaining budget is spent waiting for the device rather than repeating the
+ * same no-op step (observed in run 39204331679). */
+function transportRecoveryPlan(state, attempt, options = {}) {
   if (state === 'device') return null;
+  if (options.serverRestarted) return [];
   const steps = attempt === 0
     ? ['adb-wait-for-device', 'adb-reconnect-offline']
     : attempt === 1

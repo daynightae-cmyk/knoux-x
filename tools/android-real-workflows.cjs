@@ -92,29 +92,31 @@ async function ensureDeviceTransport(timeoutMs = 120000) {
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
   let health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
-  /* A device that has left adb entirely can still be restarting; `adb kill-server
-   * / start-server` is attempted once, and the wait itself is generous because
-   * this replaces a wait that used to fail while the emulator was mid-restart. */
-  let restarted = false;
+  /* A device that has left adb entirely may still be restarting, so the wait
+   * is generous: this replaces a wait that failed while the emulator was
+   * mid-restart. Once the adb server has been restarted once, the remaining
+   * budget is spent waiting rather than repeating the same step. */
+  let serverRestarted = false;
   while (Date.now() < deadline) {
     if (health.state === 'device') return { health, attempts };
-    const plan = nativeCore.transportRecoveryPlan(health.state, attempt);
-    if (!plan) {
-      await delay(1000);
-    } else {
-      for (const step of plan) {
-        if (step === 'adb-wait-for-device') adbQuiet('wait-for-device');
-        if (step === 'adb-reconnect-offline') adbQuiet('reconnect', 'offline');
-        if (step === 'adb-reconnect-device') adbQuiet('reconnect', 'device');
-        if (step === 'adb-start-server' && !restarted) { restarted = true; adbQuiet('kill-server'); adbQuiet('start-server'); }
-        await delay(1200);
-        health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
-        attempts.push({ step, state: health.state });
-        if (health.state === 'device') return { health, attempts };
-      }
-      attempt += 1;
+    const plan = nativeCore.transportRecoveryPlan(health.state, attempt, { serverRestarted });
+    if (!plan || plan.length === 0) {
+      await delay(1500);
+      health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
+      if (health.state === 'device') return { health, attempts };
+      continue;
     }
-    await delay(1200);
+    for (const step of plan) {
+      if (step === 'adb-wait-for-device') adbQuiet('wait-for-device');
+      if (step === 'adb-reconnect-offline') adbQuiet('reconnect', 'offline');
+      if (step === 'adb-reconnect-device') adbQuiet('reconnect', 'device');
+      if (step === 'adb-start-server' && !serverRestarted) { serverRestarted = true; adbQuiet('kill-server'); adbQuiet('start-server'); }
+      await delay(1200);
+      health = nativeCore.adbDeviceHealth(adbQuiet('devices', '-l').output);
+      attempts.push({ step, state: health.state });
+      if (health.state === 'device') return { health, attempts };
+    }
+    attempt += 1;
   }
   return { health, attempts };
 }

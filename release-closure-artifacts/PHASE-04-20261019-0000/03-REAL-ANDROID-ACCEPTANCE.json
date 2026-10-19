@@ -178,5 +178,25 @@
       "run": "39195490261 (a3ee6d8)",
       "finding": "the accepted acceptance evidence"
     }
-  ]
+  ],
+  "new_coverage_not_yet_verified": [
+    {
+      "status": "UNIT VERIFIED, DEVICE PENDING",
+      "feature": "trusted timeline touch scrub (DEF-16)",
+      "code": "reveal-then-scrub with 3 bounded attempts inside the 3200 ms control-reveal window; stage tapped only when the timeline is absent",
+      "reason": "runs 39203107074 and 39204331679 both ended at BLOCKED_NO_ADB_DEVICE before the scrub executed"
+    },
+    {
+      "status": "UNIT VERIFIED, DEVICE PENDING",
+      "feature": "photos-to-video SAF persistence (DEF-17)",
+      "code": "new case reusing the shared chooser walk: Photos to Video -> Add media -> SAF -> slide -> Save -> Open project",
+      "reason": "run 39203107074 registered the case but blocked it with BLOCKED_NO_LIVE_WEBVIEW_SESSION after the device was lost"
+    }
+  ],
+  "resource_envelope_experiment": {
+    "result": "The emulator was still lost. 26 bounded recovery attempts over 120 s never saw the device return.",
+    "conclusion": "The device loss is NOT a simple resource-margin problem. Doubling cores and RAM did not prevent it.",
+    "change": "emulator raised from 2 cores / 2048M to 4 cores / 4096M (run 39204331679)",
+    "assertions_affected": "none; all acceptance assertions are unchanged"
+  }
 }

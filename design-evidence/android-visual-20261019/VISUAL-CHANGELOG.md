@@ -11,6 +11,7 @@
   - src/features/library/MobileMediaLibraryView.tsx: honest picker copy restored (Choose ordinary media files - never project JSON)
   - Full unit suite green: 148 suites / 1285 tests; typecheck + lint clean
 - 8fdc299 evidence: visual matrix capture via tools/visual-capture.cjs (Playwright, browser runtime adapter): 12 screens x 3 viewports (360x800, 390x844, 412x915) + landscape, status VISUAL_RUNTIME_VERIFIED (browser runtime adapter; not device-touch)
+- Capture server note: served by an existing visual-review Vite instance on 127.0.0.1:4173 (serves this worktree via vite.visual-review.config.ts). Correct start command: npx vite --config vite.visual-review.config.ts (this project has no npm run dev script).
 
 ## Honest findings pending fix (from matrix review)
 1. Video Studio empty state: large dead whitespace above start card; bottom tool dock clips a 7th item at right edge (check scroll affordance)

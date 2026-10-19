@@ -227,6 +227,58 @@ async function nativeTextPresent(labels) {
   return labels.some((label) => xml.includes(`text="${label}"`) || xml.includes(`content-desc="${label}"`));
 }
 
+/* Drive the Android MediaProjection consent autonomously: read the live
+ * hierarchy each round, prefer the "Entire screen" option, confirm with the
+ * positive button, and pick the KNOUX X row if API 35 routes to the
+ * single-app picker. Every distinct dialog state is recorded as evidence. */
+async function grantScreenCaptureConsent(page) {
+  const consentSteps = [];
+  const seenDialogs = new Set();
+  let entireScreenChosen = false;
+  const deadline = Date.now() + 60000;
+  const stopButton = page.getByRole('button', { name: 'Stop & save MP4' });
+  while (Date.now() < deadline) {
+    if (await stopButton.count() > 0) return { granted: true, consentSteps };
+    const focus = currentFocus() ?? '';
+    const nativeOnTop = /(systemui|permissioncontroller|documentsui)/i.test(focus) && !/playerx/i.test(focus);
+    if (!nativeOnTop) { await delay(600); continue; }
+    let xml = '';
+    try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { xml = ''; }
+    if (!xml.includes('<node')) { await delay(700); continue; }
+    const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
+    const tapNode = (node, note) => {
+      const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
+      if (!bounds) return false;
+      const x = Math.round((+bounds[1] + +bounds[3]) / 2);
+      const y = Math.round((+bounds[2] + +bounds[4]) / 2);
+      const text = /text="([^"]*)"/.exec(node)?.[1] ?? '';
+      adb('shell', 'input', 'tap', String(x), String(y));
+      recordTap({ note, x, y });
+      consentSteps.push({ note, focus, text, x, y });
+      return true;
+    };
+    const findNode = (predicate) => nodes.find((node) => node.includes('bounds="') && predicate(node));
+    if (!entireScreenChosen) {
+      const entireScreen = findNode((node) => /text="(Entire screen|Share your entire screen)"/.test(node));
+      if (entireScreen) { entireScreenChosen = true; tapNode(entireScreen, 'consent:entire-screen'); await delay(900); continue; }
+    }
+    const startButton = findNode((node) => /text="(Start now|Start recording|Start sharing)"/.test(node) || /resource-id="android:id\/button1"/.test(node));
+    if (startButton) { tapNode(startButton, 'consent:start'); await delay(900); continue; }
+    const appRow = findNode((node) => /(text|content-desc)="KNOUX X"/.test(node) && node.includes('clickable="true"')) ?? findNode((node) => /(text|content-desc)="KNOUX X"/.test(node));
+    if (appRow) { tapNode(appRow, 'consent:app-row'); await delay(900); continue; }
+    const signature = nodes.map((node) => /text="([^"]*)"/.exec(node)?.[1] ?? '').filter(Boolean).slice(0, 12).join('|');
+    if (signature && !seenDialogs.has(signature)) {
+      seenDialogs.add(signature);
+      consentSteps.push({ note: 'consent:unrecognized-dialog', focus, signature });
+      try { fs.writeFileSync(`${output}/consent-dialog-${seenDialogs.size}.xml`, xml); } catch { /* evidence write is best-effort */ }
+    }
+    await delay(800);
+  }
+  try { fs.writeFileSync(`${output}/consent-dialog-final.xml`, adb('exec-out', 'uiautomator', 'dump', '/dev/tty')); } catch { /* best-effort */ }
+  const granted = (await stopButton.count()) > 0;
+  return { granted, consentSteps };
+}
+
 async function ensureHome(page) {
   const onboardingSkip = page.getByRole('button', { name: 'Skip', exact: true });
   if (await onboardingSkip.count() > 0) {
@@ -498,21 +550,15 @@ function readRecordingBytes(uri) {
           || nativeTextPresent(['Entire screen', 'Start now', 'Start recording', 'A single app']),
         { note: 'recording:start', timeout: 12000, checkTimeout: 8000 },
       );
-      // Android MediaProjection consent (SystemUI). Full-screen mode is preferred
-      // when offered; the positive button is text="Start" / android:id/button1.
-      try { await nativeTap(['Entire screen'], 4000); } catch { /* dialog may not offer the selector */ }
-      await nativeTap(['Start now', 'Start recording', 'Start'], 15000, ['android:id/button1']);
-      // API 35 single-app capture asks which app to record; pick KNOUX X if the
-      // recording has not started yet and the picker is on screen.
-      try {
-        await until(async () => {
-          if (await page.getByRole('button', { name: 'Stop & save MP4' }).count() > 0) return false;
-          const xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
-          return xml.includes('KNOUX X') || xml.includes('KNOUX-X');
-        }, 'no single-app picker appeared', 3500);
-        await nativeTap(['KNOUX X', 'KNOUX'], 5000);
-      } catch { /* full-screen recording needs no app picker */ }
-      await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 25000 });
+      // Android MediaProjection consent (SystemUI): the adaptive loop reads the
+      // live hierarchy while the OS window has focus, prefers "Entire screen",
+      // confirms with the positive button and resolves the API 35 single-app
+      // picker. Every dialog state and tap is recorded as evidence.
+      const consent = await grantScreenCaptureConsent(page);
+      if (!consent.granted) {
+        throw new Error(`MediaProjection consent was not granted: ${JSON.stringify(consent.consentSteps).slice(0, 1500)}`);
+      }
+      await page.getByRole('button', { name: 'Stop & save MP4' }).waitFor({ timeout: 15000 });
       await delay(4500); // Intentional captured duration, not a startup readiness wait.
       await trustedTapUntil(
         page.getByRole('button', { name: 'Stop & save MP4' }).first(),
@@ -542,7 +588,8 @@ function readRecordingBytes(uri) {
         byteReadAttempts: byteAttempts,
         duration: probe.format.duration,
         videoPackets: probe.streams.find((stream) => stream.codec_type === 'video').nb_read_packets,
-        consent: 'MediaProjection consent granted through trusted SystemUI taps',
+        consent: consent.consentSteps.map((step) => step.note).join(' -> ') || 'consent dialog confirmed',
+        consentSteps: consent.consentSteps,
         editor: 'actual saved project loaded with decoded preview',
       };
     });

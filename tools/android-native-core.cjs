@@ -27,7 +27,12 @@ const APP_PICKER_PACKAGES = new Set([
   'com.google.android.documentsui',
   'com.android.documentsui',
 ]);
-const ENTIRE_SCREEN_LABELS = ['Entire screen', 'Share your entire screen'];
+const ENTIRE_SCREEN_LABELS = ['Entire screen', 'Share your entire screen', 'Share entire screen', 'Whole screen', 'Full screen', 'Entire device'];
+/* Exact label match first; the fallback tolerates the wording Android uses for
+ * the same control ("Share entire screen", "Full screen", ...) without ever
+ * matching the single-app option, which must never be selected. */
+const ENTIRE_SCREEN_PATTERN = /(entire|whole|full)\s*(device|screen)/i;
+const SINGLE_APP_PATTERN = /(single app|one app|a single)/i;
 const START_LABELS = ['Start now', 'Start recording', 'Start sharing', 'Start'];
 const POSITIVE_BUTTON_ID = 'android:id/button1';
 const SESSION_DEATH = /has been closed|Target closed|Target (page|closed)|not attached|browser has been closed|Execution context was destroyed|Page closed|Timeout \d+ ?ms exceeded/i;
@@ -111,8 +116,15 @@ function consentAction(nodes, state = {}) {
   const dialog = native.find((pkg) => pkg.includes('systemui') || pkg.includes('permissioncontroller')) ?? native[0] ?? null;
   if (!dialog) return { type: 'wait', note: `no-native-consent-window (packages=${packagesIn(nodes).join(',') || 'none'})` };
   const inDialog = (node) => attrOf(node, 'package') === dialog;
+  const labelOf = (node) => attrOf(node, 'text') || attrOf(node, 'content-desc');
   if (!state.entireScreenChosen) {
-    const entire = nodes.find((node) => inDialog(node) && ENTIRE_SCREEN_LABELS.includes(attrOf(node, 'text')));
+    const inDialogLabels = nodes.filter((node) => inDialog(node) && labelOf(node));
+    const exact = inDialogLabels.find((node) => ENTIRE_SCREEN_LABELS.includes(labelOf(node)));
+    const fuzzy = inDialogLabels.find((node) => {
+      const label = labelOf(node);
+      return ENTIRE_SCREEN_PATTERN.test(label) && !SINGLE_APP_PATTERN.test(label);
+    });
+    const entire = exact ?? fuzzy;
     if (entire) return { type: 'tap-entire', node: entire, kind: 'entire', note: 'prefer-entire-screen' };
   }
   const start = nodes.find((node) => inDialog(node)

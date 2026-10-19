@@ -160,6 +160,34 @@ describe('native Android surface decisions', () => {
     expect(core.consentAction(withoutPositiveButton, { entireScreenChosen: true }).type).toBe('unrecognized');
   });
 
+  /* Recorded from CI run 39191137877: the consent trace was
+   * consent:start (text "Start", com.android.systemui) -> consent:app-row
+   * (text "KNOUX X", com.android.systemui) -> "Screen recording permission was
+   * not granted." No entire-screen tap ever fired, so the dialog stayed in
+   * single-app mode and the run entered the app picker. */
+  test('API 35 consent with a "Start" button and a differently worded mode selector', () => {
+    const observedDialog = hierarchy([
+      node({ package: SYSTEMUI, text: 'Start recording or casting with KNOUX X?', resourceId: 'android:id/alertTitle' }),
+      node({ package: SYSTEMUI, text: 'Share the whole screen', bounds: '[540,900][1040,1000]' }),
+      node({ package: SYSTEMUI, text: 'Only a single app', bounds: '[40,900][500,1000]' }),
+      node({ package: SYSTEMUI, text: 'Start', resourceId: 'android:id/button1', bounds: '[640,1650][1040,1740]' }),
+    ]);
+    const nodes = core.parseNodes(observedDialog);
+    const first = core.consentAction(nodes);
+    expect(first.type).toBe('tap-entire');
+    expect(core.attrOf(first.node, 'text')).toBe('Share the whole screen');
+    // Only after the mode is chosen may the positive button be pressed.
+    expect(core.consentAction(nodes, { entireScreenChosen: true }).type).toBe('tap-start');
+  });
+
+  test('a single-app-only dialog never selects the single-app option', () => {
+    const singleAppOnly = hierarchy([
+      node({ package: SYSTEMUI, text: 'Only a single app', bounds: '[40,900][500,1000]' }),
+      node({ package: SYSTEMUI, text: 'Start', resourceId: 'android:id/button1', bounds: '[640,1650][1040,1740]' }),
+    ]);
+    expect(core.consentAction(core.parseNodes(singleAppOnly)).type).toBe('tap-start');
+  });
+
   test('consent recognises the API 35 single-app picker row', () => {
     // With a positive button present the confirmation wins first; the app row
     // is only ever tapped when the dialog offers no button to press.

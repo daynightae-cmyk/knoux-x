@@ -383,6 +383,17 @@ async function grantScreenCaptureConsent(page) {
       stabilityByKind.set(action.kind, signature);
       return Boolean(signature) && previous === signature;
     };
+    /* Every distinct dialog state is snapshotted, not just unrecognised ones:
+     * the observed runs showed a correctly recognised dialog whose mode label
+     * still had to be matched, and the state XML is what settles that. */
+    const signature = nodes.map((node) => nativeCore.attrOf(node, 'text') || nativeCore.attrOf(node, 'content-desc')).filter(Boolean).slice(0, 14).join('|');
+    if (signature && !seenDialogs.has(signature)) {
+      seenDialogs.add(signature);
+      consentSteps.push({ note: `consent:state:${action.type}`, ...evidence, signature });
+      if (seenDialogs.size <= 6) {
+        try { fs.writeFileSync(`${output}/consent-state-${seenDialogs.size}.xml`, xml); } catch { /* evidence write is best-effort */ }
+      }
+    }
     if (action.type === 'tap-entire' || action.type === 'tap-start' || action.type === 'tap-app-row') {
       if (settled(action.node)) {
         if (action.type === 'tap-entire') entireScreenChosen = true;
@@ -392,12 +403,6 @@ async function grantScreenCaptureConsent(page) {
       continue;
     }
     if (action.type === 'wait') { await delay(600); continue; }
-    const signature = nodes.map((node) => nativeCore.attrOf(node, 'text')).filter(Boolean).slice(0, 12).join('|');
-    if (signature && !seenDialogs.has(signature)) {
-      seenDialogs.add(signature);
-      consentSteps.push({ note: 'consent:unrecognized-dialog', ...evidence, signature });
-      try { fs.writeFileSync(`${output}/consent-dialog-${seenDialogs.size}.xml`, xml); } catch { /* evidence write is best-effort */ }
-    }
     await delay(800);
   }
   try { fs.writeFileSync(`${output}/consent-dialog-final.xml`, adb('exec-out', 'uiautomator', 'dump', '/dev/tty')); } catch { /* best-effort */ }

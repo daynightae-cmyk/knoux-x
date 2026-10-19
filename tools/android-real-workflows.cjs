@@ -55,6 +55,15 @@ function currentFocus() {
     return dump.split('\n').map((line) => line.trim()).find((line) => line.startsWith('mCurrentFocus')) ?? null;
   } catch { return null; }
 }
+/* A native OS window (SAF picker, SystemUI consent) on top of the app makes
+ * every DOM-derived tap land on the wrong surface: Playwright geometry is
+ * overlay-blind, so only the window-manager focus proves what is really on
+ * screen. Returns the covering window line, or null when the app is on top. */
+function nativeWindowCoveringApp() {
+  const focus = currentFocus();
+  if (!focus || !focus.includes('Window{')) return null;
+  return /playerx/i.test(focus) ? null : focus;
+}
 /* Device-pixels origin of the Capacitor WebView's page viewport. The WebView
  * is inset below the status bar and above the navigation bar, so a CSS point
  * inside the page maps to devicePixels = origin + cssPoint * devicePixelRatio. */
@@ -72,34 +81,52 @@ function readWebViewOrigin() {
 }
 /* SystemUI/documentsui dialogs are real OS surfaces; they are tapped through
  * the same trusted input pipeline straight from the accessibility hierarchy. */
-async function nativeTap(labels, timeout = 12000, resourceIds = []) {
-  let found;
-  await until(async () => {
-    let xml = '';
+function dumpNativeNodes() {
+  let xml = '';
+  try {
+    xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
+  } catch { xml = ''; }
+  if (!xml.includes('<node')) {
     try {
-      xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
-    } catch { xml = ''; }
-    if (!xml.includes('<node')) {
-      try {
-        adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
-        xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
-      } catch { xml = ''; }
-    }
-    const nodes = [...(xml.matchAll(/<node\b[^>]+>/g) || [])].map((match) => match[0]);
-    const node = nodes.find((candidate) => labels.some((label) => candidate.includes(`text="${label}"`) || candidate.includes(`content-desc="${label}"`))
-      || resourceIds.some((id) => candidate.includes(`resource-id="${id}"`)));
-    if (!node) return false;
-    const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
-    if (!bounds) return false;
-    found = bounds;
-    return true;
-  }, `Native control missing: ${[...labels, ...resourceIds].join(', ')}`, timeout);
-  const x = Math.round((+found[1] + +found[3]) / 2);
-  const y = Math.round((+found[2] + +found[4]) / 2);
+      adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
+      xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
+    } catch { return []; }
+  }
+  return [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
+}
+function nodeBounds(node) {
+  const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
+  return bounds ? { left: +bounds[1], top: +bounds[2], right: +bounds[3], bottom: +bounds[4] } : null;
+}
+function matchesLabels(node, labels) {
+  return labels.some((label) => node.includes(`text="${label}"`) || node.includes(`content-desc="${label}"`));
+}
+function tapBounds(bounds, note) {
+  const x = Math.round((bounds.left + bounds.right) / 2);
+  const y = Math.round((bounds.top + bounds.bottom) / 2);
   adb('shell', 'input', 'tap', String(x), String(y));
-  recordTap({ note: `nativeTap:${labels[0] || resourceIds[0]}`, x, y });
+  recordTap({ note, x, y });
   return { x, y };
 }
+/* Native dialogs animate (nav drawers slide, buttons fade in): a tap computed
+ * from a single mid-animation sample lands on the wrong row — the same class
+ * of failure already fixed for animating DOM overlays. Require two
+ * consecutive samples with identical geometry before dispatching. */
+async function stableTap(match, options = {}) {
+  const started = Date.now();
+  const timeout = options.timeout ?? 12000;
+  let lastSignature = '';
+  while (Date.now() - started < timeout) {
+    const node = dumpNativeNodes().find(match);
+    const bounds = node ? nodeBounds(node) : null;
+    const signature = bounds ? `${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}` : '';
+    if (signature && signature === lastSignature) return tapBounds(bounds, options.note ?? 'stableTap');
+    lastSignature = signature;
+    await delay(260);
+  }
+  throw new Error(`Stable native target unavailable: ${options.description ?? options.note ?? 'unnamed target'}`);
+}
+
 async function runCase(id, work) {
   const syntheticBefore = results.touchPolicy.syntheticEventsUsed;
   try {
@@ -174,6 +201,15 @@ async function trustedTap(locator, options = {}) {
       throw new Error(`Refusing a trusted tap on a ${Math.round(geometry.width)}x${Math.round(geometry.height)} target (unsafe touch size)`);
     }
     if (geometry.insideViewport && geometry.hitSelf) {
+      /* A native window on top (leftover SAF picker, OS dialog) is invisible
+       * to DOM geometry; tapping through it would hit the native surface.
+       * Wait for the app to regain window focus instead of mistapping. */
+      const covering = nativeWindowCoveringApp();
+      if (covering) {
+        lastProblem = `a native window covers the app (${covering})`;
+        await delay(300);
+        continue;
+      }
       /* The Capacitor WebView is inset (status/navigation bars): the page
        * origin sits at the native WebView node's top-left, measured through
        * uiautomator — DOM CSS points alone would land taps 136px too high. */
@@ -234,6 +270,7 @@ async function nativeTextPresent(labels) {
 async function grantScreenCaptureConsent(page) {
   const consentSteps = [];
   const seenDialogs = new Set();
+  const stabilityByKind = new Map();
   let entireScreenChosen = false;
   const deadline = Date.now() + 60000;
   const stopButton = page.getByRole('button', { name: 'Stop & save MP4' });
@@ -247,25 +284,32 @@ async function grantScreenCaptureConsent(page) {
     if (!xml.includes('<node')) { await delay(700); continue; }
     const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
     const tapNode = (node, note) => {
-      const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(node);
+      const bounds = nodeBounds(node);
       if (!bounds) return false;
-      const x = Math.round((+bounds[1] + +bounds[3]) / 2);
-      const y = Math.round((+bounds[2] + +bounds[4]) / 2);
       const text = /text="([^"]*)"/.exec(node)?.[1] ?? '';
-      adb('shell', 'input', 'tap', String(x), String(y));
-      recordTap({ note, x, y });
+      const { x, y } = tapBounds(bounds, note);
       consentSteps.push({ note, focus, text, x, y });
       return true;
+    };
+    /* Consent dialogs animate in too; never tap a control whose bounds have
+     * only been observed once. */
+    const stableFor = (kind, node) => {
+      const bounds = nodeBounds(node);
+      const signature = bounds ? `${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}` : '';
+      const previous = stabilityByKind.get(kind);
+      stabilityByKind.set(kind, signature);
+      return Boolean(signature) && previous === signature;
     };
     const findNode = (predicate) => nodes.find((node) => node.includes('bounds="') && predicate(node));
     if (!entireScreenChosen) {
       const entireScreen = findNode((node) => /text="(Entire screen|Share your entire screen)"/.test(node));
-      if (entireScreen) { entireScreenChosen = true; tapNode(entireScreen, 'consent:entire-screen'); await delay(900); continue; }
+      if (entireScreen && stableFor('entire', entireScreen)) { entireScreenChosen = true; tapNode(entireScreen, 'consent:entire-screen'); await delay(900); continue; }
+      if (entireScreen) { await delay(300); continue; }
     }
     const startButton = findNode((node) => /text="(Start now|Start recording|Start sharing)"/.test(node) || /resource-id="android:id\/button1"/.test(node));
-    if (startButton) { tapNode(startButton, 'consent:start'); await delay(900); continue; }
+    if (startButton && stableFor('start', startButton)) { tapNode(startButton, 'consent:start'); await delay(900); continue; }
     const appRow = findNode((node) => /(text|content-desc)="KNOUX X"/.test(node) && node.includes('clickable="true"')) ?? findNode((node) => /(text|content-desc)="KNOUX X"/.test(node));
-    if (appRow) { tapNode(appRow, 'consent:app-row'); await delay(900); continue; }
+    if (appRow && stableFor('app', appRow)) { tapNode(appRow, 'consent:app-row'); await delay(900); continue; }
     const signature = nodes.map((node) => /text="([^"]*)"/.exec(node)?.[1] ?? '').filter(Boolean).slice(0, 12).join('|');
     if (signature && !seenDialogs.has(signature)) {
       seenDialogs.add(signature);
@@ -292,6 +336,16 @@ async function ensureHome(page) {
   const playerBack = page.locator('button.ump-icon-btn[aria-label="Back"]');
   const bottomHome = page.locator('.kmh-bottom-nav button[aria-label="Home"]');
   for (let attempt = 0; attempt < 5; attempt += 1) {
+    /* A leftover native picker covers the app while the WebView DOM still
+     * reports Home: DOM checks cannot see it, and every DOM-derived tap would
+     * land on the picker. Back out of it before trusting any DOM state. */
+    const covering = nativeWindowCoveringApp();
+    if (covering) {
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'ensureHome:dismiss-native-window', keyevent: 'KEYCODE_BACK' });
+      await delay(900);
+      continue;
+    }
     if (await recordCard.count() > 0) return;
     if (await homeDashboard.count() > 0) {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
@@ -429,9 +483,44 @@ function readRecordingBytes(uri) {
         () => nativeTextPresent(['Show roots', 'Downloads', 'Download', 'KNOUX-QA.mp4']),
         { note: 'home:open-video (SAF picker)', timeout: 15000, checkTimeout: 9000 },
       );
-      await nativeTap(['Show roots']);
-      await nativeTap(['Downloads', 'Download']);
-      await nativeTap(['KNOUX-QA.mp4']);
+      /* The picker's starting root varies (it can restore the last-used
+       * root): the fixture is either listed directly, one level inside the
+       * media "Download" folder tile, or only reachable through the roots
+       * drawer. Walk all three, requiring stable geometry before every
+       * native tap — a mid-animation drawer tap had landed on the wrong row. */
+      const pickerPaths = [];
+      let fileChosen = false;
+      for (let attempt = 1; attempt <= 3 && !fileChosen; attempt += 1) {
+        const nodes = dumpNativeNodes();
+        if (nodes.some((node) => matchesLabels(node, ['KNOUX-QA.mp4']))) {
+          await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: `saf:file (attempt ${attempt})` });
+          pickerPaths.push(`attempt${attempt}:file-row`);
+          fileChosen = true;
+          break;
+        }
+        if (nodes.some((node) => node.includes('text="Download"') && node.includes('resource-id="android:id/title"'))) {
+          await stableTap((node) => node.includes('text="Download"') && node.includes('resource-id="android:id/title"'), { note: `saf:Download-folder (attempt ${attempt})` });
+          pickerPaths.push(`attempt${attempt}:folder-tile`);
+          await delay(1000);
+          continue;
+        }
+        await stableTap((node) => matchesLabels(node, ['Show roots']), { note: `saf:show-roots (attempt ${attempt})` });
+        await delay(600);
+        await stableTap((node) => node.includes('text="Downloads"'), { note: `saf:downloads-root (attempt ${attempt})` });
+        pickerPaths.push(`attempt${attempt}:roots-drawer`);
+        await delay(1000);
+      }
+      if (!fileChosen) {
+        await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: 'saf:file (final)', timeout: 12000 });
+        pickerPaths.push('final:file-row');
+      }
+      try {
+        await until(() => nativeWindowCoveringApp() === null, 'picker did not close after the file tap', 8000);
+      } catch {
+        await stableTap((node) => matchesLabels(node, ['KNOUX-QA.mp4']), { note: 'saf:file (retry after picker stayed open)', timeout: 8000 });
+        pickerPaths.push('retry:file-row');
+        await until(() => nativeWindowCoveringApp() === null, 'SAF picker did not close after choosing the fixture', 10000);
+      }
       const video = page.locator('video').first();
       await video.waitFor();
       /* The header only renders while the controls are shown; if they auto-hide,
@@ -524,6 +613,7 @@ function readRecordingBytes(uri) {
       return {
         ...frame,
         title,
+        pickerPaths,
         playbackStartedVia: playback.via,
         seekTrusted,
         audioPeak,

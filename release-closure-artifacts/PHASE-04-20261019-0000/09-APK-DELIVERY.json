@@ -19,7 +19,7 @@
   "launch_result_in_this_session": "VERIFIED (onboarding case passed on the installed APK)",
   "acceptance_on_installed_apk": "3/3 scoped cases ANDROID_EMULATOR_VERIFIED, syntheticEventsUsed=false, no touch fallbacks (run 39195490261)",
   "physical_device_install_plan": "Requires owner authorization. Install the exact a3ee6d8 build; deliver as TEST ONLY (debug-signed) until a production signing key is provided.",
-  "artifact_location": "GitHub Actions run 39195490261, artifact KNOUX-X-Android-debug-a3ee6d8 (APK, sha256 sidecar, launch evidence, real-workflows.json, consent-state XML snapshots, recorded MP4)",
+  "artifact_location": "GitHub Actions run 39195490261, artifact KNOUX-X-Android-debug-c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (APK, sha256 sidecar, launch evidence, real-workflows.json, consent-state XML snapshots, recorded MP4)",
   "artifacts_in_local_evidence": [
     "_temp/live-evidence/local-media-workflow-2026-10-18T20-16-18-278Z.json",
     "_temp/live-evidence/video-gate-2026-10-18T20-16-11-424Z.json",

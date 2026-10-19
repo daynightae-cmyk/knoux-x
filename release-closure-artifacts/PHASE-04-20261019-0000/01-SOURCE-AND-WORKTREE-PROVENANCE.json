@@ -1,10 +1,11 @@
 {
-  "recovery_commit_sha": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
-  "recovery_commit_message": "fix(android): repair real-workflow harness until return, native picker resilience, synthetic event tracking, SystemUI consent, WebView reload guard",
+  "recovery_commit_sha": "a6f624366d081cefcde644f17afc53fd76bb1f5b",
+  "recovery_commit_message": "fix(android): bounded adb transport recovery, session precondition and pre-cleanup diagnostics; correct build provenance",
   "recovery_branch": "fix/knoux-x-recovery-20261018-01a1503f",
   "main_sha": "173008b7b3874fd3c7acd1366efe5d45c3b113b0",
-  "remote_recovery_head": "14a0e7d79ea4d8578e950385a64d784dccaee88a",
-  "pr_58_state": "open, mergeable, not merged, 24 commits ahead of main after this push",
+  "remote_recovery_head": "a6f624366d081cefcde644f17afc53fd76bb1f5b",
+  "pr_58_state": "open, not merged",
+  "acceptance_commit_sha": "a3ee6d8bb16c7c1c0d08a37e1634331fff59f93f (PR head that produced the accepted APK; the accepted run's headSha)",
   "pr_57_branch": "feat/knoux-x-ultimate-delivery (preserved, not merged into recovery)",
   "pr_52_state": "preserved",
   "worktrees_preserved": [
@@ -26,9 +27,9 @@
     "deleting historical APK artifacts",
     "deleting active agent work"
   ],
-  "changed_files_in_session": ["tools/android-real-workflows.cjs", "CHECKPOINT.json", "tests/unit/mobile-onboarding.test.tsx (historical fix preserved)"],
-  "exact_apk_artifact_reference": "Historical APK from CI artifact 39154605826 / sha aa85ba6; SHA-256 58a4afd8ef62aab818b0cec99de1be6f58d2d42a752f78c7ef4d3c7026c7dc0f (Android Debug signer); NOT production-signed.",
-  "new_apk_built_in_session": false,
-  "apk_provenance_verifiable": false,
-  "source_identity_verification": "Source identity manifest (main.tsx) preserved; no secret exposure in this session."
+  "changed_files_in_session": ["tools/android-real-workflows.cjs", "tools/android-native-core.cjs", "tests/unit/android-native-core.test.ts", "CHECKPOINT.json"],
+  "exact_apk_artifact_reference": "Accepted APK from CI run 39195490261, artifact KNOUX-X-Android-debug-c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d; SHA-256 7e4f90101730ce5a728fe27a39fd015a5b705f77a0df5a8e627ec0fc72d83b29 (Android Debug signer); NOT production-signed.",
+  "new_apk_built_in_session": true,
+  "apk_provenance_verifiable": true,
+  "source_identity_verification": "Source identity manifest (main.tsx) preserved; no secret exposure. APK build provenance verified: pull_request synthetic merge c0abd8db (parents main 173008b7 + PR head a3ee6d8) shares tree 3c33e00c244035a54c7819bbc8fe8b3d8a3e372c with the PR head, so the binary matches the a3ee6d8 code."
 }

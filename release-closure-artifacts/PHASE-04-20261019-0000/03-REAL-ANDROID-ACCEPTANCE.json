@@ -5,13 +5,15 @@
     "ci_workflow": "Android APK (Capacitor)",
     "ci_run_id": "39195490261",
     "ci_run_url": "https://github.com/daynightae-cmyk/knoux-x/actions/runs/39195490261",
-    "commit_sha": "2fcf46603e3f712da51d927cb5222c4ff58857a9",
-    "commit_subject": "fix(android): resolve the ffprobe binary from both module export shapes (PR head a3ee6d8)",
+    "pr_head_sha_built": "a3ee6d8bb16c7c1c0d08a37e1634331fff59f93f",
+    "pr_head_subject": "fix(android): resolve the ffprobe binary from both module export shapes",
+    "synthetic_merge_sha_built": "c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d",
+    "git_tree_of_both": "3c33e00c244035a54c7819bbc8fe8b3d8a3e372c",
     "branch": "fix/knoux-x-recovery-20261018-01a1503f",
     "pr": "#58 (open, not merged)",
-    "artifact": "KNOUX-X-Android-debug-a3ee6d8 (run artifact 39195490261)",
+    "artifact": "KNOUX-X-Android-debug-c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (run artifact 39195490261)",
     "verdict_field": "PASS_SCOPED_CASES_ONLY",
-    "provenance_note": "CORRECTED. The acceptance APK was NOT compiled directly from a3ee6d8. The run was a pull_request run, so GitHub Actions built the synthetic merge commit c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (parents: main 173008b7 + PR head a3ee6d8). Its Git tree 3c33e00c244035a54c7819bbc8fe8b3d8a3e372c is byte-identical to the PR head tree, so the accepted binary corresponds exactly to PR head a3ee6d8. The artifact name KNOUX-X-Android-debug-c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d is named after the merge SHA, not the PR head."
+    "provenance_note": "The acceptance run's headSha is a3ee6d8bb16c7c1c0d08a37e1634331fff59f93f (a code commit), NOT any later documentation commit. Because the run was a pull_request run, GitHub Actions actually built the synthetic merge commit c0abd8db86e62b5a37ac6d2ecc2b97f1f155fc8d (parents: main 173008b7 + PR head a3ee6d8). That merge commit's Git tree 3c33e00c244035a54c7819bbc8fe8b3d8a3e372c is byte-identical to the PR head tree, so the accepted binary corresponds exactly to the a3ee6d8 code. The artifact directory is named after the merge SHA, not the PR head. Earlier text in this file that attributed the build to 2fcf466 or claimed it was compiled directly from a3ee6d8 were both imprecise and are superseded by this block."
   },
   "platform_environment": {
     "android_emulator": "PASS (API 35 pixel_7, 1080x2400 @ 420dpi, DPR 2.625, -noaudio, WebView origin [0,136][1080,2337])",
@@ -158,6 +160,23 @@
     {
       "claim": "Runner infrastructure failure (adb/emulator service)",
       "correction": "NOT ESTABLISHED. The reproducible, evidence-backed defect is in the harness: the WebView renderer died right after the SAF chooser returned (runs 39188659686 and 39196654875) and the harness had no bounded transport recovery and no session precondition, so case 3 failed with a raw null-handle TypeError. Fixed in this change; no cause for the renderer death itself is asserted."
+    }
+  ],
+  "later_runs_after_acceptance": [
+    {
+      "result": "FAIL: onboarding PASS; mp4 FAILED (no adb device after post-chooser renderer death); recording FAILED downstream",
+      "run": "39196654875 (pull_request, 2fcf466)",
+      "finding": "reproducible harness defect: no transport recovery and no session precondition"
+    },
+    {
+      "result": "FAIL but correctly isolated: onboarding PASS; mp4 PASS; recording BLOCKED_NO_ADB_DEVICE after 4 bounded recovery attempts",
+      "run": "39195490261 -> 39200840085 (a6f6243, controlled attempt)",
+      "finding": "case 2 passed and the post-chooser renderer death did NOT recur, indicating the app path is stable; device loss is external and its cause remains unestablished"
+    },
+    {
+      "result": "PASS_SCOPED_CASES_ONLY: 3/3 ANDROID_EMULATOR_VERIFIED",
+      "run": "39195490261 (a3ee6d8)",
+      "finding": "the accepted acceptance evidence"
     }
   ]
 }

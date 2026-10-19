@@ -332,7 +332,7 @@ export const MobileMediaLibraryView: React.FC = () => {
         ) : (
           <button type="button" className="kml-import-hero" onClick={() => void importForTab()} disabled={busy || tab === 'recents'}>
             <FolderOpen size={36} />
-            <div><strong>{busy ? (ar ? 'جارٍ فتح الجهاز…' : 'Opening device…') : (ar ? 'استيراد من الجهاز' : 'Import from device')}</strong><span>{ar ? 'فيديوهاتك وصورك وموسيقاك. جاهزة لإبداعك القادم.' : 'Your videos, photos and music. Ready for your next creation.'}</span></div>
+            <div><strong>{busy ? (ar ? 'جارٍ فتح الجهاز…' : 'Opening device…') : (ar ? 'استيراد من الجهاز' : 'Import from device')}</strong><span>{ar ? 'ملفات وسائط عادية — لا ملفات JSON للمشروع.' : 'Choose ordinary media files — never project JSON.'}</span></div>
             <span>›</span>
           </button>
         )}

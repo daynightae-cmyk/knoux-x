@@ -2,9 +2,12 @@
  *
  * TRUSTED TOUCH POLICY (see results.touchPolicy):
  * Every app interaction is dispatched through `adb shell input tap` — the OS
- * input pipeline — after the target's DOM rect is measured in the running
- * WebView (CSS point -> device pixels via `window.devicePixelRatio`, verified
- * with a `document.elementFromPoint` hit test and an in-viewport check).
+ * input pipeline. Device pixels are computed from the live DOM rect in the
+ * running WebView plus the native WebView origin measured through uiautomator
+ * (the Capacitor view is inset below the status bar, so CSS points alone land
+ * taps 136px too high): devicePoint = webViewOrigin + cssPoint × DPR.
+ * Every tap requires two stable geometry samples, an elementFromPoint hit
+ * test, an in-viewport check, and a confirmed state change afterwards.
  * No synthetic PointerEvent/MouseEvent dispatch remains; those are untrusted
  * and are never counted as real touch.
  *
@@ -23,7 +26,7 @@ const results = {
   phone: 'NOT_RUN',
   touchPolicy: {
     mode: 'trusted-adb-input-tap',
-    detail: 'adb shell input tap on device pixels derived from live DOM geometry (devicePixelRatio-scaled, elementFromPoint-verified).',
+    detail: 'adb shell input tap on device pixels = native WebView origin (uiautomator bounds) + live DOM CSS point × devicePixelRatio; elementFromPoint-verified, stability-sampled, state-change-confirmed.',
     syntheticEventsUsed: false,
     fallbacks: [],
   },
@@ -51,6 +54,21 @@ function currentFocus() {
     const dump = adb('shell', 'dumpsys', 'window', 'windows');
     return dump.split('\n').map((line) => line.trim()).find((line) => line.startsWith('mCurrentFocus')) ?? null;
   } catch { return null; }
+}
+/* Device-pixels origin of the Capacitor WebView's page viewport. The WebView
+ * is inset below the status bar and above the navigation bar, so a CSS point
+ * inside the page maps to devicePixels = origin + cssPoint * devicePixelRatio. */
+let webViewOrigin = null;
+function readWebViewOrigin() {
+  let xml = '';
+  try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { return null; }
+  if (!xml.includes('<node')) return null;
+  const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
+  const webView = nodes.find((node) => node.includes('class="android.webkit.WebView"'));
+  if (!webView) return null;
+  const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(webView);
+  if (!bounds) return null;
+  return { left: +bounds[1], top: +bounds[2], right: +bounds[3], bottom: +bounds[4] };
 }
 /* SystemUI/documentsui dialogs are real OS surfaces; they are tapped through
  * the same trusted input pipeline straight from the accessibility hierarchy. */
@@ -156,10 +174,14 @@ async function trustedTap(locator, options = {}) {
       throw new Error(`Refusing a trusted tap on a ${Math.round(geometry.width)}x${Math.round(geometry.height)} target (unsafe touch size)`);
     }
     if (geometry.insideViewport && geometry.hitSelf) {
-      const x = Math.round((geometry.screenX + geometry.cssX) * geometry.dpr);
-      const y = Math.round((geometry.screenY + geometry.cssY) * geometry.dpr);
+      /* The Capacitor WebView is inset (status/navigation bars): the page
+       * origin sits at the native WebView node's top-left, measured through
+       * uiautomator — DOM CSS points alone would land taps 136px too high. */
+      if (!webViewOrigin) throw new Error('Native WebView origin is unknown; refusing to guess device pixels');
+      const x = Math.round(webViewOrigin.left + geometry.cssX * geometry.dpr);
+      const y = Math.round(webViewOrigin.top + geometry.cssY * geometry.dpr);
       adb('shell', 'input', 'tap', String(x), String(y));
-      recordTap({ note: options.note ?? 'trustedTap', cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY), x, y, dpr: geometry.dpr });
+      recordTap({ note: options.note ?? 'trustedTap', cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY), x, y, dpr: geometry.dpr, origin: webViewOrigin });
       return { x, y, dpr: geometry.dpr, cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY) };
     }
     lastProblem = geometry.insideViewport
@@ -311,6 +333,11 @@ function readRecordingBytes(uri) {
       } catch { return false; }
     }, 'Playwright Android API could not attach to the KNOUX WebView (is WebView debugging enabled?)', 90000);
     const page = await webview.page();
+    await until(() => {
+      webViewOrigin = readWebViewOrigin();
+      return Boolean(webViewOrigin);
+    }, 'Could not read the native WebView bounds through uiautomator', 45000);
+    results.deviceState.webViewOrigin = webViewOrigin;
     results.deviceState.focus = currentFocus();
     page.on('console', (message) => {
       if (message.type() === 'error') results.consoleErrors = [...(results.consoleErrors || []), message.text()].slice(-50);

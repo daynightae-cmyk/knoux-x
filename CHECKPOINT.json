@@ -37,7 +37,7 @@
     "recording bytes: content read --uri primary, Movies/KNOUX X newest mp4 via exec-out cat fallback, ftyp validated on both paths",
     "syntheticEventsUsed=false; an in-page play() fallback (if trusted taps cannot start playback) is recorded in touchPolicy.fallbacks and case evidence"
   ],
-  "android_run": "GREEN: Android APK (Capacitor) run 39195490261 on a3ee6d8. verdict PASS_SCOPED_CASES_ONLY; syntheticEventsUsed=false; no touch fallbacks. APK sha256 7e4f9010...0dc72d83b29 (debug-signed).",
+  "android_run": "GREEN on a3ee6d8 (run 39195490261, verdict PASS_SCOPED_CASES_ONLY, 3/3 ANDROID_EMULATOR_VERIFIED, syntheticEventsUsed=false, no touch fallbacks). APK sha256 7e4f9010...0dc72d83b29, debug-signed.",
   "emulator_cases": "VERIFIED on installed APK: onboarding-skip, mp4 player (KNOUX-QA.mp4 title + trusted play + 65 decoded frames), native recording (MediaProjection consent -> 161785-byte MP4, 6.52s -> editor decode). All 3 ANDROID_EMULATOR_VERIFIED in CI run 39195490261.",
   "phone_cases": "NOT_RUN",
   "apk_artifact": "Run artifact KNOUX-X-Android-debug-a3ee6d8 (39195490261); installed+accepted on API 35 emulator; 47293225 bytes; versionName 2.1.0.",
@@ -55,5 +55,23 @@
     "PR #57, PR #52 preserved; all worktrees preserved; no destructive git operations performed",
     "_temp/live-evidence/ preserved (local media proof, video gate evidence)"
   ],
-  "next_exact_action": "Android APK gate is GREEN on a3ee6d8 (run 39195490261). Remaining: owner review of PR #58, physical-device handoff (owner-authorized, TEST ONLY debug build), production signing for release. No merge without owner instruction."
+  "next_exact_action": "Android APK gate is GREEN on a3ee6d8 (run 39195490261). Remaining: owner review of PR #58, physical-device handoff (owner-authorized, TEST ONLY debug build), production signing for release. No merge without owner instruction.",
+  "post_acceptance_runner_incident": {
+    "corroboration": "In 39196654875 the smoke launch itself reported android-launch.verdict=PASS and android-ui-readiness=javascript-marker+foreground+visual, and the logcat contains \"beginning of kernel\": the emulator rebooted mid-run and adb/Playwright lost the device.",
+    "action": "No code change is warranted. Re-dispatch \"Android APK (Capacitor)\" on the recovery branch once the GitHub Actions emulator/adb service recovers to obtain a green run at head.",
+    "summary": "Three later runs of the same executable code failed before/while the harness ran, in GitHub Actions emulator infrastructure, not in the app or harness.",
+    "harness_behaviour": "With adb unavailable the harness failed closed at \"Could not read the native WebView bounds through uiautomator\" and at \"No Android device/emulator visible to Playwright Android API\" instead of emitting a false pass. No acceptance claim was taken from these runs.",
+    "runner_errors": [
+      "ERROR | Unable to connect to adb daemon on port: 5037",
+      "The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 1",
+      "error: device 'emulator-5554' not found",
+      "error: could not connect to TCP port 5554: Connection refused"
+    ],
+    "code_identity": "HEAD 2fcf466 differs from the green commit a3ee6d8 only by two documentation commits (88d44ea, 2fcf466); no src/, tools/ or test changes.",
+    "failing_runs": [
+      "39196654875 (pull_request, 2fcf466)",
+      "39197814887 (workflow_dispatch, 2fcf466)",
+      "39198846290 (workflow_dispatch, 2fcf466)"
+    ]
+  }
 }

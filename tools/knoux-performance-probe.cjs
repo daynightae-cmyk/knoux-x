@@ -227,7 +227,10 @@ function percentile(sortedValues, p) {
 function writeEvidence(evidencePath, evidence) {
   const payload = `${JSON.stringify(evidence, null, 2)}\n`;
   const tmpPath = `${evidencePath}.tmp`;
-  fs.writeFileSync(tmpPath, payload, 'utf8');
+  const fd = fs.openSync(tmpPath, 'w');
+  fs.writeSync(fd, payload);
+  fs.fsyncSync(fd);
+  fs.closeSync(fd);
   fs.renameSync(tmpPath, evidencePath);
   if (fs.readFileSync(evidencePath, 'utf8') !== payload) throw new Error('EVIDENCE_WRITE_CORRUPTED');
 }

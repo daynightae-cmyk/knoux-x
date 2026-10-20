@@ -919,7 +919,7 @@ async function verifyImageLabExport(page, saved, expected, label) {
   if (metadata.width !== expected.width || metadata.height !== expected.height) {
     throw new Error(`${label} decoded as ${metadata.width}x${metadata.height}, expected ${expected.width}x${expected.height}`);
   }
-  const dimensions = /(\d+)x(\d+)/.exec(saved.summary);
+  const dimensions = /(\d+)\s*[x×]\s*(\d+)/.exec(saved.summary);
   if (!dimensions || Number(dimensions[1]) !== expected.width || Number(dimensions[2]) !== expected.height) {
     throw new Error(`${label} UI summary "${saved.summary}" does not report ${expected.width}x${expected.height}`);
   }

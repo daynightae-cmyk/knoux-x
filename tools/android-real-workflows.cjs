@@ -26,12 +26,33 @@
  * rejects ("Browser context management is not supported").
  */
 const fs = require('node:fs');
+const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const nativeCore = require('./android-native-core.cjs');
 const output = process.env.KNOUX_ANDROID_EVIDENCE_DIR || 'android-ci-output';
 fs.mkdirSync(output, { recursive: true });
 const PACKAGE = nativeCore.APP_PACKAGE;
+const IMAGE_FIXTURE_NAME = nativeCore.IMAGE_FIXTURE_NAME;
+const IMAGE_RESIZED_NAME = 'KNOUX-QA-320px.jpg';
+const IMAGE_ROTATED_NAME = 'KNOUX-QA-320px-rotated.jpg';
+const IMAGE_RESIZE_EDGE = '320';
+const IMAGE_SOURCE_WIDTH = 640;
+const IMAGE_SOURCE_HEIGHT = 480;
+const IMAGE_RESIZED_WIDTH = 320;
+const IMAGE_RESIZED_HEIGHT = 240;
+const IMAGE_ROTATED_WIDTH = 240;
+const IMAGE_ROTATED_HEIGHT = 320;
+/* Dominant quadrant colours after JPEG encoding. A 90-degree clockwise
+ * rotation moves bottom-left to top-left, so the expected order changes. */
+const QUADRANT_RGB = {
+  red: [220, 30, 30],
+  green: [30, 180, 60],
+  blue: [30, 80, 220],
+  yellow: [235, 200, 30],
+};
+const RESIZED_QUADRANTS = { tl: 'red', tr: 'green', bl: 'blue', br: 'yellow' };
+const ROTATED_QUADRANTS = { tl: 'blue', tr: 'red', bl: 'yellow', br: 'green' };
 const results = {
   environment: 'installed-apk-android-emulator',
   phone: 'NOT_RUN',
@@ -212,7 +233,7 @@ function readWebViewOrigin() {
 }
 /* SystemUI/documentsui dialogs are real OS surfaces; they are tapped through
  * the same trusted input pipeline straight from the accessibility hierarchy. */
-function dumpNativeNodes() {
+function dumpNativeXml() {
   let xml = '';
   try {
     xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty');
@@ -221,9 +242,13 @@ function dumpNativeNodes() {
     try {
       adb('shell', 'uiautomator', 'dump', '/sdcard/knoux-qa-ui.xml');
       xml = adb('shell', 'cat', '/sdcard/knoux-qa-ui.xml');
-    } catch { return []; }
+    } catch { return ''; }
   }
-  return nativeCore.parseNodes(xml);
+  return xml;
+}
+function dumpNativeNodes() {
+  const xml = dumpNativeXml();
+  return xml.includes('<node') ? nativeCore.parseNodes(xml) : [];
 }
 const nodeBounds = nativeCore.nodeBoundsOf;
 const matchesLabels = nativeCore.matchesLabelsOf;
@@ -269,19 +294,101 @@ function probeMedia(file) {
   ));
 }
 
+/* Host-side pixel evidence for the exported image. The bytes are read back
+ * through the app's own persisted SAF bridge, so this inspects the actual
+ * document the system wrote, not a value returned by the processing engine. */
+let sharpModule = null;
+function sharpTooling() {
+  if (!sharpModule) sharpModule = require('sharp');
+  return sharpModule;
+}
+function sha256(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+async function imageMetadata(buffer, label) {
+  const metadata = await sharpTooling()(buffer).metadata();
+  if (metadata.format !== 'jpeg') throw new Error(`${label} is ${metadata.format}, not JPEG`);
+  return {
+    format: metadata.format,
+    width: metadata.width,
+    height: metadata.height,
+    channels: metadata.channels,
+    bytes: buffer.length,
+    sha256: sha256(buffer),
+  };
+}
+async function quadrantSamples(buffer) {
+  const { data, info } = await sharpTooling()(buffer).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const centers = { tl: [0.25, 0.25], tr: [0.75, 0.25], bl: [0.25, 0.75], br: [0.75, 0.75] };
+  const result = {};
+  for (const [corner, [fx, fy]] of Object.entries(centers)) {
+    const centerX = Math.round(info.width * fx);
+    const centerY = Math.round(info.height * fy);
+    const sum = [0, 0, 0];
+    let count = 0;
+    for (let y = centerY - 4; y <= centerY + 4; y += 1) {
+      for (let x = centerX - 4; x <= centerX + 4; x += 1) {
+        if (x < 0 || y < 0 || x >= info.width || y >= info.height) continue;
+        const offset = (y * info.width + x) * info.channels;
+        sum[0] += data[offset];
+        sum[1] += data[offset + 1];
+        sum[2] += data[offset + 2];
+        count += 1;
+      }
+    }
+    result[corner] = count ? sum.map((value) => Math.round(value / count)) : null;
+  }
+  return result;
+}
+function assertQuadrants(label, samples, expected) {
+  for (const [corner, colour] of Object.entries(expected)) {
+    const actual = samples[corner];
+    const target = QUADRANT_RGB[colour];
+    if (!actual || actual.some((value, index) => Math.abs(value - target[index]) > 55)) {
+      throw new Error(`${label} ${corner} is ${JSON.stringify(actual)}, expected ${colour} ${JSON.stringify(target)}`);
+    }
+  }
+  return samples;
+}
+async function readBridgeFile(targetPage, uri) {
+  return targetPage.evaluate(async (target) => {
+    const api = window.knouxAPI?.file;
+    if (!api) throw new Error('The Android file bridge is unavailable.');
+    const exists = await api.exists(target).catch(() => false);
+    const stats = await api.getStats(target).catch(() => null);
+    const saf = window.Capacitor?.Plugins?.KnouxSaf;
+    const stat = saf ? await saf.stat({ uri: target }).catch(() => null) : null;
+    if (!exists) return { exists, stats, stat, size: 0, base64: '' };
+    const raw = await api.readFile(target);
+    const bytes = raw instanceof Uint8Array
+      ? raw
+      : raw instanceof ArrayBuffer
+        ? new Uint8Array(raw)
+        : raw && raw.buffer
+          ? new Uint8Array(raw.buffer, raw.byteOffset || 0, raw.byteLength || raw.buffer.byteLength)
+          : null;
+    if (!bytes) return { exists, stats, stat, size: 0, base64: '' };
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + 0x8000)));
+    }
+    return { exists, stats, stat, size: bytes.length, base64: btoa(binary) };
+  }, uri);
+}
+
 /* Independent fixture check: a missing or empty file on the device is a staging
  * failure and must be reported as such, never as a chooser-navigation failure. */
-function verifyFixtureOnDevice() {
-  const path = `/sdcard/Download/${nativeCore.FIXTURE_NAME}`;
+function verifyFixtureOnDevice(name = nativeCore.FIXTURE_NAME) {
+  const path = `/sdcard/Download/${name}`;
   let listing;
   try {
     listing = adb('shell', 'ls', '-l', path);
   } catch (error) {
-    throw new Error(`Fixture ${nativeCore.FIXTURE_NAME} is not staged on the device (ls failed: ${String(error && error.message).slice(0, 120)})`);
+    throw new Error(`Fixture ${name} is not staged on the device (ls failed: ${String(error && error.message).slice(0, 120)})`);
   }
   const bytes = Number((/\s(\d+)\s+\d{4}-\d{2}-\d{2}/.exec(listing)?.[1]) ?? 0);
-  if (!bytes) throw new Error(`Fixture ${nativeCore.FIXTURE_NAME} is not readable on the device: ${listing.trim() || '(no listing)'}`);
-  return { path, bytes };
+  if (!bytes) throw new Error(`Fixture ${name} is not readable on the device: ${listing.trim() || '(no listing)'}`);
+  return { name, path, bytes };
 }
 
 /* Bounded, state-driven chooser walk shared by every SAF import path. The
@@ -289,13 +396,13 @@ function verifyFixtureOnDevice() {
  * a listing that already contains the fixture, and a roots drawer; each tap
  * requires settled geometry and the "Downloads" root row is matched by exact
  * text so it can never be confused with the "Download" folder tile. */
-async function chooseFixtureInPicker(prefix, maxAttempts = 3) {
+async function chooseFixtureInPicker(prefix, maxAttempts = 3, fixtureName = nativeCore.FIXTURE_NAME) {
   const pickerPaths = [];
   let fileChosen = false;
   for (let attempt = 1; attempt <= maxAttempts && !fileChosen; attempt += 1) {
-    const action = nativeCore.chooserAction(dumpNativeNodes());
+    const action = nativeCore.chooserAction(dumpNativeNodes(), fixtureName);
     if (action.type === 'file-row') {
-      await stableTap(nativeCore.fixtureRowMatcher(), { note: `${prefix}:file (attempt ${attempt})`, description: `${nativeCore.FIXTURE_NAME} row` });
+      await stableTap(nativeCore.fixtureRowMatcher(fixtureName), { note: `${prefix}:file (attempt ${attempt})`, description: `${fixtureName} row` });
       pickerPaths.push(`attempt${attempt}:file-row`);
       fileChosen = true;
       break;
@@ -319,7 +426,7 @@ async function chooseFixtureInPicker(prefix, maxAttempts = 3) {
     await delay(600);
   }
   if (!fileChosen) {
-    await stableTap(nativeCore.fixtureRowMatcher(), { note: `${prefix}:file (final)`, timeout: 12000, description: `${nativeCore.FIXTURE_NAME} row (final)` });
+    await stableTap(nativeCore.fixtureRowMatcher(fixtureName), { note: `${prefix}:file (final)`, timeout: 12000, description: `${fixtureName} row (final)` });
     pickerPaths.push('final:file-row');
   }
   return pickerPaths;
@@ -651,6 +758,193 @@ async function ensurePlayback(page, video) {
     } catch { /* fall through to the next attempt or the honest fallback note */ }
   }
   return { started: false, via: attempts };
+}
+
+/* ------------------------------------------------------------------ *
+ * Image Lab SAF acceptance helpers                                    *
+ * ------------------------------------------------------------------ */
+
+async function openImageLab(page) {
+  await ensureHome(page);
+  await trustedTapUntil(
+    page.getByRole('button', { name: 'Open navigation', exact: true }),
+    () => page.locator('.kmd-drawer').isVisible(),
+    { note: 'image-lab:open-drawer', timeout: 12000, checkTimeout: 8000 },
+  );
+  await trustedTapUntil(
+    page.locator('.kmd-nav').getByRole('button', { name: /Image Lab/ }).first(),
+    () => page.locator('.image-lab-catalog').isVisible(),
+    { note: 'image-lab:open-tools', timeout: 15000, checkTimeout: 9000 },
+  );
+  const cards = await page.locator('.image-lab-catalog [data-image-service-id]').count();
+  const categories = await page.locator('.image-lab-category').count();
+  if (cards !== 6) throw new Error(`Image Lab rendered ${cards} service cards instead of 6`);
+  if (categories !== 3) throw new Error(`Image Lab rendered ${categories} categories instead of 3`);
+  return { cards, categories };
+}
+
+async function openImageLabService(page, serviceId, expectedHeading) {
+  await trustedTapUntil(
+    page.locator(`[data-image-service-id="${serviceId}"]`).first(),
+    () => page.locator('.image-lab-workspace').isVisible(),
+    { note: `image-lab:open-${serviceId}`, timeout: 15000, checkTimeout: 9000 },
+  );
+  const heading = (await page.locator('#image-lab-workspace-title').textContent())?.trim() ?? '';
+  if (heading !== expectedHeading) throw new Error(`Image Lab ${serviceId} heading is "${heading}" instead of "${expectedHeading}"`);
+  return heading;
+}
+
+async function addImageWithPicker(page, fixtureName, prefix) {
+  const addButton = page.locator('.image-workspace-add').first();
+  const primaryButton = page.locator('.image-lab-primary').first();
+  const button = (await addButton.count()) > 0 ? addButton : primaryButton;
+  await trustedTapUntil(
+    button,
+    () => nativeTextPresent(['Show roots', 'Downloads', 'Download', fixtureName]),
+    { note: `${prefix}:open-picker`, timeout: 15000, checkTimeout: 9000 },
+  );
+  const pickerPaths = await chooseFixtureInPicker(prefix, 4, fixtureName);
+  await until(() => coveringNativeWindow() === null, 'image picker did not close after the file tap', 10000);
+  const row = page.locator('.image-queue-list li').filter({ hasText: fixtureName }).first();
+  await row.waitFor({ timeout: 20000 });
+  const preview = row.locator('.image-queue-thumb img').first();
+  if ((await preview.count()) === 0) throw new Error(`${fixtureName} queued without an image preview element`);
+  const decoded = await until(
+    () => preview.evaluate((element) => element.complete && element.naturalWidth > 0
+      ? { width: element.naturalWidth, height: element.naturalHeight }
+      : false),
+    `${fixtureName} preview never decoded on the device`,
+    20000,
+  );
+  return {
+    name: fixtureName,
+    pickerPaths,
+    preview: decoded,
+    queueCount: await page.locator('.image-queue-list li').count(),
+  };
+}
+
+async function setNumberFieldWithKeyboard(page, field, value, note) {
+  const previous = await field.inputValue();
+  if (previous === value) return { previous, method: 'already-set' };
+  await trustedTap(field, { note, minHeight: 20 });
+  await delay(500);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_MOVE_END');
+  for (let index = 0; index < 8; index += 1) adb('shell', 'input', 'keyevent', 'KEYCODE_DEL');
+  adb('shell', 'input', 'text', value);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await until(async () => (await field.inputValue()) === value, `Number field ${note} did not accept "${value}"`, 10000);
+  if ((await page.locator('.image-lab-workspace').count()) === 0) throw new Error('Hiding the numeric keyboard left the Image Lab workspace');
+  return { previous, method: 'adb-keyboard' };
+}
+
+async function confirmSaveInDocumentsUi(prefix) {
+  const seen = [];
+  const taps = [];
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const xml = dumpNativeXml();
+    const nodes = xml.includes('<node') ? nativeCore.parseNodes(xml) : [];
+    const action = nativeCore.saveDialogAction(nodes);
+    if (action.type === 'tap-save') {
+      try {
+        fs.writeFileSync(`${output}/image-lab-save-dialog-${prefix.replace(/[^a-z0-9-]+/gi, '-')}.xml`, xml);
+      } catch { /* evidence write is best-effort */ }
+      const dialogPackage = nativeCore.attrOf(action.node, 'package');
+      await stableTap((node) => nativeCore.attrOf(node, 'package') === dialogPackage && nativeCore.saveButtonMatcher()(node), {
+        note: `${prefix}:documentsui-save`,
+        description: 'DocumentsUI Save action',
+        timeout: 12000,
+      });
+      taps.push(action.note);
+      /* A tap can land while the IME is still resizing the dialog. Only a
+       * dialog that actually closed is evidence the Save action committed. */
+      const closed = await until(() => coveringNativeWindow() === null, 'documentsui-still-open', 8000)
+        .then(() => true)
+        .catch(() => false);
+      if (closed) return { action: action.note, states: seen, taps };
+      continue;
+    }
+    if (!seen.includes(action.note)) seen.push(action.note);
+    await delay(600);
+  }
+  try {
+    fs.writeFileSync(`${output}/image-lab-save-dialog-final.xml`, adb('exec-out', 'uiautomator', 'dump', '/dev/tty'));
+  } catch { /* best-effort */ }
+  throw new Error(`DocumentsUI save action never closed after ${JSON.stringify(taps)}: ${JSON.stringify(seen)}`);
+}
+
+async function processAndSaveImage(page, expectedName, prefix) {
+  const process = page.locator('.image-lab-process').first();
+  await trustedTap(process, { note: `${prefix}:process` });
+  const outcome = await until(async () => {
+    const covering = coveringNativeWindow();
+    if (covering) return { state: 'picker', package: covering.package };
+    const error = page.locator('.image-lab-error').first();
+    if ((await error.count()) > 0) return { state: 'error', message: (await error.textContent())?.trim() };
+    return false;
+  }, 'Image Lab never opened the system save picker', 40000);
+  if (outcome.state === 'error') throw new Error(`Image Lab failed before the save picker: ${outcome.message}`);
+  if (!/documentsui/i.test(outcome.package)) {
+    throw new Error(`Image Lab opened ${outcome.package} instead of the DocumentsUI save dialog`);
+  }
+  const save = await confirmSaveInDocumentsUi(prefix);
+  await until(() => coveringNativeWindow() === null, 'DocumentsUI remained in front after Save', 20000);
+  const saved = await until(() => page.evaluate((expected) => {
+    const items = [...document.querySelectorAll('.image-lab-results li.is-saved')];
+    /* The result's <strong> is the queued source name; the exported filename,
+     * dimensions and byte count live in <small>. Match the actual output. */
+    const item = items.find((entry) => (entry.querySelector('small')?.textContent ?? '').includes(expected));
+    if (!item) return null;
+    return {
+      name: expected,
+      sourceName: item.querySelector('strong')?.textContent?.trim() ?? '',
+      summary: item.querySelector('small')?.textContent?.trim() ?? '',
+      uri: item.querySelector('code')?.textContent?.trim() ?? '',
+      badge: item.querySelector('.image-durable-badge')?.textContent?.trim() ?? '',
+    };
+  }, expectedName), `Image Lab never reported a saved result for ${expectedName}`, 40000);
+  if (!saved.uri.startsWith('content://')) throw new Error(`Image Lab saved a non-durable URI: ${saved.uri}`);
+  if (!/Durable/.test(saved.badge)) throw new Error(`Image Lab did not mark the result durable: "${saved.badge}"`);
+  return { ...saved, outcome, save };
+}
+
+async function verifyImageLabExport(page, saved, expected, label) {
+  const read = await readBridgeFile(page, saved.uri);
+  if (!read.exists || read.size <= 0) throw new Error(`${label} is not readable after save (exists=${read.exists}, size=${read.size})`);
+  const buffer = Buffer.from(read.base64, 'base64');
+  if (buffer.length !== read.size) throw new Error(`${label} bridge size ${buffer.length} differs from reported ${read.size}`);
+  if (buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) throw new Error(`${label} does not start with JPEG magic bytes`);
+  const metadata = await imageMetadata(buffer, label);
+  if (metadata.width !== expected.width || metadata.height !== expected.height) {
+    throw new Error(`${label} decoded as ${metadata.width}x${metadata.height}, expected ${expected.width}x${expected.height}`);
+  }
+  const dimensions = /(\d+)\s*[x×]\s*(\d+)/.exec(saved.summary);
+  if (!dimensions || Number(dimensions[1]) !== expected.width || Number(dimensions[2]) !== expected.height) {
+    throw new Error(`${label} UI summary "${saved.summary}" does not report ${expected.width}x${expected.height}`);
+  }
+  if (read.stat?.mime && read.stat.mime !== 'image/jpeg') throw new Error(`${label} provider MIME is ${read.stat.mime}, not image/jpeg`);
+  if (read.stat?.size && read.stat.size !== buffer.length) throw new Error(`${label} provider size ${read.stat.size} differs from ${buffer.length}`);
+  if (read.stats?.size && read.stats.size !== buffer.length) throw new Error(`${label} file-bridge size ${read.stats.size} differs from ${buffer.length}`);
+  const quadrants = assertQuadrants(label, await quadrantSamples(buffer), expected.quadrants);
+  const file = `${output}/image-lab-${label}.jpg`;
+  fs.writeFileSync(file, buffer);
+  return {
+    file,
+    uri: saved.uri,
+    durable: saved.uri.startsWith('content://'),
+    uiSummary: saved.summary,
+    provider: read.stat ?? null,
+    stats: read.stats ?? null,
+    metadata,
+    quadrants,
+  };
+}
+
+async function captureImageLabLogcat(label) {
+  try {
+    fs.writeFileSync(`${output}/image-lab-${label}-logcat.txt`, adb('shell', 'logcat', '-d', '-t', '2000'));
+  } catch { /* logcat evidence is best-effort; the live capture already runs */ }
 }
 
 function mp4Bytes(bytes) {
@@ -1271,6 +1565,153 @@ function readRecordingBytes(uri) {
         { note: 'audio:back-to-catalog', timeout: 12000, checkTimeout: 8000 },
       );
       return { cards, categories, mergeHeading, queueCount, engineReady, navigation: 'drawer -> Audio Tools -> Join audio files -> Audio lab' };
+    }));
+
+    await runCase('image-lab-saf-import-transform-save-reopen', () => withSession('image-lab-saf-import-transform-save-reopen', async () => {
+      const fixture = verifyFixtureOnDevice(IMAGE_FIXTURE_NAME);
+      const fixtureHost = `${output}/${IMAGE_FIXTURE_NAME}`;
+      let fixtureMetadata = null;
+      if (fs.existsSync(fixtureHost)) {
+        const fixtureBytes = fs.readFileSync(fixtureHost);
+        const metadata = await sharpTooling()(fixtureBytes).metadata();
+        if (metadata.format !== 'png' || metadata.width !== IMAGE_SOURCE_WIDTH || metadata.height !== IMAGE_SOURCE_HEIGHT) {
+          throw new Error(`Fixture host image is ${metadata.format} ${metadata.width}x${metadata.height}, expected png ${IMAGE_SOURCE_WIDTH}x${IMAGE_SOURCE_HEIGHT}`);
+        }
+        fixtureMetadata = { format: metadata.format, width: metadata.width, height: metadata.height, bytes: fixtureBytes.length, sha256: sha256(fixtureBytes) };
+      }
+
+      const catalog = await openImageLab(page);
+      await page.screenshot({ path: `${output}/image-lab-saf-catalog.png` });
+
+      await openImageLabService(page, 'resize', 'Resize');
+      const resizeImport = await addImageWithPicker(page, IMAGE_FIXTURE_NAME, 'image-lab:resize-import');
+      if (resizeImport.preview.width !== IMAGE_SOURCE_WIDTH || resizeImport.preview.height !== IMAGE_SOURCE_HEIGHT) {
+        throw new Error(`Imported preview decoded as ${resizeImport.preview.width}x${resizeImport.preview.height}, expected ${IMAGE_SOURCE_WIDTH}x${IMAGE_SOURCE_HEIGHT}`);
+      }
+      const outputFormat = (await page.locator('.image-workspace-controls .neon-select-value').first().textContent())?.trim() ?? '';
+      if (!/JPEG/i.test(outputFormat)) throw new Error(`Resize output format started at "${outputFormat}" instead of JPEG`);
+      const maxEdgeField = page.locator('.image-workspace-controls input[type="number"]').first();
+      const edgeChange = await setNumberFieldWithKeyboard(page, maxEdgeField, IMAGE_RESIZE_EDGE, 'image-lab:resize-max-edge');
+      await page.screenshot({ path: `${output}/image-lab-saf-resize-configured.png` });
+
+      const resizeSave = await processAndSaveImage(page, IMAGE_RESIZED_NAME, 'image-lab:resize-save');
+      const resized = await verifyImageLabExport(page, resizeSave, {
+        width: IMAGE_RESIZED_WIDTH,
+        height: IMAGE_RESIZED_HEIGHT,
+        quadrants: RESIZED_QUADRANTS,
+      }, 'resize');
+      await page.screenshot({ path: `${output}/image-lab-saf-resize-saved.png` });
+      await captureImageLabLogcat('resize');
+
+      await trustedTapUntil(
+        page.locator('.image-workspace-back').first(),
+        () => page.locator('.image-lab-catalog').isVisible(),
+        { note: 'image-lab:back-to-catalog', timeout: 12000, checkTimeout: 8000 },
+      );
+      await openImageLabService(page, 'rotate', 'Rotate & flip');
+      const rotateImport = await addImageWithPicker(page, IMAGE_RESIZED_NAME, 'image-lab:rotate-import');
+      if (rotateImport.preview.width !== IMAGE_RESIZED_WIDTH || rotateImport.preview.height !== IMAGE_RESIZED_HEIGHT) {
+        throw new Error(`Saved JPEG preview decoded as ${rotateImport.preview.width}x${rotateImport.preview.height}, expected ${IMAGE_RESIZED_WIDTH}x${IMAGE_RESIZED_HEIGHT}`);
+      }
+      const rotate90 = page.getByRole('button', { name: '90°', exact: true });
+      await trustedTapUntil(
+        rotate90,
+        async () => (await rotate90.getAttribute('aria-pressed')) === 'true',
+        { note: 'image-lab:rotate-90', timeout: 12000, checkTimeout: 8000 },
+      );
+      const rotateSave = await processAndSaveImage(page, IMAGE_ROTATED_NAME, 'image-lab:rotate-save');
+      const rotated = await verifyImageLabExport(page, rotateSave, {
+        width: IMAGE_ROTATED_WIDTH,
+        height: IMAGE_ROTATED_HEIGHT,
+        quadrants: ROTATED_QUADRANTS,
+      }, 'rotated');
+      await page.screenshot({ path: `${output}/image-lab-saf-rotated-saved.png` });
+      await captureImageLabLogcat('rotated');
+
+      /* Persistence is only proved by process death. The WebView is re-attached
+       * after am force-stop without clearing app data; each saved URI is then
+       * read back through the production bridge and re-imported through the real
+       * system picker, which proves both the persisted grant and decodability. */
+      const pidBeforeRestart = adb('shell', 'pidof', PACKAGE).trim();
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await ensureHome(page);
+      const pidAfterRestart = adb('shell', 'pidof', PACKAGE).trim();
+      if (pidBeforeRestart && pidAfterRestart && pidBeforeRestart === pidAfterRestart) {
+        throw new Error(`am force-stop did not replace the app process (${pidAfterRestart})`);
+      }
+      const persisted = {};
+      for (const [label, saved] of [['resize', resized], ['rotated', rotated]]) {
+        const read = await readBridgeFile(page, saved.uri);
+        if (!read.exists || read.size <= 0) throw new Error(`Persisted ${label} URI is not readable after force-stop: ${saved.uri}`);
+        const bytes = Buffer.from(read.base64, 'base64');
+        if (bytes.length !== saved.metadata.bytes || sha256(bytes) !== saved.metadata.sha256) {
+          throw new Error(`Persisted ${label} bytes changed after force-stop (${bytes.length} vs ${saved.metadata.bytes} bytes)`);
+        }
+        persisted[label] = { uri: saved.uri, bytes: bytes.length, sha256: sha256(bytes), provider: read.stat ?? null };
+      }
+      await openImageLab(page);
+      await openImageLabService(page, 'convert', 'Convert format');
+      const reopened = await addImageWithPicker(page, IMAGE_ROTATED_NAME, 'image-lab:reopen-import');
+      if (reopened.preview.width !== IMAGE_ROTATED_WIDTH || reopened.preview.height !== IMAGE_ROTATED_HEIGHT) {
+        throw new Error(`Re-imported rotated JPEG decoded as ${reopened.preview.width}x${reopened.preview.height}, expected ${IMAGE_ROTATED_WIDTH}x${IMAGE_ROTATED_HEIGHT}`);
+      }
+      await page.screenshot({ path: `${output}/image-lab-saf-reopened.png` });
+      await captureImageLabLogcat('reopened');
+      return {
+        fixture: { ...fixture, host: fixtureMetadata },
+        catalog,
+        resizeImport,
+        edgeChange,
+        outputFormat,
+        resizeSave,
+        resized,
+        rotateImport,
+        rotateSave,
+        rotated,
+        persisted,
+        reopened,
+        restart: { pidBefore: pidBeforeRestart, pidAfter: pidAfterRestart },
+        persistence: 'Both content:// URIs survived am force-stop byte-for-byte; the rotated JPEG re-imported and decoded through the system picker',
+      };
+    }));
+
+    await runCase('image-lab-saf-save-cancel-no-false-success', () => withSession('image-lab-saf-save-cancel-no-false-success', async () => {
+      verifyFixtureOnDevice(IMAGE_FIXTURE_NAME);
+      await openImageLab(page);
+      await openImageLabService(page, 'rotate', 'Rotate & flip');
+      await addImageWithPicker(page, IMAGE_FIXTURE_NAME, 'image-lab:cancel-import');
+      await trustedTap(page.locator('.image-lab-process').first(), { note: 'image-lab:cancel-process' });
+      const opened = await until(() => coveringNativeWindow(), 'Image Lab never opened the save dialog for the cancellation case', 40000);
+      if (!/documentsui/i.test(opened.package)) throw new Error(`Cancellation case expected DocumentsUI, got ${opened.package}`);
+      let presses = 0;
+      while (presses < 3 && coveringNativeWindow()) {
+        adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+        recordTap({ note: 'image-lab:cancel-save', keyevent: 'KEYCODE_BACK', package: opened.package });
+        presses += 1;
+        /* Never send another BACK blindly: the first press may only dismiss the
+         * IME, and a stale hierarchy must not turn the app's own back policy
+         * into an accidental navigation or exit. */
+        const closed = await until(() => coveringNativeWindow() === null, 'documentsui-still-open-after-back', 6000)
+          .then(() => true)
+          .catch(() => false);
+        if (closed) break;
+      }
+      if (coveringNativeWindow()) throw new Error(`DocumentsUI did not close after ${presses} BACK presses`);
+      const notice = await until(async () => {
+        const text = (await page.locator('.image-lab-notice').textContent().catch(() => ''))?.trim() ?? '';
+        return /save dialog was dismissed/i.test(text) ? text : false;
+      }, 'Cancelled save did not report that the dialog was dismissed', 20000);
+      const savedResults = await page.locator('.image-lab-results li.is-saved').count();
+      const failedResults = await page.locator('.image-lab-results li.is-failed').count();
+      const error = (await page.locator('.image-lab-error').textContent().catch(() => ''))?.trim() ?? '';
+      if (savedResults !== 0) throw new Error(`Cancelled save reported ${savedResults} saved results`);
+      if (failedResults !== 0) throw new Error(`Cancelled save reported ${failedResults} failed results`);
+      if (error) throw new Error(`Cancelled save surfaced an error instead of a dismissal notice: ${error}`);
+      await page.screenshot({ path: `${output}/image-lab-saf-cancelled.png` });
+      await captureImageLabLogcat('cancelled');
+      return { notice, savedResults, failedResults, error, presses, nativePackage: opened.package };
     }));
 
     await runCase('hardware-back-root-exit', () => withSession('hardware-back-root-exit', async () => {

@@ -337,8 +337,8 @@ export function ImageLabWorkspace({
                   min={64}
                   max={8192}
                   step={1}
-                  value={settings.maxEdge}
-                  onChange={(event) => patch({ maxEdge: Number(event.target.value) })}
+                  value={Number.isFinite(settings.maxEdge) ? settings.maxEdge : ''}
+                  onChange={(event) => patch({ maxEdge: event.target.value === '' ? Number.NaN : Number(event.target.value) })}
                   disabled={running}
                 />
               </label>

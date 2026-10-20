@@ -221,7 +221,12 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 420
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          # Same GPU backend evidence as the debug lane: the host SwiftShader
+          # GLES translator kills QEMU ("bad color buffer handle") while the
+          # WebView creates the video surface, while -gpu angle_indirect
+          # (ANGLE over Mesa llvmpipe) keeps the device alive for the whole
+          # acceptance. See .github/workflows/android-apk.yml for the runs.
+          emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: bash tools/android-acceptance-diagnostics.sh android-ci-release-output bash tools/run-android-installed-acceptance.sh android-ci-release-output android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk
 
       - name: Preserve generated App plugin registration evidence

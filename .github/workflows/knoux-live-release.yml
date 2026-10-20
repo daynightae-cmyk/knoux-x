@@ -416,7 +416,10 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 300
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          # ANGLE over Mesa llvmpipe: the host SwiftShader GLES translator kills
+          # QEMU with "bad color buffer handle" while the WebView creates the
+          # video surface. See .github/workflows/android-apk.yml for the runs.
+          emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: bash tools/android-emulator-smoke.sh release-android/${{ needs.preflight.outputs.android_apk }} dev.knoux.playerx release-android
 
       - name: Upload Android artifacts

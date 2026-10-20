@@ -212,8 +212,23 @@ describe('Android back-button policy controller', () => {
     expect(calls.decisions).toContain('interceptor-consumed');
   });
 
-  test('caps the navigation history and ignores same-view records', async () => {
+  test('reaching the root view clears the visited stack so Back arms the exit', async () => {
     const { controller, calls } = createHarness({ view: 'home' });
+    // The user visits the library and returns home through the in-app
+    // "Back to home" control, which records a view change like any other.
+    controller.recordViewChange('home', 'library');
+    controller.recordViewChange('library', 'home');
+
+    await controller.handleBackPress();
+
+    // Back at the root must arm the exit confirmation instead of navigating
+    // back to the library the user already left.
+    expect(calls.setView).toEqual([]);
+    expect(calls.notified).toEqual(['Press back again to exit KNOUX X']);
+    expect(calls.decisions).toContain('exit-armed');
+  });
+
+  test('caps the navigation history and ignores same-view records', async () => {    const { controller, calls } = createHarness({ view: 'home' });
     controller.recordViewChange('home', 'home');
     expect(calls.decisions).toEqual([]);
 

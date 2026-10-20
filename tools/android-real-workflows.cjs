@@ -33,7 +33,7 @@ const output = process.env.KNOUX_ANDROID_EVIDENCE_DIR || 'android-ci-output';
 fs.mkdirSync(output, { recursive: true });
 const PACKAGE = nativeCore.APP_PACKAGE;
 const results = {
-  environment: 'installed-apk-api35-emulator',
+  environment: 'installed-apk-android-emulator',
   phone: 'NOT_RUN',
   touchPolicy: {
     mode: 'trusted-adb-input-tap',

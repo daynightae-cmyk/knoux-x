@@ -305,6 +305,25 @@ async function waitUntil(session, expression, label, timeoutMs = TIMEOUT_MS) {
   }
 }
 
+// Hit-test before CDP mouse input: DOM .click() can bypass a modal or overlay.
+async function clickVisible(session, selector, text = '') {
+  const point = await waitUntil(session, `(() => {
+    const target = Array.from(document.querySelectorAll(${JSON.stringify(selector)}))
+      .find(element => !element.disabled && (element.textContent || '').includes(${JSON.stringify(text)})
+        && element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0);
+    if (!target) return false;
+    target.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const rect = target.getBoundingClientRect();
+    const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+    if (!target.contains(document.elementFromPoint(x, y))) return false;
+    return { x, y, label: (target.textContent || '').trim().slice(0, 100) };
+  })()`, `Reachable control ${selector} ${text}`, 15000);
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  return { clicked: true, ...point, method: 'CDP mouse input with hit-test' };
+}
+
 async function screenshot(session, outputFile) {
   try {
     await session.send('Page.bringToFront', {}, 15_000);
@@ -510,27 +529,17 @@ function prepare() {
     await waitUntil(session, `typeof window.knouxMultitrackAPI?.openRecent === 'function'
       && document.querySelectorAll('button[data-view-id]').length > 0`, 'Renderer reload');
 
-    const editorNavigation = await evaluate(session, `(() => {
-      const candidates = Array.from(document.querySelectorAll('button[data-view-id="editor"]'));
-      const target = candidates.find((button) => {
-        const rect = button.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0;
-      });
-      if (!target) return { clicked: false, count: candidates.length };
-      target.click();
-      return { clicked: true, count: candidates.length };
-    })()`);
+    // Complete first-run through its visible control, without seeding storage.
+    if (await evaluate(session, `Boolean(document.querySelector('.tour-skip'))`)) {
+      evidence.ui.onboarding = await clickVisible(session, '.tour-skip');
+      await waitUntil(session, `!document.querySelector('.tour-skip')`, 'Dismissed first-run tour');
+    }
+    const editorNavigation = await clickVisible(session, 'button[data-view-id="editor"]');
     assert(editorNavigation.clicked, `Could not click Video Studio navigation: ${JSON.stringify(editorNavigation)}`);
     await waitUntil(session, `Boolean(document.querySelector('.multitrack-start-grid'))`, 'Video Studio start screen');
 
-    const recentClick = await waitUntil(session, `(() => {
-      const links = Array.from(document.querySelectorAll('.multitrack-project-link'));
-      const target = links.find((element) => (element.textContent || '').includes('timeline-project.knouxedit'));
-      if (!target) return false;
-      target.click();
-      return true;
-    })()`, 'Saved project in Recent list');
-    assert(recentClick === true, 'Saved project was not clicked from the real Recent UI.');
+    const recentClick = await clickVisible(session, '.multitrack-project-link', 'timeline-project.knouxedit');
+    assert(recentClick.clicked === true, 'Saved project was not clicked from the real Recent UI.');
     await waitUntil(session, `Boolean(document.querySelector('.multitrack-toolbar'))
       && (document.querySelector('#multitrack-title')?.textContent || '').includes('Packaged Timeline Export E2E')`, 'Loaded multitrack workspace');
     evidence.ui.workspace = await captureUiState(session);
@@ -538,18 +547,7 @@ function prepare() {
     // the authored title must be selected through the real timeline UI exactly
     // as a user would: click its visible timeline item, which also clamps the
     // playhead into the title clip.
-    const titleClick = await evaluate(session, `(() => {
-      const items = Array.from(document.querySelectorAll('button.multitrack-item[data-kind="text"]'));
-      const target = items.find((item) => (item.textContent || '').includes(${JSON.stringify(TITLE_TEXT)}));
-      if (!target) {
-        return {
-          clicked: false,
-          textItems: items.map((item) => (item.textContent || '').slice(0, 80)),
-        };
-      }
-      target.click();
-      return { clicked: true, label: (target.textContent || '').slice(0, 80) };
-    })()`);
+    const titleClick = await clickVisible(session, 'button.multitrack-item[data-kind="text"]', TITLE_TEXT);
     assert(titleClick.clicked, `Real title timeline item was not clickable: ${JSON.stringify(titleClick)}`);
     evidence.ui.titleClick = titleClick;
     log(`Clicked real packaged title timeline item: ${JSON.stringify(titleClick)}`);
@@ -563,13 +561,7 @@ function prepare() {
     evidence.ui.titleVisibleBeforeExport = true;
     await screenshot(session, configuredScreenshot);
 
-    const exportClick = await evaluate(session, `(() => {
-      const buttons = Array.from(document.querySelectorAll('.knoux-desktop-timeline-export-actions button'));
-      const target = buttons.find((button) => (button.textContent || '').includes('Export Current Project')) || buttons[0];
-      if (!target || target.disabled) return { clicked: false, count: buttons.length, disabled: Boolean(target?.disabled) };
-      target.click();
-      return { clicked: true, count: buttons.length, label: target.textContent };
-    })()`);
+    const exportClick = await clickVisible(session, '.knoux-desktop-timeline-export-actions button', 'Export Current Project');
     assert(exportClick.clicked, `Real timeline export control was not clickable: ${JSON.stringify(exportClick)}`);
     evidence.ui.exportButton = exportClick;
     log(`Clicked real packaged timeline export control: ${JSON.stringify(exportClick)}`);

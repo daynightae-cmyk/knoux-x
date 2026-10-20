@@ -2,6 +2,12 @@ name: Android Release Acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      emulator-api:
+        description: Android API for a controlled installed-acceptance comparison
+        type: choice
+        default: '35'
+        options: ['35', '34']
   pull_request:
     branches:
       - main
@@ -203,7 +209,7 @@ jobs:
       - name: Install and launch release APK on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ inputs.emulator-api || '35' }}
           target: google_apis
           arch: x86_64
           profile: pixel_7

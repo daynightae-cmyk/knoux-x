@@ -1,0 +1,20 @@
+{
+  "run": 39354147723,
+  "url": "https://github.com/daynightae-cmyk/knoux-x/actions/runs/39354147723",
+  "codeSha": "ee1a62fdbf476371182c9231592261a89c2feee3",
+  "api": 34,
+  "unitSuites": 152,
+  "unitTests": 1335,
+  "unitVerdict": "PASS",
+  "runtimeVerdict": "BLOCKED_WEBVIEW_ATTACH_TIMEOUT",
+  "adbAliveAtExit": true,
+  "appPidAtExit": "3640",
+  "provider": "com.google.android.webview 113.0.5672.136",
+  "apkFiles": [
+    {
+      "path": "_temp\\api34-debug\\KNOUX-X-Android-debug-ee1a62fdbf476371182c9231592261a89c2feee3\\KNOUX-X-Android-debug.apk",
+      "bytes": 47146075,
+      "sha256": "ba77bfcdf10b24d9306aa7385c35945db638eed51643bf31c416708275b1afcd"
+    }
+  ]
+}

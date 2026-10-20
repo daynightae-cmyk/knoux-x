@@ -1,45 +1,31 @@
-# UI-to-service integration closure
+# Integration closure evidence — 20 October 2026
 
-Baseline: PR #60, `1d76a0db840f82606a70ecccfbc1dea5e734a914`.
-Branch: `feat/knoux-x-integration-closure-20261020`. No main/Recovery mutation.
+**NOT eligible for main merge.** Draft PR #61 is based on PR #60 at
+`1d76a0db840f82606a70ecccfbc1dea5e734a914`. Latest tested code:
+`ee1a62fdbf476371182c9231592261a89c2feee3`. The evidence commit adds only docs/artifacts.
 
-The App package was installed with --no-save in Debug, omitted in Release,
-and undeclared in the application manifest. Capacitor 8.5 scans manifest
-packages; installation alone was not registration. Core/App/CLI/Android are now
-exact manifest + lockfile pins. Actual cap add/sync locally discovered App 8.1.2;
-registry and both Gradle links pass the new fail-closed verifier.
+Read INTEGRATION-REPORT-AR.md for the Egyptian Arabic handoff and CONTRACTS.md
+for UI → handler → service → persistence → reopen tracing.
 
-Native diagnostics observe Activity lifecycle, memory pressure, WebView renderer
-termination (didCrash / priority), and SAF callback/result count. Renderer loss
-remains unhandled, preserving Capacitor failure semantics. CI streams device
-logcat, ADB transport changes and host process/memory health before failures.
-The wrapped acceptance exit code is retained.
+- Exact App/Core/CLI/Android pins, generated plugin JSON and Gradle registration PASS.
+- API35 Debug 39345446893 and Release 39345460085: build/launch PASS; trusted
+  onboarding skip and hardware Back drawer-dismiss/Settings-to-Home PASS. SAF
+  returns one item. Playback does not finish; host QEMU disappears before cleanup.
+  Cause remains unestablished. Later cases blocked, not passed.
+- API34 comparison 39354147723 on ee1a62f: TypeScript/lint PASS, 152 suites /
+  1335 tests PASS, package/launch PASS; initial WebView attachment times out.
+  No functional cases. ADB/QEMU/app alive. A distinct failure, not a fix for API35.
+- Windows package/IPC PASS on 3e74e49. Timeline export fails once, produces one
+  valid service output on a later run, then fails again with hit-tested CDP mouse
+  input at the unchanged duration guard. Reliability remains a blocker.
+- windows-service-pass-onboarding-overlay.png shows onboarding over the editor;
+  it cannot prove visible export controls. windows-timeline-trusted-failure.png
+  shows the reachable editor and actual error. Service output retained under outputs/.
+- No application UI/style/asset changes. Actual APK captures at 360×800, 390×844,
+  412×915 mainly show onboarding. No all-route/RTL/landscape/physical-touch claim.
 
-Installed acceptance now refuses API-play/API-seek fallback passes, measures
-native bounds using the existing hierarchy fallback, tests hardware Back drawer
-and navigation, verifies slideshow SAF media after a process restart, and tests
-a trusted timeline swipe, split and persisted edit. Root exit checks Activity
-foreground departure; Android process death is not required by App.exitApp.
-Release runs the same functional suite and cannot declare acceptance before it
-passes. No acceptance threshold was loosened.
-
-Local static checkpoint: typecheck and zero-warning lint passed; full suite
-151/151 suites, 1329/1329 tests at the first checkpoint; subsequent focused
-closure suite 7/7 suites, 62/62 tests. Current full rerun and CI remain recorded
-in the final report. Both workflows parse as YAML. Lock dry-run passes; no old
-locked package version changed. Existing lock entries were preserved.
-
-Windows package builds. The real packaged timeline-export gate FAILED: the app
-rejected output as ending before the authored 3.5-second timeline. The output
-integrity guard remains intact; no tolerance change or PASS substitution was
-made. This is an outstanding merge blocker; causality is not established.
-
-Visual sources, layouts, themes, RTL, splash art and motion are unchanged from
-the approved integrated tree. Historical screenshots are not new APK proof.
-
-PR #57 unique back-policy logic and bounded Windows atomic rename retries are
-already represented in the integrated tree (which also has stronger rename
-retry tests). Unique registration/back runtime gates are implemented here,
-without importing older weaker viewport checks. PR #52's sole unique commit
-changes React import/namespace spelling; its Android StrictMode exclusion and
-optional-overlay behavior are already present. No branch or commit is deleted.
+Android folders retain exact JSON, selected raw lifecycle/host excerpts,
+checksums and screenshots. Full raw logs and APKs are in linked GitHub run artifacts
+and locally under _temp/. Release is TEST_SIGNED, productionSigned=false, BUILT,
+not acceptance PASS. No main/Recovery mutation, merge, force-push, data wipe,
+branch deletion or production release occurred.

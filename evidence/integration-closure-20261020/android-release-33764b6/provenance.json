@@ -1,0 +1,19 @@
+{
+  "run": 39345460085,
+  "url": "https://github.com/daynightae-cmyk/knoux-x/actions/runs/39345460085",
+  "codeSha": "33764b600a2716991bd2b4d5f5f5285ef06dc268",
+  "artifactDirectory": "_temp\\final-release",
+  "apkFiles": [
+    {
+      "path": "_temp\\final-release\\KNOUX-X-Android-release-ci-signed.apk",
+      "bytes": 43991546,
+      "sha256": "ec36903824c8be64bdfe892ff0676402ad54c4e15377b549a583fa58579af667"
+    },
+    {
+      "path": "_temp\\final-release\\KNOUX-X-Android-release-acceptance-33764b600a2716991bd2b4d5f5f5285ef06dc268\\KNOUX-X-Android-release-ci-signed.apk",
+      "bytes": 43991546,
+      "sha256": "ec36903824c8be64bdfe892ff0676402ad54c4e15377b549a583fa58579af667"
+    }
+  ],
+  "rawLogSha256": "cb67b2d734cc29e6362df4a3bce66e64594ceb1246d96a19e5842db9d9d908c1"
+}

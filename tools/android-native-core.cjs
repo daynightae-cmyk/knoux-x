@@ -52,6 +52,13 @@ function nodeBoundsOf(node) {
   return found ? { left: +found[1], top: +found[2], right: +found[3], bottom: +found[4] } : null;
 }
 
+// Only measured bounds from this app's native WebView may map trusted taps.
+function webViewBounds(nodes) {
+  const node = nodes.find((entry) => attrOf(entry, 'class') === 'android.webkit.WebView' && attrOf(entry, 'package') === APP_PACKAGE);
+  const bounds = node ? nodeBoundsOf(node) : null;
+  return bounds && bounds.right > bounds.left && bounds.bottom > bounds.top ? bounds : null;
+}
+
 function matchesLabelsOf(node, labels) {
   return labels.some((label) => node.includes(`text="${label}"`) || node.includes(`content-desc="${label}"`));
 }
@@ -221,6 +228,7 @@ module.exports = {
   parseNodes,
   attrOf,
   nodeBoundsOf,
+  webViewBounds,
   matchesLabelsOf,
   packagesIn,
   coveringNativeSurface,

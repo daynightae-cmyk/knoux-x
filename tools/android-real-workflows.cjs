@@ -29,10 +29,11 @@ const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const nativeCore = require('./android-native-core.cjs');
-const output = 'android-ci-output';
+const output = process.env.KNOUX_ANDROID_EVIDENCE_DIR || 'android-ci-output';
+fs.mkdirSync(output, { recursive: true });
 const PACKAGE = nativeCore.APP_PACKAGE;
 const results = {
-  environment: 'installed-apk-api35-emulator',
+  environment: 'installed-apk-android-emulator',
   phone: 'NOT_RUN',
   touchPolicy: {
     mode: 'trusted-adb-input-tap',
@@ -204,15 +205,7 @@ async function dismissNativeWindows(attempts = 4) {
  * inside the page maps to devicePixels = origin + cssPoint * devicePixelRatio. */
 let webViewOrigin = null;
 function readWebViewOrigin() {
-  let xml = '';
-  try { xml = adb('exec-out', 'uiautomator', 'dump', '/dev/tty'); } catch { return null; }
-  if (!xml.includes('<node')) return null;
-  const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map((match) => match[0]);
-  const webView = nodes.find((node) => node.includes('class="android.webkit.WebView"'));
-  if (!webView) return null;
-  const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(webView);
-  if (!bounds) return null;
-  return { left: +bounds[1], top: +bounds[2], right: +bounds[3], bottom: +bounds[4] };
+  return nativeCore.webViewBounds(dumpNativeNodes());
 }
 /* SystemUI/documentsui dialogs are real OS surfaces; they are tapped through
  * the same trusted input pipeline straight from the accessibility hierarchy. */
@@ -365,7 +358,7 @@ async function trustedTap(locator, options = {}) {
   const handle = locator.first();
   const deadline = Date.now() + (options.timeout ?? 20000);
   let lastProblem = 'no geometry attempt completed';
-  const sample = async () => handle.evaluate((element, fractionX) => {
+  const sample = async (fraction = options.fractionX ?? 0.5) => handle.evaluate((element, fractionX) => {
     element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
     const rect = element.getBoundingClientRect();
     const pointX = rect.left + rect.width * fractionX;
@@ -386,7 +379,7 @@ async function trustedTap(locator, options = {}) {
       hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
       hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
     };
-  }, options.fractionX ?? 0.5);
+  }, fraction);
   while (Date.now() < deadline) {
     let first;
     let geometry;
@@ -431,8 +424,17 @@ async function trustedTap(locator, options = {}) {
       if (!webViewOrigin) throw new Error('Native WebView origin is unknown; refusing to guess device pixels');
       const x = Math.round(webViewOrigin.left + geometry.cssX * geometry.dpr);
       const y = Math.round(webViewOrigin.top + geometry.cssY * geometry.dpr);
+      if (options.swipeToFraction !== undefined) {
+        const end = await sample(options.swipeToFraction);
+        if (!end.insideViewport || !end.hitSelf || Math.abs(end.cssY - geometry.cssY) > 2) throw new Error('Swipe endpoint is not a stable unobstructed target');
+        const x2 = Math.round(webViewOrigin.left + end.cssX * end.dpr);
+        const y2 = Math.round(webViewOrigin.top + end.cssY * end.dpr);
+        adb('shell', 'input', 'swipe', String(x), String(y), String(x2), String(y2), '400');
+        recordTap({ note: options.note ?? 'trustedSwipe', input: 'swipe', x, y, x2, y2, origin: webViewOrigin });
+        return { x, y, x2, y2 };
+      }
       adb('shell', 'input', 'tap', String(x), String(y));
-      recordTap({ note: options.note ?? 'trustedTap', cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY), x, y, dpr: geometry.dpr, origin: webViewOrigin });
+      recordTap({ note: options.note ?? 'trustedTap' , cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY), x, y, dpr: geometry.dpr, origin: webViewOrigin });
       return { x, y, dpr: geometry.dpr, cssX: Math.round(geometry.cssX), cssY: Math.round(geometry.cssY) };
     }
     lastProblem = geometry.insideViewport
@@ -755,6 +757,18 @@ function readRecordingBytes(uri) {
       return 'First-run welcome dismissed with a trusted tap and Home is available';
     }));
 
+    await runCase('hardware-back-drawer-and-navigation', () => withSession('hardware-back-drawer-and-navigation', async () => {
+      await trustedTapUntil(page.getByRole('button', { name: 'Open navigation', exact: true }), () => page.locator('.kmd-drawer').isVisible(), { note: 'back:open-drawer' });
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:close-drawer', keyevent: 'KEYCODE_BACK' });
+      await until(async () => await page.locator('.kmd-drawer').count() === 0 && await page.locator('.knoux-mobile-home').count() > 0, 'Hardware Back did not dismiss the drawer');
+      await trustedTapUntil(page.locator('.kmh-bottom-nav').getByRole('button', { name: 'Settings', exact: true }), () => page.locator('[data-component="MobileSettingsView"]').isVisible(), { note: 'back:settings' });
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:return-home', keyevent: 'KEYCODE_BACK' });
+      await until(() => page.locator('.knoux-mobile-home').isVisible(), 'Hardware Back did not navigate Settings to Home');
+      return { drawerDismissed: true, navigationReturnedHome: true, appPid: adb('shell', 'pidof', PACKAGE) };
+    }));
+
     await runCase('mp4-actual-player-first-frame-seek-audio', () => withSession('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
       const fixture = verifyFixtureOnDevice();
@@ -799,11 +813,7 @@ function readRecordingBytes(uri) {
       if (!title) throw new Error('Player title never appeared');
       if (!/KNOUX-QA\.mp4/.test(title)) throw new Error(`Player title shows "${title}" instead of the real file name (provider identifier leaked)`);
       const playback = await ensurePlayback(page, video);
-      if (!playback.started) {
-        results.touchPolicy.fallbacks.push('player:playback started via page media element API after trusted taps did not start it');
-        await video.evaluate((element) => { void element.play().catch(() => undefined); });
-        playback.via.push('page-media-element play() (honest fallback: trusted tap did not start playback)');
-      }
+      if (!playback.started) throw new Error('Trusted play taps did not start playback; API playback is not touch acceptance');
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Media did not start advancing after play');
       await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'No decoded video frames');
       const firstFrameMs = Date.now() - started;
@@ -847,12 +857,7 @@ function readRecordingBytes(uri) {
         }
         seekTrusted.attempts.push(attemptRecord);
       }
-      if (!seekTrusted.moved) {
-        seekTrusted.reason = 'trusted timeline scrub did not move playback within the controls reveal window';
-        seekTrusted.fallback = 'API seek verification below still applies';
-      }
-      await video.evaluate((element) => { element.currentTime = 2; });
-      await until(() => video.evaluate((element) => !element.seeking && element.currentTime >= 2), 'Seek did not complete');
+      if (!seekTrusted.moved) throw new Error('Trusted timeline scrub did not move playback; API seek cannot pass this case');
 
       let audioPeak = 0;
       let audioObserved = false;
@@ -878,7 +883,10 @@ function readRecordingBytes(uri) {
         }));
         if (!Number.isFinite(decodedAudio.time) || decodedAudio.time < 1) throw new Error('No audio-track playback progress observed');
       }
-      await video.evaluate((element) => element.pause());
+      await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'player:reveal-for-pause' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'player:pause' });
+      await ensurePlayback(page, video);
+      await until(() => video.evaluate((element) => !element.paused), 'Trusted resume did not resume playback');
       await page.screenshot({ path: `${output}/real-player.png` });
       return {
         ...frame,
@@ -889,7 +897,7 @@ function readRecordingBytes(uri) {
         playbackStartedVia: playback.via,
         seekTrusted,
         audioPeak,
-        seek: 'completed (API seek verified after the trusted scrub attempt)',
+        seek: 'completed through trusted Android input',
         speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)',
       };
     }));
@@ -897,6 +905,7 @@ function readRecordingBytes(uri) {
     // Photos-to-video SAF persistence. Separate case: it exercises the second
     // SAF import path and proves a real photo survives save -> reopen.
     await runCase('photos-to-video-saf-persistence', () => withSession('photos-to-video-saf-persistence', async () => {
+      const fixture = verifyFixtureOnDevice();
       await ensureHome(page);
       await trustedTapUntil(
         page.getByRole('button', { name: 'Photos to Video', exact: false }).first(),
@@ -911,47 +920,35 @@ function readRecordingBytes(uri) {
         await trustedTapUntil(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), async () => (await addMedia.count()) > 0, { note: 'slideshow:new-project', timeout: 12000, checkTimeout: 8000 });
       }
       await trustedTapUntil(addMedia, () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]), { note: 'slideshow:add-media (SAF picker)', timeout: 15000, checkTimeout: 9000 });
-      const picked = await chooseFixtureInPicker('slideshow', 3);
-      if (!picked) throw new Error('Photos-to-video chooser could not select the fixture');
+      const pickerPaths = await chooseFixtureInPicker('slideshow', 3);
+      if (!pickerPaths) throw new Error('Photos-to-video chooser could not select the fixture');
       await until(async () => {
         const slides = await page.locator('.kms-strip button').count();
         return slides > 0;
       }, 'the imported photo never appeared in the slideshow timeline', 25000);
       const slideCount = await page.locator('.kms-strip button').count();
-      const createMp4 = slideshow.getByRole('button', { name: 'Create MP4', exact: false }).first();
-      if (await createMp4.isEnabled()) {
-        await trustedTapUntil(createMp4, async () => {
-          const text = await createMp4.textContent();
-          return Boolean(text && !text.toLowerCase().includes('create mp4'));
-        }, { note: 'slideshow:create-mp4', timeout: 15000, checkTimeout: 12000 });
-      } else {
-        // No audio track is staged, so a render may not be offered; that is a
-        // product limitation, not an import failure, and is reported as such.
-        results.measurements.push({ name: 'photos-to-video-render-available', value: false, N: 1 });
-      }
-      const save = slideshow.getByRole('button', { name: 'Save', exact: true }).first();
-      await trustedTapUntil(save, async () => {
-        const disabled = await save.isDisabled();
-        return !disabled;
-      }, { note: 'slideshow:save', timeout: 12000, checkTimeout: 6000 });
-      await delay(1200);
-      const openProject = slideshow.getByRole('button', { name: 'Open project', exact: false }).first();
-      if (await openProject.count() > 0) {
-        await trustedTapUntil(openProject, async () => {
-          const slides = await page.locator('.kms-strip button').count();
-          return slides > 0;
-        }, { note: 'slideshow:open-project', timeout: 15000, checkTimeout: 10000 });
-      }
-      const reopenedSlides = await page.locator('.kms-strip button').count();
-      if (reopenedSlides === 0) throw new Error('The imported photo did not survive save and reopen');
-      return {
-        fixture,
-        pickerPaths,
-        slideCount,
-        reopenedSlides,
-        persistence: `imported photo survived save -> open project (${reopenedSlides} slide(s) restored)`,
-        renderAttempted: await createMp4.isEnabled(),
-      };
+      const saveButton = slideshow.getByRole('button', { name: 'Save', exact: true }).first();
+      await trustedTap(saveButton, { note: 'slideshow:save' });
+      const saved = await until(() => page.evaluate(() => {
+        const recents = JSON.parse(localStorage.getItem('knoux-android:slideshow:recents') || '[]');
+        for (const filePath of recents) {
+          const project = JSON.parse(localStorage.getItem('knoux-android:slideshow:' + filePath) || 'null');
+          if (project?.slides?.length) return { filePath, slides: project.slides.length, source: project.slides[0].sourcePath };
+        }
+        return null;
+      }), 'Save did not persist a slideshow with media', 10000);
+      if (saved.slides !== slideCount || !saved.source?.startsWith('content://')) throw new Error('Saved slideshow did not retain the imported SAF document');
+      // A reload in the same component is not persistence acceptance. Kill only
+      // this test app process, preserve its data, and reopen via the real UI.
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await trustedTapUntil(page.getByRole('button', { name: 'Photos to Video', exact: false }).first(), () => page.locator('[data-component="MobileSlideshowEditor"]').isVisible(), { note: 'slideshow:after-restart' });
+      const recentName = saved.filePath.split('/').pop();
+      await trustedTapUntil(page.locator('.kms-recent-list button').filter({ hasText: recentName }).first(), async () => await page.locator('.kms-strip button').count() === slideCount, { note: 'slideshow:reopen-saved' });
+      await until(() => page.locator('.kms-preview-stage video').evaluate((video) => video.readyState >= 2 && video.videoWidth > 0), 'Reopened SAF video did not decode after process restart', 20000);
+      await page.screenshot({ path: `${output}/slideshow-after-process-restart.png` });
+      return { fixture, pickerPaths, slideCount, reopenedSlides: await page.locator('.kms-strip button').count(), persistence: 'Saved SAF media reopened and decoded after am force-stop without clearing data' };
     }));
 
     // Native screen capture is a separate case. Failure never turns into launch PASS.
@@ -1021,12 +1018,48 @@ function readRecordingBytes(uri) {
         editor: 'actual saved project loaded with decoded preview',
       };
     }));
+    await runCase('timeline-touch-scrub-split-and-save', () => withSession('timeline-touch-scrub-split-and-save', async () => {
+      const clips = page.locator('.kmc-mobile-clip');
+      const before = await clips.count();
+      if (before !== 1) throw new Error('Expected the single real recording handed to the editor');
+      await trustedTap(clips.first(), { fractionX: 0.15, note: 'timeline:select-recording' });
+      const playhead = page.getByRole('slider', { name: 'Timeline playhead', exact: true });
+      await trustedTap(playhead, { fractionX: 0.1, swipeToFraction: 0.3, minHeight: 12, note: 'timeline:touch-scrub' });
+      const value = await until(async () => Number(await playhead.inputValue()) > 0.1 && Number(await playhead.inputValue()), 'Trusted timeline swipe did not move the playhead');
+      await trustedTapUntil(page.getByRole('button', { name: 'Split', exact: true }), async () => await clips.count() === before + 1, { note: 'timeline:split' });
+      await trustedTap(page.getByRole('button', { name: 'Save', exact: true }), { note: 'timeline:save-edits' });
+      await until(() => page.locator('[data-component="MobileVideoTimelineEditor"][data-dirty="false"]').count(), 'Edited timeline did not finish saving');
+      const persisted = await page.evaluate(() => {
+        const recents = JSON.parse(localStorage.getItem('knoux-android:multitrack:recents') || '[]');
+        const project = JSON.parse(localStorage.getItem('knoux-android:multitrack:' + recents[0]) || 'null');
+        return project?.tracks?.reduce((count, track) => count + track.items.length, 0) ?? 0;
+      });
+      if (persisted !== before + 1) throw new Error('The saved artifact does not contain the split clips');
+      await page.screenshot({ path: `${output}/timeline-trusted-split.png` });
+      return { input: 'adb input swipe + tap', playhead: value, clipsBefore: before, clipsAfter: await clips.count(), persistedClips: persisted };
+    }));
+
+    await runCase('hardware-back-root-exit', () => withSession('hardware-back-root-exit', async () => {
+      await ensureHome(page);
+      await delay(2100);
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:arm-root-exit', keyevent: 'KEYCODE_BACK' });
+      await until(() => page.getByText('Press back again to exit KNOUX X', { exact: false }).count(), 'First Back did not display the root confirmation', 1200);
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:confirm-root-exit', keyevent: 'KEYCODE_BACK' });
+      await until(() => { const foreground = foregroundPackage(); return foreground && foreground !== PACKAGE; }, 'Confirmed Back did not leave the activity', 10000);
+      // App.exitApp finishes the Activity; Android may retain the process.
+      // Process death is not the success criterion for a native Activity exit.
+      return { confirmationObserved: true, foregroundAfterExit: foregroundPackage(), processDeathRequired: false };
+    }));
+
     /* Evidence first, cleanup second: the device state is only meaningful while
      * the emulator still exists, so it is captured before device.close(). A
      * fully verified run needs no exit diagnostics. */
     const allVerified = results.cases.length > 0 && results.cases.every((entry) => entry.status === 'ANDROID_EMULATOR_VERIFIED');
     if (!allVerified) results.deviceState.diagnosticsAtExit = collectDeviceDiagnostics('exit').summary;
   } finally {
+    if (results.cases.length === 0 || results.cases.some((entry) => entry.status !== 'ANDROID_EMULATOR_VERIFIED')) results.deviceState.diagnosticsAtExit = collectDeviceDiagnostics('before-session-close').summary;
     try { if (device) await device.close(); } catch { /* best-effort cleanup */ }
   }
   results.verdict = results.cases.every((entry) => entry.status === 'ANDROID_EMULATOR_VERIFIED') ? 'PASS_SCOPED_CASES_ONLY' : 'FAIL';

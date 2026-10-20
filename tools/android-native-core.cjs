@@ -82,7 +82,13 @@ function isAppSurface(nodes) {
 /* Node matchers. A matcher is a predicate over a freshly re-dumped hierarchy,
  * never an identity comparison against a node from an earlier dump: the
  * stability check re-reads the screen and must land on the same control. */
-const fixtureRowMatcher = (fixtureName = FIXTURE_NAME) => (node) => matchesLabelsOf(node, [fixtureName]);
+/* List views expose the bare file name as text, but the Recent-images grid
+ * exposes a tile whose content-desc is "<name>, <size>, <time>". Both are the
+ * same file row; the exact bare name stays required so a different file that
+ * merely contains the name cannot match, and "Preview the file <name>" (a
+ * different control) never does. */
+const fixtureRowMatcher = (fixtureName = FIXTURE_NAME) => (node) => matchesLabelsOf(node, [fixtureName])
+  || attrOf(node, 'content-desc').startsWith(`${fixtureName}, `);
 const folderTileMatcher = () => (node) => attrOf(node, 'text') === 'Download'
   && attrOf(node, 'resource-id') === 'android:id/title'
   && attrOf(node, 'package') !== APP_PACKAGE;

@@ -391,6 +391,26 @@ describe('shared chooser walk', () => {
     expect(core.fixtureRowMatcher(core.IMAGE_FIXTURE_NAME)(nodes[1])).toBe(true);
     expect(core.fixtureRowMatcher()(nodes[1])).toBe(false);
   });
+
+  /* Recorded runner XML: the picker opens on "Recent images" as a GridView.
+   * The fixture tile is a LinearLayout whose content-desc carries the name plus
+   * size and time, so an exact-label matcher missed the file entirely. */
+  test('the fixture tile in the Recent images grid matches by name prefix', () => {
+    const grid = hierarchy([
+      node({ package: DOCUMENTSUI, contentDesc: 'image-lab-failure.png, 51.14 kB, 9:50 PM', bounds: '[64,557][366,860]' }),
+      node({ package: DOCUMENTSUI, contentDesc: 'KNOUX-QA.png, 2.22 kB, 9:42 PM', bounds: '[388,557][691,860]' }),
+      node({ package: DOCUMENTSUI, contentDesc: 'Preview the file KNOUX-QA.png', clickable: true, bounds: '[565,557][691,683]' }),
+    ]);
+    const nodes = core.parseNodes(grid);
+    const action = core.chooserAction(nodes, core.IMAGE_FIXTURE_NAME);
+    expect(action.type).toBe('file-row');
+    expect(core.fixtureRowMatcher(core.IMAGE_FIXTURE_NAME)(action.node)).toBe(true);
+    // The preview affordance mentions the name but is a different control.
+    expect(core.fixtureRowMatcher(core.IMAGE_FIXTURE_NAME)(nodes[2])).toBe(false);
+    // A different file whose name merely contains the fixture name never matches.
+    const lookalike = node({ package: DOCUMENTSUI, contentDesc: 'old-KNOUX-QA.png, 1 kB, 8:00 PM' });
+    expect(core.fixtureRowMatcher(core.IMAGE_FIXTURE_NAME)(lookalike)).toBe(false);
+  });
 });
 
 /* ACTION_CREATE_DOCUMENT (SAF save): only the exact DocumentsUI "Save" action

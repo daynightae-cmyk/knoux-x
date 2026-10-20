@@ -30,6 +30,10 @@ export interface AudioProcessRequest {
   tempo: number;
   equalizer: number[];
   tags: AudioTagEdits;
+  /** Reverse the rendered selection (Android engine and FFmpeg). */
+  reverse?: boolean;
+  /** Optional suffix that distinguishes derived exports such as split parts. */
+  outputSuffix?: string;
 }
 
 export interface AudioProcessPlan {
@@ -107,6 +111,16 @@ export function normalizeAudioProcessRequest(raw: AudioProcessRequest): AudioPro
   if (!Array.isArray(raw.equalizer) || raw.equalizer.length !== AUDIO_EQ_FREQUENCIES.length) {
     throw new RangeError('Audio equalizer must contain exactly ten bands.');
   }
+  if (raw.reverse !== undefined && typeof raw.reverse !== 'boolean') {
+    throw new TypeError('Audio reverse flag must be a boolean.');
+  }
+  const outputSuffix = (raw.outputSuffix ?? '').trim();
+  if (
+    outputSuffix.length > 48
+    || [...outputSuffix].some((character) => /[\\/:*?"<>|]/.test(character) || character.charCodeAt(0) < 32)
+  ) {
+    throw new TypeError('Audio output suffix is invalid.');
+  }
   return {
     ...raw,
     sourcePath,
@@ -122,6 +136,8 @@ export function normalizeAudioProcessRequest(raw: AudioProcessRequest): AudioPro
     tempo: clamp(raw.tempo, 0.5, 2),
     equalizer: raw.equalizer.map((gain) => clamp(gain, -20, 20)),
     tags: normalizeTags(raw.tags),
+    reverse: raw.reverse === true,
+    outputSuffix,
   };
 }
 
@@ -152,6 +168,7 @@ export function buildAudioProcessPlan(
   const outputDuration = selectionDuration / request.tempo;
   const filters: string[] = [];
 
+  if (request.reverse) filters.push('areverse');
   if (Math.abs(request.gainDb) >= 0.01) filters.push(`volume=${filterNumber(request.gainDb)}dB`);
   request.equalizer.forEach((gain, index) => {
     if (Math.abs(gain) < 0.01) return;

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>KNOUX X Android Preview</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.Capacitor = {
+        getPlatform: function () { return 'android'; },
+        isNativePlatform: function () { return true; },
+        convertFileSrc: function (value) { return value; },
+        Plugins: {},
+      };
+      if (!localStorage.getItem('knoux-preview-seeded')) {
+        localStorage.setItem('knoux-preview-seeded', '1');
+        localStorage.setItem('knoux-app-store', JSON.stringify({
+          state: {
+            theme: 'deep-black',
+            accentColor: '#8B3DFF',
+            locale: 'en',
+            isSidebarOpen: true,
+            sidebarMode: 'expanded',
+            sidebarWidth: 252,
+            motionEnabled: true,
+          },
+          version: 10,
+        }));
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

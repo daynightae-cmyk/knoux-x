@@ -477,8 +477,8 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       return (
         <section className="kmc-mobile-timeline kmc-mobile-timeline--empty" data-component="MobileVideoTimelineEditor">
           <div className="kmc-mobile-start-card">
-            <strong>Mobile Timeline</strong>
-            <span>Open or create a real Knoux X multitrack project. No desktop editor shell is embedded here.</span>
+            <strong>Your next great story</strong>
+            <span>Every great story starts with a first cut. Create a project or return to one you have saved.</span>
             <div className="kmc-mobile-start-actions">
               <button type="button" onClick={() => void createProject()} disabled={busy}>New project</button>
               <button type="button" onClick={() => void openProject()} disabled={busy}>Open project</button>

@@ -1,0 +1,17 @@
+.github/workflows/android-apk.yml
+CHECKPOINT.json
+electron/fs/atomic-write.ts
+electron/preload-creative.ts
+src/features/home/MobileHomeDashboard.tsx
+src/features/library/MobileMediaLibraryView.tsx
+src/features/player/UltimateMobilePlayer.tsx
+src/features/player/mobilePlayerSession.ts
+src/features/recording/MobileScreenRecordingView.tsx
+src/platform/androidFileBridge.ts
+src/platform/androidSafBridge.ts
+src/store/playerStore.ts
+tests/unit/atomic-file-write.test.ts
+tests/unit/mobile-player-session.test.ts
+tests/unit/mobile-player-titles.test.ts
+tests/unit/p0-mobile-defects-regression.test.ts
+tools/android-real-workflows.cjs

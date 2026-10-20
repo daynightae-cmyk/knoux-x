@@ -1,0 +1,208 @@
+{
+  "status": "PASS",
+  "package": "dev.knoux.playerx",
+  "label": "KNOUX X",
+  "resourceOptimizationSafe": true,
+  "verifiedLauncherPngs": [
+    {
+      "resource": "mipmap/ic_launcher",
+      "density": "mdpi",
+      "entry": "res/9w.png",
+      "width": 48,
+      "height": 48,
+      "sha256": "4ad6a21ba3b5457515ffb08ad98c1dfab0ff55c361816a2fde2cb51a495dda9a"
+    },
+    {
+      "resource": "mipmap/ic_launcher_round",
+      "density": "mdpi",
+      "entry": "res/zR.png",
+      "width": 48,
+      "height": 48,
+      "sha256": "3e17256e627011d93a05b094369bb0ecfaab4966158dedb5efc7e4aaabbf01e8"
+    },
+    {
+      "resource": "mipmap/ic_launcher_foreground",
+      "density": "mdpi",
+      "entry": "res/QZ.png",
+      "width": 108,
+      "height": 108,
+      "sha256": "63bcc1e617d4cfab9e6fe491157f0f9872fe6ae82138eeda309dbe223fc586d6"
+    },
+    {
+      "resource": "mipmap/ic_launcher_monochrome",
+      "density": "mdpi",
+      "entry": "res/Me.png",
+      "width": 108,
+      "height": 108,
+      "sha256": "f5d2cbb365e9026097bcbaa320f3348c946d1ca9fe953e5f102d4e501d382524"
+    },
+    {
+      "resource": "mipmap/ic_launcher",
+      "density": "hdpi",
+      "entry": "res/yn.png",
+      "width": 72,
+      "height": 72,
+      "sha256": "366e21527508d69ffe9cf18b989f64a564a863dd4029ad907add938a86ae66b5"
+    },
+    {
+      "resource": "mipmap/ic_launcher_round",
+      "density": "hdpi",
+      "entry": "res/8c.png",
+      "width": 72,
+      "height": 72,
+      "sha256": "a03b279aefe2942d24281ddda67f4ba9590d94714ca117363258189f13a1fb32"
+    },
+    {
+      "resource": "mipmap/ic_launcher_foreground",
+      "density": "hdpi",
+      "entry": "res/zr.png",
+      "width": 162,
+      "height": 162,
+      "sha256": "9d6358bd58c8f3319a362cf05d1e518c1a537b6a963fe6aad485db51b0ea5a83"
+    },
+    {
+      "resource": "mipmap/ic_launcher_monochrome",
+      "density": "hdpi",
+      "entry": "res/Yt.png",
+      "width": 162,
+      "height": 162,
+      "sha256": "020fc773e6e2b4dbdf31c1ddc2fcb45b67fda228d713bbdc25d2fcfffdc5f3ce"
+    },
+    {
+      "resource": "mipmap/ic_launcher",
+      "density": "xhdpi",
+      "entry": "res/FS.png",
+      "width": 96,
+      "height": 96,
+      "sha256": "10a91719b4bc65dc6d7150a0dbcc6e38fd66700d8e6babbe7f071bba6c0bd8cc"
+    },
+    {
+      "resource": "mipmap/ic_launcher_round",
+      "density": "xhdpi",
+      "entry": "res/wb.png",
+      "width": 96,
+      "height": 96,
+      "sha256": "b2bed8574024e277263300cdc13832348169ec22bdde9cf66eaf948a5d5da20e"
+    },
+    {
+      "resource": "mipmap/ic_launcher_foreground",
+      "density": "xhdpi",
+      "entry": "res/Em.png",
+      "width": 216,
+      "height": 216,
+      "sha256": "f81815d0f4eb74dde880a22d4053ff52a77569ad32d43224f5036de3131ca98a"
+    },
+    {
+      "resource": "mipmap/ic_launcher_monochrome",
+      "density": "xhdpi",
+      "entry": "res/Ul.png",
+      "width": 216,
+      "height": 216,
+      "sha256": "3184f35a75b05b3ce2adc995b6b4fdd80ecb3e125f7047c74463a427691030ae"
+    },
+    {
+      "resource": "mipmap/ic_launcher",
+      "density": "xxhdpi",
+      "entry": "res/RJ.png",
+      "width": 144,
+      "height": 144,
+      "sha256": "bba80606c5c1606d38e5a121936ceaa65668ee70649314d403f9937cb1622172"
+    },
+    {
+      "resource": "mipmap/ic_launcher_round",
+      "density": "xxhdpi",
+      "entry": "res/fO.png",
+      "width": 144,
+      "height": 144,
+      "sha256": "49f137709a63243c8b486d92319fc3b4c8090ae663b371f3fe81ec260b869399"
+    },
+    {
+      "resource": "mipmap/ic_launcher_foreground",
+      "density": "xxhdpi",
+      "entry": "res/Lf.png",
+      "width": 324,
+      "height": 324,
+      "sha256": "b81a2fc394a6a8a87a9ecb00873158d0a0d0e7c66701766546c22ccb4397416f"
+    },
+    {
+      "resource": "mipmap/ic_launcher_monochrome",
+      "density": "xxhdpi",
+      "entry": "res/mU.png",
+      "width": 324,
+      "height": 324,
+      "sha256": "feb387c7d33e0837e2cd8a142699bf23d501bfdb8cb6df62ad3f8de46561b9b8"
+    },
+    {
+      "resource": "mipmap/ic_launcher",
+      "density": "xxxhdpi",
+      "entry": "res/o-.png",
+      "width": 192,
+      "height": 192,
+      "sha256": "556393763b94ef93c36e64f34396d6e69543fca1a0717d69c4ca8dc47da9a31d"
+    },
+    {
+      "resource": "mipmap/ic_launcher_round",
+      "density": "xxxhdpi",
+      "entry": "res/Gc.png",
+      "width": 192,
+      "height": 192,
+      "sha256": "debac143e548c4db5be27702b77472f5bba816d50bb99cd057c1735b21ffb4c3"
+    },
+    {
+      "resource": "mipmap/ic_launcher_foreground",
+      "density": "xxxhdpi",
+      "entry": "res/as.png",
+      "width": 432,
+      "height": 432,
+      "sha256": "38022dd6c18439600e3a7d3c691d42e1478df73b898ac7a19d2b91064da5bba4"
+    },
+    {
+      "resource": "mipmap/ic_launcher_monochrome",
+      "density": "xxxhdpi",
+      "entry": "res/_q.png",
+      "width": 432,
+      "height": 432,
+      "sha256": "1a6c372e13ff46472854aa36e31cc36c31e0d2b3ba9b06a9e2ee1b7e4616ef68"
+    }
+  ],
+  "adaptiveIcons": [
+    {
+      "entry": "res/0K.xml",
+      "hasMonochrome": false
+    },
+    {
+      "entry": "res/6H.xml",
+      "hasMonochrome": true
+    },
+    {
+      "entry": "res/BW.xml",
+      "hasMonochrome": false
+    },
+    {
+      "entry": "res/IG.xml",
+      "hasMonochrome": true
+    }
+  ],
+  "uniquePackagedLauncherEntries": [
+    "res/9w.png",
+    "res/zR.png",
+    "res/QZ.png",
+    "res/Me.png",
+    "res/yn.png",
+    "res/8c.png",
+    "res/zr.png",
+    "res/Yt.png",
+    "res/FS.png",
+    "res/wb.png",
+    "res/Em.png",
+    "res/Ul.png",
+    "res/RJ.png",
+    "res/fO.png",
+    "res/Lf.png",
+    "res/mU.png",
+    "res/o-.png",
+    "res/Gc.png",
+    "res/as.png",
+    "res/_q.png"
+  ]
+}

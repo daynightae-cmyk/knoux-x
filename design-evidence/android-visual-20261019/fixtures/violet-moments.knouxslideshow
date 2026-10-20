@@ -1,0 +1,21 @@
+{
+  "schema": "knoux-slideshow",
+  "version": 2,
+  "id": "visual-review-moments",
+  "name": "Violet Moments",
+  "createdAt": "2026-10-19T02:02:42.766Z",
+  "updatedAt": "2026-10-19T02:02:42.766Z",
+  "template": "minimal",
+  "aspect": "16:9",
+  "customWidth": 1920,
+  "customHeight": 1080,
+  "resolution": "1080p",
+  "fps": 30,
+  "defaultImageDuration": 4,
+  "defaultTransition": "crossfade",
+  "defaultTransitionDuration": 0.6,
+  "backgroundColor": "#000000",
+  "slides": [],
+  "audioTracks": [],
+  "watermark": null
+}

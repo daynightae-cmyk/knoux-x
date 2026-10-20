@@ -784,6 +784,7 @@ export const UltimateMobilePlayer: React.FC = () => {
             <h1>Open local media</h1>
             <p>Video and audio stay on your device.</p>
             <button type="button" className="ump-primary" onClick={() => void openMedia()}>Open Video</button>
+            <button type="button" className="ump-empty-back" onClick={() => setView('home')}>Back to Home</button>
           </div>
         )}
 
@@ -868,9 +869,9 @@ export const UltimateMobilePlayer: React.FC = () => {
       <AnimatePresence>
         {sheet && !locked && (
           <motion.div className="ump-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSheet(null)}>
-            <motion.div className="ump-sheet" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 330 }} onClick={(event) => event.stopPropagation()}>
+            <motion.div className="ump-sheet" role="dialog" aria-modal="true" aria-label="Playback controls" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 330 }} onClick={(event) => event.stopPropagation()}>
               <div className="ump-sheet-handle" />
-              <div className="ump-sheet-head"><div><strong>{sheet === 'quick' ? 'Player Quick Menu' : sheet[0].toUpperCase() + sheet.slice(1)}</strong><span>KNOUX Cinema Engine</span></div><button type="button" onClick={() => setSheet(null)}><X size={20} /></button></div>
+              <div className="ump-sheet-head"><div><strong>{sheet === 'quick' ? 'Player Quick Menu' : sheet[0].toUpperCase() + sheet.slice(1)}</strong><span>KNOUX Cinema Engine</span></div><button type="button" aria-label="Close player menu" onClick={() => setSheet(null)}><X size={20} /></button></div>
 
               {sheet === 'speed' && (
                 <div className="ump-sheet-body">

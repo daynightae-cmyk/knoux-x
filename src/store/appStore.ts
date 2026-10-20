@@ -29,6 +29,7 @@ export type ViewType =
   | 'editor'
   | 'image-editor'
   | 'image-studio'
+  | 'image-tools'
   | 'slideshow'
   | 'audio-tools'
   | 'export'

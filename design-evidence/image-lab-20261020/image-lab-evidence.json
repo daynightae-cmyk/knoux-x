@@ -1,0 +1,36 @@
+{
+  "capturedAt": "2026-10-20T18:57:59.064Z",
+  "url": "http://localhost:4173/android-preview.html",
+  "categories": 3,
+  "cards": 6,
+  "proof": {
+    "jpeg": {
+      "width": 240,
+      "height": 320,
+      "bytes": 4975,
+      "signature": [
+        255,
+        216,
+        255
+      ]
+    },
+    "png": {
+      "width": 640,
+      "height": 480,
+      "bytes": 204227
+    },
+    "webp": {
+      "width": 640,
+      "height": 480,
+      "bytes": 3002,
+      "signature": "RIFFWEBP"
+    }
+  },
+  "screenshots": [
+    "image-lab-dashboard-en.png",
+    "image-lab-resize-workspace-en.png",
+    "image-lab-dashboard-ar.png",
+    "image-lab-watermark-workspace-ar.png",
+    "image-lab-dashboard-landscape-ar.png"
+  ]
+}

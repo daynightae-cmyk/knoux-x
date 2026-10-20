@@ -270,7 +270,7 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 420
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: bash tools/android-acceptance-diagnostics.sh android-ci-output bash tools/run-android-installed-acceptance.sh android-ci-output android-ci-output/KNOUX-X-Android-debug.apk
 
       - name: Upload installable APK and launch evidence

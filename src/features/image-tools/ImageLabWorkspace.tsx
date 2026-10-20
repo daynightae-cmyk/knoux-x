@@ -29,6 +29,7 @@ import {
   type ImageLabExportResult,
   type ImageProcessSettings,
 } from '../../core/creative/imageLabCanvas';
+import { NeonSelect } from '../../components/neon/NeonSelect';
 import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import { useTranslation } from '../../i18n';
 
@@ -299,18 +300,16 @@ export function ImageLabWorkspace({
             <h3>{arabic ? 'الإعدادات' : 'Settings'}</h3>
           </div>
 
-          <label className="image-control">
+          <div className="image-control">
             <span>{arabic ? 'صيغة الإخراج' : 'Output format'}</span>
-            <select
+            <NeonSelect
               value={settings.format}
-              onChange={(event) => patch({ format: event.target.value as ImageOutputFormat })}
+              onChange={(value) => patch({ format: value as ImageOutputFormat })}
+              options={FORMAT_OPTIONS}
               disabled={running}
-            >
-              {FORMAT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+              aria-label={arabic ? 'صيغة الإخراج' : 'Output format'}
+            />
+          </div>
 
           {lossy ? (
             <label className="image-control">
@@ -397,20 +396,19 @@ export function ImageLabWorkspace({
                   disabled={running}
                 />
               </label>
-              <label className="image-control">
+              <div className="image-control">
                 <span>{arabic ? 'الموضع' : 'Placement'}</span>
-                <select
+                <NeonSelect
                   value={settings.watermarkPlacement}
-                  onChange={(event) => patch({ watermarkPlacement: event.target.value as ImageWatermarkPlacement })}
+                  onChange={(value) => patch({ watermarkPlacement: value as ImageWatermarkPlacement })}
+                  options={PLACEMENTS.map((placement) => ({
+                    value: placement.value,
+                    label: arabic ? placement.ar : placement.en,
+                  }))}
                   disabled={running}
-                >
-                  {PLACEMENTS.map((placement) => (
-                    <option key={placement.value} value={placement.value}>
-                      {arabic ? placement.ar : placement.en}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  aria-label={arabic ? 'الموضع' : 'Placement'}
+                />
+              </div>
               <label className="image-control">
                 <span>{arabic ? 'الشفافية' : 'Opacity'} <strong>{Math.round(settings.watermarkOpacity * 100)}%</strong></span>
                 <input

@@ -507,7 +507,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.image-control select,
 .image-control input[type='text'],
 .image-control input[type='number'] {
   width: 100%;

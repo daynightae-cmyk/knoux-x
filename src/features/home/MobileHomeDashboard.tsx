@@ -61,6 +61,7 @@ export const MobileHomeDashboard: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const setHomeReady = useAppStore((state) => state.setHomeReady);
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen);
+  const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen);
   const notifications = useAppStore((state) => state.notifications);
   const removeNotification = useAppStore((state) => state.removeNotification);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
@@ -139,7 +140,7 @@ export const MobileHomeDashboard: React.FC = () => {
       <div className="kmh-ambient kmh-ambient-two" />
 
       <header className="kmh-header">
-        <button type="button" className="kmh-icon-button" aria-label="Open navigation" onClick={() => setMobileMenuOpen(true)}><Menu size={22} /></button>
+        <button type="button" className="kmh-icon-button" aria-label="Open navigation" aria-expanded={isMobileMenuOpen} aria-controls="knoux-mobile-navigation" onClick={() => setMobileMenuOpen(true)}><Menu size={22} /></button>
         <div className="kmh-brand-lockup"><BrandMark size={46} /><div><strong>KNOUX <span>X</span></strong><small>CREATE · PLAY · ENHANCE</small></div></div>
         <div className="kmh-header-actions">
           <button type="button" className="kmh-icon-button" aria-label="Search" onClick={() => setOverlay('search')}><Search size={20} /></button>

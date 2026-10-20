@@ -3,7 +3,7 @@
   "appName": "KNOUX X",
   "webDir": "dist",
   "android": {
-    "backgroundColor": "#090B10"
+    "backgroundColor": "#08060D"
   },
   "server": {
     "androidScheme": "https"

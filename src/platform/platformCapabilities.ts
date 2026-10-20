@@ -114,9 +114,9 @@ export function getPlatformCapabilities(environment: CapabilityEnvironment = {})
       videoEdit: supported('android-webview', { inputFormats: [...VIDEO_INPUTS, ...AUDIO_INPUTS, ...IMAGE_INPUTS], maxSafeResolution: 'device-dependent' }),
       slideshow: supported('android-webview', { inputFormats: IMAGE_INPUTS, maxSafeResolution: 'device-dependent' }),
       audioLab: supported('android-webview', {
-        inputFormats: AUDIO_INPUTS,
-        outputFormats: ['wav'],
-        encoders: ['pcm_s16le'],
+        inputFormats: [...AUDIO_INPUTS, ...VIDEO_INPUTS],
+        outputFormats: ['mp3', 'wav'],
+        encoders: ['lame-mp3', 'pcm_s16le'],
         decoders: ['web-audio-supported'],
       }),
       screenRecording: permission('android-native', { screenCapture: true, microphone: true, systemAudio: false }),

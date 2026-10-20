@@ -3,7 +3,7 @@ import { ArrowLeft, FolderPlus, Gauge, Globe2, Moon, RotateCcw, ShieldCheck, Spa
 
 import { BrandMark } from '../../components/brand/BrandMark';
 import type { StructuredValue } from '../../../electron/ipc/channel-types';
-import { useAppStore } from '../../store/appStore';
+import { ANDROID_DEFAULT_THEME, useAppStore } from '../../store/appStore';
 import { MobileOnboarding } from '../../components/mobile/MobileOnboarding';
 
 import { MobileDeveloperView } from './MobileDeveloperView';
@@ -63,7 +63,7 @@ export const MobileSettingsView: React.FC = () => {
     void persist('language', value);
   }, [persist, setLocale]);
 
-  const changeTheme = useCallback((value: 'deep-black' | 'system-light'): void => {
+  const changeTheme = useCallback((value: typeof ANDROID_DEFAULT_THEME | 'neon-purple' | 'system-light'): void => {
     setTheme(value);
     void persist('theme', value);
   }, [persist, setTheme]);
@@ -91,12 +91,12 @@ export const MobileSettingsView: React.FC = () => {
       setDefaultSpeed(1);
       setKeepAwake(true);
       setLibraryPath(null);
-      setTheme('system-light');
+      setTheme(ANDROID_DEFAULT_THEME);
       announceMobileSetting('mobile.defaultPlaybackSpeed', 1);
       announceMobileSetting('mobile.keepScreenAwake', true);
       announceMobileSetting('mobile.libraryPath', null);
-      announceMobileSetting('theme', 'system-light');
-      setNotice('Mobile settings reset. KNOUX Daylight is restored.');
+      announceMobileSetting('theme', ANDROID_DEFAULT_THEME);
+      setNotice('Mobile settings reset. KNOUX Cinema Dark is restored.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Mobile settings could not be reset.');
     }
@@ -112,7 +112,7 @@ export const MobileSettingsView: React.FC = () => {
 
       <section className="kms-card"><div className="kms-card-title"><Globe2 size={18} /><span><strong>{copy('Language', 'اللغة')}</strong><small>{copy('Interface direction updates immediately.', 'اختر لغتك المفضلة.')}</small></span></div><div className="kms-segment"><button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => changeLocale('en')}>English</button><button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => changeLocale('ar')}>العربية</button></div></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>{copy('Appearance', 'المظهر')}</strong><small>{copy('Premium Daylight by default, with optional Deep Black.', 'اختر هدوء اللؤلؤ أو عمق السينما.')}</small></span></div><div className="kms-segment"><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>{copy('Daylight', 'نهاري')}</button><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>{copy('Deep Black', 'ليلي')}</button></div><label className="kms-switch"><span><Sparkles size={17} /> {copy('Motion & transitions', 'الحركة والانتقالات')}</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>{copy('Appearance', 'المظهر')}</strong><small>{copy('Cinema Dark by default. Daylight remains a deliberate choice.', 'الوضع السينمائي الداكن هو الافتراضي، والنهاري اختيار صريح.')}</small></span></div><div className="kms-segment"><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>{copy('Cinema Dark', 'سينمائي داكن')}</button><button type="button" className={theme === 'neon-purple' ? 'active' : ''} onClick={() => changeTheme('neon-purple')}>{copy('Violet', 'بنفسجي')}</button><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>{copy('Daylight', 'نهاري')}</button></div><label className="kms-switch"><span><Sparkles size={17} /> {copy('Motion & transitions', 'الحركة والانتقالات')}</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
 
       <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>{copy('Playback defaults', 'إعدادات التشغيل')}</strong><small>{copy('Applied once when new media opens; manual speed changes remain yours.', 'سرعة البدء للفيديوهات الجديدة.')}</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>{copy('Keep screen awake while playing', 'إبقاء الشاشة مضاءة أثناء التشغيل')}</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
 

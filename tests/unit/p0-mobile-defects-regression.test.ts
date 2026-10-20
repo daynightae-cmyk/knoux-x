@@ -39,13 +39,14 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(splashOverlay).toContain('1800');
     });
 
-    test('native Android splash generator uses the official daylight logo and pearl launch surface', () => {
-      expect(splashScript).toContain("knoux-logo-day.png");
-      expect(splashScript).toContain("const PEARL = '#F8F7FC'");
-      expect(splashScript).toContain("const PURPLE = '#7828E8'");
+    test('native Android splash generator uses the official night logo and cinema-dark launch surface', () => {
+      expect(splashScript).toContain("knoux-logo-night.png");
+      expect(splashScript).toContain("const INK = '#08060D'");
+      expect(splashScript).toContain("const PURPLE = '#8B3DFF'");
       expect(splashScript).toContain('>Knoux <tspan');
-      expect(splashScript).toContain('android:windowLightStatusBar">true');
-      expect(splashScript).toContain('android:windowLightNavigationBar">true');
+      expect(splashScript).toContain('android:windowLightStatusBar">false');
+      expect(splashScript).toContain('android:windowLightNavigationBar">false');
+      expect(splashScript).toContain('cinema-dark');
       expect(splashScript).not.toContain('LOADING...');
     });
 

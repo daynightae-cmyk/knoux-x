@@ -65,6 +65,8 @@
     ]
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/cli": "8.5.0",
     "@electron-forge/cli": "^7.2.0",
     "@electron-forge/maker-deb": "^7.2.0",
     "@electron-forge/maker-rpm": "^7.2.0",
@@ -108,11 +110,12 @@
     "vite": "^5.4.21",
     "webpack": "^5.89.0",
     "webpack-bundle-analyzer": "^4.10.1",
-    "webpack-cli": "^5.1.4",
-    "@capacitor/cli": "8.5.0",
-    "@capacitor/android": "8.5.0"
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.0",
     "@derhuerst/ffprobe-static": "5.3.0",
     "@google/generative-ai": "^0.24.1",
     "@mediapipe/tasks-vision": "1.0.1",
@@ -141,9 +144,7 @@
     "react-router-dom": "^6.21.1",
     "sharp": "^0.33.1",
     "xstate": "^5.4.1",
-    "zustand": "^4.4.7",
-    "@capacitor/core": "8.5.0",
-    "@capacitor/app": "8.1.2"
+    "zustand": "^4.4.7"
   },
   "engines": {
     "node": ">=18.0.0",

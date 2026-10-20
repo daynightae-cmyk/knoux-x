@@ -74,3 +74,6 @@ release/
 *.pfx
 *.pem
 *.key
+
+# Local verification artifacts
+_temp/

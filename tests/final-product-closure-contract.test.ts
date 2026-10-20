@@ -4,12 +4,17 @@ import path from 'node:path';
 import { DEFAULT_APPLICATION_SETTINGS } from '../src/core/settings/applicationSettings';
 import { getPlatformCapabilities, supportedAudioOutputFormats } from '../src/platform/platformCapabilities';
 import { getKnouxThemePreset } from '../src/theme/knouxThemeCatalog';
+import {
+  ANDROID_DEFAULT_THEME,
+  DESKTOP_DEFAULT_THEME,
+  defaultThemeForRuntime,
+} from '../src/theme/themeRuntime';
 
 const root = path.resolve(__dirname, '..');
 const read = (relative: string): string => fs.readFileSync(path.join(root, relative), 'utf8');
 
 describe('KNOUX X absolute final product closure regressions', () => {
-  test('fresh application truth is premium daylight', () => {
+  test('fresh Android application truth is cinema dark while desktop stays daylight', () => {
     expect(DEFAULT_APPLICATION_SETTINGS.theme).toBe('system-light');
     expect(DEFAULT_APPLICATION_SETTINGS.accentColor).toBe('#7828e8');
     expect(getKnouxThemePreset('system-light')).toMatchObject({
@@ -19,19 +24,22 @@ describe('KNOUX X absolute final product closure regressions', () => {
       accent: '#7828e8',
       logo: 'day',
     });
+    expect(ANDROID_DEFAULT_THEME).toBe('deep-black');
+    expect(DESKTOP_DEFAULT_THEME).toBe('system-light');
+    expect(defaultThemeForRuntime('android')).toBe('deep-black');
+    expect(defaultThemeForRuntime('desktop')).toBe('system-light');
 
     const store = read('src/store/appStore.ts');
-    expect(store).toContain("currentView: 'home'");
-    expect(store).toContain("theme: 'system-light'");
-    expect(store).toContain("version: 8");
-    expect(store).toContain("?? 'system-light'");
+    expect(store).toContain('currentView: initialViewForPlatform(detectRuntimeEdition())');
+    expect(store).toContain('theme: defaultThemeForRuntime(detectRuntimeEdition())');
+    expect(store).toContain('version: ANDROID_THEME_MIGRATION_VERSION');
   });
 
   test('Android capability truth never advertises guaranteed-error audio formats or GIF', () => {
     const capabilities = getPlatformCapabilities({ platform: 'android', screenWakeLock: true, online: false });
     expect(capabilities.audioLab.status).toBe('supported');
-    expect(capabilities.audioLab.limits.outputFormats).toEqual(['wav']);
-    expect(supportedAudioOutputFormats({ platform: 'android' })).toEqual(['wav']);
+    expect(capabilities.audioLab.limits.outputFormats).toEqual(['mp3', 'wav']);
+    expect(supportedAudioOutputFormats({ platform: 'android' })).toEqual(['mp3', 'wav']);
     expect(capabilities.gifExport.status).toBe('unsupported');
     expect(capabilities.saf.status).toBe('requires-permission');
     expect(capabilities.screenRecording.status).toBe('requires-permission');
@@ -47,9 +55,10 @@ describe('KNOUX X absolute final product closure regressions', () => {
   test('Android Audio Lab consumes capability truth and never presents local peak normalization as LUFS', () => {
     const audioView = read('src/features/audio-tools/AudioToolsView.tsx');
     expect(audioView).toContain('supportedAudioOutputFormats');
-    expect(audioView).toContain("androidRuntime ? 'wav' : 'mp3'");
+    expect(audioView).toContain("useState<AudioOutputFormat>('mp3')");
     expect(audioView).toContain('Local peak normalization');
-    expect(audioView).toContain('WAV PCM only');
+    expect(audioView).toContain('real MP3 via LAME');
+    expect(audioView).toContain('effectiveMp3Bitrate');
   });
 
   test('mobile speed and wake-lock settings have concrete runtime consumers', () => {
@@ -62,7 +71,7 @@ describe('KNOUX X absolute final product closure regressions', () => {
 
     const settings = read('src/features/settings/MobileSettingsView.tsx');
     expect(settings).toContain("announceMobileSetting('mobile.keepScreenAwake', true)");
-    expect(settings).toContain("setTheme('system-light')");
+    expect(settings).toContain('setTheme(ANDROID_DEFAULT_THEME)');
   });
 
   test('Video Studio export is gated by direct mobile persistence acknowledgement', () => {

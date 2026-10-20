@@ -253,6 +253,7 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
           PY
           grep -F 'PASS' android-ci-release-output/android-launch.verdict
+          grep -F 'PASS' android-ci-release-output/android-back-policy.verdict
           grep -F '"status": "PASS"' android-ci-release-output/android-release-acceptance.json
 
       - name: Upload CI-signed release APK and evidence

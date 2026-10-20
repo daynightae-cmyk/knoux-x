@@ -160,6 +160,30 @@ foreground_activity_ready() {
   grep -Fq "$PACKAGE/.MainActivity" "$OUTPUT_DIR/android-activity-live.txt"
 }
 
+# The cached process can outlive finish(), so task state (topResumedActivity)
+# is the authoritative signal for whether KNOUX still owns the foreground.
+app_is_foreground() {
+  adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" || return 1
+  local resumed
+  resumed="$(grep -E 'topResumedActivity=|mResumedActivity=' "$OUTPUT_DIR/android-activity-live.txt" | head -n 1)"
+  [[ -n "$resumed" && "$resumed" == *"$PACKAGE/.MainActivity"* ]]
+}
+
+wait_for_app_exit() {
+  local attempts="${1:-15}"
+  local attempt resumed
+  for attempt in $(seq 1 "$attempts"); do
+    if adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" 2>/dev/null; then
+      resumed="$(grep -E 'topResumedActivity=|mResumedActivity=' "$OUTPUT_DIR/android-activity-live.txt" | head -n 1)"
+      if [[ -n "$resumed" && "$resumed" != *"$PACKAGE/.MainActivity"* ]]; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 native_splash_gone() {
   adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || return 1
   ! grep -Fq "Splash Screen $PACKAGE" "$OUTPUT_DIR/android-window.txt"
@@ -488,6 +512,82 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt"; then
   grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt" || true
   exit 1
 fi
+
+# ── Hardware back-button policy (ANDROID_BACK_BUTTON_UNWIRED closure) ───────
+# The KNOUX JS back handler owns the hardware back button once the Capacitor
+# App plugin emits `backButton`. Root-view policy: the first press arms exit
+# and shows an in-app notice WITHOUT leaving the foreground; a quick second
+# press inside the confirmation window exits. Both halves are exercised.
+#
+# Dismissing a foreign ANR dialog may itself send BACK and arm the 2s exit
+# window, so settle past the window before arming manually. Android can keep
+# the cached process alive after finish(), so foreground/task state (not
+# pidof) is the acceptance signal.
+sleep 3
+if ! app_is_foreground; then
+  echo 'KNOUX is not in the foreground before the hardware back exercise.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+adb_retry logcat -c || true
+adb_retry shell input keyevent KEYCODE_BACK
+sleep 0.6
+
+if ! app_is_foreground; then
+  echo 'KNOUX left the foreground on the first hardware back press; the exit confirmation gate is not active.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+if [[ -z "$(read_pid || true)" ]]; then
+  echo 'KNOUX exited on the first hardware back press; the back policy is not active.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+# Safe to take a slow screenshot only after the first press is verified.
+capture_screen "$OUTPUT_DIR/android-back-first-press.png" || true
+adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+if grep -q 'KNOUX_ANDROID_BACK_DECISION exit-armed' "$OUTPUT_DIR/android-back-log.txt"; then
+  printf '%s\n' 'intercepted' > "$OUTPUT_DIR/android-back-verdict.txt"
+else
+  # Release WebViews may suppress the console marker; the foreground
+  # assertions above remain the acceptance signal when it is absent.
+  printf '%s\n' 'survived-without-marker' > "$OUTPUT_DIR/android-back-verdict.txt"
+fi
+
+# The screenshot and log dump may span several seconds; re-verify that a
+# pending window transition did not take KNOUX down after the single press.
+if ! app_is_foreground; then
+  echo 'KNOUX left the foreground after the single hardware back press.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+# A press after the window has expired must only re-arm, never exit.
+sleep 3
+adb_retry shell input keyevent KEYCODE_BACK
+sleep 0.6
+if ! app_is_foreground; then
+  echo 'KNOUX exited on a delayed second hardware back press; the confirmation window is not enforced.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+# Let that arm expire, then two presses inside the 2s window must exit. The
+# pair runs on-device so adb latency cannot stretch the 400ms gap.
+sleep 3
+adb_retry shell 'input keyevent KEYCODE_BACK; sleep 0.4; input keyevent KEYCODE_BACK'
+
+if ! wait_for_app_exit 15; then
+  echo 'KNOUX did not apply the root exit policy on a double hardware back press.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+printf '%s\n' 'PASS' > "$OUTPUT_DIR/android-back-policy.verdict"
+echo 'KNOUX Android hardware back policy verified (intercept, then double-press exit).'
 
 adb_retry shell input keyevent KEYCODE_HOME || true
 sleep 1

@@ -12,6 +12,7 @@ import {
   Share2,
   Sparkles,
   Video,
+  Wand2,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ const items: Array<{ view: ViewType; label: string; icon: LucideIcon }> = [
   { view: 'editor', label: 'Video Studio', icon: Video },
   { view: 'slideshow', label: 'Photos to Video', icon: Images },
   { view: 'image-editor', label: 'Image Editor', icon: ImageIcon },
+  { view: 'image-tools', label: 'Image Lab', icon: Wand2 },
   { view: 'image-studio', label: 'Beauty Retouch', icon: Sparkles },
   { view: 'audio-tools', label: 'Audio Tools', icon: AudioLines },
   { view: 'export', label: 'Export', icon: Share2 },

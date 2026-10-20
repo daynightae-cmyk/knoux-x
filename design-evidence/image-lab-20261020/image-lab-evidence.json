@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-10-20T19:47:00.134Z",
+  "sourceCommit": "ef414d540029cb6f47c14efbde5f476dfd59f313",
+  "url": "http://localhost:4173/android-preview.html",
+  "categories": 3,
+  "cards": 6,
+  "proof": {
+    "jpeg": {
+      "width": 240,
+      "height": 320,
+      "bytes": 4975,
+      "signature": [
+        255,
+        216,
+        255
+      ]
+    },
+    "png": {
+      "width": 640,
+      "height": 480,
+      "bytes": 204227
+    },
+    "webp": {
+      "width": 640,
+      "height": 480,
+      "bytes": 3002,
+      "signature": "RIFFWEBP"
+    }
+  },
+  "screenshots": [
+    "image-lab-dashboard-en.png",
+    "image-lab-resize-workspace-en.png",
+    "image-lab-dashboard-ar.png",
+    "image-lab-watermark-workspace-ar.png",
+    "image-lab-dashboard-landscape-ar.png"
+  ],
+  "screenshotSha256": {
+    "image-lab-dashboard-en.png": "68d2aaaa290b4c8ff6756d2104e03395fd2880a5cecec7961592979d799e60ee",
+    "image-lab-resize-workspace-en.png": "e57c0e78bec04d5fe7850f56fe6f2519f7c85ae088b5a9a697860b5bf435c05f",
+    "image-lab-dashboard-ar.png": "e12d312d0897b0b042c16ea34ed918792daa6eea41e9d73c350d6c1d772db744",
+    "image-lab-watermark-workspace-ar.png": "ddf64caa7a55c5635c0ffaa1f0011cfb86ab89e0e8f503350755652b0efca4b3",
+    "image-lab-dashboard-landscape-ar.png": "31acd0ceaef71998c6509f02e1ad3855aefeeb327ac45f89bf4c4464c5172497"
+  }
+}

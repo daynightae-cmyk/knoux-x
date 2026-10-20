@@ -29,6 +29,7 @@ import './styles/image-editor-runtime.css';
 import './styles/image-studio.css';
 import './styles/slideshow-studio.css';
 import './styles/audio-tools.css';
+import './styles/image-lab.css';
 import './styles/video-studio.css';
 import './styles/android-mobile.css';
 import './styles/mobile-premium-shell.css';
@@ -132,6 +133,10 @@ const AudioToolsView = lazy(async () => {
   const module = await import('./features/audio-tools/AudioToolsView');
   return { default: module.AudioToolsView };
 });
+const ImageLabView = lazy(async () => {
+  const module = await import('./features/image-tools/ImageLabView');
+  return { default: module.ImageLabView };
+});
 const ExportView = lazy(async () => {
   const module = await import('./features/export/ExportView');
   return { default: module.ExportView };
@@ -166,6 +171,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'image-studio': return android ? <MobileBeautyRetouchView /> : <ImageStudioView />;
     case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
+    case 'image-tools': return <ImageLabView />;
     case 'export': return android ? <MobileExportView /> : <ExportView />;
     case 'settings': return android ? <MobileSettingsView /> : <SettingsView />;
     default: return <PlayerViewportBoundary />;

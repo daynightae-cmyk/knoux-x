@@ -1,10 +1,18 @@
 const { chromium } = require('playwright');
+const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const BASE = process.env.KNOUX_PREVIEW_URL ?? 'http://localhost:4173/android-preview.html';
 const EVIDENCE = path.resolve(process.env.KNOUX_EVIDENCE_DIR ?? 'design-evidence/image-lab-20261020');
 const CHROMIUM = process.env.KNOUX_CHROMIUM_PATH;
+let SOURCE_COMMIT = process.env.KNOUX_SOURCE_COMMIT ?? '';
+try {
+  SOURCE_COMMIT = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+} catch {
+  /* Evidence stays valid outside a git checkout; it just cannot name a commit. */
+}
 
 const seed = (locale) => `
   localStorage.setItem('knoux-preview-seeded', '1');
@@ -25,9 +33,54 @@ async function openImageLab(page) {
   await page.locator('.knoux-mobile-home').waitFor({ timeout: 20000 });
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   await page.locator('.kmd-drawer').waitFor({ timeout: 8000 });
-  const item = page.locator('.kmd-nav').getByRole('button', { name: /Image Lab/ }).first();
+  const item = page.locator('.kmd-nav').getByRole('button', { name: /Image Lab|مختبر الصور/ }).first();
   await item.click();
   await page.locator('.image-lab-catalog').waitFor({ timeout: 15000 });
+}
+
+async function assertSurface(page, { locale, dir, heading, label }) {
+  const documentState = await page.evaluate(() => {
+    let stored = '';
+    try {
+      stored = JSON.parse(localStorage.getItem('knoux-app-store') ?? '{}')?.state?.locale ?? '';
+    } catch {
+      stored = '';
+    }
+    const root = document.documentElement;
+    const surface = document.querySelector('.image-lab-view') ?? document.body;
+    return {
+      lang: root.lang,
+      dir: root.dir,
+      stored,
+      direction: getComputedStyle(surface).direction,
+      overflow: Math.max(root.scrollWidth, document.body.scrollWidth) - root.clientWidth,
+      nativeSelects: document.querySelectorAll('select').length,
+    };
+  });
+
+  if (documentState.lang !== locale) {
+    throw new Error(`${label}: expected html lang ${locale}, received ${documentState.lang}`);
+  }
+  if (documentState.dir !== dir) {
+    throw new Error(`${label}: expected document direction ${dir}, received ${documentState.dir}`);
+  }
+  if (documentState.stored !== locale) {
+    throw new Error(`${label}: expected persisted locale ${locale}, received ${documentState.stored}`);
+  }
+  if (documentState.direction !== dir) {
+    throw new Error(`${label}: expected surface direction ${dir}, received ${documentState.direction}`);
+  }
+  if (documentState.overflow > 1) {
+    throw new Error(`${label}: horizontal overflow of ${documentState.overflow}px`);
+  }
+  if (documentState.nativeSelects !== 0) {
+    throw new Error(`${label}: found ${documentState.nativeSelects} native select control(s)`);
+  }
+  await page.getByRole('heading', { name: heading, exact: true }).first().waitFor({ timeout: 10000 });
+}
+
+async function hashFile(filePath) {
+  return createHash('sha256').update(await fs.readFile(filePath)).digest('hex');
 }
 
 let browser;
@@ -43,6 +96,7 @@ async function main() {
   await page.locator('.knoux-mobile-home').waitFor({ timeout: 25000 });
   await page.waitForTimeout(1200);
   await openImageLab(page);
+  await assertSurface(page, { locale: 'en', dir: 'ltr', heading: 'Image Lab', label: 'english catalog' });
 
   const categories = await page.locator('.image-lab-category').count();
   const cards = await page.locator('.image-service-card').count();
@@ -133,30 +187,41 @@ async function main() {
   await page.locator('.knoux-mobile-home').waitFor({ timeout: 25000 });
   await page.waitForTimeout(1200);
   await openImageLab(page);
+  await assertSurface(page, { locale: 'ar', dir: 'rtl', heading: 'مختبر الصور', label: 'arabic catalog' });
   await page.screenshot({ path: path.join(EVIDENCE, 'image-lab-dashboard-ar.png'), fullPage: true });
   await page.locator('[data-image-service-id="watermark"]').click();
   await page.locator('.image-lab-workspace').waitFor({ timeout: 10000 });
+  await assertSurface(page, { locale: 'ar', dir: 'rtl', heading: 'الإعدادات', label: 'arabic watermark workspace' });
   await page.screenshot({ path: path.join(EVIDENCE, 'image-lab-watermark-workspace-ar.png'), fullPage: true });
 
   await page.locator('.image-workspace-back').click();
   await page.locator('.image-lab-catalog').waitFor({ timeout: 8000 });
   await page.setViewportSize({ width: 844, height: 390 });
   await page.waitForTimeout(600);
+  await assertSurface(page, { locale: 'ar', dir: 'rtl', heading: 'مختبر الصور', label: 'arabic landscape catalog' });
   await page.screenshot({ path: path.join(EVIDENCE, 'image-lab-dashboard-landscape-ar.png'), fullPage: true });
+
+  const screenshots = [
+    'image-lab-dashboard-en.png',
+    'image-lab-resize-workspace-en.png',
+    'image-lab-dashboard-ar.png',
+    'image-lab-watermark-workspace-ar.png',
+    'image-lab-dashboard-landscape-ar.png',
+  ];
+  const screenshotSha256 = {};
+  for (const name of screenshots) {
+    screenshotSha256[name] = await hashFile(path.join(EVIDENCE, name));
+  }
 
   const evidence = {
     capturedAt: new Date().toISOString(),
+    sourceCommit: SOURCE_COMMIT || null,
     url: page.url(),
     categories,
     cards,
     proof,
-    screenshots: [
-      'image-lab-dashboard-en.png',
-      'image-lab-resize-workspace-en.png',
-      'image-lab-dashboard-ar.png',
-      'image-lab-watermark-workspace-ar.png',
-      'image-lab-dashboard-landscape-ar.png',
-    ],
+    screenshots,
+    screenshotSha256,
   };
   await fs.writeFile(path.join(EVIDENCE, 'image-lab-evidence.json'), JSON.stringify(evidence, null, 2));
   console.log(JSON.stringify(evidence, null, 2));

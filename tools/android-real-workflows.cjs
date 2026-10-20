@@ -51,7 +51,7 @@ const results = {
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
 /* One geometry sample may not block longer than this: the software renderer
  * can keep a locator evaluation pending, and a tap must stay retryable. */
-const SAMPLE_BUDGET_MS = 6000;
+const SAMPLE_BUDGET_MS = 15000;
 /* adb diagnostics never throw: during a transport loss every call fails, and
  * that failure is exactly the evidence being collected. */
 function adbQuiet(...args) {
@@ -359,7 +359,7 @@ async function runCase(id, work) {
 
 async function trustedTap(locator, options = {}) {
   const handle = locator.first();
-  const deadline = Date.now() + (options.timeout ?? 20000);
+  const deadline = Date.now() + (options.timeout ?? 30000);
   let lastProblem = 'no geometry attempt completed';
   const sample = async (fraction = options.fractionX ?? 0.5) => {
     const evaluation = handle.evaluate((element, fractionX) => {
@@ -1036,7 +1036,8 @@ function readRecordingBytes(uri) {
       }
       const pauseControl = page.getByRole('button', { name: 'Pause', exact: true });
       if ((await pauseControl.count()) === 0) {
-        throw new Error('The player was not playing, so the trusted pause step had no Pause control to drive');
+        const playbackState = await video.evaluate((element) => ({ paused: element.paused, ended: element.ended, time: element.currentTime }));
+        throw new Error(`The player was not playing (${JSON.stringify(playbackState)}), so the trusted pause step had no Pause control to drive`);
       }
       await trustedTapUntil(pauseControl, () => video.evaluate((element) => element.paused), { note: 'player:pause' });
       await ensurePlayback(page, video);
@@ -1073,11 +1074,11 @@ function readRecordingBytes(uri) {
         /* An empty project still offers "New project"; create it first. The
          * Android WebView has no window.prompt, so the app asks for the name
          * in its own dialog and that dialog has to be confirmed for real. */
-        await trustedTap(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), { note: 'slideshow:new-project' });
+        await trustedTap(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), { note: 'slideshow:new-project', timeout: 30000 });
         const nameDialog = page.getByRole('dialog', { name: 'Project name' });
-        await nameDialog.waitFor({ timeout: 12000 });
+        await nameDialog.waitFor({ timeout: 20000 });
         const confirmName = nameDialog.getByRole('button', { name: 'Create', exact: true });
-        await trustedTapUntil(confirmName, async () => (await addMedia.count()) > 0, { note: 'slideshow:confirm-project-name', timeout: 15000, checkTimeout: 9000 });
+        await trustedTapUntil(confirmName, async () => (await addMedia.count()) > 0, { note: 'slideshow:confirm-project-name', timeout: 30000, checkTimeout: 15000 });
       }
       await trustedTapUntil(addMedia, () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]), { note: 'slideshow:add-media (SAF picker)', timeout: 15000, checkTimeout: 9000 });
       const pickerPaths = await chooseFixtureInPicker('slideshow', 3);

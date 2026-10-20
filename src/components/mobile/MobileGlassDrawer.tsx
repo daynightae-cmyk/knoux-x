@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AudioLines,
@@ -41,6 +41,47 @@ export const MobileGlassDrawer: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
   const recents = readRecentMedia(window.localStorage).slice(0, 3);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 80);
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const root = drawerRef.current;
+      if (!root) return;
+      const focusable = Array.from(root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, [open, setOpen]);
 
   const selectView = (view: ViewType): void => {
     setView(view);
@@ -59,6 +100,8 @@ export const MobileGlassDrawer: React.FC = () => {
           onClick={() => setOpen(false)}
         >
           <motion.aside
+            ref={drawerRef}
+            id="knoux-mobile-navigation"
             className="kmd-drawer"
             role="dialog"
             aria-modal="true"
@@ -71,7 +114,7 @@ export const MobileGlassDrawer: React.FC = () => {
           >
             <div className="kmd-brand-row">
               <div className="kmd-brand"><BrandMark size={74} /><div><strong>KNOUX <span>X</span></strong><small>CREATE · PLAY · ENHANCE</small></div></div>
-              <button type="button" className="kmd-close" aria-label="Close navigation" onClick={() => setOpen(false)}><X size={22} /></button>
+              <button ref={closeButtonRef} type="button" className="kmd-close" aria-label="Close navigation" onClick={() => setOpen(false)}><X size={22} /></button>
             </div>
 
             <div className="kmd-profile">
@@ -81,9 +124,9 @@ export const MobileGlassDrawer: React.FC = () => {
 
             <nav className="kmd-nav">
               {items.map(({ view, label, icon: Icon }) => (
-                <button type="button" key={view} className={currentView === view ? 'active' : ''} onClick={() => selectView(view)}>
-                  <Icon size={22} /><span>{label}</span><b>›</b>
-                </button>
+                  <button type="button" key={view} className={currentView === view ? 'active' : ''} aria-current={currentView === view ? 'page' : undefined} onClick={() => selectView(view)}>
+                    <Icon size={22} /><span>{label}</span><b aria-hidden="true">›</b>
+                  </button>
               ))}
             </nav>
 

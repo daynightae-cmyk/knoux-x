@@ -2,6 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import type { KnouxThemeId } from '../theme/knouxThemeCatalog';
+import {
+  ANDROID_THEME_MIGRATION_VERSION,
+  defaultThemeForRuntime,
+  detectRuntimeEdition,
+  resolvePersistedTheme,
+} from '../theme/themeRuntime';
+
+export {
+  ANDROID_DEFAULT_THEME,
+  ANDROID_THEME_MIGRATION_VERSION,
+  DESKTOP_DEFAULT_THEME,
+  defaultThemeForRuntime,
+  detectRuntimeEdition,
+  resolvePersistedTheme,
+  type RuntimeEdition,
+} from '../theme/themeRuntime';
 
 export type ViewType =
   | 'home'
@@ -74,9 +90,9 @@ export interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentView: initialViewForPlatform('desktop'),
+      currentView: initialViewForPlatform(detectRuntimeEdition()),
       setView: (view) => set({ currentView: view }),
-      theme: 'system-light',
+      theme: defaultThemeForRuntime(detectRuntimeEdition()),
       setTheme: (theme) => set({ theme }),
       accentColor: '#7828e8',
       setAccentColor: (color) => set({ accentColor: color }),
@@ -117,7 +133,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'knoux-app-store',
-      version: 8,
+      version: ANDROID_THEME_MIGRATION_VERSION,
       partialize: (state) => ({
         theme: state.theme,
         accentColor: state.accentColor,
@@ -127,17 +143,12 @@ export const useAppStore = create<AppState>()(
         sidebarWidth: state.sidebarWidth,
         motionEnabled: state.motionEnabled,
       }),
-      migrate: (persistedState: unknown) => {
+      migrate: (persistedState: unknown, persistedVersion: number) => {
         const state = (persistedState ?? {}) as Partial<AppState> & { theme?: string };
-        const legacyThemes: Record<string, ThemeType> = {
-          dark: 'deep-black',
-          light: 'system-light',
-          auto: 'system-dark',
-        };
         return {
           ...state,
           isMobileMenuOpen: false,
-          theme: legacyThemes[state.theme ?? ''] ?? (state.theme as ThemeType | undefined) ?? 'system-light',
+          theme: resolvePersistedTheme(state.theme, detectRuntimeEdition(), persistedVersion),
         } as AppState;
       },
     },

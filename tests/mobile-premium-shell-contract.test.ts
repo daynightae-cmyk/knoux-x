@@ -117,15 +117,15 @@ describe('KNOUX X Android premium mobile shell contract', () => {
     expect(mobileSlideshowCss).toContain('.kms-inspector');
   });
 
-  test('uses the official daylight asset for the native Android launch surface', () => {
-    expect(splash).toContain("knoux-logo-day.png");
-    expect(splash).toContain("const PEARL = '#F8F7FC'");
-    expect(splash).toContain("const PURPLE = '#7828E8'");
+  test('uses the official night asset for the native Android launch surface', () => {
+    expect(splash).toContain("knoux-logo-night.png");
+    expect(splash).toContain("const INK = '#08060D'");
+    expect(splash).toContain("const PURPLE = '#8B3DFF'");
     expect(splash).toContain('CREATE · PLAY · ENHANCE');
     expect(splash).toContain('Eng. Sadek Elgazar');
     expect(splash).toContain('windowSplashScreenBackground');
     expect(splash).toContain('postSplashScreenTheme');
-    expect(splash).toContain('android:windowLightStatusBar">true');
+    expect(splash).toContain('android:windowLightStatusBar">false');
     expect(workflow).toContain('node tools/prepare-android-premium-splash.cjs');
     expect(workflow).toContain('android-premium-splash.png');
   });

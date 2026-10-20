@@ -12,13 +12,18 @@ describe('Knoux X premium daylight glass UI contract', () => {
   const viewport = read('src/features/player/PlayerViewportBoundary.tsx');
   const settings = read('src/core/settings/applicationSettings.ts');
 
-  test('loads the final compatibility/rebrand layer and keeps Daylight as fresh-install truth', () => {
+  test('keeps Daylight available for desktop while Android defaults to cinema dark', () => {
+    const themeRuntime = read('src/theme/themeRuntime.ts');
+    const appStore = read('src/store/appStore.ts');
     expect(main).toContain("import './styles/premium-daylight-rebrand.css';");
     expect(settings).toContain("theme: 'system-light'");
     expect(css).toContain('--color-bg-primary: var(--knoux-bg-0);');
     expect(css).toContain('--color-text-primary: var(--knoux-text);');
     expect(css).toContain('--color-neon-cyan: var(--knoux-accent);');
     expect(css).toContain(":root[data-theme='system-light']");
+    expect(themeRuntime).toContain("ANDROID_DEFAULT_THEME: KnouxThemeId = 'deep-black'");
+    expect(themeRuntime).toContain("DESKTOP_DEFAULT_THEME: KnouxThemeId = 'system-light'");
+    expect(appStore).toContain('theme: defaultThemeForRuntime(detectRuntimeEdition())');
   });
 
   test('repairs the player viewport toolbar instead of leaving user-agent buttons visible', () => {

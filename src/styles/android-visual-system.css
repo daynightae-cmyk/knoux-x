@@ -355,3 +355,104 @@
 :root[data-platform='android'][data-runtime='android'][data-theme] .kx-prompt-actions button { flex: 1 1 0; min-height: 52px; border-radius: 16px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kx-prompt-cancel { border: 1px solid #4c3a63; background: #17121f; color: var(--kx-muted); }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kx-prompt-confirm { border: 1px solid #b77afb; background: linear-gradient(125deg, #9750f4, #6b26d6); color: #fff; font-weight: 700; }
+
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-backdrop {
+  background: #030207d9;
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  overscroll-behavior: contain;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer {
+  width: min(88vw, 400px);
+  padding: max(18px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  border-right: 1px solid #7a4da8;
+  background-color: #0c0814;
+  background-image: linear-gradient(165deg, #1a1130 0%, #0c0814 52%, #140c22 100%);
+  color: #f8f5ff;
+  box-shadow: 30px 0 90px #000000b8, inset -1px 0 0 #ffffff0a;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #6c4e83 transparent;
+  isolation: isolate;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer::before {
+  position: absolute;
+  z-index: 0;
+  width: 260px;
+  height: 260px;
+  left: -120px;
+  bottom: -90px;
+  border-radius: 50%;
+  background: #7f2dff38;
+  filter: blur(48px);
+  pointer-events: none;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer > * { position: relative; z-index: 1; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-brand strong { color: #f8f5ff; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-brand strong span { color: #c4a6ff; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-brand small { color: #bfaee6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-close {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #6c4e83;
+  border-radius: 16px;
+  background: #21162f;
+  color: #f8f5ff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-profile {
+  border: 1px solid #6c4e83;
+  background: #1a1226;
+  color: #f8f5ff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-profile small { color: #bfaee6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-nav button {
+  min-height: 52px;
+  border: 1px solid transparent;
+  color: #e9ddff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-nav button.active {
+  border-color: #b980ff;
+  background: linear-gradient(100deg, #8b3dff52, #4c139f38);
+  color: #ffffff;
+  box-shadow: 0 0 24px #8b3dff24;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-nav button b { color: #b99ade; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recents { border-top-color: #7a4da866; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-section-title { color: #d5baff; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-section-title button { color: #d5baff; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recent-grid button {
+  border: 1px solid #6c4e8366;
+  background: #1c1329;
+  color: #f8f5ff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recent-grid button > span {
+  background: #8b3dff38;
+  color: #d5baff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recent-grid small,
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recents > p { color: #bfaee6; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-create {
+  border: 1px solid #b980ff;
+  background: linear-gradient(120deg, #7a35d8, #4c139f);
+  color: #ffffff;
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-create span {
+  background: linear-gradient(145deg, #b06bff, #7a35d8);
+}
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer footer { color: #a992c8; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer :is(button, a):focus-visible {
+  outline: 2px solid #e3caff;
+  outline-offset: 3px;
+}
+@media (max-height: 700px) {
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmd-drawer { padding-block: max(12px, env(safe-area-inset-top)) calc(18px + env(safe-area-inset-bottom)); }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmd-profile { margin-block: 12px 10px; }
+  :root[data-platform='android'][data-runtime='android'][data-theme] .kmd-recents { margin-top: 12px; padding-top: 12px; }
+}

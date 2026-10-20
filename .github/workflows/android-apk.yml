@@ -246,9 +246,9 @@ jobs:
         run: |
           node - <<'JS'
           const ffmpeg = require('ffmpeg-static');
-          # 60 s of playback: the acceptance journey plays the clip, scrubs it
-          # with a trusted touch, waits for the audio graph and then pauses and
-          # resumes it. A 12 s clip ended before the trusted pause step.
+          // 60 s of playback: the acceptance journey plays the clip, scrubs it
+          // with a trusted touch, waits for the audio graph and then pauses and
+          // resumes it. A 12 s clip ended before the trusted pause step.
           require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','60','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-output/KNOUX-QA.mp4']);
           JS
           sha256sum android-ci-output/KNOUX-QA.mp4 > android-ci-output/fixture.sha256

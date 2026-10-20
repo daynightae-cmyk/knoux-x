@@ -1220,6 +1220,54 @@ function readRecordingBytes(uri) {
       return { input: 'adb input swipe + tap', playhead: value, clipsBefore: before, clipsAfter: await clips.count(), persistedClips: persisted };
     }));
 
+    await runCase('audio-lab-catalog-and-merge-workspace', () => withSession('audio-lab-catalog-and-merge-workspace', async () => {
+      await ensureHome(page);
+      await trustedTapUntil(
+        page.getByRole('button', { name: 'Open navigation', exact: true }),
+        () => page.locator('.kmd-drawer').isVisible(),
+        { note: 'audio:open-drawer', timeout: 12000, checkTimeout: 8000 },
+      );
+      await trustedTapUntil(
+        page.locator('.kmd-nav').getByRole('button', { name: /Audio Tools/ }).first(),
+        () => page.locator('.audio-lab-catalog').isVisible(),
+        { note: 'audio:open-tools', timeout: 15000, checkTimeout: 9000 },
+      );
+      const catalog = page.locator('.audio-lab-catalog');
+      await catalog.waitFor();
+      const cards = await page.locator('.audio-service-card').count();
+      if (cards !== 11) throw new Error(`Audio Lab rendered ${cards} service cards instead of 11`);
+      const categories = await page.locator('.audio-lab-category').count();
+      if (categories !== 3) throw new Error(`Audio Lab rendered ${categories} categories instead of 3`);
+      const engineReady = await page.evaluate(() => ({
+        runtime: window.knouxRuntime?.edition ?? null,
+        audioToolsBridge: Boolean(window.knouxAudioToolsAPI),
+        audioLabBridge: Boolean(window.knouxAudioLabAPI),
+      }));
+      if (engineReady.runtime !== 'android' || !engineReady.audioToolsBridge) {
+        throw new Error(`Audio Lab engine is not wired in the installed APK: ${JSON.stringify(engineReady)}`);
+      }
+      await page.screenshot({ path: `${output}/audio-lab-catalog.png` });
+      await trustedTapUntil(
+        page.locator('[data-service-id="merge"]').first(),
+        () => page.locator('.audio-lab-workspace').isVisible(),
+        { note: 'audio:open-merge', timeout: 15000, checkTimeout: 9000 },
+      );
+      const mergeHeading = (await page.locator('#audio-merge-title').textContent())?.trim() ?? '';
+      if (!/Join audio files/.test(mergeHeading)) throw new Error(`Merge workspace heading is "${mergeHeading}"`);
+      const queueCount = (await page.locator('.audio-merge-queue .audio-lab-count').textContent())?.trim() ?? '';
+      if (queueCount !== '0/20') throw new Error(`Merge queue started at "${queueCount}" instead of 0/20`);
+      if (await page.getByText('The merge engine is unavailable in this runtime.', { exact: false }).count() > 0) {
+        throw new Error('The Android merge engine reported unavailable in the installed APK');
+      }
+      await page.screenshot({ path: `${output}/audio-lab-merge-workspace.png` });
+      await trustedTapUntil(
+        page.locator('.audio-workspace-back').first(),
+        () => page.locator('.audio-lab-catalog').isVisible(),
+        { note: 'audio:back-to-catalog', timeout: 12000, checkTimeout: 8000 },
+      );
+      return { cards, categories, mergeHeading, queueCount, engineReady, navigation: 'drawer -> Audio Tools -> Join audio files -> Audio lab' };
+    }));
+
     await runCase('hardware-back-root-exit', () => withSession('hardware-back-root-exit', async () => {
       await ensureHome(page);
       await delay(2100);

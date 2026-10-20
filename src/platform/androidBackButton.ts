@@ -14,6 +14,9 @@ import { useAppStore, type ViewType } from '../store/appStore';
  *   5. Navigate to the previously visited view.
  *   6. At the root view, require a second press within 2s before exiting.
  *
+ * Reaching the root view clears the visited-view stack: the root is the
+ * bottom of the Android back stack, so Back there always means "exit".
+ *
  * The controller is deliberately framework-agnostic and receives its platform
  * effects through a context so that it can be verified without a device.
  */
@@ -44,6 +47,8 @@ export interface AndroidBackButtonController {
 
 export const EXIT_CONFIRMATION_WINDOW_MS = 2_000;
 export const VIEW_HISTORY_LIMIT = 25;
+/** The Android root view. Reaching it starts a fresh back stack. */
+export const ROOT_VIEW: ViewType = 'home';
 
 interface InterceptorEntry {
   id: number;
@@ -65,6 +70,15 @@ export function createAndroidBackButtonController(
       if (previous === next) return;
       if (suppressHistoryPush) {
         suppressHistoryPush = false;
+        return;
+      }
+      /* The root view is the bottom of the Android back stack. Reaching it by
+       * any route (the in-app "Back to home" control, a restored session, a
+       * deep link) starts a fresh stack, so the next hardware Back arms the
+       * exit confirmation instead of teleporting back to a screen the user
+       * left long ago. */
+      if (next === ROOT_VIEW) {
+        viewHistory.length = 0;
         return;
       }
       viewHistory.push(previous);

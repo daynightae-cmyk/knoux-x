@@ -49,6 +49,9 @@ const results = {
   sessionRecoveries: [],
 };
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000, maxBuffer: 32 * 1024 * 1024 }).trim();
+/* One geometry sample may not block longer than this: the software renderer
+ * can keep a locator evaluation pending, and a tap must stay retryable. */
+const SAMPLE_BUDGET_MS = 15000;
 /* adb diagnostics never throw: during a transport loss every call fails, and
  * that failure is exactly the evidence being collected. */
 function adbQuiet(...args) {
@@ -356,30 +359,45 @@ async function runCase(id, work) {
 
 async function trustedTap(locator, options = {}) {
   const handle = locator.first();
-  const deadline = Date.now() + (options.timeout ?? 20000);
+  const deadline = Date.now() + (options.timeout ?? 30000);
   let lastProblem = 'no geometry attempt completed';
-  const sample = async (fraction = options.fractionX ?? 0.5) => handle.evaluate((element, fractionX) => {
-    element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
-    const rect = element.getBoundingClientRect();
-    const pointX = rect.left + rect.width * fractionX;
-    const pointY = rect.top + rect.height / 2;
-    const hit = document.elementFromPoint(pointX, pointY);
-    const wrapper = element.closest('label') ?? element;
-    const belongs = (node, root) => { for (let current = node; current; current = current.parentElement) if (current === root) return true; return false; };
-    const viewport = window.visualViewport;
-    return {
-      cssX: pointX + (viewport ? viewport.offsetLeft : 0),
-      cssY: pointY + (viewport ? viewport.offsetTop : 0),
-      dpr: window.devicePixelRatio || 1,
-      screenX: window.screenX || 0,
-      screenY: window.screenY || 0,
-      width: rect.width,
-      height: rect.height,
-      insideViewport: pointX >= 0 && pointY >= 0 && pointX <= window.innerWidth && pointY <= window.innerHeight,
-      hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
-      hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
-    };
-  }, fraction);
+  const sample = async (fraction = options.fractionX ?? 0.5) => {
+    const evaluation = handle.evaluate((element, fractionX) => {
+      element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+      const rect = element.getBoundingClientRect();
+      const pointX = rect.left + rect.width * fractionX;
+      const pointY = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(pointX, pointY);
+      const wrapper = element.closest('label') ?? element;
+      const belongs = (node, root) => { for (let current = node; current; current = current.parentElement) if (current === root) return true; return false; };
+      const viewport = window.visualViewport;
+      return {
+        cssX: pointX + (viewport ? viewport.offsetLeft : 0),
+        cssY: pointY + (viewport ? viewport.offsetTop : 0),
+        dpr: window.devicePixelRatio || 1,
+        screenX: window.screenX || 0,
+        screenY: window.screenY || 0,
+        width: rect.width,
+        height: rect.height,
+        insideViewport: pointX >= 0 && pointY >= 0 && pointX <= window.innerWidth && pointY <= window.innerHeight,
+        hitTag: hit ? `<${hit.tagName.toLowerCase()}>` : null,
+        hitSelf: Boolean(hit) && (belongs(hit, element) || belongs(hit, wrapper)),
+      };
+    }, fraction);
+    /* A busy software renderer can leave a locator evaluation pending for the
+     * whole Playwright timeout, which would spend the entire tap budget on a
+     * single attempt. Bound every sample so the loop can retry instead. */
+    evaluation.catch(() => undefined);
+    let timer = null;
+    const expiry = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('geometry sampling timed out')), SAMPLE_BUDGET_MS);
+    });
+    try {
+      return await Promise.race([evaluation, expiry]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
   while (Date.now() < deadline) {
     let first;
     let geometry;
@@ -1006,8 +1024,22 @@ function readRecordingBytes(uri) {
         }));
         if (!Number.isFinite(decodedAudio.time) || decodedAudio.time < 1) throw new Error('No audio-track playback progress observed');
       }
-      await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'player:reveal-for-pause' });
-      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'player:pause' });
+      /* A stage tap TOGGLES the control layer, so tapping it blindly can hide
+       * the controls again and the play/pause control would never resolve.
+       * Reveal the layer only when the control is really absent, then drive
+       * the control that matches the actual playback state. */
+      const playToggle = page.locator('button.ump-play');
+      const controlVisible = async () => (await playToggle.count()) > 0 && await playToggle.first().isVisible();
+      if (!(await controlVisible())) {
+        await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'player:reveal-for-pause' });
+        await until(controlVisible, 'the player controls did not appear after the reveal tap', 8000);
+      }
+      const pauseControl = page.getByRole('button', { name: 'Pause', exact: true });
+      if ((await pauseControl.count()) === 0) {
+        const playbackState = await video.evaluate((element) => ({ paused: element.paused, ended: element.ended, time: element.currentTime }));
+        throw new Error(`The player was not playing (${JSON.stringify(playbackState)}), so the trusted pause step had no Pause control to drive`);
+      }
+      await trustedTapUntil(pauseControl, () => video.evaluate((element) => element.paused), { note: 'player:pause' });
       await ensurePlayback(page, video);
       await until(() => video.evaluate((element) => !element.paused), 'Trusted resume did not resume playback');
       await page.screenshot({ path: `${output}/real-player.png` });
@@ -1039,8 +1071,14 @@ function readRecordingBytes(uri) {
       await slideshow.waitFor();
       const addMedia = slideshow.getByRole('button', { name: 'Add media', exact: false }).first();
       if (await addMedia.count() === 0) {
-        // An empty project still offers "New project"; create it first.
-        await trustedTapUntil(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), async () => (await addMedia.count()) > 0, { note: 'slideshow:new-project', timeout: 12000, checkTimeout: 8000 });
+        /* An empty project still offers "New project"; create it first. The
+         * Android WebView has no window.prompt, so the app asks for the name
+         * in its own dialog and that dialog has to be confirmed for real. */
+        await trustedTap(slideshow.getByRole('button', { name: 'New project', exact: false }).first(), { note: 'slideshow:new-project', timeout: 30000 });
+        const nameDialog = page.getByRole('dialog', { name: 'Project name' });
+        await nameDialog.waitFor({ timeout: 20000 });
+        const confirmName = nameDialog.getByRole('button', { name: 'Create', exact: true });
+        await trustedTapUntil(confirmName, async () => (await addMedia.count()) > 0, { note: 'slideshow:confirm-project-name', timeout: 30000, checkTimeout: 15000 });
       }
       await trustedTapUntil(addMedia, () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]), { note: 'slideshow:add-media (SAF picker)', timeout: 15000, checkTimeout: 9000 });
       const pickerPaths = await chooseFixtureInPicker('slideshow', 3);

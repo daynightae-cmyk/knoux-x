@@ -26,6 +26,7 @@ import type {
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
 import { isAndroidRuntime } from '../../platform/runtime';
+import { MobilePromptDialog } from '../../components/mobile/MobilePromptDialog';
 import { useAppStore } from '../../store/appStore';
 import { RECORDING_EDITOR_HANDOFF_KEY } from '../recording/recordingEditorHandoff';
 
@@ -134,6 +135,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
     const [dirty, setDirty] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [recent, setRecent] = useState<string[]>([]);
+    const [prompt, setPrompt] = useState<{ open: boolean; title: string; label: string; value: string; confirmLabel: string; submit: (value: string) => void } | null>(null);
     const [zoom, setZoom] = useState(1);
     const dragRef = useRef<{ id: string; x: number; start: number; laneWidth: number; moved: boolean } | null>(null);
     const suppressClickRef = useRef(false);
@@ -229,9 +231,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       media.volume = Math.max(0, Math.min(1, selectedItem.audio.volume));
     }, [playhead, previewUrl, selectedItem]);
 
-    const createProject = useCallback(async (): Promise<void> => {
-      if (busy) return;
-      const name = window.prompt('Project name', 'Knoux X Mobile Project')?.trim();
+    const createProjectWithName = useCallback(async (name: string): Promise<void> => {
       if (!name) return;
       setBusy(true);
       setError(null);
@@ -242,7 +242,19 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       } finally {
         setBusy(false);
       }
-    }, [activate, busy]);
+    }, [activate]);
+
+    const createProject = useCallback((): void => {
+      if (busy) return;
+      setPrompt({
+        open: true,
+        title: ar ? 'اسم المشروع' : 'Project name',
+        label: ar ? 'اسم المشروع' : 'Project name',
+        value: 'Knoux X Mobile Project',
+        confirmLabel: ar ? 'إنشاء' : 'Create',
+        submit: (name) => { void createProjectWithName(name); },
+      });
+    }, [ar, busy, createProjectWithName]);
 
     const openProject = useCallback(async (): Promise<void> => {
       if (busy) return;
@@ -444,10 +456,8 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       }
     }, [busy, commit, playhead, project]);
 
-    const addText = useCallback((): void => {
-      if (!project) return;
-      const value = window.prompt('Title text', 'Knoux X')?.trim();
-      if (!value) return;
+    const addTextWithValue = useCallback((value: string): void => {
+      if (!project || !value) return;
       let workingProject = project;
       let track = compatibleTrack(workingProject, 'text');
       if (!track) {
@@ -466,6 +476,18 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       commit(insertItem(workingProject, item));
       setSelectedItemId(item.id);
     }, [commit, playhead, project]);
+
+    const addText = useCallback((): void => {
+      if (!project) return;
+      setPrompt({
+        open: true,
+        title: ar ? 'نص العنوان' : 'Title text',
+        label: ar ? 'نص العنوان' : 'Title text',
+        value: 'Knoux X',
+        confirmLabel: ar ? 'إضافة' : 'Add',
+        submit: (value) => { addTextWithValue(value); },
+      });
+    }, [addTextWithValue, ar, project]);
 
     const deleteSelected = useCallback((): void => {
       if (!project || !selectedItem) return;
@@ -489,15 +511,32 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       setPlayhead(Math.max(selectedItem.timelineStart, Math.min(selectedItem.timelineStart + selectedItem.duration, selectedItem.timelineStart + local)));
     }, [selectedItem]);
 
+    const promptDialog = (
+      <MobilePromptDialog
+        open={Boolean(prompt?.open)}
+        title={prompt?.title ?? ''}
+        label={prompt?.label ?? ''}
+        defaultValue={prompt?.value ?? ''}
+        confirmLabel={prompt?.confirmLabel ?? (ar ? 'إضافة' : 'Add')}
+        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
+        onConfirm={(value) => {
+          const submit = prompt?.submit;
+          setPrompt(null);
+          submit?.(value);
+        }}
+        onCancel={() => setPrompt(null)}
+      />
+    );
+
     if (!project) {
       return (
         <section className="kmc-mobile-timeline kmc-mobile-timeline--empty" data-component="MobileVideoTimelineEditor">
           <div className="kmc-mobile-start-card">
-            <strong>{ar ? 'قصتك الكبيرة القادمة' : 'Your next great story'}</strong>
-            <span>{ar ? 'كل قصة كبيرة تبدأ بأول مونتاج. أنشئ مشروعًا جديدًا أو عُد إلى مشروع حفظته.' : 'Every great story starts with a first cut. Create a project or return to one you have saved.'}</span>
+            <strong>{ar ? '???? ??????? ???????' : 'Your next great story'}</strong>
+            <span>{ar ? '?? ??? ????? ???? ???? ??????. ???? ??????? ?????? ?? ??? ??? ????? ?????.' : 'Every great story starts with a first cut. Create a project or return to one you have saved.'}</span>
             <div className="kmc-mobile-start-actions">
-              <button type="button" onClick={() => void createProject()} disabled={busy}>{ar ? 'مشروع جديد' : 'New project'}</button>
-              <button type="button" onClick={() => void openProject()} disabled={busy}>{ar ? 'فتح مشروع' : 'Open project'}</button>
+              <button type="button" onClick={createProject} disabled={busy}>{ar ? '????? ????' : 'New project'}</button>
+              <button type="button" onClick={() => void openProject()} disabled={busy}>{ar ? '??? ?????' : 'Open project'}</button>
             </div>
             {recent.slice(0, 4).map((entry) => (
               <button key={entry} type="button" className="kmc-mobile-recent" onClick={() => void openRecent(entry)} disabled={busy}>
@@ -506,6 +545,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
             ))}
             {error && <p className="kmc-mobile-video-error" role="alert">{ar ? ERROR_COPY_AR[error] ?? error : error}</p>}
           </div>
+          {promptDialog}
         </section>
       );
     }
@@ -698,6 +738,7 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
         )}
 
         {error && <p className="kmc-mobile-video-error" role="alert">{ar ? ERROR_COPY_AR[error] ?? error : error}</p>}
+        {promptDialog}
       </section>
     );
   },

@@ -204,7 +204,9 @@ jobs:
         run: |
           node - <<'JS'
           const ffmpeg = require('ffmpeg-static');
-          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','12','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-release-output/KNOUX-QA.mp4']);
+          // 60 s of playback, same reason as the debug lane: the trusted
+          // journey plays, scrubs, waits and then pauses and resumes the clip.
+          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','60','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-release-output/KNOUX-QA.mp4']);
           JS
           sha256sum android-ci-release-output/KNOUX-QA.mp4 > android-ci-release-output/fixture.sha256
 
@@ -221,7 +223,12 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 420
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          # Same GPU backend evidence as the debug lane: the host SwiftShader
+          # GLES translator kills QEMU ("bad color buffer handle") while the
+          # WebView creates the video surface, while -gpu angle_indirect
+          # (ANGLE over Mesa llvmpipe) keeps the device alive for the whole
+          # acceptance. See .github/workflows/android-apk.yml for the runs.
+          emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: bash tools/android-acceptance-diagnostics.sh android-ci-release-output bash tools/run-android-installed-acceptance.sh android-ci-release-output android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk
 
       - name: Preserve generated App plugin registration evidence

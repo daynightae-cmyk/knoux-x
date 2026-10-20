@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { NeonSelect } from '../../components/neon/NeonSelect';
+import { MobilePromptDialog } from '../../components/mobile/MobilePromptDialog';
 import type { SlideshowRenderSnapshot } from '../../../electron/creative/slideshow-render-service';
 import {
   addAudioTrack,
@@ -122,6 +123,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
   const [notice, setNotice] = useState<string | null>(null);
   const [renderSnapshots, setRenderSnapshots] = useState<SlideshowRenderSnapshot[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
+  const [namePrompt, setNamePrompt] = useState<{ open: boolean; value: string; submit: (name: string) => void } | null>(null);
   const historyRef = useRef<HistoryState>({ past: [], future: [] });
 
   useEffect(() => { projectRef.current = project; }, [project]);
@@ -233,9 +235,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
     return () => { active = false; };
   }, [activeSlide?.sourcePath]);
 
-  const createProject = useCallback(async (): Promise<void> => {
-    if (busy) return;
-    const name = window.prompt('Project name', 'Knoux X Mobile Slideshow')?.trim();
+  const createProjectWithName = useCallback(async (name: string): Promise<void> => {
     if (!name) return;
     setBusy(true);
     setError(null);
@@ -246,7 +246,16 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
     } finally {
       setBusy(false);
     }
-  }, [activate, busy]);
+  }, [activate]);
+
+  const createProject = useCallback((): void => {
+    if (busy) return;
+    setNamePrompt({
+      open: true,
+      value: 'Knoux X Mobile Slideshow',
+      submit: (name) => { void createProjectWithName(name); },
+    });
+  }, [busy, createProjectWithName]);
 
   const openProject = useCallback(async (): Promise<void> => {
     if (busy) return;
@@ -445,6 +454,23 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
     setSelectedSlideId(slides[Math.min(index, slides.length - 1)]?.id ?? null);
   }, [commit, selectedSlideId]);
 
+  const promptDialog = (
+    <MobilePromptDialog
+      open={Boolean(namePrompt?.open)}
+      title="Project name"
+      label="Project name"
+      defaultValue={namePrompt?.value ?? ''}
+      confirmLabel="Create"
+      cancelLabel="Cancel"
+      onConfirm={(value) => {
+        const submit = namePrompt?.submit;
+        setNamePrompt(null);
+        submit?.(value);
+      }}
+      onCancel={() => setNamePrompt(null)}
+    />
+  );
+
   if (!project) {
     return (
       <div className="kms-mobile-slideshow" data-component="MobileSlideshowEditor">
@@ -453,7 +479,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
           <strong>Start a mobile slideshow</strong>
           <p>Create a project, then add ordinary photos or videos from your device.</p>
           <div className="kms-start-actions">
-            <button type="button" onClick={() => void createProject()} disabled={busy}>New project</button>
+            <button type="button" onClick={createProject} disabled={busy}>New project</button>
             <button type="button" onClick={() => void openProject()} disabled={busy}>Open project</button>
           </div>
           {recent.length > 0 && (
@@ -465,6 +491,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
             </div>
           )}
         </div>
+        {promptDialog}
       </div>
     );
   }
@@ -587,6 +614,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
           <label><span>Caption</span><input value={selectedSlide.caption} onChange={(event) => patchSelected((slide) => ({ ...slide, caption: event.target.value.slice(0, 1000) }))} /></label>
         </div>
       )}
+      {promptDialog}
     </div>
   );
 });

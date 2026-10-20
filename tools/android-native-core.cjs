@@ -217,6 +217,48 @@ function casePrecondition(session) {
   return { ok: true };
 }
 
+/* Keep the original log intact for evidence. Only a FATAL header whose own
+ * AndroidRuntime process record proves a foreign PID/package may be excluded
+ * from the app startup gate. Unknown ownership remains a failure. */
+function classifyStartupLog(log, packageName = APP_PACKAGE, appPid = '') {
+  const lines = log.split(/\r?\n/);
+  const foreignCrashes = [];
+  const pidOf = (line) => /^\S+\s+\S+\s+(\d+)\s+\d+\s+[VDIWEF]\s+AndroidRuntime\s*:/.exec(line)?.[1];
+  const appLog = lines.filter((line, index) => {
+    if (!line.includes('FATAL EXCEPTION')) return true;
+    const pid = pidOf(line);
+    if (!pid || pid === String(appPid)) return true;
+    for (const next of lines.slice(index + 1)) {
+      if (pidOf(next) !== pid) continue;
+      if (next.includes('FATAL EXCEPTION')) break;
+      const process = /Process:\s*([^,\s]+),\s*PID:\s*(\d+)/.exec(next);
+      if (!process) continue;
+      const owned = process[1] === packageName || process[1].startsWith(`${packageName}:`);
+      if (owned || process[2] !== pid) return true;
+      foreignCrashes.push({ pid, process: process[1], header: line });
+      return false;
+    }
+    // Standalone shell Java commands omit the usual Process: crash record.
+    // Require both their exact main class and shell UID in this PID lifetime.
+    let uiAutomatorEntry = false;
+    for (const previous of lines.slice(0, index).reverse()) {
+      if (pidOf(previous) !== pid) continue;
+      if (previous.includes('Calling main entry ')) {
+        uiAutomatorEntry = /Calling main entry com\.android\.commands\.uiautomator\.Launcher\s*$/.test(previous);
+      }
+      if (previous.includes('>>>>>> START ')) {
+        if (uiAutomatorEntry && /RuntimeInit uid 2000\b/.test(previous)) {
+          foreignCrashes.push({ pid, process: 'com.android.commands.uiautomator.Launcher', header: line });
+          return false;
+        }
+        break;
+      }
+    }
+    return true;
+  }).join('\n');
+  return { appLog, foreignCrashes };
+}
+
 module.exports = {
   APP_PACKAGE,
   FIXTURE_NAME,
@@ -245,4 +287,5 @@ module.exports = {
   adbDeviceHealth,
   transportRecoveryPlan,
   casePrecondition,
+  classifyStartupLog,
 };

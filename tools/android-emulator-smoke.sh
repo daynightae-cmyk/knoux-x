@@ -565,11 +565,20 @@ if ! app_is_foreground; then
   exit 1
 fi
 
-# Let any arm expire, then deliver two presses inside the 2s window.
+# A press after the window has expired must only re-arm, never exit.
 sleep 3
 adb_retry shell input keyevent KEYCODE_BACK
-sleep 0.4
-adb_retry shell input keyevent KEYCODE_BACK
+sleep 0.6
+if ! app_is_foreground; then
+  echo 'KNOUX exited on a delayed second hardware back press; the confirmation window is not enforced.' >&2
+  adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
+  exit 1
+fi
+
+# Let that arm expire, then two presses inside the 2s window must exit. The
+# pair runs on-device so adb latency cannot stretch the 400ms gap.
+sleep 3
+adb_retry shell 'input keyevent KEYCODE_BACK; sleep 0.4; input keyevent KEYCODE_BACK'
 
 if ! wait_for_app_exit 15; then
   echo 'KNOUX did not apply the root exit policy on a double hardware back press.' >&2

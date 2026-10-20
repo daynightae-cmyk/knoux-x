@@ -18,6 +18,7 @@ import type {
 import { getReleaseInfo } from '../releaseInfo';
 
 import { installBrowserPreviewBridge } from './browserPreviewBridge';
+import { registerAndroidFile } from './androidVirtualFiles';
 
 const ANDROID_PREFIX = 'knoux-android:';
 const activeRecordings = new Map<string, { snapshot: RecordingSessionSnapshot; chunks: Uint8Array[] }>();
@@ -95,7 +96,7 @@ function pickFiles(accept: string, multiple = false): Promise<File[]> {
 }
 
 function rememberFile(file: File): string {
-  const id = `${file.name}:${file.size}:${file.lastModified}`;
+  const id = registerAndroidFile(file);
   mediaFiles.set(id, file);
   return id;
 }

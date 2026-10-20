@@ -37,6 +37,8 @@ import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
+import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
+import { mediaTitle } from './mobilePlayerSession';
 import { PlayerAudioManager } from './PlayerAudioManager';
 import '../../styles/ultimate-mobile-player.css';
 
@@ -128,7 +130,7 @@ function formatTime(seconds: number, includeMillis = false): string {
 }
 
 function mediaName(filePath: string | null): string {
-  return filePath?.split(/[\\/]/).pop() ?? 'KNOUX X';
+  return filePath ? mediaTitle(filePath) : 'KNOUX X';
 }
 
 function storageKey(filePath: string): string {
@@ -189,10 +191,13 @@ export const UltimateMobilePlayer: React.FC = () => {
   const [abEnabled, setAbEnabled] = useState(false);
   const [cinemaMode, setCinemaMode] = useState(false);
   const [frameStepCount, setFrameStepCount] = useState<1 | 5 | 10>(1);
+  const [detectedFrameRate, setDetectedFrameRate] = useState<number>(DEFAULT_FRAME_RATE);
 
   const setView = useAppStore((state) => state.setView);
   const {
     currentMedia,
+    mediaTitles,
+    setMediaTitle,
     isPlaying,
     currentTime,
     duration,
@@ -210,6 +215,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     next,
   } = usePlayerStore();
 
+  const mediaLabel = currentMedia ? mediaTitles[currentMedia] ?? mediaName(currentMedia) : 'KNOUX X';
   const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0;
   const videoStyle = useMemo<React.CSSProperties>(() => {
     const objectFit = fitMode === 'cover' ? 'cover' : fitMode === 'fill' ? 'fill' : fitMode === 'original' ? 'none' : 'contain';
@@ -256,6 +262,7 @@ export const UltimateMobilePlayer: React.FC = () => {
   useEffect(() => {
     let active = true;
     setError(null);
+    setBuffering(Boolean(currentMedia));
     if (!currentMedia) {
       setMediaUrl(null);
       return () => { active = false; };
@@ -354,6 +361,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     try {
       const selected = await window.knouxCreativeAPI.media.open();
       if (!selected) return;
+      if (selected.mediaName) setMediaTitle(selected.filePath, selected.mediaName);
       // Android intentionally does not route through the desktop ffprobe bridge.
       setCurrentMedia(selected.filePath);
       setMediaUrl(selected.mediaUrl);
@@ -362,7 +370,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     } catch {
       setError('This media could not be opened on this device.');
     }
-  }, [setCurrentMedia]);
+  }, [setCurrentMedia, setMediaTitle]);
 
   const handlePlayPause = useCallback(async () => {
     const video = videoRef.current;
@@ -436,7 +444,7 @@ export const UltimateMobilePlayer: React.FC = () => {
       const time = videoRef.current?.currentTime ?? currentTime;
       await window.knouxCreativeAPI.capture.saveFrame({
         dataUrl: captureDataUrl(format),
-        mediaName: mediaName(currentMedia),
+        mediaName: mediaLabel,
         timestampSeconds: time,
         format,
       });
@@ -446,7 +454,7 @@ export const UltimateMobilePlayer: React.FC = () => {
     } finally {
       setCapturing(false);
     }
-  }, [captureDataUrl, captureFormat, capturing, currentMedia, currentTime]);
+  }, [captureDataUrl, captureFormat, capturing, currentMedia, currentTime, mediaLabel]);
 
   const copyFrame = useCallback(async () => {
     if (capturing) return;
@@ -471,11 +479,11 @@ export const UltimateMobilePlayer: React.FC = () => {
       for (const position of positions) {
         video.currentTime = position;
         await new Promise<void>((resolve) => video.addEventListener('seeked', () => resolve(), { once: true }));
-        frames.push({ dataUrl: captureDataUrl(), mediaName: mediaName(currentMedia), timestampSeconds: video.currentTime, format: captureFormat });
+        frames.push({ dataUrl: captureDataUrl(), mediaName: mediaLabel, timestampSeconds: video.currentTime, format: captureFormat });
       }
       if (mode === 'burst') await window.knouxCreativeAPI.capture.saveBurst(frames);
       else await window.knouxCreativeAPI.capture.createContactSheet({
-        mediaName: mediaName(currentMedia),
+        mediaName: mediaLabel,
         columns: 4,
         frames: frames.map((frame) => ({ dataUrl: frame.dataUrl, label: formatTime(frame.timestampSeconds) })),
       });
@@ -486,7 +494,7 @@ export const UltimateMobilePlayer: React.FC = () => {
       if (wasPlaying) void video.play();
       setCapturing(false);
     }
-  }, [captureDataUrl, captureFormat, capturing, currentMedia]);
+  }, [captureDataUrl, captureFormat, capturing, currentMedia, mediaLabel]);
 
   const selectSubtitle = useCallback(async () => {
     try {
@@ -508,9 +516,35 @@ export const UltimateMobilePlayer: React.FC = () => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(video.duration)) return;
     video.pause();
-    const estimatedFrameSeconds = frameStepCount / 30;
-    seekTo(video.currentTime + direction * estimatedFrameSeconds);
-  }, [frameStepCount, seekTo]);
+    const nextTime = computeFrameStepTime(video.currentTime, direction, frameStepCount, detectedFrameRate, video.duration);
+    seekTo(nextTime);
+  }, [frameStepCount, detectedFrameRate, seekTo]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || typeof video.requestVideoFrameCallback !== 'function') return;
+    let lastMediaTime: number | null = null;
+    let handle = 0;
+    const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (lastMediaTime !== null && metadata.mediaTime > lastMediaTime) {
+        const delta = metadata.mediaTime - lastMediaTime;
+        if (delta > 0) {
+          const fps = 1 / delta;
+          if (fps > 0 && fps <= 240) {
+            setDetectedFrameRate((prev) => (Math.abs(prev - fps) > 1 ? fps : prev));
+          }
+        }
+      }
+      lastMediaTime = metadata.mediaTime;
+      handle = video.requestVideoFrameCallback(onFrame);
+    };
+    handle = video.requestVideoFrameCallback(onFrame);
+    return () => {
+      if (handle && typeof video.cancelVideoFrameCallback === 'function') {
+        video.cancelVideoFrameCallback(handle);
+      }
+    };
+  }, []);
 
   const addBookmark = useCallback(() => {
     const time = videoRef.current?.currentTime ?? currentTime;
@@ -710,14 +744,13 @@ export const UltimateMobilePlayer: React.FC = () => {
             className="ump-video"
             src={mediaUrl}
             style={videoStyle}
-            preload="metadata"
+            preload="auto"
             playsInline
             onPlay={() => { play(); revealControls(); }}
             onPause={() => { pause(); setShowControls(true); persistMediaPreferences(); }}
             onLoadedMetadata={(event) => {
               const video = event.currentTarget;
               setDuration(Number.isFinite(video.duration) ? video.duration : 0);
-              setBuffering(false);
             }}
             onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
             onTimeUpdate={(event) => {
@@ -738,6 +771,7 @@ export const UltimateMobilePlayer: React.FC = () => {
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
             onCanPlay={() => setBuffering(false)}
+            onLoadedData={() => setBuffering(false)}
             onEnded={() => { persistMediaPreferences(); next(); }}
             onError={() => setError('This video format could not be decoded. Try compatibility mode or another file.')}
           >
@@ -750,6 +784,7 @@ export const UltimateMobilePlayer: React.FC = () => {
             <h1>Open local media</h1>
             <p>Video and audio stay on your device.</p>
             <button type="button" className="ump-primary" onClick={() => void openMedia()}>Open Video</button>
+            <button type="button" className="ump-empty-back" onClick={() => setView('home')}>Back to Home</button>
           </div>
         )}
 
@@ -773,13 +808,13 @@ export const UltimateMobilePlayer: React.FC = () => {
             <motion.div className="ump-controls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <header className="ump-topbar">
                 <button type="button" className="ump-icon-btn" onClick={() => setView('library')} aria-label="Back"><ArrowLeft size={22} /></button>
-                <div className="ump-title"><strong>{mediaName(currentMedia)}</strong><span>KNOUX X · ULTIMATE PLAYER</span></div>
+                <div className="ump-title"><strong>{mediaLabel}</strong><span>KNOUX X · ULTIMATE PLAYER</span></div>
                 <button type="button" className="ump-icon-btn" onClick={() => setSheet('quick')} aria-label="More"><MoreHorizontal size={23} /></button>
               </header>
 
               <div className="ump-center-controls">
                 <button type="button" className="ump-skip" onClick={() => skipBy(-10)}><RotateCcw size={25} /><span>10</span></button>
-                <button type="button" className="ump-play" onClick={() => void handlePlayPause()}>{isPlaying ? <Pause size={34} fill="currentColor" /> : <Play size={34} fill="currentColor" />}</button>
+                <button type="button" className="ump-play" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={() => void handlePlayPause()}>{isPlaying ? <Pause size={34} fill="currentColor" /> : <Play size={34} fill="currentColor" />}</button>
                 <button type="button" className="ump-skip" onClick={() => skipBy(10)}><RotateCcw size={25} className="flip-x" /><span>10</span></button>
               </div>
 
@@ -834,9 +869,9 @@ export const UltimateMobilePlayer: React.FC = () => {
       <AnimatePresence>
         {sheet && !locked && (
           <motion.div className="ump-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSheet(null)}>
-            <motion.div className="ump-sheet" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 330 }} onClick={(event) => event.stopPropagation()}>
+            <motion.div className="ump-sheet" role="dialog" aria-modal="true" aria-label="Playback controls" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 330 }} onClick={(event) => event.stopPropagation()}>
               <div className="ump-sheet-handle" />
-              <div className="ump-sheet-head"><div><strong>{sheet === 'quick' ? 'Player Quick Menu' : sheet[0].toUpperCase() + sheet.slice(1)}</strong><span>KNOUX Cinema Engine</span></div><button type="button" onClick={() => setSheet(null)}><X size={20} /></button></div>
+              <div className="ump-sheet-head"><div><strong>{sheet === 'quick' ? 'Player Quick Menu' : sheet[0].toUpperCase() + sheet.slice(1)}</strong><span>KNOUX Cinema Engine</span></div><button type="button" aria-label="Close player menu" onClick={() => setSheet(null)}><X size={20} /></button></div>
 
               {sheet === 'speed' && (
                 <div className="ump-sheet-body">

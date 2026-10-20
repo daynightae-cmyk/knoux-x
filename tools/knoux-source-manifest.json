@@ -1,0 +1,9 @@
+{
+  "product": "Knoux X",
+  "authoritativeBranch": "main",
+  "authoritativeSha": "173008b7b3874fd3c7acd1366efe5d45c3b113b0",
+  "sourceType": "git-worktree",
+  "verifiedBy": "phase-01-source-authority",
+  "verifiedAt": "2026-10-18",
+  "notes": "OpenCode Final worktree HEAD matching origin/main. Base directory is unversioned and must not be used as build authority."
+}

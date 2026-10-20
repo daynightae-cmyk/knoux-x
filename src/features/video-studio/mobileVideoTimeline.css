@@ -262,6 +262,8 @@ html[data-platform='android'] .kmc-mobile-track-lane {
 }
 
 html[data-platform='android'] .kmc-mobile-clip {
+  touch-action: none;
+  user-select: none;
   position: absolute;
   top: 5px;
   bottom: 5px;
@@ -319,6 +321,7 @@ html[data-platform='android'] .kmc-mobile-playhead-line {
 }
 
 html[data-platform='android'] .kmc-mobile-inspector {
+  scroll-margin-bottom: calc(100px + env(safe-area-inset-bottom));
   display: grid;
   gap: 12px;
   padding: 12px;

@@ -1,0 +1,210 @@
+{
+  "environment": "installed-apk-api35-emulator",
+  "phone": "NOT_RUN",
+  "touchPolicy": {
+    "mode": "trusted-adb-input-tap",
+    "detail": "adb shell input tap on device pixels = native WebView origin (uiautomator bounds) + live DOM CSS point × devicePixelRatio; elementFromPoint-verified, stability-sampled, state-change-confirmed.",
+    "syntheticEventsUsed": false,
+    "fallbacks": []
+  },
+  "deviceState": {
+    "size": "Physical size: 1080x2400",
+    "density": "Physical density: 420",
+    "sdk": "35",
+    "appPid": "2916",
+    "adbTransport": {
+      "state": "no-device",
+      "attempts": [
+        {
+          "step": "adb-wait-for-device",
+          "state": "no-device"
+        },
+        {
+          "step": "adb-reconnect-offline",
+          "state": "no-device"
+        },
+        {
+          "step": "adb-reconnect-device",
+          "state": "no-device"
+        },
+        {
+          "step": "adb-wait-for-device",
+          "state": "no-device"
+        },
+        {
+          "step": "adb-start-server",
+          "state": "no-device"
+        }
+      ]
+    },
+    "webViewOrigin": {
+      "left": 0,
+      "top": 136,
+      "right": 1080,
+      "bottom": 2337
+    },
+    "foregroundProbe": "dumpsys window displays",
+    "focus": "Window{dev.knoux.playerx/#0 (via dumpsys window displays)",
+    "foregroundAtStart": {
+      "package": "dev.knoux.playerx",
+      "source": "uiautomator",
+      "packages": [
+        "dev.knoux.playerx"
+      ]
+    },
+    "diagnosticsOnNoDevice": {
+      "devices": "List of devices attached",
+      "getState": "Command failed: adb get-state\nerror: device 'emulator-5554' not found\n",
+      "uptime": "Command failed: adb shell uptime\nadb: device 'emulator-5554' not found\n",
+      "loadavg": "Command failed: adb shell cat /proc/loadavg\nadb: device 'emulator-5554' not found\n",
+      "memTotal": "unreadable",
+      "bootReason": "Command failed: adb shell getprop ro.boot.bootreason\nadb: device 'emulator-5554' not found\n",
+      "qemu": "adb: device 'emulator-5554' not found",
+      "appPid": "Command failed: adb shell pidof dev.knoux.playerx\nadb: device 'emulator-5554' not found\n",
+      "crashLog": "Command failed: adb shell logcat -d -b crash -t 60\nadb: device 'emulator-5554' not found\n"
+    },
+    "diagnosticsAtExit": {
+      "devices": "List of devices attached",
+      "getState": "Command failed: adb get-state\nerror: device 'emulator-5554' not found\n",
+      "uptime": "Command failed: adb shell uptime\nadb: device 'emulator-5554' not found\n",
+      "loadavg": "Command failed: adb shell cat /proc/loadavg\nadb: device 'emulator-5554' not found\n",
+      "memTotal": "unreadable",
+      "bootReason": "Command failed: adb shell getprop ro.boot.bootreason\nadb: device 'emulator-5554' not found\n",
+      "qemu": "adb: device 'emulator-5554' not found",
+      "appPid": "Command failed: adb shell pidof dev.knoux.playerx\nadb: device 'emulator-5554' not found\n",
+      "crashLog": "Command failed: adb shell logcat -d -b crash -t 60\nadb: device 'emulator-5554' not found\n"
+    }
+  },
+  "tapLog": [
+    {
+      "note": "onboarding:skip",
+      "cssX": 122,
+      "cssY": 637,
+      "x": 321,
+      "y": 1808,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "home:open-video (SAF picker)",
+      "cssX": 206,
+      "cssY": 359,
+      "x": 541,
+      "y": 1079,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "saf:show-roots (attempt 1)",
+      "x": 74,
+      "y": 199
+    },
+    {
+      "note": "saf:downloads-root (attempt 1)",
+      "x": 441,
+      "y": 651
+    },
+    {
+      "note": "saf:file (attempt 2)",
+      "x": 328,
+      "y": 1195
+    },
+    {
+      "note": "player:play",
+      "cssX": 206,
+      "cssY": 403,
+      "x": 541,
+      "y": 1193,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:reveal-controls-for-scrub",
+      "cssX": 206,
+      "cssY": 420,
+      "x": 541,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "onboarding-skip",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": "First-run welcome dismissed with a trusted tap and Home is available"
+    },
+    {
+      "id": "mp4-actual-player-first-frame-seek-audio",
+      "status": "BLOCKED_NO_ADB_DEVICE",
+      "error": "BLOCKED_NO_ADB_DEVICE: adb reports \"no-device\" (serials: none) after 5 bounded recovery attempts",
+      "foregroundAtFailure": {
+        "package": null,
+        "source": "unverified",
+        "packages": []
+      },
+      "focusAtFailure": null
+    },
+    {
+      "id": "photos-to-video-saf-persistence",
+      "status": "BLOCKED_NO_LIVE_WEBVIEW_SESSION",
+      "error": "BLOCKED_NO_LIVE_WEBVIEW_SESSION: photos-to-video-saf-persistence (no live WebView session is attached; the case was not attempted)",
+      "foregroundAtFailure": {
+        "package": null,
+        "source": "unverified",
+        "packages": []
+      },
+      "focusAtFailure": null
+    },
+    {
+      "id": "native-recording-finalize-editor-handoff",
+      "status": "BLOCKED_NO_LIVE_WEBVIEW_SESSION",
+      "error": "BLOCKED_NO_LIVE_WEBVIEW_SESSION: native-recording-finalize-editor-handoff (no live WebView session is attached; the case was not attempted)",
+      "foregroundAtFailure": {
+        "package": null,
+        "source": "unverified",
+        "packages": []
+      },
+      "focusAtFailure": null
+    }
+  ],
+  "measurements": [
+    {
+      "name": "chooser-to-decoded-frame",
+      "milliseconds": 36960,
+      "N": 1,
+      "includesNativeChooser": true
+    }
+  ],
+  "consoleErrors": [],
+  "sessionRecoveries": [
+    {
+      "case": "mp4-actual-player-first-frame-seek-audio",
+      "error": "locator.evaluate: Target page, context or browser has been closed",
+      "recovered": false
+    }
+  ],
+  "verdict": "FAIL"
+}

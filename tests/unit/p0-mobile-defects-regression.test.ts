@@ -136,4 +136,32 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(app).toContain("const MobilePhotosToVideoView = lazy(async () => {");
     });
   });
+
+  describe('P0-5 — Android media titles never expose provider identifiers', () => {
+    const safBridge = read('src/platform/androidSafBridge.ts');
+    const playerStore = read('src/store/playerStore.ts');
+    const player = read('src/features/player/UltimateMobilePlayer.tsx');
+    const session = read('src/features/player/mobilePlayerSession.ts');
+
+    test('SAF media.open carries the real document display name to the renderer', () => {
+      expect(safBridge).toContain('mediaName: item.name');
+      expect(safBridge).toContain('export async function androidDocumentTitle');
+    });
+
+    test('home dashboard forwards the picked document name into the player store', () => {
+      expect(homeDashboard).toContain('setMediaTitle(selection.filePath, selection.mediaName)');
+    });
+
+    test('player header and capture metadata render the stored/sanitized title only', () => {
+      expect(player).toContain('mediaTitles[currentMedia] ?? mediaName(currentMedia)');
+      expect(player).toContain('{mediaLabel}');
+      expect(player).not.toContain('filePath?.split(/[\\\\/]/).pop()');
+    });
+
+    test('sanitizer is the single source of truth for opaque provider ids', () => {
+      expect(session).toContain('export function sanitizeMediaTitle');
+      expect(session).toContain('msf|raw|image|video|audio|document|content|primary|external|media');
+      expect(playerStore).toContain('sanitizeMediaTitle(title)');
+    });
+  });
 });

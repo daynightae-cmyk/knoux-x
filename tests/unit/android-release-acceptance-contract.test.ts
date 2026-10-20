@@ -6,9 +6,14 @@ const read = (relative: string): string => fs.readFileSync(path.join(root, relat
 
 describe('Knoux X Android release acceptance contract', () => {
   const workflow = read('.github/workflows/android-release-acceptance.yml');
+  const debugWorkflow = read('.github/workflows/android-apk.yml');
   const helper = read('tools/android-ci-release.sh');
   const smoke = read('tools/android-emulator-smoke.sh');
   const verifier = read('tools/verify-android-apk.cjs');
+  const installed = read('tools/run-android-installed-acceptance.sh');
+  const diagnostics = read('tools/android-acceptance-diagnostics.sh');
+  const configurator = read('tools/configure-android-webview-debugging.cjs');
+  const nativeMedia = read('tools/prepare-android-native-media.cjs');
 
   test('builds a real Gradle release variant instead of stopping at assembleDebug', () => {
     expect(helper).toContain('./gradlew assembleRelease --no-daemon --stacktrace');
@@ -41,8 +46,28 @@ describe('Knoux X Android release acceptance contract', () => {
 
   test('installs and launches the exact release artifact on the emulator', () => {
     expect(smoke).toContain('APK="${1:-android-ci-output/KNOUX-X-Android-debug.apk}"');
-    expect(workflow).toContain('bash tools/android-emulator-smoke.sh android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk dev.knoux.playerx android-ci-release-output');
+    expect(workflow).toContain('bash tools/run-android-installed-acceptance.sh android-ci-release-output android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk');
+    expect(installed).toContain('bash tools/android-emulator-smoke.sh "$APK" dev.knoux.playerx "$OUTPUT_DIR"');
+    expect(installed).toContain('set -euo pipefail');
     expect(workflow).toContain("data['installedAndLaunched'] = True");
+  });
+
+  test('requires actual functional verdict and preserves diagnostic command failures', () => {
+    expect(installed).toContain('KNOUX_ANDROID_EVIDENCE_DIR="$OUTPUT_DIR" node tools/android-real-workflows.cjs');
+    expect(workflow).toContain("functional.get('verdict') != 'PASS_SCOPED_CASES_ONLY'");
+    expect(diagnostics).toContain('local status=$?');
+    expect(diagnostics).toContain('exit "$status"');
+  });
+
+  test('enables WebView debugging only for debug and acceptance builds', () => {
+    expect(nativeMedia).not.toContain('setWebContentsDebuggingEnabled(true)');
+    expect(configurator).toContain('delete config.android.webContentsDebuggingEnabled');
+    expect(configurator).toContain('config.android.webContentsDebuggingEnabled = true');
+    expect(configurator).toContain('const MODES = new Set(["debug", "acceptance", "production"])');
+    expect(helper).toContain('node tools/configure-android-webview-debugging.cjs "$ANDROID_DIR" "$SIGNING_MODE"');
+    expect(helper).toContain('packagedWebContentsDebuggingEnabled');
+    expect(helper).toContain('Production-signed APK must not expose WebView debugging.');
+    expect(debugWorkflow).toContain('node tools/configure-android-webview-debugging.cjs android debug');
   });
 
   test('does not make release acceptance depend solely on WebView console logging', () => {

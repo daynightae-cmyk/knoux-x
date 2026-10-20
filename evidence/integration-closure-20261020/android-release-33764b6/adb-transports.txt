@@ -1,0 +1,3 @@
+0015emulator-5554	device
+0016emulator-5554	offline
+0000

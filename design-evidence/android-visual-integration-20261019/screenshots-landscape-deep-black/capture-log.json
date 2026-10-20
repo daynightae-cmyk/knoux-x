@@ -1,0 +1,11 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "out": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Integration-20261019\\design-evidence\\android-visual-integration-20261019\\screenshots-landscape-deep-black",
+  "profile": {
+    "theme": "deep-black",
+    "locale": null,
+    "reducedMotion": false
+  },
+  "failures": [],
+  "generatedAt": "2026-10-19T19:00:41.352Z"
+}

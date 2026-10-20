@@ -72,6 +72,14 @@ interface DecodedImageSource {
 }
 
 let persistentPhotoState: ActivePhotoState | null = null;
+const PHOTO_DRAFT_KEY = 'knoux:android:photo-draft:v1';
+function readPhotoDraft(): { photo: ActivePhotoState; adjustments: ImageAdjustments } | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(PHOTO_DRAFT_KEY) || 'null');
+    if (!value?.photo?.sourceUri?.startsWith('content://') || !value.adjustments) return null;
+    return value;
+  } catch { return null; }
+}
 
 function toPortableBytes(data: unknown): Uint8Array {
   if (data instanceof Uint8Array) {
@@ -204,9 +212,9 @@ export const MobileImageEditorView: React.FC = () => {
 
   const [editorState, setEditorState] = useState<EditorState>('EMPTY');
   const [activeTab, setActiveTab] = useState<ToolTab>('adjust');
-  const [adjustments, setAdjustments] = useState<ImageAdjustments>(DEFAULT_ADJUSTMENTS);
+  const [adjustments, setAdjustments] = useState<ImageAdjustments>(() => readPhotoDraft()?.adjustments ?? DEFAULT_ADJUSTMENTS);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(persistentPhotoState);
+  const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(() => persistentPhotoState ?? readPhotoDraft()?.photo ?? null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -317,14 +325,16 @@ export const MobileImageEditorView: React.FC = () => {
         const rawData = await window.knouxAPI.file.readFile(uri);
         const bytes = toPortableBytes(rawData);
 
-        const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
+        const info = uri.startsWith('content://') ? await window.knouxAPI.file.getMediaInfo(uri) : null;
+        const ext = (info?.name || uri).split('.').pop()?.toLowerCase() || 'jpg';
         let mime = 'image/jpeg';
         if (ext === 'png') mime = 'image/png';
         else if (ext === 'webp') mime = 'image/webp';
         else if (ext === 'gif') mime = 'image/gif';
         else if (ext === 'bmp') mime = 'image/bmp';
 
-        const name = uri.split(/[/\\]/).pop() || 'photo.jpg';
+        if (info?.format?.startsWith('image/')) mime = info.format;
+        const name = info?.name || uri.split(/[/\\]/).pop() || 'photo.jpg';
         decodeAndRenderBytes(bytes, mime, uri, name);
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : 'Could not read file payload.');
@@ -335,10 +345,17 @@ export const MobileImageEditorView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (persistentPhotoState && editorState === 'EMPTY') {
-      void loadPhotoFromUri(persistentPhotoState.sourceUri);
+    const previous = persistentPhotoState ?? readPhotoDraft()?.photo;
+    if (previous && editorState === 'EMPTY') {
+      void loadPhotoFromUri(previous.sourceUri);
     }
   }, [editorState, loadPhotoFromUri]);
+
+  useEffect(() => {
+    if (!photoInfo?.sourceUri.startsWith('content://') || !['READY', 'EDITING'].includes(editorState)) return;
+    try { localStorage.setItem(PHOTO_DRAFT_KEY, JSON.stringify({ photo: photoInfo, adjustments })); }
+    catch { setErrorMessage('Your photo is open, but the edit draft could not be saved on this device.'); }
+  }, [adjustments, editorState, photoInfo]);
 
   // Use ResizeObserver for viewport layout
   useEffect(() => {

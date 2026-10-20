@@ -199,9 +199,8 @@
 }
 
 .kmc-beauty-controls-host {
-  position: sticky;
-  bottom: max(8px, env(safe-area-inset-bottom));
-  z-index: 20;
+  position: relative;
+  z-index: 1;
   min-width: 0;
 }
 

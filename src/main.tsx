@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { AndroidOptionalRuntime } from './platform/AndroidOptionalRuntime';
+import { installAndroidBackButton } from './platform/androidBackButton';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
@@ -27,6 +28,7 @@ import { installAndroidSafBridge } from './platform/androidSafBridge';
 import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
+import './styles/android-visual-system.css';
 
 const SystemOverlay = lazy(async () => {
   const module = await import('./components/system/SystemOverlay');
@@ -68,6 +70,7 @@ if (androidRuntimeInstalled) {
   installAndroidRetouchModels();
   installAndroidMultitrackExportBridge();
   installAndroidSlideshowRenderBridge();
+  installAndroidBackButton();
 } else {
   document.documentElement.dataset.runtime = 'desktop';
   installBrowserPreviewBridge();

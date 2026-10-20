@@ -66,6 +66,95 @@ wait_for_rendered_screen() {
   return 1
 }
 
+png_dimensions() {
+  node -e '
+const fs = require("fs");
+const buffer = fs.readFileSync(process.argv[1]);
+if (buffer.length < 24 || buffer.slice(0, 8).toString("hex") !== "89504e470d0a1a0a") process.exit(1);
+console.log(buffer.readUInt32BE(16) + "x" + buffer.readUInt32BE(20));
+' "$1"
+}
+
+read_wm_size() {
+  adb_retry shell wm size 2>/dev/null | tr -d '\r' | tee "$OUTPUT_DIR/android-wm-size.txt" || return 1
+}
+
+read_wm_density() {
+  adb_retry shell wm density 2>/dev/null | tr -d '\r' | tee "$OUTPUT_DIR/android-wm-density.txt" || return 1
+}
+
+wait_for_display_override() {
+  local width="$1"
+  local height="$2"
+  local density="$3"
+  local attempts="${4:-30}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if read_wm_size | grep -Fq "Override size: ${width}x${height}" && \
+       read_wm_density | grep -Fq "Override density: ${density}"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+wait_for_density_override() {
+  local density="$1"
+  local attempts="${2:-30}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if read_wm_density | grep -Fq "Override density: ${density}"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+wait_for_display_reset() {
+  local attempts="${1:-30}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if ! read_wm_size | grep -Fq "Override size:" && \
+       ! read_wm_density | grep -Fq "Override density:"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# A settled frame means: the captured PNG has exactly the requested physical
+# dimensions, contains real rendered pixels, and is byte-identical to a frame
+# captured at least one second later. Anything else (stale framebuffer, partial
+# relayout, wrong density) fails the run instead of being stored as evidence.
+wait_for_settled_frame() {
+  local destination="$1"
+  local width="$2"
+  local height="$3"
+  local attempts="${4:-30}"
+  local attempt
+  local settle="${destination}.settle.png"
+  rm -f "$settle"
+  for attempt in $(seq 1 "$attempts"); do
+    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" && \
+       [[ "$(png_dimensions "$destination" 2>/dev/null)" == "${width}x${height}" ]]; then
+      if [[ -s "$settle" ]] && cmp -s "$settle" "$destination"; then
+        rm -f "$settle"
+        return 0
+      fi
+      cp "$destination" "$settle"
+      sleep 1
+      continue
+    fi
+    rm -f "$settle"
+    sleep 1
+  done
+  rm -f "$settle"
+  return 1
+}
+
 foreground_activity_ready() {
   adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" || return 1
   grep -Fq "$PACKAGE/.MainActivity" "$OUTPUT_DIR/android-activity-live.txt"
@@ -88,7 +177,128 @@ assert_no_recovery_screen() {
   return 0
 }
 
+# The emulator can report a completed boot while the launcher is still starting;
+# a launcher ANR then paints "Pixel Launcher isn't responding" over the app even
+# though KNOUX X itself is healthy. Wait for boot completion and give the
+# launcher a bounded head start before installing or launching anything.
+wait_for_launcher_ready() {
+  local attempts="${1:-60}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+      sleep 5
+      printf 'boot_completed=1 launcher_head_start_seconds=5\n' > "$OUTPUT_DIR/android-launcher-readiness.txt"
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+foreign_anr_packages() {
+  adb_retry shell dumpsys window windows 2>/dev/null | tr -d '\r' > "$OUTPUT_DIR/android-window.txt" || return 1
+  sed -n 's/.*Application Not Responding: \([^ }]*\).*/\1/p' "$OUTPUT_DIR/android-window.txt" | sort -u
+}
+
+# Tap the dialog's own "Wait" button only after proving the ANR dialog is the
+# current topmost UI. This never sends a blind BACK into KNOUX X.
+tap_anr_wait() {
+  local remote_xml="/sdcard/knoux-anr-ui.xml"
+  local local_xml="$OUTPUT_DIR/android-anr-ui.xml"
+  if ! adb_retry shell uiautomator dump "$remote_xml" >/dev/null 2>&1; then return 1; fi
+  if ! adb_retry shell cat "$remote_xml" > "$local_xml" 2>/dev/null; then return 1; fi
+  if ! grep -Eqi "Application Not Responding|isn't responding|aerr_wait" "$local_xml"; then return 1; fi
+  local point x y
+  point="$(node - "$local_xml" <<'NODE'
+const fs = require('fs');
+const xml = fs.readFileSync(process.argv[2], 'utf8');
+const nodes = [...xml.matchAll(/<node\b[^>]*>/g)].map((match) => match[0]);
+const wait = nodes.find((node) => (/\btext="Wait"/.test(node) || /resource-id="android:id\/aerr_wait"/.test(node)) && /\bbounds="\[\d+,\d+\]\[\d+,\d+\]"/.test(node));
+if (!wait) process.exit(1);
+const bounds = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(wait);
+console.log(`${Math.round((Number(bounds[1]) + Number(bounds[3])) / 2)} ${Math.round((Number(bounds[2]) + Number(bounds[4])) / 2)}`);
+NODE
+)" || return 1
+  read -r x y <<< "$point"
+  adb_retry shell input tap "$x" "$y"
+}
+
+ensure_app_foreground() {
+  adb_retry shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n "$ACTIVITY" >> "$OUTPUT_DIR/android-launch-start.txt" || return 1
+  local attempt
+  for attempt in $(seq 1 30); do
+    if foreground_activity_ready; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
+# Returns 0 when no foreign ANR exists, 2 when one was dismissed, 1 when a
+# dialog could not be cleared safely or belongs to KNOUX X itself.
+dismiss_foreign_anr() {
+  local packages
+  packages="$(foreign_anr_packages)" || return 1
+  if [[ -z "$packages" ]]; then return 0; fi
+  printf '%s\n' "$packages" >> "$OUTPUT_DIR/android-foreign-anr.txt"
+  local pkg
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    if [[ "$pkg" == "$PACKAGE" ]]; then
+      echo "KNOUX X itself is not responding; refusing to dismiss the app's own ANR." >&2
+      return 1
+    fi
+    echo "Foreign system ANR detected for $pkg; attempting bounded dismissal." >&2
+    if ! tap_anr_wait; then
+      adb_retry shell input keyevent KEYCODE_BACK || true
+    fi
+    sleep 2
+    if foreign_anr_packages | grep -Fxq "$pkg"; then
+      case "$pkg" in
+        com.google.android.apps.nexuslauncher|com.android.launcher3)
+          echo "ANR persisted; force-stopping the hung launcher $pkg (never KNOUX X)." >&2
+          adb_retry shell am force-stop "$pkg" || return 1
+          ;;
+        *)
+          echo "Foreign ANR for $pkg did not clear with Wait/BACK; failing closed." >&2
+          return 1
+          ;;
+      esac
+      sleep 2
+      if foreign_anr_packages | grep -Fxq "$pkg"; then
+        echo "ANR dialog for $pkg is still present after bounded recovery; failing closed." >&2
+        return 1
+      fi
+    fi
+  done <<< "$packages"
+  return 2
+}
+
+handle_foreign_anr() {
+  local status=0
+  dismiss_foreign_anr || status=$?
+  case "$status" in
+    0) return 0 ;;
+    2)
+      echo 'Foreign ANR dismissed; resuming KNOUX X to restore foreground.' >&2
+      ensure_app_foreground || return 1
+      return 0
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 adb wait-for-device
+if ! wait_for_launcher_ready; then
+  echo 'Android did not report boot completion within 60 seconds.' >&2
+  adb_retry shell getprop sys.boot_completed > "$OUTPUT_DIR/android-boot-completed.txt" || true
+  exit 1
+fi
+if ! dismiss_foreign_anr; then
+  adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+  adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+  echo 'A foreign system ANR dialog blocked the device before KNOUX X was installed.' >&2
+  exit 1
+fi
 adb_retry install -r "$APK"
 adb_retry logcat -c
 adb_retry shell am force-stop "$PACKAGE" || true
@@ -127,6 +337,14 @@ UI_READY=false
 MARKER_READY=false
 READINESS_SOURCE=''
 for attempt in $(seq 1 45); do
+  if (( attempt % 3 == 0 )); then
+    if ! handle_foreign_anr; then
+      adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+      adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+      echo 'A foreign system ANR dialog blocked KNOUX X during launch readiness.' >&2
+      exit 1
+    fi
+  fi
   if adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" && \
      grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
     MARKER_READY=true
@@ -160,6 +378,13 @@ if [[ "$UI_READY" != true ]]; then
   exit 1
 fi
 
+if ! handle_foreign_anr; then
+  adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+  adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+  echo 'A foreign system ANR dialog blocked KNOUX X after launch readiness.' >&2
+  exit 1
+fi
+
 if ! assert_no_recovery_screen; then
   adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
   exit 1
@@ -187,22 +412,56 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
   exit 1
 fi
 
-# Exercise the requested phone sizes. A resize can briefly expose the window
-# background while WebView relayouts, so wait independently at every size until
-# real KNOUX pixels are present; never capture a transient blank frame as proof.
+# Exercise the requested phone sizes. Every screenshot must prove three things:
+# the size AND density overrides are applied (read back from wm), the captured
+# PNG has exactly the requested physical dimensions, and the frame is settled
+# (two byte-identical captures at least one second apart). A lagging capture is
+# a failed run, never stored evidence with a misleading filename.
+rm -f "$OUTPUT_DIR/android-viewport-report.txt"
 adb_retry shell wm density 160
+if ! wait_for_density_override 160; then
+  echo 'Android display density override did not apply before viewport exercises.' >&2
+  exit 1
+fi
 for SIZE in 360x800 390x844 412x915; do
+  WIDTH="${SIZE%x*}"
+  HEIGHT="${SIZE#*x}"
   adb_retry shell wm size "$SIZE"
-  if ! wait_for_rendered_screen "$OUTPUT_DIR/android-phone-$SIZE.png" 30; then
-    echo "Android did not render KNOUX at viewport $SIZE within 30 seconds." >&2
+  if ! wait_for_display_override "$WIDTH" "$HEIGHT" 160; then
+    echo "Android did not apply viewport override $SIZE at density 160 within 30 seconds." >&2
     exit 1
   fi
+  if ! handle_foreign_anr; then
+    adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+    echo "A foreign system ANR dialog blocked the viewport exercise at $SIZE." >&2
+    exit 1
+  fi
+  if ! foreground_activity_ready || ! native_splash_gone; then
+    echo "KNOUX interface left the foreground while resizing to $SIZE." >&2
+    exit 1
+  fi
+  if ! wait_for_settled_frame "$OUTPUT_DIR/android-phone-$SIZE.png" "$WIDTH" "$HEIGHT" 30; then
+    echo "Android did not produce a settled ${WIDTH}x${HEIGHT} KNOUX frame within 30 seconds." >&2
+    exit 1
+  fi
+  printf 'requested=%s applied=%s density=160 png=%s settled=yes\n' \
+    "$SIZE" "$(grep -F 'Override size:' "$OUTPUT_DIR/android-wm-size.txt" | tr -d '\r')" \
+    "$(png_dimensions "$OUTPUT_DIR/android-phone-$SIZE.png")" >> "$OUTPUT_DIR/android-viewport-report.txt"
   test -n "$(read_pid || true)"
 done
 
 adb_retry shell wm size reset
 adb_retry shell wm density reset
-sleep 1
+if ! wait_for_display_reset; then
+  echo 'Android display overrides did not reset after viewport exercises.' >&2
+  exit 1
+fi
+
+if ! handle_foreign_anr; then
+  adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
+  echo 'A foreign system ANR dialog blocked KNOUX X after the viewport exercises.' >&2
+  exit 1
+fi
 
 if ! assert_no_recovery_screen; then
   adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true

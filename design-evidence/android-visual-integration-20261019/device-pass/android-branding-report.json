@@ -1,0 +1,335 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-10-19T19:34:35.961Z",
+  "appName": "KNOUX X",
+  "applicationId": "dev.knoux.playerx",
+  "versionName": "2.1.0",
+  "versionCode": 20100,
+  "source": {
+    "path": "assets/branding/knoux-logo-master.png",
+    "width": 800,
+    "height": 800,
+    "sha256": "ed8f00b6a59eed87edcdcdf3edcbd5f508460dbb7c8c9170f0144e57a8ac7f09"
+  },
+  "launcher": {
+    "standard": "@mipmap/ic_launcher",
+    "round": "@mipmap/ic_launcher_round",
+    "adaptive": true,
+    "monochromeAndroid13": true,
+    "visualShape": "circular-medallion",
+    "exteriorTransparencyVerified": true,
+    "adaptiveSafeZoneContentRatio": 0.66,
+    "xxxhdpiSha256": "91c4741e9d36b9038fe8b09570e6cd87736011f1dff281c86ad57dae28bf7eba",
+    "xxxhdpiRoundSha256": "d9b4fbb2fc238acce3b33add0ca391aa2eec8300404055700b48553fb38a3d2e",
+    "xxxhdpiForegroundSha256": "d6e3f379e83eb2f1ecd61d150c67f410b1a2f8c95615ac2af3b5d2f681d656b6",
+    "xxxhdpiMonochromeSha256": "3e5f9b43f6cd56bced64a31e48cc85d629dff25864d4eb2b0df86489ef346955",
+    "alphaChecks": [
+      {
+        "density": "mdpi",
+        "name": "ic_launcher.png",
+        "width": 48,
+        "height": 48,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 1487,
+        "bounds": {
+          "minX": 3,
+          "minY": 3,
+          "maxX": 45,
+          "maxY": 45
+        }
+      },
+      {
+        "density": "mdpi",
+        "name": "ic_launcher_round.png",
+        "width": 48,
+        "height": 48,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 1698,
+        "bounds": {
+          "minX": 1,
+          "minY": 1,
+          "maxX": 46,
+          "maxY": 46
+        }
+      },
+      {
+        "density": "mdpi",
+        "name": "ic_launcher_foreground.png",
+        "width": 108,
+        "height": 108,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 4025,
+        "bounds": {
+          "minX": 19,
+          "minY": 19,
+          "maxX": 89,
+          "maxY": 89
+        }
+      },
+      {
+        "density": "hdpi",
+        "name": "ic_launcher.png",
+        "width": 72,
+        "height": 72,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 253,
+        "nonEmpty": 3379,
+        "bounds": {
+          "minX": 4,
+          "minY": 4,
+          "maxX": 68,
+          "maxY": 68
+        }
+      },
+      {
+        "density": "hdpi",
+        "name": "ic_launcher_round.png",
+        "width": 72,
+        "height": 72,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 253,
+        "nonEmpty": 3798,
+        "bounds": {
+          "minX": 2,
+          "minY": 2,
+          "maxX": 70,
+          "maxY": 70
+        }
+      },
+      {
+        "density": "hdpi",
+        "name": "ic_launcher_foreground.png",
+        "width": 162,
+        "height": 162,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 9079,
+        "bounds": {
+          "minX": 28,
+          "minY": 28,
+          "maxX": 134,
+          "maxY": 134
+        }
+      },
+      {
+        "density": "xhdpi",
+        "name": "ic_launcher.png",
+        "width": 96,
+        "height": 96,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 5888,
+        "bounds": {
+          "minX": 5,
+          "minY": 5,
+          "maxX": 90,
+          "maxY": 90
+        }
+      },
+      {
+        "density": "xhdpi",
+        "name": "ic_launcher_round.png",
+        "width": 96,
+        "height": 96,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 6729,
+        "bounds": {
+          "minX": 2,
+          "minY": 2,
+          "maxX": 93,
+          "maxY": 93
+        }
+      },
+      {
+        "density": "xhdpi",
+        "name": "ic_launcher_foreground.png",
+        "width": 216,
+        "height": 216,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 253,
+        "nonEmpty": 16150,
+        "bounds": {
+          "minX": 37,
+          "minY": 37,
+          "maxX": 179,
+          "maxY": 179
+        }
+      },
+      {
+        "density": "xxhdpi",
+        "name": "ic_launcher.png",
+        "width": 144,
+        "height": 144,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 13364,
+        "bounds": {
+          "minX": 7,
+          "minY": 7,
+          "maxX": 136,
+          "maxY": 136
+        }
+      },
+      {
+        "density": "xxhdpi",
+        "name": "ic_launcher_round.png",
+        "width": 144,
+        "height": 144,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 15042,
+        "bounds": {
+          "minX": 3,
+          "minY": 3,
+          "maxX": 140,
+          "maxY": 140
+        }
+      },
+      {
+        "density": "xxhdpi",
+        "name": "ic_launcher_foreground.png",
+        "width": 324,
+        "height": 324,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 36012,
+        "bounds": {
+          "minX": 55,
+          "minY": 55,
+          "maxX": 268,
+          "maxY": 267
+        }
+      },
+      {
+        "density": "xxxhdpi",
+        "name": "ic_launcher.png",
+        "width": 192,
+        "height": 192,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 23577,
+        "bounds": {
+          "minX": 10,
+          "minY": 10,
+          "maxX": 182,
+          "maxY": 181
+        }
+      },
+      {
+        "density": "xxxhdpi",
+        "name": "ic_launcher_round.png",
+        "width": 192,
+        "height": 192,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 26669,
+        "bounds": {
+          "minX": 4,
+          "minY": 4,
+          "maxX": 187,
+          "maxY": 186
+        }
+      },
+      {
+        "density": "xxxhdpi",
+        "name": "ic_launcher_foreground.png",
+        "width": 432,
+        "height": 432,
+        "corners": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "centerAlpha": 252,
+        "nonEmpty": 63745,
+        "bounds": {
+          "minX": 74,
+          "minY": 74,
+          "maxX": 358,
+          "maxY": 357
+        }
+      }
+    ]
+  },
+  "splash": {
+    "branded": true,
+    "source": "assets/branding/knoux-logo-master.png",
+    "background": "#06060D",
+    "mode": "violet-cinema"
+  }
+}

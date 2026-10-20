@@ -43,6 +43,14 @@ declare global {
           }>;
           listDirectory(options: { uri: string }): Promise<{ items?: Array<{ uri: string; name: string; mime: string; size: number }> }>;
         };
+        App?: {
+          addListener(
+            eventName: 'backButton',
+            listenerFunc: (event: { canGoBack?: boolean }) => void,
+          ): Promise<{ remove(): Promise<void> }> | { remove(): Promise<void> };
+          exitApp(): Promise<void>;
+          minimizeApp(): Promise<void>;
+        };
         KnouxScreenCapture?: {
           startScreenRecording(options: {
             width: number;

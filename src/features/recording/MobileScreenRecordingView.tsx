@@ -1,9 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Mic2, MonitorUp, Play, Square, Video } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
+import { registerAndroidBackInterceptor } from '../../platform/androidBackButton';
+
+import { prepareRecordingEditor } from './recordingEditorHandoff';
 
 type CapturePlugin = {
   startScreenRecording(options: { width: number; height: number; fps: number; bitrate: number; microphone: boolean }): Promise<{ recording?: boolean }>;
@@ -28,6 +32,7 @@ function dimensionsFor(resolution: Resolution): { width: number; height: number 
 export const MobileScreenRecordingView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
+  const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
   const [resolution, setResolution] = useState<Resolution>('1080p');
   const [fps, setFps] = useState<30 | 60>(30);
   const [bitrateMbps, setBitrateMbps] = useState<8 | 12 | 20>(12);
@@ -37,6 +42,25 @@ export const MobileScreenRecordingView: React.FC = () => {
   const [outputUri, setOutputUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const capture = useMemo(plugin, []);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = (): void => {
+      void capture?.status().then((status) => {
+        if (active) { setRecording(status.recording === true); if (status.outputUri) setOutputUri(status.outputUri); }
+      }).catch((reason) => { if (active) setError(String(reason)); });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 2000);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [capture]);
+
+  useEffect(() => registerAndroidBackInterceptor(() => {
+    if (!recording && !busy) return false;
+    setError('Stop and save the recording before leaving this screen.');
+    return true;
+  }), [busy, recording]);
 
   const start = useCallback(async (): Promise<void> => {
     if (!capture || busy || recording) return;
@@ -52,6 +76,7 @@ export const MobileScreenRecordingView: React.FC = () => {
         microphone,
       });
       setRecording(result.recording === true);
+      if (result.recording !== true) setError('Android did not confirm that recording started.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Android MediaProjection could not start.');
     } finally {
@@ -66,6 +91,7 @@ export const MobileScreenRecordingView: React.FC = () => {
     try {
       const result = await capture.stopScreenRecording();
       setRecording(false);
+      if (!result.outputUri) throw new Error('Android returned no finalized recording.');
       setOutputUri(result.outputUri ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Android screen recording could not be finalized.');
@@ -74,11 +100,21 @@ export const MobileScreenRecordingView: React.FC = () => {
     }
   }, [busy, capture, recording]);
 
-  const openRecording = useCallback((): void => {
+  const openRecording = useCallback(async (): Promise<void> => {
     if (!outputUri) return;
+    const title = await androidDocumentTitle(outputUri);
+    setMediaTitle(outputUri, title ?? 'KNOUX screen recording');
     setCurrentMedia(outputUri);
     setView('player');
-  }, [outputUri, setCurrentMedia, setView]);
+  }, [outputUri, setCurrentMedia, setMediaTitle, setView]);
+
+  const editRecording = async (): Promise<void> => {
+    if (!outputUri || busy) return;
+    setBusy(true); setError(null);
+    try { await prepareRecordingEditor(outputUri); setView('editor'); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open recording in editor.'); }
+    finally { setBusy(false); }
+  };
 
   return (
     <section className="knoux-mobile-recording" data-component="MobileScreenRecordingView">
@@ -90,9 +126,9 @@ export const MobileScreenRecordingView: React.FC = () => {
 
       <div className="kmr-hero">
         <div className="kmr-orb"><MonitorUp size={46} /></div>
-        <span>NATIVE MEDIAPROJECTION</span>
-        <h1>Record the screen <em>without WebView capture hacks.</em></h1>
-        <p>Android owns the capture permission, H.264 encoding and MP4 output. The recording is written into Movies/KNOUX X.</p>
+        <span>CAPTURE YOUR NEXT IDEA</span>
+        <h1>Capture moments.<em> Create without limits.</em></h1>
+        <p>Record tutorials, gameplay and ideas. Android will ask for permission before you start. Find saved videos in Movies/KNOUX X.</p>
       </div>
 
       {error && <div className="kmr-error" role="alert">{error}</div>}
@@ -120,9 +156,13 @@ export const MobileScreenRecordingView: React.FC = () => {
       )}
 
       {outputUri && (
-        <button type="button" className="kmr-output" onClick={openRecording}>
+        <div>
+        <button type="button" className="kmr-output" onClick={() => void openRecording()}>
           <CheckCircle2 size={22} /><span><strong>Recording saved</strong><small>Tap to open it in KNOUX Player.</small></span><Video size={20} />
         </button>
+        <button type="button" className="kmr-primary" disabled={busy || recording} onClick={() => void editRecording()}>Open in Video Editor</button>
+        <button type="button" className="kmr-output" onClick={() => setView('library')}>Browse saved recordings in Library</button>
+        </div>
       )}
     </section>
   );

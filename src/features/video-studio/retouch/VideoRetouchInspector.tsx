@@ -44,6 +44,17 @@ function displayName(template: RetouchTemplate): string {
   return isArabic() ? template.localizedName.ar : template.localizedName.en;
 }
 
+const ANALYSIS_STATUS_AR: Record<string, string> = {
+  idle: 'جاهز للتحليل',
+  detecting: 'جارٍ اكتشاف الوجوه',
+  tracking: 'جارٍ تتبع الوجه',
+  ready: 'تم التحليل',
+  partial: 'تحليل جزئي',
+  'no-face': 'لم يُعثر على وجه',
+  failed: 'تعذّر التحليل',
+  cancelled: 'أُلغي التحليل',
+};
+
 function stateOf(item: TimelineItem): VideoRetouchClipState {
   return ensureVideoRetouchState(item);
 }
@@ -62,6 +73,7 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
   mode, playheadTime, priorityWindowSeconds, maxAnalysisSamples,
   enableBodyTracking, bodyModelReader, sharedCache,
 }) => {
+  const ar = isArabic();
   const [category, setCategory] = useState<SupportedCategory>('lipstick');
   const [workingAnalysis, setWorkingAnalysis] = useState<VideoRetouchClipState>(() => stateOf(item));
   const [analysisBusy, setAnalysisBusy] = useState(false);
@@ -179,13 +191,13 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
   return (
     <section className="video-retouch-inspector" data-component="VideoRetouchInspector">
       <div className="video-retouch-inspector__heading">
-        <div><Sparkles size={17} /><strong>Retouch</strong></div>
+        <div><Sparkles size={17} /><strong>{ar ? 'التنقيح' : 'Retouch'}</strong></div>
         <div className="video-retouch-heading-actions">
-          <button type="button" onClick={toggleBeforeAfter} title="Before / After">
+          <button type="button" onClick={toggleBeforeAfter} title={ar ? 'قبل / بعد' : 'Before / After'}>
             {displayState.beforeAfter === 'after' ? <Eye size={15} /> : <EyeOff size={15} />}
-            {displayState.beforeAfter === 'after' ? 'After' : 'Before'}
+            {displayState.beforeAfter === 'after' ? (ar ? 'بعد' : 'After') : (ar ? 'قبل' : 'Before')}
           </button>
-          <button type="button" onClick={toggleEnabled}>{displayState.enabled ? 'On' : 'Off'}</button>
+          <button type="button" onClick={toggleEnabled}>{displayState.enabled ? (ar ? 'مفعّل' : 'On') : (ar ? 'معطّل' : 'Off')}</button>
         </div>
       </div>
 
@@ -193,20 +205,20 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
         <div>
           <ScanFace size={18} />
           <span>
-            <strong>{displayState.analysis.status}</strong>
-            <small>{displayState.analysis.message ?? 'Local face tracking is ready to start.'}</small>
+            <strong>{ar ? ANALYSIS_STATUS_AR[displayState.analysis.status] ?? displayState.analysis.status : displayState.analysis.status}</strong>
+            <small>{displayState.analysis.message ?? (ar ? 'تتبع الوجه المحلي جاهز للبدء.' : 'Local face tracking is ready to start.')}</small>
           </span>
         </div>
         <progress max={100} value={displayState.analysis.progress} />
         <div className="video-retouch-analysis-actions">
-          <button type="button" disabled={analysisBusy || !sourceUrl} onClick={() => void analyze(false)}><RefreshCw size={14} /> Analyze</button>
-          {analysisBusy && <button type="button" onClick={() => { abortRef.current?.abort(); setAnalysisBusy(false); }}><X size={14} /> Cancel</button>}
+          <button type="button" disabled={analysisBusy || !sourceUrl} onClick={() => void analyze(false)}><RefreshCw size={14} /> {ar ? 'تحليل' : 'Analyze'}</button>
+          {analysisBusy && <button type="button" onClick={() => { abortRef.current?.abort(); setAnalysisBusy(false); }}><X size={14} /> {ar ? 'إلغاء' : 'Cancel'}</button>}
         </div>
       </div>
 
       {displayState.faceTracks.length > 0 && (
         <div className="video-retouch-face-selector">
-          <button type="button" className={displayState.applyAllFaces ? 'active' : ''} onClick={toggleAllFaces}>All faces</button>
+          <button type="button" className={displayState.applyAllFaces ? 'active' : ''} onClick={toggleAllFaces}>{ar ? 'كل الوجوه' : 'All faces'}</button>
           {displayState.faceTracks.map((track, index) => (
             <button
               type="button"
@@ -214,25 +226,25 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
               className={!displayState.applyAllFaces && displayState.selectedFaceId === track.faceId ? 'active' : ''}
               onClick={() => selectFace(track.faceId)}
             >
-              Face {index + 1}
+              {ar ? `وجه ${index + 1}` : `Face ${index + 1}`}
             </button>
           ))}
         </div>
       )}
 
       <div className="video-retouch-body" data-testid="video-body-retouch">
-        <strong>Body Retouch / تنسيق الجسم</strong>
-        <small>{displayState.bodyTracks?.length ? 'Body tracked · background protection degraded / حماية الخلفية محدودة' : 'No tracked body / لم يتم تتبع جسم'}</small>
+        <strong>{ar ? 'تنسيق الجسم' : 'Body Retouch / تنسيق الجسم'}</strong>
+        <small>{displayState.bodyTracks?.length ? (ar ? 'تم تتبع الجسم · حماية الخلفية محدودة' : 'Body tracked · background protection degraded / حماية الخلفية محدودة') : (ar ? 'لم يتم تتبع جسم' : 'No tracked body / لم يتم تتبع جسم')}</small>
         <button type="button" disabled={!displayState.bodyTracks?.length || analysisBusy} onClick={() => onChange(addVideoRetouchLayer(stateOf(item), {
           templateId: 'body-reshape', category: 'body-shape', targetRegion: 'waist', strength: 50,
           parameters: { waist: -65, torsoWidth: -35 }, applyScope: 'clip',
-        }))}>Apply Body Reshape / تطبيق تنسيق الجسم</button>
+        }))}>{ar ? 'تطبيق تنسيق الجسم' : 'Apply Body Reshape / تطبيق تنسيق الجسم'}</button>
       </div>
 
       <div className="video-retouch-categories">
         {SUPPORTED_CATEGORIES.map((entry) => (
           <button type="button" key={entry} className={category === entry ? 'active' : ''} onClick={() => setCategory(entry)}>
-            {entry === 'lipstick' ? 'Lips' : 'Cheeks'}
+            {entry === 'lipstick' ? (ar ? 'شفاه' : 'Lips') : (ar ? 'وجنتان' : 'Cheeks')}
           </button>
         ))}
       </div>
@@ -242,19 +254,19 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
           <button type="button" key={template.id} className="video-retouch-template" onClick={() => applyTemplate(template)} disabled={displayState.faceTracks.length === 0}>
             <i style={{ background: template.defaultColor ?? '#8B3DFF' }} />
             <span>{displayName(template)}</span>
-            <small>{template.isPro ? 'Pro' : 'Free'}</small>
+            <small>{template.isPro ? (ar ? 'احترافي' : 'Pro') : (ar ? 'مجاني' : 'Free')}</small>
           </button>
         ))}
       </div>
 
       {activeLayers.length > 0 && (
         <div className="video-retouch-layer-list">
-          <strong>Applied layers</strong>
+          <strong>{ar ? 'الطبقات المطبقة' : 'Applied layers'}</strong>
           {activeLayers.map((layer) => (
             <div key={layer.id} className="video-retouch-layer-row">
               <span>{retouchTemplateRegistry.get(layer.templateId)?.name ?? layer.templateId}</span>
               <input
-                aria-label={`${layer.templateId} strength`}
+                aria-label={ar ? `قوة ${layer.templateId}` : `${layer.templateId} strength`}
                 type="range"
                 min="0"
                 max="100"
@@ -263,13 +275,13 @@ export const VideoRetouchInspector: React.FC<VideoRetouchInspectorProps> = ({
                 onChange={(event) => onChange(updateVideoRetouchLayer(stateOf(item), layer.id, { strength: Number(event.target.value) }))}
               />
               <em>{Math.round(layer.strength)}%</em>
-              <button type="button" aria-label={`Remove ${layer.templateId}`} onClick={() => onChange(removeVideoRetouchLayer(stateOf(item), layer.id))}><X size={13} /></button>
+              <button type="button" aria-label={ar ? `إزالة ${layer.templateId}` : `Remove ${layer.templateId}`} onClick={() => onChange(removeVideoRetouchLayer(stateOf(item), layer.id))}><X size={13} /></button>
             </div>
           ))}
         </div>
       )}
 
-      <button type="button" className="video-retouch-reset" onClick={resetAll}>Reset Retouch</button>
+      <button type="button" className="video-retouch-reset" onClick={resetAll}>{ar ? 'إعادة ضبط التنقيح' : 'Reset Retouch'}</button>
     </section>
   );
 };

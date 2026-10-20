@@ -2,6 +2,12 @@ name: Android Release Acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      emulator-api:
+        description: Android API for a controlled installed-acceptance comparison
+        type: choice
+        default: '35'
+        options: ['35', '34']
   pull_request:
     branches:
       - main
@@ -16,6 +22,12 @@ on:
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-app-plugin.cjs'
+      - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
+      - 'tools/android-real-workflows.cjs'
+      - 'tools/android-native-core.cjs'
+      - 'tools/configure-android-webview-debugging.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
       - 'index.html'
@@ -38,6 +50,12 @@ on:
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
       - 'tools/verify-android-apk.cjs'
+      - 'tools/verify-android-app-plugin.cjs'
+      - 'tools/android-acceptance-diagnostics.sh'
+      - 'tools/run-android-installed-acceptance.sh'
+      - 'tools/android-real-workflows.cjs'
+      - 'tools/android-native-core.cjs'
+      - 'tools/configure-android-webview-debugging.cjs'
       - 'tools/verify-android-screen.cjs'
       - 'electron/**'
       - 'index.html'
@@ -53,9 +71,6 @@ permissions:
 concurrency:
   group: knoux-x-android-release-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  CAPACITOR_VERSION: '8.5.0'
 
 jobs:
   release-acceptance:
@@ -107,14 +122,12 @@ jobs:
       - name: Unit test gate
         run: npm test -- --runInBand
 
-      - name: Install pinned Capacitor build tooling without mutating lockfile
-        run: >-
-          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund
-          @capacitor/core@${CAPACITOR_VERSION}
-          @capacitor/cli@${CAPACITOR_VERSION}
-          @capacitor/android@${CAPACITOR_VERSION}
+      - name: Verify locked Capacitor and @capacitor/app toolchain
+        run: node tools/verify-android-app-plugin.cjs --toolchain-only
 
       - name: Build Knoux X Android renderer
+        env:
+          KNOUX_RELEASE_SHA: ${{ github.sha }}
         run: npx vite build --config vite.renderer.config.ts --outDir dist
 
       - name: Generate and synchronize Android project
@@ -123,6 +136,7 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync android
+          node tools/verify-android-app-plugin.cjs
 
       - name: Install native media foundations
         shell: bash
@@ -186,21 +200,40 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Generate legal encoded QA fixture
+        run: |
+          node - <<'JS'
+          const ffmpeg = require('ffmpeg-static');
+          // 60 s of playback, same reason as the debug lane: the trusted
+          // journey plays, scrubs, waits and then pauses and resumes the clip.
+          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','60','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-release-output/KNOUX-QA.mp4']);
+          JS
+          sha256sum android-ci-release-output/KNOUX-QA.mp4 > android-ci-release-output/fixture.sha256
+
       - name: Install and launch release APK on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ inputs.emulator-api || '35' }}
           target: google_apis
           arch: x86_64
           profile: pixel_7
-          cores: 2
-          ram-size: 2048M
+          cores: 4
+          ram-size: 4096M
           heap-size: 512M
           force-avd-creation: true
-          emulator-boot-timeout: 300
+          emulator-boot-timeout: 420
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
-          script: bash tools/android-emulator-smoke.sh android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk dev.knoux.playerx android-ci-release-output
+          # Same GPU backend evidence as the debug lane: the host SwiftShader
+          # GLES translator kills QEMU ("bad color buffer handle") while the
+          # WebView creates the video surface, while -gpu angle_indirect
+          # (ANGLE over Mesa llvmpipe) keeps the device alive for the whole
+          # acceptance. See .github/workflows/android-apk.yml for the runs.
+          emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+          script: bash tools/android-acceptance-diagnostics.sh android-ci-release-output bash tools/run-android-installed-acceptance.sh android-ci-release-output android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk
+
+      - name: Preserve generated App plugin registration evidence
+        if: always()
+        run: cp android/knoux-app-plugin-report.json android-ci-release-output/android-app-plugin-report.json
 
       - name: Mark release acceptance PASS
         shell: bash
@@ -210,6 +243,10 @@ jobs:
           from pathlib import Path
           path = Path('android-ci-release-output/android-release-acceptance.json')
           data = json.loads(path.read_text(encoding='utf-8'))
+          functional = json.loads(Path('android-ci-release-output/real-workflows.json').read_text(encoding='utf-8'))
+          if functional.get('verdict') != 'PASS_SCOPED_CASES_ONLY':
+              raise SystemExit('Installed functional cases did not pass; release acceptance remains incomplete')
+          data['functionalCaseIds'] = [case['id'] for case in functional['cases']]
           data['status'] = 'PASS'
           data['installedAndLaunched'] = True
           data['productionSigned'] = False

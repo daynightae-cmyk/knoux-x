@@ -13,10 +13,13 @@ import {
   type QueueState,
   type RepeatMode,
 } from '../core/player/queue';
+import { mediaTitle, sanitizeMediaTitle } from '../features/player/mobilePlayerSession';
 
 export interface PlayerState {
   currentMedia: string | null;
   setCurrentMedia: (path: string | null) => void;
+  mediaTitles: Record<string, string>;
+  setMediaTitle: (mediaPath: string, title: string) => void;
   isPlaying: boolean;
   play: () => void;
   pause: () => void;
@@ -55,18 +58,18 @@ export interface PlayerState {
   setSubtitleDelay: (delay: number) => void;
 }
 
-function queueItems(paths: readonly string[]): QueueItem[] {
+function queueItems(paths: readonly string[], titles: Record<string, string> = {}): QueueItem[] {
   return paths.map((mediaPath, index) => ({
     id: `${index}:${mediaPath}`,
     mediaPath,
-    title: mediaPath.split(/[\\/]/).pop() ?? mediaPath,
+    title: titles[mediaPath] ?? mediaTitle(mediaPath),
     addedAt: new Date().toISOString(),
   }));
 }
 
 function queueState(state: PlayerState): QueueState {
   return {
-    items: queueItems(state.playlist),
+    items: queueItems(state.playlist, state.mediaTitles),
     currentIndex: state.currentIndex,
     repeat: state.repeatMode,
     shuffle: state.shuffle,
@@ -93,6 +96,14 @@ export const usePlayerStore = create<PlayerState>()(
   persist(
     (set) => ({
       currentMedia: null,
+      mediaTitles: {},
+      setMediaTitle: (mediaPath, title) => set((state) => {
+        if (!mediaPath) return state;
+        const clean = sanitizeMediaTitle(title);
+        if (!clean || state.mediaTitles[mediaPath] === clean) return state;
+        const mediaTitles = Object.fromEntries(Object.entries({ ...state.mediaTitles, [mediaPath]: clean }).slice(-200));
+        return { mediaTitles };
+      }),
       setCurrentMedia: (mediaPath) => set((state) => {
         if (!mediaPath) return { currentMedia: null, currentTime: 0, duration: 0, isPlaying: false };
         const existingIndex = state.playlist.indexOf(mediaPath);
@@ -124,9 +135,9 @@ export const usePlayerStore = create<PlayerState>()(
       toggleShuffle: () => set((state) => queuePatch(setShuffleMode(queueState(state), !state.shuffle))),
       playlist: [],
       currentIndex: -1,
-      setPlaylist: (items) => set(() => {
+      setPlaylist: (items) => set((state) => {
         const normalized = items.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-        return queuePatch(createQueueState(queueItems(normalized)));
+        return queuePatch(createQueueState(queueItems(normalized, state.mediaTitles)));
       }),
       addToQueue: (mediaPath, playNext = false) => set((state) => {
         if (!mediaPath.trim()) return state;
@@ -138,7 +149,7 @@ export const usePlayerStore = create<PlayerState>()(
         items.splice(insertionIndex, 0, {
           id: `${Date.now()}:${mediaPath}`,
           mediaPath,
-          title: mediaPath.split(/[\\/]/).pop() ?? mediaPath,
+          title: state.mediaTitles[mediaPath] ?? mediaTitle(mediaPath),
           addedAt: new Date().toISOString(),
         });
         return queuePatch({
@@ -175,6 +186,7 @@ export const usePlayerStore = create<PlayerState>()(
       version: 2,
       partialize: (state) => ({
         currentMedia: state.currentMedia,
+        mediaTitles: state.mediaTitles,
         playlist: state.playlist,
         currentIndex: state.currentIndex,
         repeatMode: state.repeatMode,
@@ -189,12 +201,23 @@ export const usePlayerStore = create<PlayerState>()(
       merge: (persisted, current) => {
         const saved = persisted as Partial<PlayerState>;
         const playlist = Array.isArray(saved.playlist) ? saved.playlist.filter((item): item is string => typeof item === 'string') : [];
+        const mediaTitles: Record<string, string> = {};
+        if (saved.mediaTitles && typeof saved.mediaTitles === 'object') {
+          for (const [path, title] of Object.entries(saved.mediaTitles)) {
+            if (typeof path !== 'string' || typeof title !== 'string') continue;
+            const clean = sanitizeMediaTitle(title);
+            if (clean) mediaTitles[path] = clean;
+          }
+          const overflow = Object.keys(mediaTitles).length - 200;
+          if (overflow > 0) for (const path of Object.keys(mediaTitles).slice(0, overflow)) delete mediaTitles[path];
+        }
         const currentIndex = Number.isInteger(saved.currentIndex) && Number(saved.currentIndex) >= 0 && Number(saved.currentIndex) < playlist.length
           ? Number(saved.currentIndex)
           : playlist.length > 0 ? 0 : -1;
         return {
           ...current,
           ...saved,
+          mediaTitles,
           playlist,
           currentIndex,
           currentMedia: currentIndex >= 0 ? playlist[currentIndex] ?? null : null,

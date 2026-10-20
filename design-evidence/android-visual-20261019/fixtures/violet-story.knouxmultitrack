@@ -1,0 +1,63 @@
+{
+  "schema": "knoux-multitrack",
+  "version": 1,
+  "id": "visual-review-story",
+  "name": "Violet Story",
+  "createdAt": "2026-10-19T02:02:42.760Z",
+  "updatedAt": "2026-10-19T02:02:42.760Z",
+  "settings": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "audioSampleRate": 48000,
+    "backgroundColor": "#000000",
+    "timelineZoom": 1,
+    "snapEnabled": true,
+    "snapThreshold": 0.08,
+    "autosaveSeconds": 30
+  },
+  "tracks": [
+    {
+      "id": "visual-review-story-video-1",
+      "kind": "video",
+      "name": "Video 1",
+      "order": 0,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    },
+    {
+      "id": "visual-review-story-audio-1",
+      "kind": "audio",
+      "name": "Audio 1",
+      "order": 1,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    },
+    {
+      "id": "visual-review-story-title-1",
+      "kind": "text",
+      "name": "Titles",
+      "order": 2,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    }
+  ]
+}

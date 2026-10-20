@@ -1,0 +1,156 @@
+{
+  "schema": "knoux-multitrack",
+  "version": 1,
+  "id": "0d593f8b-4090-41f6-984d-b6e16dba38b4",
+  "name": "Packaged Timeline Export E2E",
+  "createdAt": "2026-10-19T20:30:40.224Z",
+  "updatedAt": "2026-10-19T20:30:42.529Z",
+  "settings": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "audioSampleRate": 48000,
+    "backgroundColor": "#000000",
+    "timelineZoom": 1,
+    "snapEnabled": true,
+    "snapThreshold": 0.08,
+    "autosaveSeconds": 30
+  },
+  "tracks": [
+    {
+      "id": "0d593f8b-4090-41f6-984d-b6e16dba38b4-video-1",
+      "kind": "video",
+      "name": "Video 1",
+      "order": 0,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": [
+        {
+          "id": "b6e06c0a-d461-4bcc-9730-ef8274a50c38",
+          "trackId": "0d593f8b-4090-41f6-984d-b6e16dba38b4-video-1",
+          "kind": "video",
+          "name": "Real packaged MP4 source",
+          "sourcePath": "D:\\a\\knoux-x\\knoux-x\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
+          "timelineStart": 0,
+          "duration": 1.5,
+          "sourceIn": 0,
+          "sourceOut": 1.5,
+          "playbackRate": 1,
+          "transform": {
+            "positionX": 0,
+            "positionY": 0,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1,
+            "cropLeft": 0,
+            "cropTop": 0,
+            "cropRight": 0,
+            "cropBottom": 0,
+            "flipHorizontal": false,
+            "flipVertical": false,
+            "blendMode": "normal"
+          },
+          "audio": {
+            "volume": 1,
+            "pan": 0,
+            "fadeIn": 0,
+            "fadeOut": 0,
+            "muted": false
+          },
+          "text": null,
+          "keyframes": [],
+          "transitionIn": null,
+          "transitionOut": null,
+          "linkedItemId": null,
+          "groupId": null,
+          "locked": false
+        }
+      ]
+    },
+    {
+      "id": "0d593f8b-4090-41f6-984d-b6e16dba38b4-audio-1",
+      "kind": "audio",
+      "name": "Audio 1",
+      "order": 1,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    },
+    {
+      "id": "0d593f8b-4090-41f6-984d-b6e16dba38b4-title-1",
+      "kind": "text",
+      "name": "Titles",
+      "order": 2,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": [
+        {
+          "id": "695cc0ec-cd07-40fb-8123-8ec6af8875e4",
+          "trackId": "0d593f8b-4090-41f6-984d-b6e16dba38b4-title-1",
+          "kind": "text",
+          "name": "KNOUX TIMELINE E2E BAKED",
+          "sourcePath": null,
+          "timelineStart": 0,
+          "duration": 3.5,
+          "sourceIn": 0,
+          "sourceOut": 3.5,
+          "playbackRate": 1,
+          "transform": {
+            "positionX": 0,
+            "positionY": 0,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1,
+            "cropLeft": 0,
+            "cropTop": 0,
+            "cropRight": 0,
+            "cropBottom": 0,
+            "flipHorizontal": false,
+            "flipVertical": false,
+            "blendMode": "normal"
+          },
+          "audio": {
+            "volume": 1,
+            "pan": 0,
+            "fadeIn": 0,
+            "fadeOut": 0,
+            "muted": false
+          },
+          "text": {
+            "text": "KNOUX TIMELINE E2E BAKED",
+            "fontFamily": "Segoe UI",
+            "fontSize": 64,
+            "fontWeight": 700,
+            "color": "#ffffff",
+            "strokeColor": "#000000",
+            "strokeWidth": 2,
+            "backgroundColor": "transparent",
+            "align": "center",
+            "direction": "ltr"
+          },
+          "keyframes": [],
+          "transitionIn": null,
+          "transitionOut": null,
+          "linkedItemId": null,
+          "groupId": null,
+          "locked": false
+        }
+      ]
+    }
+  ]
+}

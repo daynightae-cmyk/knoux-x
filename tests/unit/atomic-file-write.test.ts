@@ -5,6 +5,15 @@ import path from 'node:path';
 import { writeFileAtomic } from '../../electron/fs/atomic-write';
 import { CaptureService } from '../../electron/creative/capture-service';
 
+jest.mock('node:fs/promises', () => {
+  const actual = jest.requireActual('node:fs/promises');
+  return {
+    __esModule: true,
+    ...actual,
+    rename: jest.fn((from: string, to: string) => actual.rename(from, to)),
+  };
+});
+
 let mockSavePath: string | null = null;
 let mockDialogCanceled = false;
 
@@ -101,6 +110,63 @@ describe('writeFileAtomic (export hardening)', () => {
     // The destination holds exactly one whole export — never an interleaving.
     expect([a, b]).toContainEqual(finalBytes);
     expect(await leftoverTemps(destination)).toHaveLength(0);
+  });
+});
+
+describe('writeFileAtomic (bounded rename retry for transient Windows locks)', () => {
+  let directory: string;
+  const mockedFs = jest.requireMock('node:fs/promises') as { rename: jest.Mock };
+  const actualFs = jest.requireActual('node:fs/promises') as typeof import('node:fs/promises');
+
+  beforeEach(async () => {
+    directory = await mkdtemp(path.join(os.tmpdir(), 'knoux-atomic-retry-'));
+    mockedFs.rename.mockReset();
+    mockedFs.rename.mockImplementation((from: string, to: string) => actualFs.rename(from, to));
+  });
+
+  afterEach(async () => {
+    mockedFs.rename.mockReset();
+    mockedFs.rename.mockImplementation((from: string, to: string) => actualFs.rename(from, to));
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  function lockError(code: string): NodeJS.ErrnoException {
+    return Object.assign(new Error(`${code}: transient rename rejection`), { code });
+  }
+
+  it('retries transient EPERM/EACCES/EBUSY renames and still lands the bytes', async () => {
+    const destination = path.join(directory, 'locked.png');
+    const bytes = Buffer.from('locked-export-bytes');
+    const failures = ['EPERM', 'EBUSY'];
+    mockedFs.rename.mockImplementation(async (from: string, to: string) => {
+      const code = failures.shift();
+      if (code) throw lockError(code);
+      return actualFs.rename(from, to);
+    });
+
+    const result = await writeFileAtomic(destination, bytes);
+
+    expect(result.bytesWritten).toBe(bytes.byteLength);
+    expect(await readFile(destination)).toEqual(bytes);
+    expect(mockedFs.rename).toHaveBeenCalledTimes(3);
+  });
+
+  it('fails fast on permanent rename errors without burning retries', async () => {
+    const destination = path.join(directory, 'permanent.png');
+    mockedFs.rename.mockImplementation(async () => { throw lockError('ENOENT'); });
+
+    await expect(writeFileAtomic(destination, Buffer.from('x'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(mockedFs.rename).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up after the bounded attempts and leaves no temp file behind', async () => {
+    const destination = path.join(directory, 'stuck.png');
+    mockedFs.rename.mockImplementation(async () => { throw lockError('EPERM'); });
+
+    await expect(writeFileAtomic(destination, Buffer.from('x'))).rejects.toMatchObject({ code: 'EPERM' });
+    expect(mockedFs.rename).toHaveBeenCalledTimes(6);
+    const entries = await readdir(directory);
+    expect(entries.filter((entry) => entry.endsWith('.tmp'))).toHaveLength(0);
   });
 });
 

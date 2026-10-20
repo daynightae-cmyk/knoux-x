@@ -4,6 +4,9 @@ import { ArrowLeft, FolderPlus, Gauge, Globe2, Moon, RotateCcw, ShieldCheck, Spa
 import { BrandMark } from '../../components/brand/BrandMark';
 import type { StructuredValue } from '../../../electron/ipc/channel-types';
 import { useAppStore } from '../../store/appStore';
+import { MobileOnboarding } from '../../components/mobile/MobileOnboarding';
+
+import { MobileDeveloperView } from './MobileDeveloperView';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
@@ -14,6 +17,7 @@ function announceMobileSetting(key: string, value: unknown): void {
 export const MobileSettingsView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const locale = useAppStore((state) => state.locale);
+  const copy = (en: string, ar: string): string => locale === 'ar' ? ar : en;
   const theme = useAppStore((state) => state.theme);
   const motionEnabled = useAppStore((state) => state.motionEnabled);
   const setLocale = useAppStore((state) => state.setLocale);
@@ -24,6 +28,8 @@ export const MobileSettingsView: React.FC = () => {
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [about, setAbout] = useState(false);
+  const [welcome, setWelcome] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -96,24 +102,28 @@ export const MobileSettingsView: React.FC = () => {
     }
   }, [setTheme]);
 
+  if (about) return <MobileDeveloperView onBack={() => setAbout(false)} />;
   return (
-    <section className="knoux-mobile-settings" data-component="MobileSettingsView">
-      <header className="kms-topbar"><button type="button" aria-label="Back" onClick={() => setView('home')}><ArrowLeft size={21} /></button><div><BrandMark size={38} /><span><strong>KNOUX <em>X</em></strong><small>SETTINGS</small></span></div><ShieldCheck size={20} /></header>
-      <div className="kms-hero"><span>LOCAL PREFERENCES</span><h1>Make KNOUX X <em>yours.</em></h1><p>Every control below writes to the actual local settings layer.</p></div>
+    <section className="knoux-mobile-settings" data-component="MobileSettingsView" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <header className="kms-topbar"><button type="button" aria-label="Back" onClick={() => setView('home')}><ArrowLeft size={21} /></button><div><BrandMark size={38} /><span><strong>KNOUX <em>X</em></strong><small>{copy('SETTINGS', 'الإعدادات')}</small></span></div><ShieldCheck size={20} /></header>
+      <div className="kms-hero"><span>{copy('LOCAL PREFERENCES', 'على ذوقك')}</span><h1>{copy('Make KNOUX X', 'اجعل KNOUX X')} <em>{copy('yours.', 'على ذوقك.')}</em></h1><p>{copy('A personal space, shaped around you.', 'مساحتك الخاصة، كما تحبّها.')}</p></div>
       {error && <div className="kms-error" role="alert">{error}</div>}
       {notice && <div className="kms-notice" role="status">{notice}</div>}
 
-      <section className="kms-card"><div className="kms-card-title"><Globe2 size={18} /><span><strong>Language</strong><small>Interface direction updates immediately.</small></span></div><div className="kms-segment"><button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => changeLocale('en')}>English</button><button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => changeLocale('ar')}>العربية</button></div></section>
+      <section className="kms-card"><div className="kms-card-title"><Globe2 size={18} /><span><strong>{copy('Language', 'اللغة')}</strong><small>{copy('Interface direction updates immediately.', 'اختر لغتك المفضلة.')}</small></span></div><div className="kms-segment"><button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => changeLocale('en')}>English</button><button type="button" className={locale === 'ar' ? 'active' : ''} onClick={() => changeLocale('ar')}>العربية</button></div></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>Appearance</strong><small>Premium Daylight by default, with optional Deep Black.</small></span></div><div className="kms-segment"><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>Daylight</button><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>Deep Black</button></div><label className="kms-switch"><span><Sparkles size={17} /> Motion & glass animations</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Moon size={18} /><span><strong>{copy('Appearance', 'المظهر')}</strong><small>{copy('Premium Daylight by default, with optional Deep Black.', 'اختر هدوء اللؤلؤ أو عمق السينما.')}</small></span></div><div className="kms-segment"><button type="button" className={theme === 'system-light' ? 'active' : ''} onClick={() => changeTheme('system-light')}>{copy('Daylight', 'نهاري')}</button><button type="button" className={theme === 'deep-black' ? 'active' : ''} onClick={() => changeTheme('deep-black')}>{copy('Deep Black', 'ليلي')}</button></div><label className="kms-switch"><span><Sparkles size={17} /> {copy('Motion & transitions', 'الحركة والانتقالات')}</span><input type="checkbox" checked={motionEnabled} onChange={(event) => { setMotionEnabled(event.currentTarget.checked); void persist('motionEnabled', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>Playback defaults</strong><small>Applied once when new media opens; manual speed changes remain yours.</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>Keep screen awake while playing</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
+      <section className="kms-card"><div className="kms-card-title"><Gauge size={18} /><span><strong>{copy('Playback defaults', 'إعدادات التشغيل')}</strong><small>{copy('Applied once when new media opens; manual speed changes remain yours.', 'سرعة البدء للفيديوهات الجديدة.')}</small></span></div><div className="kms-speed-grid">{SPEEDS.map((speed) => <button type="button" key={speed} className={Math.abs(speed - defaultSpeed) < 0.001 ? 'active' : ''} onClick={() => { setDefaultSpeed(speed); void persist('mobile.defaultPlaybackSpeed', speed); }}>{speed}×</button>)}</div><label className="kms-switch"><span>{copy('Keep screen awake while playing', 'إبقاء الشاشة مضاءة أثناء التشغيل')}</span><input type="checkbox" checked={keepAwake} onChange={(event) => { setKeepAwake(event.currentTarget.checked); void persist('mobile.keepScreenAwake', event.currentTarget.checked); }} /></label></section>
 
-      <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>Media folder</strong><small>{libraryPath ? 'Persisted Android SAF folder permission is active.' : 'Choose a folder through Android SAF.'}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? 'Change folder' : 'Choose folder'}</button>{libraryPath && <code>{libraryPath}</code>}</section>
+      <section className="kms-card"><div className="kms-card-title"><FolderPlus size={18} /><span><strong>{copy('Media folder', 'مجلد الوسائط')}</strong><small>{libraryPath ? copy('Your chosen folder is connected.', 'مجلدك المختار متصل.') : copy('Choose the folder for your media.', 'اختر مجلد وسائطك.')}</small></span></div><button type="button" className="kms-wide-button" onClick={() => void chooseLibrary()}><FolderPlus size={17} /> {libraryPath ? copy('Change folder', 'تغيير المجلد') : copy('Choose folder', 'اختيار مجلد')}</button>{libraryPath && <code>{libraryPath}</code>}</section>
 
-      <section className="kms-card"><div className="kms-card-title"><ShieldCheck size={18} /><span><strong>Privacy</strong><small>Playback, editing and local rendering do not upload your media by themselves.</small></span></div><p className="kms-copy">Any future AI action that sends selected data off-device must request explicit consent at that action.</p></section>
+      <section className="kms-card"><div className="kms-card-title"><ShieldCheck size={18} /><span><strong>{copy('Privacy', 'الخصوصية')}</strong><small>{copy('Playback, editing and local rendering do not upload your media by themselves.', 'تظل وسائطك على جهازك أثناء التشغيل والتعديل المحلي.')}</small></span></div><p className="kms-copy">{copy('Any future AI action that sends selected data off-device must request explicit consent at that action.', 'اطّلع على تفاصيل الخدمات الخارجية واختر ما تريد مشاركته عند استخدامها.')}</p></section>
 
-      <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> Reset mobile settings</button>
+      <button type="button" className="kms-wide-button" onClick={() => setAbout(true)}>Eng. Sadek Elgazar · {locale === 'ar' ? 'عن المطوّر' : 'About the developer'}</button>
+      <button type="button" className="kms-wide-button" onClick={() => setWelcome(true)}>{locale === 'ar' ? 'جولة في التطبيق' : 'Replay welcome tour'}</button>
+      {welcome && <MobileOnboarding replay onClose={() => setWelcome(false)} />}
+      <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> {copy('Reset mobile settings', 'إعادة ضبط الإعدادات')}</button>
     </section>
   );
 };

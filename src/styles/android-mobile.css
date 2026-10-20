@@ -34,7 +34,9 @@ html[data-platform='android'] #root {
   html[data-platform='android'] .image-studio-main { min-height: 300px; grid-row: 1; }
   html[data-platform='android'] .image-studio-canvas-container { min-height: 260px; }
   html[data-platform='android'] :is(.image-studio-sidebar, .image-studio-right-panel) { overflow: visible; }
-  html[data-platform='android'] :is(.modal, .modal-content, [role='dialog']:not(.first-run-backdrop)) { min-width: 0; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; }
+  html[data-platform='android'] :is(.modal, .modal-content, [role='dialog']:not(.first-run-backdrop):not(.km-welcome)) { min-width: 0; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; }
+  /* Full-screen onboarding owns its own layout: the modal cap above must never inset it. */
+  html[data-platform='android'] .km-welcome { max-width: none; max-height: none; }
   html[data-platform='android'] .first-run-backdrop { padding: 12px; }
   html[data-platform='android'] .first-run-card { width: 100%; max-height: calc(100dvh - 24px); overflow-y: auto; }
   html[data-platform='android'] .first-run-actions { flex-wrap: wrap; }

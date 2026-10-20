@@ -103,6 +103,19 @@ export function androidSafAvailable(): boolean {
   return plugin() !== null;
 }
 
+/** Real document display name for a persisted content:// URI, when the SAF plugin can describe it. */
+export async function androidDocumentTitle(uri: string): Promise<string | null> {
+  const saf = plugin();
+  if (!saf || !uri.startsWith('content://')) return null;
+  try {
+    const stat = await saf.stat({ uri });
+    const name = stat?.name?.trim();
+    return name ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readAndroidPersistentAsset(uri: string): Promise<{ bytes: Uint8Array; blob: Blob; mime: string; name: string }> {
   const saf = plugin();
   if (!saf || !uri.startsWith('content://')) throw new Error('The Android persisted document is unavailable.');
@@ -176,9 +189,25 @@ export function installAndroidSafBridge(): void {
         const result = await saf.pick({ mode: 'file', mimeTypes: ['video/*', 'audio/*'] });
         const item = result.items?.[0];
         if (!item) return null;
-        return { filePath: item.uri, mediaUrl: playableUrl(item.uri) };
+        return { filePath: item.uri, mediaUrl: playableUrl(item.uri), mediaName: item.name };
       },
       toUrl: async (filePath: string): Promise<string> => filePath.startsWith('content://') ? playableUrl(filePath) : creativeBase.media.toUrl(filePath),
     },
   } as Window['knouxCreativeAPI'];
+
+  // Slideshow previously bypassed SAF and registered files in a different
+  // process-only map from the preview resolver. Store the persisted URI in the
+  // project itself; video previews stream through Capacitor without base64.
+  const importAssets = async () => {
+    const result = await saf.pick({ mode: 'files', mimeTypes: ['image/*', 'video/*', 'audio/*'] });
+    const items = result.items ?? [];
+    const assets = items.flatMap((item) => {
+      const family = item.mime.startsWith('image/') ? 'image' as const
+        : item.mime.startsWith('video/') ? 'video' as const
+          : item.mime.startsWith('audio/') ? 'audio' as const : null;
+      return family ? [{ filePath: item.uri, mediaUrl: playableUrl(item.uri), family, duration: null }] : [];
+    });
+    return { assets, accepted: assets.length, skipped: items.length - assets.length, failed: 0, issues: [], rootPath: null };
+  };
+  window.knouxSlideshowAPI = { ...window.knouxSlideshowAPI, importFiles: importAssets, importFolder: importAssets };
 }

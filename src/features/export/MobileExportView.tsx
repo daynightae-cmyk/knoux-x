@@ -43,6 +43,27 @@ const RESOLUTIONS: Array<{ id: ResolutionId; label: string; width: number; heigh
 const FRAME_RATES: FrameRate[] = [24, 30, 60];
 const BITRATES: BitrateMbps[] = [4, 8, 16, 35];
 
+const ERROR_COPY_AR: Record<string, string> = {
+  'The selected video could not be decoded.': 'تعذّر فك ترميز الفيديو المحدد.',
+  'Could not open this media file.': 'تعذّر فتح ملف الوسائط هذا.',
+  'Choose a playable video source first.': 'اختر مقطع فيديو قابلاً للتشغيل أولًا.',
+  'Choose a video file for mobile video export.': 'اختر ملف فيديو للتصدير من الهاتف.',
+  'Canvas export is unavailable on this device.': 'تصدير Canvas غير متاح على هذا الجهاز.',
+  'The on-device encoder stopped unexpectedly.': 'توقّف مُرمّز الجهاز بشكل غير متوقع.',
+  'The encoder produced an empty video.': 'أنتج المُرمّز فيديو فارغًا.',
+  'This Android WebView does not expose a supported on-device video encoder.': 'لا يوفّر WebView على Android مُرمّز فيديو مدعومًا على الجهاز.',
+  'No active Video Studio project is available.': 'لا يوجد مشروع استوديو فيديو نشط.',
+  'Choose a video source first.': 'اختر مصدر الفيديو أولًا.',
+  'Mobile export failed.': 'فشل التصدير على الجهاز.',
+  'The export could not be saved.': 'تعذّر حفظ الملف المُصدَّر.',
+  'Sharing is unavailable; save the exported file instead.': 'المشاركة غير متاحة؛ احفظ الملف المُصدَّر بدلًا من ذلك.',
+};
+
+function errorLabel(message: string, ar: boolean): string {
+  if (!ar) return message;
+  return ERROR_COPY_AR[message] ?? message;
+}
+
 function fileName(filePath: string | null): string {
   if (!filePath) return 'KNOUX-export';
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX-export';
@@ -92,6 +113,7 @@ function waitForMetadata(video: HTMLVideoElement): Promise<void> {
 }
 
 export const MobileExportView: React.FC = () => {
+  const ar = useAppStore((state) => state.locale) === 'ar';
   const setView = useAppStore((state) => state.setView);
   const currentMedia = usePlayerStore((state) => state.currentMedia);
   const activeProject = useMemo(() => readActiveAndroidMultitrackProject(), []);
@@ -333,7 +355,7 @@ export const MobileExportView: React.FC = () => {
     if (!result) return;
     try {
       const destination = await window.knouxAPI.file.saveFile({
-        title: 'Save KNOUX export',
+        title: ar ? 'حفظ تصدير KNOUX' : 'Save KNOUX export',
         defaultPath: result.file.name,
         filters: [{ name: result.extension.toUpperCase(), extensions: [result.extension] }],
       });
@@ -346,7 +368,7 @@ export const MobileExportView: React.FC = () => {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The export could not be saved.');
     }
-  }, [result]);
+  }, [ar, result]);
 
   const shareResult = useCallback(async (): Promise<void> => {
     if (!result) return;
@@ -362,49 +384,49 @@ export const MobileExportView: React.FC = () => {
   }, [result, saveToDevice]);
 
   const sourceTitle = sourceMode === 'project'
-    ? activeProject?.name ?? 'No active project'
-    : sourcePath ? fileName(sourcePath) : 'No video selected';
-  const sourceLabel = sourceMode === 'project' ? 'TIMELINE PROJECT' : 'SOURCE VIDEO';
+    ? activeProject?.name ?? (ar ? 'لا مشروع نشط' : 'No active project')
+    : sourcePath ? fileName(sourcePath) : (ar ? 'لم يُختر فيديو' : 'No video selected');
+  const sourceLabel = sourceMode === 'project' ? (ar ? 'مشروع المونتاج' : 'TIMELINE PROJECT') : (ar ? 'مقطع المصدر' : 'SOURCE VIDEO');
 
   return (
     <section className="knoux-mobile-export" data-component="MobileExportView">
       <div className="kme-ambient kme-ambient-one" />
       <div className="kme-ambient kme-ambient-two" />
       <header className="kme-topbar">
-        <button type="button" className="kme-round" aria-label="Back" onClick={() => setView(sourceMode === 'project' ? 'editor' : 'home')} disabled={exporting}><ArrowLeft size={21} /></button>
-        <div className="kme-brand"><BrandMark size={40} /><div><strong>KNOUX <span>X</span></strong><small>EXPORT & SHARE</small></div></div>
-        <span className="kme-local-badge"><Sparkles size={14} /> ON DEVICE</span>
+        <button type="button" className="kme-round" aria-label={ar ? 'رجوع' : 'Back'} onClick={() => setView(sourceMode === 'project' ? 'editor' : 'home')} disabled={exporting}><ArrowLeft size={21} /></button>
+        <div className="kme-brand"><BrandMark size={40} /><div><strong>KNOUX <span>X</span></strong><small>{ar ? 'تصدير ومشاركة' : 'EXPORT & SHARE'}</small></div></div>
+        <span className="kme-local-badge"><Sparkles size={14} /> {ar ? 'على الجهاز' : 'ON DEVICE'}</span>
       </header>
 
-      <div className="kme-hero"><span>FINAL OUTPUT</span><h1>Export the <em>actual timeline.</em></h1><p>Video Studio projects render from their tracks, trims, transforms, text and audio. A standalone video can still be exported directly.</p></div>
+      <div className="kme-hero"><span>{ar ? 'النتيجة النهائية' : 'FINAL OUTPUT'}</span><h1>{ar ? <>اجعلها <em>جاهزة للمشاركة.</em></> : <>Make it <em>yours to share.</em></>}</h1><p>{ar ? 'اختر اللمسات الأخيرة لقصتك. صدّر مشروع استوديو الفيديو أو مقطع فيديو من جهازك.' : 'Choose the finishing touches for your story. Export your Video Studio project or a video from your device.'}</p></div>
 
       {activeProject && (
         <div className="kme-source-mode">
-          <button type="button" className={sourceMode === 'project' ? 'active' : ''} onClick={() => setSourceMode('project')} disabled={exporting}><Layers3 size={17} /> Project</button>
-          <button type="button" className={sourceMode === 'media' ? 'active' : ''} onClick={() => setSourceMode('media')} disabled={exporting}><Film size={17} /> Single video</button>
+          <button type="button" className={sourceMode === 'project' ? 'active' : ''} onClick={() => setSourceMode('project')} disabled={exporting}><Layers3 size={17} /> {ar ? 'مشروع' : 'Project'}</button>
+          <button type="button" className={sourceMode === 'media' ? 'active' : ''} onClick={() => setSourceMode('media')} disabled={exporting}><Film size={17} /> {ar ? 'مقطع واحد' : 'Single video'}</button>
         </div>
       )}
 
       <div className="kme-source-card">
         <div className="kme-source-icon">{sourceMode === 'project' ? <Layers3 size={26} /> : <Film size={26} />}</div>
-        <div className="kme-source-copy"><small>{sourceLabel}</small><strong>{sourceTitle}</strong><span>{effectiveSize ? `${effectiveSize.width}×${effectiveSize.height}` : '—'}{effectiveDuration > 0 ? ` · ${Math.round(effectiveDuration)} sec` : ''}</span></div>
-        {sourceMode === 'media' && <button type="button" onClick={() => void chooseSource()} disabled={exporting}><FolderOpen size={17} /> {sourcePath ? 'Change' : 'Choose'}</button>}
+        <div className="kme-source-copy"><small>{sourceLabel}</small><strong><bdi>{sourceTitle}</bdi></strong><span><bdi>{effectiveSize ? `${effectiveSize.width}×${effectiveSize.height}` : '—'}</bdi>{effectiveDuration > 0 ? <> · <bdi>{Math.round(effectiveDuration)}</bdi> {ar ? 'ثانية' : 'sec'}</> : ''}</span></div>
+        {sourceMode === 'media' && <button type="button" onClick={() => void chooseSource()} disabled={exporting}><FolderOpen size={17} /> {sourcePath ? (ar ? 'تغيير' : 'Change') : (ar ? 'اختيار' : 'Choose')}</button>}
       </div>
 
       {sourceMode === 'media' && sourceUrl && <video className="kme-preview" src={sourceUrl} controls playsInline preload="metadata" />}
 
       <section className="kme-panel">
-        <div className="kme-section-title"><span>RESOLUTION</span><strong>{targetSize.width}×{targetSize.height}</strong></div>
+        <div className="kme-section-title"><span>{ar ? 'الدقة' : 'RESOLUTION'}</span><strong><bdi>{targetSize.width}×{targetSize.height}</bdi></strong></div>
         <div className="kme-resolution-grid">{RESOLUTIONS.map((entry) => <button type="button" key={entry.id} className={resolutionId === entry.id ? 'active' : ''} onClick={() => setResolutionId(entry.id)} disabled={exporting}><strong>{entry.label}</strong><span>{entry.hint}</span></button>)}</div>
       </section>
 
-      <section className="kme-panel"><div className="kme-section-title"><span>FRAME RATE</span><strong>{fps} FPS</strong></div><div className="kme-chip-row">{FRAME_RATES.map((value) => <button type="button" key={value} className={fps === value ? 'active' : ''} onClick={() => setFps(value)} disabled={exporting}>{value}</button>)}</div></section>
-      <section className="kme-panel"><div className="kme-section-title"><span>VIDEO BITRATE</span><strong>{bitrate} Mbps</strong></div><div className="kme-chip-row">{BITRATES.map((value) => <button type="button" key={value} className={bitrate === value ? 'active' : ''} onClick={() => setBitrate(value)} disabled={exporting}>{value}</button>)}</div></section>
+      <section className="kme-panel"><div className="kme-section-title"><span>{ar ? 'معدل الإطارات' : 'FRAME RATE'}</span><strong><bdi>{fps} FPS</bdi></strong></div><div className="kme-chip-row">{FRAME_RATES.map((value) => <button type="button" key={value} className={fps === value ? 'active' : ''} onClick={() => setFps(value)} disabled={exporting}>{value}</button>)}</div></section>
+      <section className="kme-panel"><div className="kme-section-title"><span>{ar ? 'معدل البت' : 'VIDEO BITRATE'}</span><strong><bdi>{bitrate} Mbps</bdi></strong></div><div className="kme-chip-row">{BITRATES.map((value) => <button type="button" key={value} className={bitrate === value ? 'active' : ''} onClick={() => setBitrate(value)} disabled={exporting}>{value}</button>)}</div></section>
 
-      {error && <div className="kme-error" role="alert"><XCircle size={18} /> {error}</div>}
-      {exporting && <div className="kme-progress"><div><span><LoaderCircle className="spin" size={17} /> Rendering locally</span><strong>{Math.round(progress)}%</strong></div><progress max="100" value={progress} /><button type="button" onClick={cancelExport}>Cancel</button></div>}
-      {!exporting && !result && <button type="button" className="kme-export-primary" onClick={() => void startExport()} disabled={sourceMode === 'project' ? !activeProject : !sourceUrl}><Download size={20} /> Export {sourceMode === 'project' ? 'Project' : 'Video'}</button>}
-      {result && <div className="kme-result"><CheckCircle2 size={28} /><div><strong>Export complete</strong><span>{result.file.name}</span></div><button type="button" onClick={() => void saveToDevice()}><Download size={17} /> Save to Device</button><button type="button" onClick={() => void shareResult()}><Share2 size={17} /> Share</button></div>}
+      {error && <div className="kme-error" role="alert"><XCircle size={18} /> {errorLabel(error, ar)}</div>}
+      {exporting && <div className="kme-progress"><div><span><LoaderCircle className="spin" size={17} /> {ar ? 'جارٍ التصدير على الجهاز' : 'Rendering locally'}</span><strong>{Math.round(progress)}%</strong></div><progress max="100" value={progress} /><button type="button" onClick={cancelExport}>{ar ? 'إلغاء' : 'Cancel'}</button></div>}
+      {!exporting && !result && <button type="button" className="kme-export-primary" onClick={() => void startExport()} disabled={sourceMode === 'project' ? !activeProject : !sourceUrl}><Download size={20} /> {ar ? (sourceMode === 'project' ? 'تصدير المشروع' : 'تصدير الفيديو') : `Export ${sourceMode === 'project' ? 'Project' : 'Video'}`}</button>}
+      {result && <div className="kme-result"><CheckCircle2 size={28} /><div><strong>{ar ? 'اكتمل التصدير' : 'Export complete'}</strong><span><bdi>{result.file.name}</bdi></span></div><button type="button" onClick={() => void saveToDevice()}><Download size={17} /> {ar ? 'حفظ على الجهاز' : 'Save to Device'}</button><button type="button" onClick={() => void shareResult()}><Share2 size={17} /> {ar ? 'مشاركة' : 'Share'}</button></div>}
     </section>
   );
 };

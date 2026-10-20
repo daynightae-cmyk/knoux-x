@@ -1,0 +1,3 @@
+requested=360x800 applied=Override size: 360x800 density=160 png=360x800 settled=yes
+requested=390x844 applied=Override size: 390x844 density=160 png=390x844 settled=yes
+requested=412x915 applied=Override size: 412x915 density=160 png=412x915 settled=yes

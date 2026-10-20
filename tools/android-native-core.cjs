@@ -15,6 +15,7 @@
 
 const APP_PACKAGE = 'dev.knoux.playerx';
 const FIXTURE_NAME = 'KNOUX-QA.mp4';
+const IMAGE_FIXTURE_NAME = 'KNOUX-QA.png';
 const NATIVE_SURFACE_PACKAGES = new Set([
   'com.google.android.documentsui',
   'com.android.documentsui',
@@ -81,13 +82,27 @@ function isAppSurface(nodes) {
 /* Node matchers. A matcher is a predicate over a freshly re-dumped hierarchy,
  * never an identity comparison against a node from an earlier dump: the
  * stability check re-reads the screen and must land on the same control. */
-const fixtureRowMatcher = () => (node) => matchesLabelsOf(node, [FIXTURE_NAME]);
+const fixtureRowMatcher = (fixtureName = FIXTURE_NAME) => (node) => matchesLabelsOf(node, [fixtureName]);
 const folderTileMatcher = () => (node) => attrOf(node, 'text') === 'Download'
   && attrOf(node, 'resource-id') === 'android:id/title'
   && attrOf(node, 'package') !== APP_PACKAGE;
 const rootsDrawerMatcher = () => (node) => matchesLabelsOf(node, ['Show roots']);
 const downloadsRowMatcher = () => (node) => attrOf(node, 'text') === 'Downloads'
   && attrOf(node, 'package') !== APP_PACKAGE;
+/* ACTION_CREATE_DOCUMENT exposes its confirmation as a toolbar action labelled
+ * exactly "Save" (resource id action_menu_save on AOSP DocumentsUI), not as a
+ * dialog button. The label must be exact: "Save to Drive" and "Save copy" are
+ * different actions and must never satisfy this match. */
+const SAVE_BUTTON_IDS = new Set([
+  'com.google.android.documentsui:id/action_menu_save',
+  'com.android.documentsui:id/action_menu_save',
+  'android:id/button1',
+]);
+const saveButtonMatcher = () => (node) => {
+  const label = attrOf(node, 'text') || attrOf(node, 'content-desc');
+  return SAVE_BUTTON_IDS.has(attrOf(node, 'resource-id'))
+    || (label === 'Save' && attrOf(node, 'clickable') === 'true');
+};
 
 /* One bounded chooser step. The recorded CI states are:
  *   - media "Videos" root: a "Download" folder tile (`android:id/title`) whose
@@ -96,8 +111,8 @@ const downloadsRowMatcher = () => (node) => attrOf(node, 'text') === 'Downloads'
  *   - neither: fall back to the roots drawer.
  * "Downloads" (roots drawer row) and "Download" (folder tile) are deliberately
  * matched by exact text plus resource-id, never by substring. */
-function chooserAction(nodes) {
-  const fixture = nodes.find(fixtureRowMatcher());
+function chooserAction(nodes, fixtureName = FIXTURE_NAME) {
+  const fixture = nodes.find(fixtureRowMatcher(fixtureName));
   if (fixture) return { type: 'file-row', node: fixture, kind: 'fixture', note: 'fixture-row-visible' };
   const folder = nodes.find(folderTileMatcher());
   if (folder) return { type: 'folder-tile', node: folder, kind: 'folder', note: 'media-download-folder-tile' };
@@ -112,6 +127,18 @@ function chooserAction(nodes) {
 function downloadsRootAction(nodes) {
   const row = nodes.find(downloadsRowMatcher());
   return row ? { type: 'downloads-root', node: row, kind: 'downloads', note: 'drawer-downloads-row' } : { type: 'wait', note: 'drawer-has-no-downloads-row' };
+}
+
+/* The save dialog is a DocumentsUI surface, so the button must be found inside
+ * that package. A "Save" label in the app's own WebView is never evidence. */
+function saveDialogAction(nodes) {
+  const dialog = packagesIn(nodes).find((pkg) => pkg.includes('documentsui')) ?? null;
+  if (!dialog) return { type: 'wait', note: `no-documentsui-save-window (packages=${packagesIn(nodes).join(',') || 'none'})` };
+  const inDialog = nodes.filter((node) => attrOf(node, 'package') === dialog);
+  const save = inDialog.find(saveButtonMatcher());
+  if (!save) return { type: 'wait', note: 'documentsui-save-button-not-visible' };
+  if (attrOf(save, 'enabled') === 'false') return { type: 'wait', note: 'documentsui-save-button-disabled' };
+  return { type: 'tap-save', node: save, kind: 'save', note: 'documentsui-save-button' };
 }
 
 /* MediaProjection consent, decided from the live hierarchy only — never from
@@ -262,6 +289,7 @@ function classifyStartupLog(log, packageName = APP_PACKAGE, appPid = '') {
 module.exports = {
   APP_PACKAGE,
   FIXTURE_NAME,
+  IMAGE_FIXTURE_NAME,
   NATIVE_SURFACE_PACKAGES,
   APP_PICKER_PACKAGES,
   ENTIRE_SCREEN_LABELS,
@@ -279,8 +307,10 @@ module.exports = {
   folderTileMatcher,
   rootsDrawerMatcher,
   downloadsRowMatcher,
+  saveButtonMatcher,
   chooserAction,
   downloadsRootAction,
+  saveDialogAction,
   consentAction,
   isSessionDeath,
   adbDeviceSerials,

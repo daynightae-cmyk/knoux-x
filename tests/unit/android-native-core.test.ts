@@ -380,4 +380,59 @@ describe('shared chooser walk', () => {
     ]);
     expect(core.chooserAction(core.parseNodes(mixed)).type).toBe('file-row');
   });
+
+  test('the chooser can target a PNG fixture without matching the MP4', () => {
+    const imageListing = hierarchy([
+      node({ package: DOCUMENTSUI, text: 'KNOUX-QA.mp4', resourceId: 'android:id/title', bounds: '[40,180][1040,260]' }),
+      node({ package: DOCUMENTSUI, text: core.IMAGE_FIXTURE_NAME, resourceId: 'android:id/title', bounds: '[40,280][1040,360]' }),
+    ]);
+    const nodes = core.parseNodes(imageListing);
+    expect(core.chooserAction(nodes, core.IMAGE_FIXTURE_NAME).type).toBe('file-row');
+    expect(core.fixtureRowMatcher(core.IMAGE_FIXTURE_NAME)(nodes[1])).toBe(true);
+    expect(core.fixtureRowMatcher()(nodes[1])).toBe(false);
+  });
+});
+
+/* ACTION_CREATE_DOCUMENT (SAF save): only the exact DocumentsUI "Save" action
+ * may confirm the dialog. "Save to Drive" and the app's own Save buttons are
+ * different controls and must never be tapped by the harness. */
+describe('DocumentsUI save dialog', () => {
+  const saveDialog = hierarchy([
+    node({ package: APP, text: 'Save', resourceId: 'app-save', clickable: true, bounds: '[40,1000][400,1100]' }),
+    node({ package: DOCUMENTSUI, text: 'Save to Drive', clickable: true, bounds: '[40,300][500,380]' }),
+    node({ package: DOCUMENTSUI, text: 'Save copy', clickable: true, bounds: '[40,400][500,480]' }),
+    node({ package: DOCUMENTSUI, text: 'KNOUX-QA-320px.jpg', resourceId: 'android:id/title', bounds: '[40,500][800,580]' }),
+    node({ package: DOCUMENTSUI, text: 'Save', resourceId: 'com.google.android.documentsui:id/action_menu_save', clickable: true, bounds: '[880,120][1020,200]' }),
+  ]);
+
+  test('taps only the exact DocumentsUI Save action', () => {
+    const action = core.saveDialogAction(core.parseNodes(saveDialog));
+    expect(action.type).toBe('tap-save');
+    expect(action.note).toBe('documentsui-save-button');
+    expect(core.attrOf(action.node, 'resource-id')).toBe('com.google.android.documentsui:id/action_menu_save');
+    expect(core.saveButtonMatcher()(action.node)).toBe(true);
+  });
+
+  test('rejects Save to Drive, Save copy and the app WebView Save button', () => {
+    const onlyDecoys = hierarchy([
+      node({ package: APP, text: 'Save', clickable: true }),
+      node({ package: DOCUMENTSUI, text: 'Save to Drive', clickable: true }),
+      node({ package: DOCUMENTSUI, text: 'Save copy', clickable: true }),
+    ]);
+    const action = core.saveDialogAction(core.parseNodes(onlyDecoys));
+    expect(action.type).toBe('wait');
+    expect(action.note).toBe('documentsui-save-button-not-visible');
+  });
+
+  test('does not confirm a disabled Save action', () => {
+    const disabled = hierarchy([
+      node({ package: DOCUMENTSUI, text: 'Save', resourceId: 'com.google.android.documentsui:id/action_menu_save', clickable: true }),
+    ]).replace('enabled="true"', 'enabled="false"');
+    expect(core.saveDialogAction(core.parseNodes(disabled)).note).toBe('documentsui-save-button-disabled');
+  });
+
+  test('reports the absence of a DocumentsUI save window honestly', () => {
+    const appOnly = core.parseNodes(hierarchy([node({ package: APP, text: 'Save', clickable: true })]));
+    expect(core.saveDialogAction(appOnly).note).toMatch(/^no-documentsui-save-window/);
+  });
 });

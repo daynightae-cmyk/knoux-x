@@ -27,6 +27,7 @@ on:
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
+      - 'tools/create-android-image-fixture.cjs'
       - 'tools/configure-android-webview-debugging.cjs'
       - 'electron/**'
       - 'index.html'
@@ -54,6 +55,7 @@ on:
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
+      - 'tools/create-android-image-fixture.cjs'
       - 'tools/configure-android-webview-debugging.cjs'
       - 'electron/**'
       - 'index.html'
@@ -252,6 +254,8 @@ jobs:
           require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','60','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-output/KNOUX-QA.mp4']);
           JS
           sha256sum android-ci-output/KNOUX-QA.mp4 > android-ci-output/fixture.sha256
+          node tools/create-android-image-fixture.cjs android-ci-output/KNOUX-QA.png
+          sha256sum android-ci-output/KNOUX-QA.png > android-ci-output/fixture-image.sha256
 
       - name: Install and launch APK on Android emulator
         uses: reactivecircus/android-emulator-runner@v2

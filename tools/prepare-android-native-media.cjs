@@ -57,9 +57,6 @@ public class MainActivity extends BridgeActivity {
                 return false;
             }
         });
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
-            android.webkit.WebView.setWebContentsDebuggingEnabled(true);
-        }
         IntentFilter filter = new IntentFilter(ACTION_MEDIA_COMMAND);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(mediaCommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);

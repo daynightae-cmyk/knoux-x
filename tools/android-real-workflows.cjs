@@ -649,6 +649,7 @@ function readRecordingBytes(uri) {
   let device;
   let webview;
   let page;
+  const webviewAttachDiagnostics = [];
   const QA_AUDIO_HOOK = `(() => { window.__knouxQaAnalysers = window.__knouxQaAnalysers || [];
       if (window.__knouxQaHooked || !window.AudioContext) return;
       window.__knouxQaHooked = true;
@@ -676,6 +677,134 @@ function readRecordingBytes(uri) {
     });
     await hookAudio(page);
   };
+  const withTimeout = async (promise, ms, label) => {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(label)), ms); }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  /* Raw evidence for the attach path. Playwright maps a devtools socket to a
+   * package by running `ps -A | grep <socket pid>` and taking the LAST matching
+   * line's package; a WebView sandbox child that mentions the app pid can
+   * overwrite the real package, so `webView({pkg})` never matches even though
+   * the socket exists. These probes make that visible and let the fallback
+   * select the socket that belongs to the app pid instead of guessing. */
+  const readWebViewSockets = () => {
+    const result = adbQuiet('shell', 'cat', '/proc/net/unix');
+    if (!result.ok) return { ok: false, error: result.output, lines: [], sockets: [] };
+    const lines = result.output.split('\n').filter((line) => line.includes('webview_devtools_remote'));
+    const sockets = lines.map((line) => {
+      const nameMatch = line.match(/(webview_devtools_remote_?\d*)/);
+      if (!nameMatch) return null;
+      const pidMatch = /webview_devtools_remote_(\d+)$/.exec(nameMatch[1]);
+      return { name: nameMatch[1], pid: pidMatch ? Number(pidMatch[1]) : null, line: line.trim() };
+    }).filter(Boolean);
+    return { ok: true, lines, sockets };
+  };
+  const readProcessMatches = (pid) => {
+    const result = adbQuiet('shell', 'ps', '-A');
+    if (!result.ok) return { ok: false, error: result.output, matches: [] };
+    return { ok: true, matches: result.output.split('\n').filter((line) => new RegExp(`\\b${pid}\\b`).test(line)).slice(0, 60) };
+  };
+  const snapshotPlaywrightWebViews = () => {
+    try {
+      return device.webViews().map((entry) => {
+        let socketName = null;
+        try { socketName = entry._socketName(); } catch { /* the socket accessor is private; pid/pkg remain usable */ }
+        return { pid: entry.pid(), pkg: entry.pkg(), socketName };
+      });
+    } catch (error) {
+      return { error: String(error && error.message ? error.message : error).slice(0, 300) };
+    }
+  };
+  const attachToKnouwxWebView = async () => {
+    const deadline = Date.now() + 90000;
+    let attempt = 0;
+    let lastError = null;
+    while (Date.now() < deadline) {
+      attempt += 1;
+      const pidRead = adbQuiet('shell', 'pidof', PACKAGE);
+      const appPids = pidRead.ok ? pidRead.output.split(/\s+/).filter(Boolean).map(Number).filter(Number.isFinite) : [];
+      const socketProbe = readWebViewSockets();
+      const ownSocket = socketProbe.sockets.find((entry) => entry.pid !== null && appPids.includes(entry.pid)) ?? null;
+      const processMatches = ownSocket && ownSocket.pid !== null ? readProcessMatches(ownSocket.pid) : { ok: false, matches: [] };
+      const record = {
+        at: new Date().toISOString(),
+        attempt,
+        appPidCommand: pidRead.ok,
+        appPids,
+        socketReadOk: socketProbe.ok,
+        socketLines: socketProbe.lines,
+        ownSocket,
+        psMatches: processMatches.matches,
+        playwrightWebViews: null,
+        strategy: null,
+        error: null,
+      };
+      webview = null;
+      try {
+        webview = await device.webView({ pkg: PACKAGE }, { timeout: 5000 });
+        record.strategy = 'pkg';
+      } catch (error) {
+        record.error = String(error && error.message ? error.message : error).slice(0, 500);
+        try {
+          await device.shell('echo knoux-attach-probe');
+          const snapshot = snapshotPlaywrightWebViews();
+          record.playwrightWebViews = snapshot;
+          if (Array.isArray(snapshot)) {
+            const byPid = snapshot.find((entry) => appPids.includes(entry.pid)) ?? null;
+            const bySocket = ownSocket ? snapshot.find((entry) => entry.socketName === ownSocket.name) ?? null : null;
+            const sole = snapshot.length === 1 ? snapshot[0] : null;
+            const selected = byPid ?? bySocket ?? sole;
+            const socketName = selected?.socketName ?? ownSocket?.name ?? null;
+            if (selected && socketName) {
+              webview = await device.webView({ socketName }, { timeout: 5000 });
+              record.strategy = selected === byPid ? 'webViews-app-pid' : selected === bySocket ? 'webViews-socket' : 'sole-webview-socket';
+            } else if (ownSocket) {
+              webview = await device.webView({ socketName: ownSocket.name }, { timeout: 5000 });
+              record.strategy = 'proc-net-unix-socket';
+            }
+          }
+        } catch (inner) {
+          record.error = `${record.error} | fallback: ${String(inner && inner.message ? inner.message : inner)}`.slice(0, 900);
+        }
+      }
+      if (webview) {
+        try {
+          page = await withTimeout(webview.page(), 25000, 'Timed out opening the selected KNOUX WebView page');
+          if (!page) throw new Error('The selected KNOUX WebView returned no page');
+          record.playwrightWebViews = snapshotPlaywrightWebViews();
+          record.strategy = `${record.strategy}:page`;
+          webviewAttachDiagnostics.push(record);
+          results.deviceState.attachAttempts = webviewAttachDiagnostics;
+          save();
+          return;
+        } catch (error) {
+          record.error = `${record.error ? `${record.error} | ` : ''}page: ${String(error && error.message ? error.message : error)}`.slice(0, 1200);
+          webview = null;
+        }
+      }
+      webviewAttachDiagnostics.push(record);
+      results.deviceState.attachAttempts = webviewAttachDiagnostics;
+      save();
+      lastError = record.error;
+      /* A background refresh poll can close the Playwright device handle; a
+       * fresh handle against the still-running app is the only safe retry. */
+      try { await device.close(); } catch { /* the handle may already be closed */ }
+      await delay(1500);
+      try {
+        const devices = await android.devices();
+        const next = devices.find((entry) => entry.serial() === process.env.ANDROID_SERIAL) || devices[0];
+        if (next) device = next;
+      } catch { /* the next loop iteration records the transport state */ }
+    }
+    throw new Error(`Playwright Android API could not attach to the KNOUX WebView after ${attempt} bounded attempts: ${lastError ? lastError.slice(0, 500) : 'no matching devtools socket'} (raw diagnostics: ${JSON.stringify(webviewAttachDiagnostics).slice(0, 1600)})`);
+  };
   const openSession = async () => {
     const transport = await ensureDeviceTransport();
     results.deviceState.adbTransport = { state: transport.health.state, attempts: transport.attempts };
@@ -691,13 +820,7 @@ function readRecordingBytes(uri) {
       } catch { return false; }
     }, 'No Android device/emulator visible to Playwright Android API', 60000);
     await device.shell(`am start -n ${PACKAGE}/.MainActivity`);
-    await until(async () => {
-      try {
-        webview = await device.webView({ pkg: PACKAGE });
-        return Boolean(webview);
-      } catch { return false; }
-    }, 'Playwright Android API could not attach to the KNOUX WebView (is WebView debugging enabled?)', 90000);
-    page = await webview.page();
+    await attachToKnouwxWebView();
     await until(() => {
       webViewOrigin = readWebViewOrigin();
       return Boolean(webViewOrigin);

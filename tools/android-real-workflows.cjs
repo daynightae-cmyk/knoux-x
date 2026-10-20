@@ -436,6 +436,26 @@ async function trustedTap(locator, options = {}) {
         await delay(400);
         continue;
       }
+      /* uiautomator can block while the soft keyboard resizes the WebView.
+       * The two samples above then describe the old dialog position: tapping
+       * its former Create button can hit the backdrop and cancel the prompt.
+       * Revalidate after that native round trip, immediately before input. */
+      let fresh;
+      try {
+        fresh = await sample();
+      } catch (error) {
+        lastProblem = `post-foreground geometry unavailable (${String(error && error.message).split('\n')[0]})`;
+        continue;
+      }
+      if (!fresh.insideViewport || !fresh.hitSelf ||
+          Math.abs(fresh.cssX - geometry.cssX) > 2 || Math.abs(fresh.cssY - geometry.cssY) > 2 ||
+          Math.abs(fresh.width - geometry.width) > 2 || Math.abs(fresh.height - geometry.height) > 2 ||
+          fresh.dpr !== geometry.dpr) {
+        lastProblem = 'target changed during native foreground verification';
+        await delay(250);
+        continue;
+      }
+      geometry = fresh;
       /* The Capacitor WebView is inset (status/navigation bars): the page
        * origin sits at the native WebView node's top-left, measured through
        * uiautomator — DOM CSS points alone would land taps 136px too high. */

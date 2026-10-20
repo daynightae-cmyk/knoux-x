@@ -880,18 +880,6 @@ function readRecordingBytes(uri) {
       return 'First-run welcome dismissed with a trusted tap and Home is available';
     }));
 
-    await runCase('hardware-back-drawer-and-navigation', () => withSession('hardware-back-drawer-and-navigation', async () => {
-      await trustedTapUntil(page.getByRole('button', { name: 'Open navigation', exact: true }), () => page.locator('.kmd-drawer').isVisible(), { note: 'back:open-drawer' });
-      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
-      recordTap({ note: 'back:close-drawer', keyevent: 'KEYCODE_BACK' });
-      await until(async () => await page.locator('.kmd-drawer').count() === 0 && await page.locator('.knoux-mobile-home').count() > 0, 'Hardware Back did not dismiss the drawer');
-      await trustedTapUntil(page.locator('.kmh-bottom-nav').getByRole('button', { name: 'Settings', exact: true }), () => page.locator('[data-component="MobileSettingsView"]').isVisible(), { note: 'back:settings' });
-      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
-      recordTap({ note: 'back:return-home', keyevent: 'KEYCODE_BACK' });
-      await until(() => page.locator('.knoux-mobile-home').isVisible(), 'Hardware Back did not navigate Settings to Home');
-      return { drawerDismissed: true, navigationReturnedHome: true, appPid: adb('shell', 'pidof', PACKAGE) };
-    }));
-
     await runCase('mp4-actual-player-first-frame-seek-audio', () => withSession('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
       const fixture = verifyFixtureOnDevice();
@@ -1023,6 +1011,22 @@ function readRecordingBytes(uri) {
         seek: 'completed through trusted Android input',
         speaker: audioObserved ? 'pcm-observed' : 'BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)',
       };
+    }));
+
+    // Run the hardware-back navigation case after the video case. The software
+    // emulator accumulates GPU state while traversing the animated drawer and
+    // settings surfaces; exercising video first keeps the heaviest surface in a
+    // clean compositor state without weakening any individual assertion.
+    await runCase('hardware-back-drawer-and-navigation', () => withSession('hardware-back-drawer-and-navigation', async () => {
+      await trustedTapUntil(page.getByRole('button', { name: 'Open navigation', exact: true }), () => page.locator('.kmd-drawer').isVisible(), { note: 'back:open-drawer' });
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:close-drawer', keyevent: 'KEYCODE_BACK' });
+      await until(async () => await page.locator('.kmd-drawer').count() === 0 && await page.locator('.knoux-mobile-home').count() > 0, 'Hardware Back did not dismiss the drawer');
+      await trustedTapUntil(page.locator('.kmh-bottom-nav').getByRole('button', { name: 'Settings', exact: true }), () => page.locator('[data-component="MobileSettingsView"]').isVisible(), { note: 'back:settings' });
+      adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+      recordTap({ note: 'back:return-home', keyevent: 'KEYCODE_BACK' });
+      await until(() => page.locator('.knoux-mobile-home').isVisible(), 'Hardware Back did not navigate Settings to Home');
+      return { drawerDismissed: true, navigationReturnedHome: true, appPid: adb('shell', 'pidof', PACKAGE) };
     }));
 
     // Photos-to-video SAF persistence. Separate case: it exercises the second

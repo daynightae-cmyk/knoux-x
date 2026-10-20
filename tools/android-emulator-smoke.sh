@@ -398,7 +398,9 @@ if [[ -z "$PID" ]]; then
 fi
 
 adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity.txt"
-adb_retry logcat -d -t 2400 > "$OUTPUT_DIR/android-launch-log.txt"
+# logcat was cleared immediately before launch. Retain process-start records so
+# standalone UiAutomation crashes can be attributed even without Process: lines.
+adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt"
 
 if ! grep -q "$PACKAGE" "$OUTPUT_DIR/android-activity.txt"; then
   echo 'KNOUX Android package is not present in the active activity dump.' >&2
@@ -406,9 +408,20 @@ if ! grep -q "$PACKAGE" "$OUTPUT_DIR/android-activity.txt"; then
 fi
 
 FATAL_PATTERN='FATAL EXCEPTION|Unable to start activity|ANR in dev\.knoux\.playerx|Process: dev\.knoux\.playerx.*(has died|FATAL)|chromium.*(Uncaught|ReferenceError|TypeError)|Capacitor/Console.*Uncaught|KNOUX_RENDER_BOUNDARY_ERROR|KNOUX renderer failure|RUNTIME_BRIDGE_OWNERSHIP_CONFLICT|DESKTOP_BRIDGE_INCOMPLETE|selectedWorkspace'
-if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
+classify_startup_log() {
+  node - "$OUTPUT_DIR" "$PACKAGE" "$PID" <<'JS'
+const fs = require('node:fs');
+const { classifyStartupLog } = require('./tools/android-native-core.cjs');
+const [output, packageName, pid] = process.argv.slice(2);
+const result = classifyStartupLog(fs.readFileSync(`${output}/android-launch-log.txt`, 'utf8'), packageName, pid);
+fs.writeFileSync(`${output}/android-app-startup-log.txt`, result.appLog);
+fs.writeFileSync(`${output}/android-foreign-crashes.json`, JSON.stringify(result.foreignCrashes, null, 2));
+JS
+}
+classify_startup_log
+if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt"; then
   echo 'Fatal KNOUX startup error detected in Android logcat.' >&2
-  grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt" || true
+  grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt" || true
   exit 1
 fi
 
@@ -468,10 +481,11 @@ if ! assert_no_recovery_screen; then
   exit 1
 fi
 
-adb_retry logcat -d -t 2800 > "$OUTPUT_DIR/android-launch-log.txt"
-if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
+adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt"
+classify_startup_log
+if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt"; then
   echo 'Fatal KNOUX error detected after viewport exercises.' >&2
-  grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt" || true
+  grep -Ein "$FATAL_PATTERN" "$OUTPUT_DIR/android-app-startup-log.txt" || true
   exit 1
 fi
 

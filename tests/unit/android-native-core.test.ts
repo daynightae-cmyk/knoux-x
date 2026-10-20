@@ -22,6 +22,62 @@ const DOCUMENTSUI = 'com.google.android.documentsui';
 const SYSTEMUI = 'com.android.systemui';
 const APP = core.APP_PACKAGE;
 
+describe('startup crash ownership', () => {
+  const logLine = (pid: number, message: string): string => `10-20 10:15:50.810  ${pid}  4004 E AndroidRuntime: ${message}`;
+  const fatal = logLine(3985, 'FATAL EXCEPTION: UiAutomation');
+
+  test('separates the observed UiAutomation process crash from a live app', () => {
+    const result = core.classifyStartupLog([
+      fatal,
+      logLine(3985, 'Process: com.android.commands.uiautomator, PID: 3985'),
+    ].join('\n'), APP, '2584');
+    expect(result.appLog).not.toContain('FATAL EXCEPTION');
+    expect(result.foreignCrashes).toEqual([{ pid: '3985', process: 'com.android.commands.uiautomator', header: fatal }]);
+  });
+
+  test.each([APP, `${APP}:renderer`])('retains actual app crashes in %s, even on a UiAutomation thread', (process) => {
+    const log = `${fatal}\n${logLine(3985, `Process: ${process}, PID: 3985`)}`;
+    expect(core.classifyStartupLog(log, APP, '2584').appLog).toBe(log);
+  });
+
+  test('retains an unowned fatal header and mismatched process/PID evidence', () => {
+    expect(core.classifyStartupLog(fatal, APP, '2584').appLog).toBe(fatal);
+    const log = `${fatal}\n${logLine(3985, 'Process: com.android.commands.uiautomator, PID: 9999')}`;
+    expect(core.classifyStartupLog(log, APP, '2584').appLog).toBe(log);
+  });
+
+  test('recognizes the actual standalone shell UiAutomation log without Process metadata', () => {
+    const log = [logLine(3985, '>>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<'),
+      logLine(3985, 'Calling main entry com.android.commands.uiautomator.Launcher'),
+      fatal, logLine(3985, 'PID: 3985'), logLine(3985, 'java.lang.RuntimeException: Bad file descriptor')].join('\n');
+    const result = core.classifyStartupLog(log, APP, '2718');
+    expect(result.foreignCrashes).toHaveLength(1);
+    expect(result.appLog).not.toContain('FATAL EXCEPTION');
+    expect(core.classifyStartupLog(log.replace('uid 2000', 'uid 10209'), APP, '2718').appLog).toBe(log.replace('uid 2000', 'uid 10209'));
+    expect(core.classifyStartupLog(log.replace('3985  4004 E AndroidRuntime: Calling', '9000  4004 E AndroidRuntime: Calling'), APP, '2718').foreignCrashes).toHaveLength(0);
+  });
+
+  test('never excludes the current app PID, despite conflicting process metadata', () => {
+    const log = `${fatal}\n${logLine(3985, 'Process: com.android.commands.uiautomator, PID: 3985')}`;
+    expect(core.classifyStartupLog(log, APP, '3985').appLog).toBe(log);
+  });
+
+  test('cannot attribute an app fatal to another PID in interleaved logcat', () => {
+    const log = `${fatal}\n${logLine(9000, 'Process: com.android.commands.uiautomator, PID: 9000')}`;
+    expect(core.classifyStartupLog(log, APP, '2584').appLog).toBe(log);
+  });
+
+  test('retains renderer errors and an app fatal alongside a foreign crash', () => {
+    const log = [fatal, logLine(3985, 'Process: com.android.commands.uiautomator, PID: 3985'),
+      logLine(2584, 'FATAL EXCEPTION: main'), logLine(2584, `Process: ${APP}, PID: 2584`),
+      '10-20 10:15:51.000 2584 2584 E Capacitor/Console: Uncaught TypeError: startup'].join('\n');
+    const result = core.classifyStartupLog(log, APP, '2584');
+    expect(result.foreignCrashes).toHaveLength(1);
+    expect(result.appLog).toContain('FATAL EXCEPTION: main');
+    expect(result.appLog).toContain('Uncaught TypeError');
+  });
+});
+
 const hierarchy = (nodes: string[]): string => `<?xml version='1.0' encoding='UTF-8'?>
 <hierarchy rotation="0">
 ${nodes.map((node) => `  ${node}`).join('\n')}

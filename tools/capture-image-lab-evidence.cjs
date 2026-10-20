@@ -37,8 +37,9 @@ async function main() {
   browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 
-  await page.addInitScript(seed('en'));
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(seed('en'));
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('.knoux-mobile-home').waitFor({ timeout: 25000 });
   await page.waitForTimeout(1200);
   await openImageLab(page);

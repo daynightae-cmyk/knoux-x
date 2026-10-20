@@ -27,6 +27,7 @@ on:
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
+      - 'tools/configure-android-webview-debugging.cjs'
       - 'electron/**'
       - 'index.html'
       - 'vite.renderer.config.ts'
@@ -53,6 +54,7 @@ on:
       - 'tools/verify-android-screen.cjs'
       - 'tools/android-real-workflows.cjs'
       - 'tools/android-native-core.cjs'
+      - 'tools/configure-android-webview-debugging.cjs'
       - 'electron/**'
       - 'index.html'
       - 'vite.renderer.config.ts'
@@ -198,6 +200,10 @@ jobs:
           test -s android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
           test -s android/app/src/main/res/drawable/splash.png
+
+      - name: Enable WebView debugging for the debug acceptance build
+        shell: bash
+        run: node tools/configure-android-webview-debugging.cjs android debug
 
       - name: Build APK
         working-directory: android

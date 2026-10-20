@@ -81,6 +81,11 @@ else
   SIGNED_NAME="KNOUX-X-Android-release-ci-signed.apk"
 fi
 
+# Debugging is a controlled observability switch, never a production default:
+# debug and acceptance builds enable it before the WebView is created; a
+# production build removes it and is verified after signing.
+node tools/configure-android-webview-debugging.cjs "$ANDROID_DIR" "$SIGNING_MODE"
+
 (
   cd "$ANDROID_DIR"
   chmod +x ./gradlew
@@ -108,6 +113,24 @@ fi
 sha256sum "$SIGNED" > "$SIGNED.sha256"
 stat -c '%s' "$SIGNED" > "$SIGNED.size"
 
+PACKAGED_WEBVIEW_DEBUGGING="$(unzip -p "$SIGNED" assets/capacitor.config.json | node -e "const fs=require('fs');const config=JSON.parse(fs.readFileSync(0,'utf8'));process.stdout.write(String(config?.android?.webContentsDebuggingEnabled===true));")"
+{
+  echo "signingMode=$SIGNING_MODE"
+  echo "packagedWebContentsDebuggingEnabled=$PACKAGED_WEBVIEW_DEBUGGING"
+} > "$OUTPUT_DIR/android-webview-debugging.txt"
+
+if [[ "$SIGNING_MODE" == "acceptance" ]]; then
+  if [[ "$PACKAGED_WEBVIEW_DEBUGGING" != "true" ]]; then
+    echo 'Acceptance release APK is missing android.webContentsDebuggingEnabled=true; installed WebView acceptance cannot attach.' >&2
+    exit 1
+  fi
+else
+  if [[ "$PACKAGED_WEBVIEW_DEBUGGING" != "false" ]]; then
+    echo 'Production-signed APK must not expose WebView debugging.' >&2
+    exit 1
+  fi
+fi
+
 cat > "$OUTPUT_DIR/android-release-acceptance.json" <<JSON
 {
   "status": "BUILT",
@@ -117,6 +140,7 @@ cat > "$OUTPUT_DIR/android-release-acceptance.json" <<JSON
   "signing": "$SIGNING_MODE_JSON",
   "signingLabel": "$SIGNING_LABEL",
   "productionSigned": $PRODUCTION_SIGNED,
+  "webContentsDebuggingEnabled": $PACKAGED_WEBVIEW_DEBUGGING,
   "purpose": "installable release acceptance only"
 }
 JSON

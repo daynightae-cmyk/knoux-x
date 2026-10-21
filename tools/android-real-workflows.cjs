@@ -1269,6 +1269,9 @@ function readRecordingBytes(uri) {
       adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/Movies/KNOUX-Discovery/KNOUX-Discovery-New.mp4');
       await until(() => card('KNOUX-Discovery-New.mp4').count(), 'ContentObserver did not discover newly added media', 25000);
       await capture('mediastore-added-media');
+      adb('shell', 'rm', '/sdcard/DCIM/KNOUX-Discovery/KNOUX-Discovery-B.mp4');
+      adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/DCIM/KNOUX-Discovery/KNOUX-Discovery-B.mp4');
+      await until(async () => await card('KNOUX-Discovery-B.mp4').count() === 0 && await card('KNOUX-Discovery-A.mp4').count() > 0, 'ContentObserver did not remove a deleted staged fixture', 25000);
       const oldPid = adb('shell', 'pidof', PACKAGE);
       adb('shell', 'am', 'force-stop', PACKAGE);
       page = null; webview = null;
@@ -1280,6 +1283,7 @@ function readRecordingBytes(uri) {
       await capture('mediastore-after-restart');
       const permission = Number(results.deviceState.sdk) >= 33 ? 'android.permission.READ_MEDIA_VIDEO' : 'android.permission.READ_EXTERNAL_STORAGE';
       adb('shell', 'pm', 'revoke', PACKAGE, permission);
+      if (Number(results.deviceState.sdk) >= 34) adb('shell', 'pm', 'revoke', PACKAGE, 'android.permission.READ_MEDIA_VISUAL_USER_SELECTED');
       page = null; webview = null;
       await openSession();
       await openLibrary();
@@ -1288,7 +1292,7 @@ function readRecordingBytes(uri) {
       await capture('mediastore-revoked');
       await ensureHome(page);
       results.measurements.push({ name: 'library-to-first-discovered-media', milliseconds: discoveredMs, includesPermissionInteraction: true, N: 1 });
-      return { metadata, discoveredMs, pausedTime, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
+      return { metadata, discoveredMs, pausedTime, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
     }));
 
     if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {

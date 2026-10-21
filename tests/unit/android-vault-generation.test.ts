@@ -30,9 +30,10 @@ test('Android preparation installs the encrypted vault with a real keystore key'
     expect(plugin).toContain('PBKDF2withHmacSHA1');
     expect(plugin).toContain('210_000');
     expect(plugin).not.toContain('putString("pin"');
-    // The derivation uses the API 1 constructor so it works on every
-    // supported release, and the provider is the strongest the device has.
-    expect(plugin).toContain('new PBEKeySpec(password, saltChars, ITERATIONS, 256)');
+    // The derivation uses the char[] password and byte[] salt form of
+    // PBEKeySpec, which exists on every supported release, and the provider is
+    // the strongest the device has.
+    expect(plugin).toContain('new PBEKeySpec(pin, salt, ITERATIONS, 256)');
     expect(plugin).toContain('Build.VERSION.SDK_INT >= 26');
     // The index is written with a rename, because the NIO file API needs API 26.
     expect(plugin).not.toContain('import java.nio.file');

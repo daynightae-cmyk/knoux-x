@@ -126,25 +126,21 @@ public class KnouxVaultPlugin extends Plugin {
     }
 
     private SecretKey derivePinKey(char[] pin, byte[] salt, String kdf) throws Exception {
-        /* The API 1 constructor is used on purpose: the salt stays a byte
-         * array and the derivation works on every supported release, while
-         * the provider is the strongest one the device offers. */
-        byte[] password = new String(pin).getBytes(StandardCharsets.UTF_8);
-        char[] saltChars = new char[salt.length];
-        for (int index = 0; index < salt.length; index += 1) saltChars[index] = (char) (salt[index] & 0xff);
+        /* The char[] password and byte[] salt form of PBEKeySpec is the one
+         * that exists on every supported release, so the derivation does not
+         * depend on the API level. The provider is the strongest one the
+         * device offers, and the choice is stored with the vault. */
         javax.crypto.SecretKeyFactory factory = null;
         String[] candidates = new String[] { kdf, kdf.replace("with", "With") };
         for (String candidate : candidates) {
             try { factory = javax.crypto.SecretKeyFactory.getInstance(candidate); break; } catch (Exception error) { /* try the next spelling */ }
         }
         if (factory == null) throw new IllegalStateException("The device cannot derive the vault key.");
-        PBEKeySpec spec = new PBEKeySpec(password, saltChars, ITERATIONS, 256);
+        PBEKeySpec spec = new PBEKeySpec(pin, salt, ITERATIONS, 256);
         try {
             return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
         } finally {
             spec.clearPassword();
-            java.util.Arrays.fill(password, (byte) 0);
-            java.util.Arrays.fill(saltChars, '\0');
         }
     }
 

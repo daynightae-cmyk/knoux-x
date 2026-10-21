@@ -1,5 +1,6 @@
 import type { Sprint02CommandRuntime } from '../core/commands/sprint02CommandSystem';
 import type { MediaStoreMethods } from '../platform/androidMediaStore';
+import type { VaultMethods } from '../platform/androidVault';
 
 declare global {
   interface Window {
@@ -19,8 +20,7 @@ declare global {
           }): Promise<{ active?: boolean }>;
           stopPlayback(): Promise<{ active?: boolean }>;
         };
-        KnouxSaf?: MediaStoreMethods & {
-          pick(options: {
+        KnouxSaf?: MediaStoreMethods & {          pick(options: {
             mode: 'file' | 'files' | 'directory' | 'save';
             mimeTypes?: string[];
             suggestedName?: string;
@@ -63,6 +63,7 @@ declare global {
           stopScreenRecording(): Promise<{ recording?: boolean; outputUri?: string | null }>;
           status(): Promise<{ recording?: boolean; outputUri?: string | null }>;
         };
+        KnouxVault?: VaultMethods;
       }>;
     }>;
     knouxRuntime?: Readonly<{

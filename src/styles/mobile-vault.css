@@ -1,0 +1,151 @@
+html[data-platform='android'] .knoux-mobile-vault {
+  --kvv-violet: #8b3dff;
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  color: #fff;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(124, 42, 255, 0.22), transparent 31%),
+    linear-gradient(180deg, #05030a 0%, #020205 62%, #05030a 100%);
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='android'] .kvv-stage { position: relative; z-index: 2; display: grid; gap: 14px; }
+
+html[data-platform='android'] .kvv-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(190, 134, 255, 0.34);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(178, 93, 255, 0.2), transparent 32%),
+    linear-gradient(150deg, rgba(58, 24, 108, 0.55), rgba(14, 8, 26, 0.86));
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
+}
+
+html[data-platform='android'] .kvv-card h1 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 21px; }
+html[data-platform='android'] .kvv-card h1 svg { color: #c9a2ff; }
+html[data-platform='android'] .kvv-card p { margin: 0; color: rgba(226, 213, 244, 0.72); font-size: 12px; line-height: 1.55; }
+html[data-platform='android'] .kvv-card label,
+html[data-platform='android'] .kvv-pin label { display: grid; gap: 6px; color: rgba(226, 213, 244, 0.72); font-size: 11px; }
+html[data-platform='android'] .kvv-card input,
+html[data-platform='android'] .kvv-pin input {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(190, 134, 255, 0.34);
+  border-radius: 14px;
+  color: #fff;
+  background: rgba(8, 5, 15, 0.72);
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: 0.3em;
+}
+html[data-platform='android'] .kvv-primary,
+html[data-platform='android'] .kvv-pin button {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid rgba(190, 134, 255, 0.5);
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(152, 69, 255, 0.82), rgba(91, 27, 209, 0.82));
+  font: inherit;
+  font-weight: 800;
+}
+html[data-platform='android'] .kvv-primary:disabled,
+html[data-platform='android'] .kvv-pin button:disabled { opacity: 0.45; }
+
+html[data-platform='android'] .kvv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+html[data-platform='android'] .kvv-toolbar > span { display: inline-flex; align-items: center; gap: 7px; color: #c9a2ff; font-size: 11px; font-weight: 800; }
+html[data-platform='android'] .kvv-toolbar button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid rgba(190, 134, 255, 0.32);
+  border-radius: 13px;
+  color: #eee6ff;
+  background: rgba(20, 12, 34, 0.8);
+  font: inherit;
+  font-size: 12px;
+}
+
+html[data-platform='android'] .kvv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html[data-platform='android'] .kvv-item {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(169, 106, 255, 0.22);
+  border-radius: 19px;
+  background: rgba(14, 9, 25, 0.78);
+}
+html[data-platform='android'] .kvv-art {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #d7b7ff;
+  background: linear-gradient(145deg, #22123d, #090712);
+}
+html[data-platform='android'] .kvv-art img { width: 100%; height: 100%; object-fit: cover; }
+html[data-platform='android'] .kvv-item > strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+html[data-platform='android'] .kvv-item > small { color: rgba(213, 196, 235, 0.61); font-size: 9px; }
+html[data-platform='android'] .kvv-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+html[data-platform='android'] .kvv-actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(169, 106, 255, 0.28);
+  border-radius: 11px;
+  color: #eee6ff;
+  background: rgba(30, 18, 48, 0.9);
+  font: inherit;
+  font-size: 10px;
+}
+
+html[data-platform='android'] .kvv-original {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(190, 134, 255, 0.34);
+  border-radius: 18px;
+  background: rgba(24, 14, 40, 0.86);
+}
+html[data-platform='android'] .kvv-original > div:first-child { display: grid; gap: 3px; }
+html[data-platform='android'] .kvv-original strong { font-size: 13px; }
+html[data-platform='android'] .kvv-original span { color: rgba(213, 196, 235, 0.66); font-size: 11px; }
+html[data-platform='android'] .kvv-original > button,
+html[data-platform='android'] .kvv-confirm button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(190, 134, 255, 0.42);
+  border-radius: 13px;
+  color: #fff;
+  background: rgba(32, 19, 50, 0.94);
+  font: inherit;
+  font-size: 12px;
+}
+html[data-platform='android'] .kvv-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html[data-platform='android'] .kvv-confirm span { flex-basis: 100%; color: #ffc9c9; font-size: 12px; }
+
+html[data-platform='android'] .kvv-pin { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(169, 106, 255, 0.2); border-radius: 18px; background: rgba(12, 8, 20, 0.72); }
+html[data-platform='android'] .kvv-pin h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; }
+html[data-platform='android'] .kvv-pin h3 svg { color: #c9a2ff; }
+
+html[data-platform='android'] .kvv-empty,
+html[data-platform='android'] .kvv-warning,
+html[data-platform='android'] .kvv-error,
+html[data-platform='android'] .kvv-busy { margin: 0; font-size: 12px; line-height: 1.5; }
+html[data-platform='android'] .kvv-empty { color: rgba(213, 196, 235, 0.66); }
+html[data-platform='android'] .kvv-warning { color: #ffd479; }
+html[data-platform='android'] .kvv-error { color: #ff9f9f; }
+html[data-platform='android'] .kvv-busy { color: #c9a2ff; }

@@ -572,8 +572,35 @@ fs.writeFileSync(path.join(javaDir, 'KnouxSafPlugin.java'), safPlugin, 'utf8');
 fs.writeFileSync(path.join(javaDir, 'KnouxScreenCapturePlugin.java'), projectionPlugin, 'utf8');
 fs.writeFileSync(path.join(javaDir, 'KnouxScreenCaptureService.java'), projectionService, 'utf8');
 
+// The private vault is a separate plugin: it owns the Keystore key, the PIN
+// wrapping and the encrypted media, and it must not share a surface with the
+// document bridge.
+const vaultTemplate = fs.readFileSync(path.join(__dirname, 'android', 'knoux-vault-plugin.java'), 'utf8');
+fs.writeFileSync(path.join(javaDir, 'KnouxVaultPlugin.java'), vaultTemplate.replace(/APP_PACKAGE/g, appId), 'utf8');
+
+const resXmlDir = path.join(root, 'android', 'app', 'src', 'main', 'res', 'xml');
+fs.mkdirSync(resXmlDir, { recursive: true });
+
+// The vault serves its decrypted playback copy as an app private file, which
+// the WebView reads through the local server. No provider and no URI grant is
+// involved, so the plaintext never leaves the app sandbox.
+
+// The vault serves its decrypted playback copy through the scoped
+// FileProvider, so the support library has to be on the compile classpath.
+const buildGradlePath = path.join(root, 'android', 'app', 'build.gradle');
+if (fs.existsSync(buildGradlePath)) {
+  let buildGradle = fs.readFileSync(buildGradlePath, 'utf8');
+  if (!buildGradle.includes("androidx.core:core:")) {
+    buildGradle = buildGradle.replace(
+      /dependencies\s*\{/,
+      (match) => `${match}\n    implementation 'androidx.core:core:1.13.1'`,
+    );
+    fs.writeFileSync(buildGradlePath, buildGradle, 'utf8');
+  }
+}
+
 let mainActivity = fs.readFileSync(mainActivityPath, 'utf8');
-for (const pluginName of ['KnouxSafPlugin', 'KnouxScreenCapturePlugin']) {
+for (const pluginName of ['KnouxSafPlugin', 'KnouxScreenCapturePlugin', 'KnouxVaultPlugin']) {
   const registration = `        registerPlugin(${pluginName}.class);`;
   if (!mainActivity.includes(registration)) mainActivity = mainActivity.replace('        registerPlugin(KnouxMediaSessionPlugin.class);', `        registerPlugin(KnouxMediaSessionPlugin.class);\n${registration}`);
 }
@@ -602,13 +629,19 @@ fs.writeFileSync(manifestPath, manifest, 'utf8');
 const checks = [
   ['MainActivity.java', 'registerPlugin(KnouxSafPlugin.class)'],
   ['MainActivity.java', 'registerPlugin(KnouxScreenCapturePlugin.class)'],
+  ['MainActivity.java', 'registerPlugin(KnouxVaultPlugin.class)'],
   ['KnouxSafPlugin.java', '@CapacitorPlugin(name = "KnouxSaf", permissions = {'],
   ['KnouxScreenCapturePlugin.java', '@CapacitorPlugin(name = "KnouxScreenCapture")'],
   ['KnouxScreenCaptureService.java', 'MediaProjection'],
+  ['KnouxVaultPlugin.java', '@CapacitorPlugin(name = "KnouxVault")'],
+  ['KnouxVaultPlugin.java', 'AndroidKeyStore'],
+  ['KnouxVaultPlugin.java', 'AES/GCM/NoPadding'],
+  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA256'],
+  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA1'],
 ];
 for (const [file, token] of checks) {
   const source = fs.readFileSync(path.join(javaDir, file), 'utf8');
   if (!source.includes(token)) throw new Error(`Android functional closure token missing in ${file}: ${token}`);
 }
 if (!manifest.includes('android:foregroundServiceType="mediaProjection"')) throw new Error('MediaProjection service declaration missing.');
-console.log(`[PASS] KNOUX Android functional closure installed for ${appId}: persisted SAF + native MediaProjection.`);
+console.log(`[PASS] KNOUX Android functional closure installed for ${appId}: persisted SAF + native MediaProjection + encrypted vault.`);

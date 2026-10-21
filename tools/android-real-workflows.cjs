@@ -850,6 +850,19 @@ async function setNumberFieldWithKeyboard(page, field, value, note) {
   return { previous, method: 'adb-keyboard' };
 }
 
+async function setTextFieldWithKeyboard(page, field, value, note) {
+  const previous = await field.inputValue();
+  if (previous === value) return { previous, method: 'already-set' };
+  await trustedTap(field, { note, minHeight: 20 });
+  await delay(500);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_MOVE_END');
+  for (let index = 0; index < 16; index += 1) adb('shell', 'input', 'keyevent', 'KEYCODE_DEL');
+  adb('shell', 'input', 'text', value);
+  adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
+  await until(async () => (await field.inputValue()) === value, `Text field ${note} did not accept "${value}"`, 10000);
+  return { previous, method: 'adb-keyboard' };
+}
+
 async function confirmSaveInDocumentsUi(prefix) {
   const seen = [];
   const taps = [];
@@ -957,6 +970,12 @@ async function captureImageLabLogcat(label) {
   try {
     fs.writeFileSync(`${output}/image-lab-${label}-logcat.txt`, adb('shell', 'logcat', '-d', '-t', '2000'));
   } catch { /* logcat evidence is best-effort; the live capture already runs */ }
+}
+
+async function captureVaultLogcat(label) {
+  try {
+    fs.writeFileSync(`${output}/vault-${label}-logcat.txt`, adb('shell', 'logcat', '-d', '-t', '2000'));
+  } catch { /* the logcat evidence is best-effort */ }
 }
 
 function mp4Bytes(bytes) {
@@ -1402,6 +1421,129 @@ function readRecordingBytes(uri) {
       await trustedTapUntil(page.getByRole('button', { name: 'Repeat off', exact: true }), async () => (await page.locator('.ump-sheet button.active').filter({ hasText: 'Repeat off' }).count()) > 0, { note: 'player-tools:reset-repeat', timeout: 45000, checkTimeout: 10000 });
       await closeSheet('player-tools');
       return { sleepTimer: sleepBadge.trim(), repeatModes: ['off', 'one', 'all'], mediaDetails: true, queued: 'KNOUX-Discovery-A.mp4' };
+    }));
+
+    await runCase('vault-encrypted-media-lifecycle', () => withSession('vault-encrypted-media-lifecycle', async () => {
+      const capture = async (name) => {
+        adb('shell', 'screencap', '-p', `/sdcard/${name}.png`);
+        adb('pull', `/sdcard/${name}.png`, `${output}/${name}.png`);
+        fs.writeFileSync(`${output}/${name}.xml`, dumpNativeXml());
+      };
+      const vaultPin = '2468';
+      const openVault = async (note) => {
+        await ensureHome(page);
+        await trustedTapUntil(page.getByRole('button', { name: 'Open navigation', exact: true }), () => page.locator('.kmd-drawer').isVisible(), { note: `${note}:open-drawer`, timeout: 20000, checkTimeout: 9000 });
+        await trustedTapUntil(page.locator('.kmd-drawer button').filter({ hasText: 'Private Vault' }).first(), () => page.locator('[data-component="MobileVaultView"]').isVisible(), { note: `${note}:open-vault`, timeout: 20000, checkTimeout: 9000 });
+      };
+      const enterPin = async (value, note) => {
+        const field = page.locator('input[aria-label="Vault PIN"]').first();
+        await until(() => field.count(), `the vault PIN field is missing for ${note}`, 10000);
+        await setTextFieldWithKeyboard(page, field, value, note);
+      };
+      /* The vault is created with a PIN that only ever reaches the native
+       * layer. */
+      await openVault('vault');
+      await until(() => page.locator('[data-vault-stage="create"]').count(), 'the vault did not offer to create a new vault', 15000);
+      await capture('vault-create');
+      await enterPin(vaultPin, 'vault:create-pin');
+      const confirmField = page.locator('input[aria-label="Confirm vault PIN"]').first();
+      await setTextFieldWithKeyboard(page, confirmField, vaultPin, 'vault:confirm-pin');
+      await trustedTapUntil(page.getByRole('button', { name: 'Create the vault', exact: true }), async () => (await page.locator('[data-vault-stage="open"]').count()) > 0, { note: 'vault:create', timeout: 45000, checkTimeout: 12000 });
+      await captureVaultLogcat('create');
+      await capture('vault-created');
+
+      /* Real media is encrypted into the app private storage. */
+      await trustedTapUntil(page.getByRole('button', { name: 'Encrypt media', exact: true }), async () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]), { note: 'vault:open-picker', timeout: 20000, checkTimeout: 12000 });
+      await chooseFixtureInPicker('vault');
+      await until(() => page.locator('.kvv-item').count(), 'the encrypted media was not listed in the vault', 30000);
+      const itemName = (await page.locator('.kvv-item > strong').first().innerText()).trim();
+      if (!itemName) throw new Error('The vault item has no name');
+      await capture('vault-encrypted-item');
+      /* The original stays on the device: the vault never deletes it by
+       * itself. */
+      const original = adb('shell', 'ls', '/sdcard/Download/KNOUX-QA.mp4');
+      if (!/KNOUX-QA\.mp4/.test(original)) throw new Error('The original file was not preserved on the device');
+      /* The stored file is really encrypted, and the evidence comes from the
+       * plugin itself so it also holds for a release build that cannot be
+       * inspected with a shell. */
+      const container = await page.evaluate(async (pin) => {
+        const plugin = window.Capacitor?.Plugins?.KnouxVault;
+        if (!plugin) return null;
+        const unlocked = await plugin.vaultUnlock({ pin });
+        const item = (unlocked.items || [])[0];
+        if (!item) return null;
+        const info = await plugin.vaultContainerInfo({ token: unlocked.token, id: item.id });
+        return { ...info, id: item.id, name: item.name };
+      }, vaultPin);
+      if (!container) throw new Error('The vault did not report the stored container');
+      /* The container starts with the KNOUX X vault header, and it is larger
+       * than the original because the header and the GCM tag are stored with
+       * it. */
+      if (!/^4b4e5658/i.test(container.headerHex || '') || !/^KNVX/.test(container.header || '')) {
+        throw new Error(`The stored vault file is not the encrypted container: ${JSON.stringify(container)}`);
+      }
+      if (!container.bytes || container.bytes <= 0) throw new Error('The stored vault container is empty');
+      /* The stored container is the original plus the header, the IV and the
+       * GCM tag, so the ciphertext is really the media and not a copy of it. */
+      const originalSize = Number((original.match(/\s(\d{5,})\s/) || [])[1] || 0);
+      if (originalSize && container.bytes !== originalSize + 34) {
+        throw new Error(`The stored container is ${container.bytes} bytes for an original of ${originalSize} bytes`);
+      }
+      /* The debug build can also show the container on the device. */
+      try {
+        const stored = adb('shell', 'run-as', PACKAGE, 'ls', 'files/vault');
+        const storedFiles = stored.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.knvx/g) || [];
+        if (!storedFiles.length) throw new Error(`The vault did not store an encrypted container: ${stored}`);
+      } catch (error) {
+        if (/run-as|unknown package/i.test(String(error && error.message))) { /* a release build is not inspectable */ }
+        else throw error;
+      }
+
+      /* The vault locks itself, and a wrong PIN is refused. */
+      await trustedTapUntil(page.getByRole('button', { name: 'Lock', exact: true }), async () => (await page.locator('[data-vault-stage="unlock"]').count()) > 0, { note: 'vault:lock', timeout: 30000, checkTimeout: 9000 });
+      await enterPin('9999', 'vault:wrong-pin');
+      await trustedTapUntil(page.getByRole('button', { name: 'Unlock', exact: true }), async () => (await page.locator('.kvv-error').count()) > 0, { note: 'vault:wrong-pin-submit', timeout: 30000, checkTimeout: 12000 });
+      const refusal = await page.locator('.kvv-error').first().innerText();
+      if (!/not correct/i.test(refusal)) throw new Error(`A wrong PIN was not refused: ${refusal}`);
+      await capture('vault-wrong-pin');
+
+      /* The right PIN opens the same encrypted media again. */
+      await enterPin(vaultPin, 'vault:right-pin');
+      await trustedTapUntil(page.getByRole('button', { name: 'Unlock', exact: true }), async () => (await page.locator('[data-vault-stage="open"]').count()) > 0, { note: 'vault:unlock', timeout: 30000, checkTimeout: 12000 });
+      await until(() => page.locator('.kvv-item').count(), 'The unlocked vault did not list the encrypted media', 15000);
+
+      /* The encrypted media really plays: it is decrypted for playback. */
+      await trustedTapUntil(page.locator('.kvv-item button').filter({ hasText: 'Play' }).first(), async () => (await page.locator('video').count()) > 0, { note: 'vault:play', timeout: 45000, checkTimeout: 15000 });
+      const video = page.locator('video').first();
+      await video.waitFor({ timeout: 30000 });
+      let videoState = null;
+      await until(async () => {
+        videoState = await video.evaluate((element) => ({
+          readyState: element.readyState,
+          videoWidth: element.videoWidth,
+          networkState: element.networkState,
+          error: element.error ? { code: element.error.code, message: element.error.message } : null,
+          src: element.currentSrc,
+        }));
+        return videoState.readyState >= 2 && videoState.videoWidth > 0;
+      }, `the vault media did not decode real frames: ${JSON.stringify(videoState)}`, 25000);
+      await capture('vault-playing');
+
+      /* A process restart leaves the vault locked and the encrypted media
+       * intact. */
+      const oldPid = adb('shell', 'pidof', PACKAGE);
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await openVault('vault');
+      await until(() => page.locator('[data-vault-stage="unlock"]').count(), 'The vault did not lock itself after the process restarted', 20000);
+      await enterPin(vaultPin, 'vault:reopen-pin');
+      await trustedTapUntil(page.getByRole('button', { name: 'Unlock', exact: true }), async () => (await page.locator('[data-vault-stage="open"]').count()) > 0, { note: 'vault:reopen', timeout: 30000, checkTimeout: 12000 });
+      await until(() => page.locator('.kvv-item').count(), 'The encrypted media did not survive the process restart', 15000);
+      const newPid = adb('shell', 'pidof', PACKAGE);
+      if (!newPid || oldPid === newPid) throw new Error('The restart check did not restart the process');
+      await capture('vault-after-restart');
+      return { item: itemName, originalPreserved: true, encryptedHeader: container.header, encryptedBytes: container.bytes, wrongPinRefused: true, decoded: true, restart: { oldPid, newPid } };
     }));
 
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {

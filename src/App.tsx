@@ -35,6 +35,7 @@ import './styles/android-mobile.css';
 import './styles/mobile-premium-shell.css';
 import './styles/mobile-creative-surfaces.css';
 import './styles/mobile-media-library.css';
+import './styles/mobile-vault.css';
 import './styles/mobile-export.css';
 import './styles/mobile-recording.css';
 import './styles/mobile-functional-closure.css';
@@ -76,6 +77,10 @@ const LibraryView = lazy(async () => {
 const MobileMediaLibraryView = lazy(async () => {
   const module = await import('./features/library/MobileMediaLibraryView');
   return { default: module.MobileMediaLibraryView };
+});
+const MobileVaultView = lazy(async () => {
+  const module = await import('./features/vault/MobileVaultView');
+  return { default: module.MobileVaultView };
 });
 const PlayerViewportBoundary = lazy(async () => {
   const module = await import('./features/player/PlayerViewportBoundary');
@@ -164,6 +169,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'player': return <PlayerViewportBoundary />;
     case 'queue': return <QueueView />;
     case 'library': return android ? <MobileMediaLibraryView /> : <LibraryView />;
+    case 'vault': return android ? <MobileVaultView /> : <LibraryView />;
     case 'capture': return <CaptureView />;
     case 'recording': return android ? <MobileScreenRecordingView /> : <RecordingView />;
     case 'editor': return android ? <MobileVideoStudioView /> : <VideoStudioView />;

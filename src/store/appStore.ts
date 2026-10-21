@@ -23,6 +23,7 @@ export type ViewType =
   | 'home'
   | 'player'
   | 'library'
+  | 'vault'
   | 'queue'
   | 'capture'
   | 'recording'

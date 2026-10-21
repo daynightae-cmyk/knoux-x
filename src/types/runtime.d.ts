@@ -1,4 +1,5 @@
 import type { Sprint02CommandRuntime } from '../core/commands/sprint02CommandSystem';
+import type { MediaStoreMethods } from '../platform/androidMediaStore';
 
 declare global {
   interface Window {
@@ -18,7 +19,7 @@ declare global {
           }): Promise<{ active?: boolean }>;
           stopPlayback(): Promise<{ active?: boolean }>;
         };
-        KnouxSaf?: {
+        KnouxSaf?: MediaStoreMethods & {
           pick(options: {
             mode: 'file' | 'files' | 'directory' | 'save';
             mimeTypes?: string[];

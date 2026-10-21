@@ -13,7 +13,7 @@ if (!fs.existsSync(manifestPath) || !fs.existsSync(mainActivityPath)) {
   throw new Error('Run Capacitor sync and prepare-android-native-media.cjs before functional closure generation.');
 }
 
-const safPlugin = `package ${appId};
+let safPlugin = `package ${appId};
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -557,6 +557,16 @@ public class KnouxScreenCaptureService extends Service {
 }
 `;
 
+// Extend the existing document bridge; discovery and SAF use the same resolver.
+const mediaStoreMembers = fs.readFileSync(path.join(__dirname, 'android', 'mediastore-members.java'), 'utf8');
+safPlugin = safPlugin.replace('@CapacitorPlugin(name = "KnouxSaf")', `@CapacitorPlugin(name = "KnouxSaf", permissions = {
+    @com.getcapacitor.annotation.Permission(alias = "storage", strings = {"android.permission.READ_EXTERNAL_STORAGE"}),
+    @com.getcapacitor.annotation.Permission(alias = "videos", strings = {"android.permission.READ_MEDIA_VIDEO"}),
+    @com.getcapacitor.annotation.Permission(alias = "photos", strings = {"android.permission.READ_MEDIA_IMAGES"}),
+    @com.getcapacitor.annotation.Permission(alias = "audio", strings = {"android.permission.READ_MEDIA_AUDIO"}),
+    @com.getcapacitor.annotation.Permission(alias = "selected", strings = {"android.permission.READ_MEDIA_VISUAL_USER_SELECTED"})
+})`).replace('public class KnouxSafPlugin extends Plugin {', `public class KnouxSafPlugin extends Plugin {\n${mediaStoreMembers}`);
+
 fs.mkdirSync(javaDir, { recursive: true });
 fs.writeFileSync(path.join(javaDir, 'KnouxSafPlugin.java'), safPlugin, 'utf8');
 fs.writeFileSync(path.join(javaDir, 'KnouxScreenCapturePlugin.java'), projectionPlugin, 'utf8');
@@ -576,8 +586,12 @@ for (const permission of [
   'android.permission.READ_MEDIA_VIDEO',
   'android.permission.READ_MEDIA_AUDIO',
   'android.permission.READ_MEDIA_IMAGES',
+  'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
 ]) {
   if (!manifest.includes(permission)) manifest = manifest.replace(marker, `    <uses-permission android:name="${permission}" />\n${marker}`);
+}
+if (!manifest.includes('android.permission.READ_EXTERNAL_STORAGE')) {
+  manifest = manifest.replace(marker, `    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n${marker}`);
 }
 if (!manifest.includes('android:name=".KnouxScreenCaptureService"')) {
   const service = `        <service\n            android:name=".KnouxScreenCaptureService"\n            android:exported="false"\n            android:foregroundServiceType="mediaProjection" />\n`;

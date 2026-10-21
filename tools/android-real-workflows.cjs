@@ -1212,6 +1212,114 @@ function readRecordingBytes(uri) {
       return 'First-run welcome dismissed with a trusted tap and Home is available';
     }));
 
+    await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {
+      const started = Date.now();
+      const openLibrary = async () => {
+        await ensureHome(page);
+        await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore:open-library' });
+      };
+      const card = (name) => page.locator('.kml-media-card').filter({ hasText: name }).first();
+      const capture = async (name) => {
+        adb('shell', 'screencap', '-p', `/sdcard/${name}.png`);
+        adb('pull', `/sdcard/${name}.png`, `${output}/${name}.png`);
+        fs.writeFileSync(`${output}/${name}.xml`, dumpNativeXml());
+      };
+      await openLibrary();
+      await until(() => page.locator('[data-media-access="denied"]').count(), 'Clean install must show permission-aware library');
+      await capture('mediastore-before-permission');
+      await trustedTapUntil(page.getByRole('button', { name: 'Allow media access', exact: true }), () => /permissioncontroller/.test(foregroundSurface().package || ''), { note: 'mediastore:request-video-access' });
+      fs.writeFileSync(`${output}/mediastore-permission-dialog.xml`, dumpNativeXml());
+      await stableTap((node) => {
+        const id = nativeCore.attrOf(node, 'resource-id');
+        const text = nativeCore.attrOf(node, 'text');
+        return /permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && (/permission_allow(_all)?_button$/.test(id) || /^Allow all( photos and videos| videos| photos)?$/i.test(text));
+      }, { note: 'mediastore:grant-all-video', description: 'Android full media permission', timeout: 15000 });
+      await until(() => page.locator('[data-media-access="full"]').count(), 'Native permission did not grant full video access');
+      await until(async () => await card('KNOUX-Discovery-A.mp4').count() && await card('KNOUX-Discovery-B.mp4').count(), 'MediaStore did not discover videos across device folders without a picker', 25000);
+      const discoveredMs = Date.now() - started;
+      await until(() => card('KNOUX-Discovery-A.mp4').locator('img').evaluate((image) => image.complete && image.naturalWidth > 0), 'Real MediaStore thumbnail did not load', 20000);
+      const metadata = await card('KNOUX-Discovery-A.mp4').innerText();
+      if (!/640[×x]360/.test(metadata) || !/Movies\/KNOUX-Discovery/.test(metadata) || !/1:00/.test(metadata)) throw new Error(`Incorrect indexed metadata: ${metadata}`);
+      await capture('mediastore-discovered-library');
+      const indexed = await page.evaluate(() => window.Capacitor.Plugins.KnouxSaf.queryMedia({ kind: 'videos', limit: 1, requestId: 'qa-page-first' }));
+      if (indexed.items.length !== 1 || !indexed.hasMore || !indexed.after) throw new Error('MediaStore pagination first page is invalid');
+      const second = await page.evaluate((after) => window.Capacitor.Plugins.KnouxSaf.queryMedia({ kind: 'videos', limit: 1, after, requestId: 'qa-page-second' }), indexed.after);
+      if (second.items.length !== 1 || second.items[0].uri === indexed.items[0].uri) throw new Error('MediaStore pagination repeated or omitted the next item');
+      // Read-only native diagnostics supplement trusted visible workflow evidence.
+      fs.writeFileSync(`${output}/mediastore-pages.json`, JSON.stringify({ indexed, second }, null, 2));
+      await trustedTapUntil(card('KNOUX-Discovery-A.mp4'), () => page.locator('video').count(), { note: 'mediastore:open-discovered-video' });
+      const video = page.locator('video').first();
+      const playback = await ensurePlayback(page, video);
+      if (!playback.started) throw new Error('Discovered media did not start through trusted input');
+      await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth === 640 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'Discovered content URI did not decode actual frames');
+      const reveal = async () => {
+        if (!(await page.locator('input.ump-timeline').isVisible())) await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'mediastore:reveal-controls' });
+      };
+      await reveal();
+      await trustedTap(page.locator('input.ump-timeline'), { minHeight: 12, fractionX: 0.3, note: 'mediastore:seek' });
+      await until(() => video.evaluate((element) => element.currentTime > 15), 'Discovered video seek did not change playback');
+      await reveal();
+      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'mediastore:pause' });
+      const pausedTime = await video.evaluate((element) => element.currentTime);
+      await ensurePlayback(page, video);
+      await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Discovered video did not resume');
+      await capture('mediastore-playing-discovered-video');
+      await openLibrary();
+      adb('shell', 'cp', '/sdcard/Download/KNOUX-QA.mp4', '/sdcard/Movies/KNOUX-Discovery/KNOUX-Discovery-New.mp4');
+      adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/Movies/KNOUX-Discovery/KNOUX-Discovery-New.mp4');
+      await until(() => card('KNOUX-Discovery-New.mp4').count(), 'ContentObserver did not discover newly added media', 25000);
+      await capture('mediastore-added-media');
+      const oldPid = adb('shell', 'pidof', PACKAGE);
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await openLibrary();
+      await until(() => card('KNOUX-Discovery-New.mp4').count(), 'MediaStore reference did not survive process restart', 25000);
+      const newPid = adb('shell', 'pidof', PACKAGE);
+      if (!newPid || oldPid === newPid) throw new Error('Persistence check did not restart the process');
+      await capture('mediastore-after-restart');
+      const permission = Number(results.deviceState.sdk) >= 33 ? 'android.permission.READ_MEDIA_VIDEO' : 'android.permission.READ_EXTERNAL_STORAGE';
+      adb('shell', 'pm', 'revoke', PACKAGE, permission);
+      page = null; webview = null;
+      await openSession();
+      await openLibrary();
+      await until(() => page.locator('[data-media-access="denied"]').count(), 'Revoked media permission was not reflected');
+      if (await page.locator('.kml-media-card').count()) throw new Error('Revoked media or thumbnails remained visible');
+      await capture('mediastore-revoked');
+      await ensureHome(page);
+      results.measurements.push({ name: 'library-to-first-discovered-media', milliseconds: discoveredMs, includesPermissionInteraction: true, N: 1 });
+      return { metadata, discoveredMs, pausedTime, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
+    }));
+
+    if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {
+      await ensureHome(page);
+      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:open-library' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Allow media access', exact: true }), () => /permissioncontroller/.test(foregroundSurface().package || ''), { note: 'mediastore-partial:request' });
+      fs.writeFileSync(`${output}/mediastore-partial-permission.xml`, dumpNativeXml());
+      await stableTap((node) => /permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && (
+        /permission_allow_selected_button$/.test(nativeCore.attrOf(node, 'resource-id')) || /^Select (photos and videos|videos|photos)$/i.test(nativeCore.attrOf(node, 'text'))
+      ), { note: 'mediastore-partial:choose-selected', description: 'Select videos permission option' });
+      fs.writeFileSync(`${output}/mediastore-partial-picker.xml`, dumpNativeXml());
+      await stableTap((node) => /photopicker|providers\.media|permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && /\/(icon_thumbnail|thumbnail)$/.test(nativeCore.attrOf(node, 'resource-id')),
+        { note: 'mediastore-partial:select-real-video', description: 'System photo picker video thumbnail', timeout: 15000 });
+      await stableTap((node) => /photopicker|providers\.media|permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && /^Add(?:\s*\(\d+\))?$|^Allow$/i.test(nativeCore.attrOf(node, 'text')),
+        { note: 'mediastore-partial:confirm-one', description: 'System photo picker selection confirmation' });
+      await until(() => page.locator('[data-media-access="limited"]').count(), 'Selected-only access was reported incorrectly', 20000);
+      await until(() => page.locator('.kml-media-card').count(), 'Selected video did not appear');
+      const selected = await page.evaluate(() => window.Capacitor.Plugins.KnouxSaf.queryMedia({ kind: 'videos', limit: 100, requestId: 'qa-selected-only' }));
+      if (selected.access !== 'limited' || selected.items.length !== 1 || !/KNOUX-/.test(selected.items[0].name)) throw new Error(`Selected-only query leaked or omitted media: ${JSON.stringify(selected)}`);
+      adb('shell', 'screencap', '-p', '/sdcard/mediastore-selected-only.png');
+      adb('pull', '/sdcard/mediastore-selected-only.png', `${output}/mediastore-selected-only.png`);
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await ensureHome(page);
+      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:reopen' });
+      await until(async () => await page.locator('[data-media-access="limited"]').count() && await page.locator('.kml-media-card').count() === 1, 'Selected authorization did not survive app restart');
+      await ensureHome(page);
+      return { selected: selected.items.map((item) => ({ name: item.name, uri: item.uri })), unselectedMediaExcluded: true, restartVerified: true, permissionInput: 'trusted-system-picker' };
+    }));
+
     await runCase('mp4-actual-player-first-frame-seek-audio', () => withSession('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
       const fixture = verifyFixtureOnDevice();

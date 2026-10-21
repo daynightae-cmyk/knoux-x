@@ -1313,7 +1313,7 @@ function readRecordingBytes(uri) {
 
       /* Favorites are persisted in the runtime store and survive the tab
        * switch, so the user never loses a mark. */
-      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The library did not return to the video collection');      const favoriteName = (await card('KNOUX-Discovery-A.mp4').locator('strong').innerText()).trim();
+      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The library did not return to the video collection');      const favoriteName = (await page.locator('.kml-media-card').first().locator('strong').innerText()).trim();
       await trustedTapUntil(page.locator('.kml-favorite').first(), async () => (await page.locator('.kml-favorite[aria-pressed="true"]').count()) > 0, { note: 'library-org:favorite', timeout: 45000 });
       await trustedTapUntil(page.getByRole('tab', { name: 'Favorites', exact: true }), async () => (await page.locator('.kml-media-card').count()) > 0, { note: 'library-org:open-favorites', timeout: 45000 });
       await until(() => card(favoriteName).count(), 'The favorite did not reappear in the Favorites view');

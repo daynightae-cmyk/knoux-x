@@ -602,7 +602,7 @@ fs.writeFileSync(manifestPath, manifest, 'utf8');
 const checks = [
   ['MainActivity.java', 'registerPlugin(KnouxSafPlugin.class)'],
   ['MainActivity.java', 'registerPlugin(KnouxScreenCapturePlugin.class)'],
-  ['KnouxSafPlugin.java', '@CapacitorPlugin(name = "KnouxSaf")'],
+  ['KnouxSafPlugin.java', '@CapacitorPlugin(name = "KnouxSaf", permissions = {'],
   ['KnouxScreenCapturePlugin.java', '@CapacitorPlugin(name = "KnouxScreenCapture")'],
   ['KnouxScreenCaptureService.java', 'MediaProjection'],
 ];

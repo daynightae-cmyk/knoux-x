@@ -18,11 +18,12 @@ import { BrandMark } from '../../components/brand/BrandMark';
 import { NeonSelect } from '../../components/neon/NeonSelect';
 import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import { androidMediaStore, mediaRequestId, type MediaAccess, type MediaStoreItem } from '../../platform/androidMediaStore';
-import { MediaStoreThumbnail } from './MediaStoreThumbnail';
 import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { readRecentMedia } from '../player/mobilePlayerSession';
+
+import { MediaStoreThumbnail } from './MediaStoreThumbnail';
 
 type MediaTab = 'videos' | 'photos' | 'audio' | 'recents';
 type MediaKind = Exclude<MediaTab, 'recents'>;
@@ -100,21 +101,26 @@ export const MobileMediaLibraryView: React.FC = () => {
   const [tab, setTab] = useState<MediaTab>('videos');
   const [busy, setBusy] = useState(false);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
+  const [savedLibraryPath, setSavedLibraryPath] = useState<string | null>(null);
+  const [sourceReady, setSourceReady] = useState(false);
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortMode>('name');
   const [access, setAccess] = useState<MediaAccess>('denied');
   const [hasMore, setHasMore] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
   const [folder, setFolder] = useState('');
   const pageCursor = useRef('');
+  const currentStart = useRef('');
+  const previousStarts = useRef<string[]>([]);
   const generation = useRef(0);
   const pendingRequest = useRef<string | null>(null);
   const [revision, setRevision] = useState(0);
   const recents = useMemo(() => readRecentMedia(window.localStorage), []);
   const ar = locale === 'ar';
 
-  const loadLibrary = useCallback(async (requestedPath: string | null, append = false): Promise<void> => {
+  const loadLibrary = useCallback(async (requestedPath: string | null, next = false, previous = false): Promise<void> => {
     if (window.knouxRuntime?.edition !== 'android') return;
     const token = ++generation.current;
     const native = androidMediaStore();
@@ -122,7 +128,12 @@ export const MobileMediaLibraryView: React.FC = () => {
     const requestId = mediaRequestId();
     pendingRequest.current = requestId;
     const normalizedPath = requestedPath?.startsWith('content://') ? requestedPath : null;
-    if (!append) { setEntries([]); pageCursor.current = ''; setHasMore(false); }
+    const after = previous ? previousStarts.current.at(-1) ?? '' : next ? pageCursor.current : '';
+    const previousStart = currentStart.current;
+    if (!next && !previous) {
+      setEntries([]); pageCursor.current = ''; setHasMore(false);
+      previousStarts.current = []; currentStart.current = ''; setCanGoBack(false);
+    }
     setBusy(true);
     setLibraryError(null);
     try {
@@ -131,10 +142,15 @@ export const MobileMediaLibraryView: React.FC = () => {
         if (token !== generation.current) return;
         setAccess(permissions[tab]);
         if (permissions[tab] === 'denied') { setEntries([]); setHasMore(false); return; }
-        const page = await native.queryMedia({ kind: tab, limit: 60, after: append ? pageCursor.current : undefined, requestId });
+        const page = await native.queryMedia({ kind: tab, limit: 60, after: after || undefined, requestId });
         if (token !== generation.current) return;
         setAccess(page.access);
-        setEntries((current) => page.access === 'denied' ? [] : append ? [...new Map([...current, ...page.items].map((item) => [item.uri, item])).values()] : page.items);
+        setEntries(page.access === 'denied' ? [] : page.items);
+        setFolder('');
+        if (previous) previousStarts.current.pop();
+        else if (next) previousStarts.current.push(previousStart);
+        currentStart.current = after;
+        setCanGoBack(previousStarts.current.length > 0);
         pageCursor.current = page.after;
         setHasMore(page.hasMore);
         return;
@@ -178,15 +194,33 @@ export const MobileMediaLibraryView: React.FC = () => {
     }
   }, [ar, tab]);
 
+  const cancelLibraryRequests = useCallback((): void => {
+    generation.current++;
+    if (pendingRequest.current) void androidMediaStore()?.cancelMediaRequest({ requestId: pendingRequest.current }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    void Promise.all([
+      window.knouxAPI.settings.get<string | null>('mobile.libraryPath', null),
+      window.knouxAPI.settings.get<string>('mobile.librarySource', 'device'),
+    ]).then(([path, source]) => {
+      if (disposed) return;
+      const saved = typeof path === 'string' && path.startsWith('content://') ? path : null;
+      setSavedLibraryPath(saved);
+      if (source === 'saf') setLibraryPath(saved);
+    }).catch(() => undefined).finally(() => { if (!disposed) setSourceReady(true); });
+    return () => { disposed = true; };
+  }, []);
+
   useEffect(() => {
     if (window.knouxRuntime?.edition !== 'android') return;
+    if (!sourceReady) return;
     setFolder('');
     if (tab !== 'recents') void loadLibrary(libraryPath);
-    return () => {
-      generation.current++;
-      if (pendingRequest.current) void androidMediaStore()?.cancelMediaRequest({ requestId: pendingRequest.current }).catch(() => undefined);
-    };
-  }, [libraryPath, loadLibrary, revision, tab]);
+    else setBusy(false);
+    return cancelLibraryRequests;
+  }, [cancelLibraryRequests, libraryPath, loadLibrary, revision, sourceReady, tab]);
 
   useEffect(() => {
     let disposed = false;
@@ -218,6 +252,8 @@ export const MobileMediaLibraryView: React.FC = () => {
       const directory = await window.knouxAPI.file.openDirectory({ title: ar ? 'اختر مجلد وسائط KNOUX' : 'Choose KNOUX media folder' });
       if (!directory) return;
       await window.knouxAPI.settings.set('mobile.libraryPath', directory);
+      await window.knouxAPI.settings.set('mobile.librarySource', 'saf');
+      setSavedLibraryPath(directory);
       setLibraryPath(directory);
     } catch (reason) {
       setLibraryError(friendlyStorageError(reason));
@@ -329,7 +365,7 @@ export const MobileMediaLibraryView: React.FC = () => {
 
       {tab !== 'recents' && window.knouxRuntime?.edition === 'android' && (
         <div className="kml-library-toolbar">
-          <label className="kml-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={ar ? 'بحث في المجلد…' : 'Search folder…'} /></label>
+          <label className="kml-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={ar ? 'بحث في الوسائط المحملة…' : 'Search loaded media…'} /></label>
           <NeonSelect
             aria-label={ar ? 'ترتيب' : 'Sort'}
             className="kml-sort-select"
@@ -348,7 +384,8 @@ export const MobileMediaLibraryView: React.FC = () => {
       )}
 
       {tab !== 'recents' && androidMediaStore() && <div className="kml-discovery-controls">
-        <button type="button" onClick={() => { setLibraryPath(null); setRevision((value) => value + 1); }}>{ar ? 'وسائط الجهاز' : 'Device media'}</button>
+        <button type="button" onClick={() => { setLibraryPath(null); setRevision((value) => value + 1); void window.knouxAPI.settings.set('mobile.librarySource', 'device'); }}>{ar ? 'وسائط الجهاز' : 'Device media'}</button>
+        {savedLibraryPath && !libraryPath && <button type="button" disabled={busy} onClick={() => { setLibraryPath(savedLibraryPath); void window.knouxAPI.settings.set('mobile.librarySource', 'saf'); }}>{ar ? 'المجلد المحفوظ' : 'Saved folder'}</button>}
         {!libraryPath && <>
           <p role="status" data-media-access={access}>{access === 'full' ? (ar ? 'الوصول مصرح' : 'Media access granted') : access === 'limited' ? (ar ? 'الوسائط المحددة فقط' : 'Selected media only') : (ar ? 'اسمح بالوصول لاكتشاف الوسائط تلقائيًا، أو افتح ملفًا.' : 'Allow access to discover device media automatically, or open a file.')}</p>
           {access !== 'full' && <button type="button" disabled={busy} onClick={() => void requestAccess()}>{access === 'limited' ? (ar ? 'تغيير الاختيار' : 'Manage selection') : (ar ? 'السماح بالوصول' : 'Allow media access')}</button>}
@@ -392,7 +429,8 @@ export const MobileMediaLibraryView: React.FC = () => {
             <span>›</span>
           </button>
         )}
-        {hasMore && !libraryPath && tab !== 'recents' && <button className="kml-load-more" type="button" disabled={busy} onClick={() => void loadLibrary(null, true)}>{ar ? 'تحميل المزيد' : 'Load more media'}</button>}
+        {canGoBack && !libraryPath && tab !== 'recents' && <button className="kml-load-more" type="button" disabled={busy} onClick={() => void loadLibrary(null, false, true)}>{ar ? 'الصفحة السابقة' : 'Previous media page'}</button>}
+        {hasMore && !libraryPath && tab !== 'recents' && <button className="kml-load-more" type="button" disabled={busy} onClick={() => void loadLibrary(null, true)}>{ar ? 'الصفحة التالية' : 'Next media page'}</button>}
       </section>
 
       <section className="kml-quick-create">

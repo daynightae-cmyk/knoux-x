@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+
 import { loadMediaThumbnail, type MediaStoreItem } from '../../platform/androidMediaStore';
 
 export function MediaStoreThumbnail({ item }: { item: MediaStoreItem }): React.JSX.Element {

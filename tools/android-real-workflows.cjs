@@ -1371,16 +1371,36 @@ function readRecordingBytes(uri) {
       const playback = await ensurePlayback(page, video);
       if (!playback.started) throw new Error('Discovered media did not start through trusted input');
       await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth === 640 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'Discovered content URI did not decode actual frames');
-      const reveal = async () => {
-        if (!(await page.locator('input.ump-timeline').isVisible())) await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'mediastore:reveal-controls', timeout: 45000 });
-      };
       /* The staged clip is 60 s long. The player is frozen right after the
        * decode proof, because every trusted interaction costs a native
        * geometry sample and an unpaused clip can run past its own end and tear
        * the player down mid-interaction. Seek, pause and resume are all still
        * proven with trusted input, in that order. */
-      await reveal();
-      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'mediastore:pause', timeout: 45000, checkTimeout: 12000 });
+      /* The control layer auto-hides a few seconds after it is revealed, and a
+       * native geometry round trip can outlive that window, so the Pause
+       * control can unmount while it is being sampled. The pause therefore
+       * follows the same reveal-and-retry shape as the scrub below, and the
+       * stage is only tapped when the control is genuinely absent. */
+      const pauseControl = page.getByRole('button', { name: 'Pause', exact: true });
+      const pauseVisible = async () => (await pauseControl.count()) > 0 && await pauseControl.first().isVisible();
+      const pause = { paused: false, attempts: [] };
+      for (let attempt = 0; attempt < 3 && !pause.paused; attempt += 1) {
+        const pauseAttempt = { attempt: attempt + 1 };
+        try {
+          if (!(await pauseVisible())) {
+            await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-pause' });
+            await until(pauseVisible, 'pause control did not appear after revealing the player controls', 5000);
+            pauseAttempt.revealed = true;
+          }
+          await trustedTap(pauseControl, { timeout: 45000, note: 'mediastore:pause' });
+          await until(() => video.evaluate((element) => element.paused), 'trusted pause tap did not pause playback', 5000);
+          pause.paused = true;
+        } catch (error) {
+          pauseAttempt.error = String(error && error.message).slice(0, 200);
+        }
+        pause.attempts.push(pauseAttempt);
+      }
+      if (!pause.paused) throw new Error('Discovered video pause did not stop playback');
       const pausedTime = await video.evaluate((element) => element.currentTime);
       /* The control layer auto-hides a few seconds after it is revealed, and a
        * single trusted scrub can land while the layer is already gone, so the

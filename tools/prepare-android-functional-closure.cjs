@@ -641,7 +641,8 @@ const checks = [
   ['KnouxVaultPlugin.java', '@CapacitorPlugin(name = "KnouxVault")'],
   ['KnouxVaultPlugin.java', 'AndroidKeyStore'],
   ['KnouxVaultPlugin.java', 'AES/GCM/NoPadding'],
-  ['KnouxVaultPlugin.java', 'PBKDF2WithHmacSHA256'],
+  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA256'],
+  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA1'],
 ];
 for (const [file, token] of checks) {
   const source = fs.readFileSync(path.join(javaDir, file), 'utf8');

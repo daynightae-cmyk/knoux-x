@@ -27,12 +27,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -68,6 +64,9 @@ public class KnouxVaultPlugin extends Plugin {
     private static final String KEY_FAILURES = "failed_attempts";
     private static final String KEY_LOCKED_UNTIL = "locked_until";
     private static final String KEY_CREATED = "created_at";
+    private static final String KEY_KDF = "pin_kdf";
+    private static final String KDF_SHA256 = "PBKDF2withHmacSHA256";
+    private static final String KDF_SHA1 = "PBKDF2withHmacSHA1";
     private static final int ITERATIONS = 210_000;
     private static final int SALT_BYTES = 16;
     private static final int IV_BYTES = 12;
@@ -126,14 +125,32 @@ public class KnouxVaultPlugin extends Plugin {
         }
     }
 
-    private SecretKey derivePinKey(char[] pin, byte[] salt) throws Exception {
-        javax.crypto.SecretKeyFactory factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        PBEKeySpec spec = new PBEKeySpec(pin, salt, ITERATIONS, 256);
+    private SecretKey derivePinKey(char[] pin, byte[] salt, String kdf) throws Exception {
+        /* The API 1 constructor is used on purpose: the salt stays a byte
+         * array and the derivation works on every supported release, while
+         * the provider is the strongest one the device offers. */
+        byte[] password = new String(pin).getBytes(StandardCharsets.UTF_8);
+        char[] saltChars = new char[salt.length];
+        for (int index = 0; index < salt.length; index += 1) saltChars[index] = (char) (salt[index] & 0xff);
+        javax.crypto.SecretKeyFactory factory = null;
+        String[] candidates = new String[] { kdf, kdf.replace("with", "With") };
+        for (String candidate : candidates) {
+            try { factory = javax.crypto.SecretKeyFactory.getInstance(candidate); break; } catch (Exception error) { /* try the next spelling */ }
+        }
+        if (factory == null) throw new IllegalStateException("The device cannot derive the vault key.");
+        PBEKeySpec spec = new PBEKeySpec(password, saltChars, ITERATIONS, 256);
         try {
             return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
         } finally {
             spec.clearPassword();
+            java.util.Arrays.fill(password, (byte) 0);
+            java.util.Arrays.fill(saltChars, '\0');
         }
+    }
+
+    /** The strongest PBKDF2 provider this device offers. */
+    private String preferredKdf() {
+        return Build.VERSION.SDK_INT >= 26 ? KDF_SHA256 : KDF_SHA1;
     }
 
     private byte[] randomBytes(int length) {
@@ -227,14 +244,14 @@ public class KnouxVaultPlugin extends Plugin {
         long written = 0;
         try (FileInputStream input = new FileInputStream(source)) {
             byte[] header = new byte[MAGIC.length + 2];
-            if (input.read(header) != header.length) throw new IllegalArgumentException("The encrypted payload is truncated.");
+            if (readFully(input, header) != header.length) throw new IllegalArgumentException("The encrypted payload is truncated.");
             for (int index = 0; index < MAGIC.length; index += 1) {
                 if (header[index] != MAGIC[index]) throw new IllegalArgumentException("The encrypted payload is not a KNOUX X vault file.");
             }
             int ivLength = header[MAGIC.length + 1] & 0xff;
             if (ivLength <= 0) throw new IllegalArgumentException("The encrypted payload is truncated.");
             byte[] iv = new byte[ivLength];
-            if (input.read(iv) != ivLength) throw new IllegalArgumentException("The encrypted payload is truncated.");
+            if (readFully(input, iv) != ivLength) throw new IllegalArgumentException("The encrypted payload is truncated.");
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
             try (javax.crypto.CipherInputStream cipherStream = new javax.crypto.CipherInputStream(input, cipher)) {
@@ -243,6 +260,19 @@ public class KnouxVaultPlugin extends Plugin {
                 while ((read = cipherStream.read(buffer)) > 0) { output.write(buffer, 0, read); written += read; }
             }
         }
+        return written;
+    }
+
+    /** A stream read that fills the buffer, so a short read is not mistaken
+     * for a truncated file. */
+    private int readFully(InputStream input, byte[] target) throws Exception {
+        int total = 0;
+        while (total < target.length) {
+            int read = input.read(target, total, target.length - total);
+            if (read < 0) break;
+            total += read;
+        }
+        return total;
     }
 
     // ------------------------------------------------------------ session
@@ -303,7 +333,12 @@ public class KnouxVaultPlugin extends Plugin {
         File target = new File(vaultDir(), "index.knvx");
         File temp = new File(vaultDir(), "index.knvx.tmp");
         writeFile(temp, container);
-        Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        /* The rename is the atomic step, and it works on every supported
+         * release: java.nio.file would need API 26. */
+        if (!temp.renameTo(target)) {
+            writeFile(target, container);
+            temp.delete();
+        }
     }
 
     private byte[] readFile(File file) throws Exception {
@@ -358,7 +393,11 @@ public class KnouxVaultPlugin extends Plugin {
         result.put("locked", sessionKey == null);
         result.put("keyAvailable", keyAvailable);
         result.put("lockedOutForMs", lockedOut() ? lockedUntil() : 0);
-        result.put("itemCount", sessionKey == null ? 0 : readIndex(sessionKey).length());
+        int itemCount = 0;
+        if (sessionKey != null) {
+            try { itemCount = readIndex(sessionKey).length(); } catch (Exception error) { itemCount = 0; }
+        }
+        result.put("itemCount", itemCount);
         call.resolve(result);
     }
 
@@ -370,7 +409,8 @@ public class KnouxVaultPlugin extends Plugin {
             SecretKey keystoreKey = keystoreKey();
             SecretKey dek = generateDek();
             byte[] salt = randomBytes(SALT_BYTES);
-            SecretKey pinKey = derivePinKey(pin.toCharArray(), salt);
+            String kdf = preferredKdf();
+            SecretKey pinKey = derivePinKey(pin.toCharArray(), salt, kdf);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, pinKey);
             byte[] iv = cipher.getIV();
@@ -380,6 +420,7 @@ public class KnouxVaultPlugin extends Plugin {
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString(KEY_IV, Base64.encodeToString(iv, Base64.NO_WRAP))
                 .putString(KEY_ENVELOPE, Base64.encodeToString(envelope, Base64.NO_WRAP))
+                .putString(KEY_KDF, kdf)
                 .putLong(KEY_CREATED, System.currentTimeMillis())
                 .apply();
             sessionKey = dek;
@@ -406,24 +447,37 @@ public class KnouxVaultPlugin extends Plugin {
             byte[] salt = Base64.decode(prefs().getString(KEY_SALT, ""), Base64.NO_WRAP);
             byte[] iv = Base64.decode(prefs().getString(KEY_IV, ""), Base64.NO_WRAP);
             byte[] envelope = Base64.decode(prefs().getString(KEY_ENVELOPE, ""), Base64.NO_WRAP);
-            byte[] wrapped = decryptEnvelope(keystoreKey, envelope);
-            SecretKey pinKey = derivePinKey(pin.toCharArray(), salt);
+            String kdf = prefs().getString(KEY_KDF, preferredKdf());
+            byte[] wrapped;
+            try {
+                wrapped = decryptEnvelope(keystoreKey, envelope);
+            } catch (javax.crypto.AEADBadTagException damaged) {
+                /* The envelope is damaged on this device. That is not a wrong
+                 * PIN, so it must not count against the attempt limit. */
+                call.reject("The vault key on this device is damaged and cannot be opened.", damaged);
+                return;
+            }
+            SecretKey pinKey = derivePinKey(pin.toCharArray(), salt, kdf);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, pinKey, new GCMParameterSpec(TAG_BITS, iv));
-            byte[] dekRaw = cipher.doFinal(wrapped);
+            byte[] dekRaw;
+            try {
+                dekRaw = cipher.doFinal(wrapped);
+            } catch (javax.crypto.AEADBadTagException wrongPin) {
+                recordFailure();
+                call.reject("That PIN is not correct.", wrongPin);
+                return;
+            }
             sessionKey = new SecretKeySpec(dekRaw, "AES");
             sessionToken = java.util.UUID.randomUUID().toString();
             clearFailures();
+            JSONArray index = readIndex(sessionKey);
             JSObject result = new JSObject();
             result.put("token", sessionToken);
-            result.put("items", itemsPayload(readIndex(sessionKey)));
+            result.put("items", itemsPayload(index));
             call.resolve(result);
-        } catch (javax.crypto.AEADBadTagException error) {
-            recordFailure();
-            call.reject("That PIN is not correct.", error);
         } catch (Exception error) {
-            recordFailure();
-            call.reject("The vault could not be unlocked on this device.", error);
+            call.reject("The vault could not be unlocked on this device: " + String.valueOf(error.getMessage()), error);
         }
     }
 
@@ -441,7 +495,8 @@ public class KnouxVaultPlugin extends Plugin {
             SecretKey keystoreKey = keystoreKey();
             // The DEK is already in sessionKey; rewrap it with the new PIN.
             byte[] salt = randomBytes(SALT_BYTES);
-            SecretKey pinKey = derivePinKey(next.toCharArray(), salt);
+            String kdf = preferredKdf();
+            SecretKey pinKey = derivePinKey(next.toCharArray(), salt, kdf);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, pinKey);
             byte[] iv = cipher.getIV();
@@ -451,6 +506,7 @@ public class KnouxVaultPlugin extends Plugin {
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString(KEY_IV, Base64.encodeToString(iv, Base64.NO_WRAP))
                 .putString(KEY_ENVELOPE, Base64.encodeToString(envelope, Base64.NO_WRAP))
+                .putString(KEY_KDF, kdf)
                 .apply();
             call.resolve();
         } catch (Exception error) {
@@ -563,13 +619,13 @@ public class KnouxVaultPlugin extends Plugin {
         if (!authorized(call)) return;
         String id = call.getString("id", "");
         try {
-            File source = new File(vaultDir(), id + ".knvx");
-            if (!source.exists()) { call.reject("That vault item is no longer on this device."); return; }
-            // Validate id does not contain path traversal
+            // Validate id does not contain path traversal before the file is touched.
             if (id.contains("..") || id.contains("/") || id.contains("\\")) {
                 call.reject("Invalid vault item identifier.");
                 return;
             }
+            File source = new File(vaultDir(), id + ".knvx");
+            if (!source.exists()) { call.reject("That vault item is no longer on this device."); return; }
             JSONArray index = readIndex(sessionKey);
             String name = "media";
             String mime = "application/octet-stream";
@@ -639,7 +695,7 @@ public class KnouxVaultPlugin extends Plugin {
                 if (input.read(head) != head.length) throw new IllegalStateException("The stored container is truncated.");
             }
             StringBuilder hex = new StringBuilder();
-            for (byte value : head) hex.append(String.format("%02x", value));
+            for (byte value : head) hex.append(String.format("%02x", value & 0xff));
             StringBuilder printable = new StringBuilder();
             for (byte value : head) printable.append(value >= 0x20 && value < 0x7f ? (char) value : '.');
             JSObject result = new JSObject();

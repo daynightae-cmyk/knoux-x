@@ -367,7 +367,7 @@ export const MobileMediaLibraryView: React.FC = () => {
         <div className="kml-library-toolbar">
           <label className="kml-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={ar ? 'بحث في الوسائط المحملة…' : 'Search loaded media…'} /></label>
           <NeonSelect
-            aria-label={ar ? 'ترتيب' : 'Sort'}
+            aria-label={ar ? 'ترتيب الصفحة المحملة' : 'Sort loaded page'}
             className="kml-sort-select"
             dir={ar ? 'rtl' : 'ltr'}
             value={sort}
@@ -391,7 +391,7 @@ export const MobileMediaLibraryView: React.FC = () => {
           {access !== 'full' && <button type="button" disabled={busy} onClick={() => void requestAccess()}>{access === 'limited' ? (ar ? 'تغيير الاختيار' : 'Manage selection') : (ar ? 'السماح بالوصول' : 'Allow media access')}</button>}
           <button type="button" onClick={() => { void androidMediaStore()?.mediaSettings().catch(() => setLibraryError(ar ? 'تعذر فتح الإعدادات.' : 'Could not open settings.')); }}>{ar ? 'إعدادات الصلاحيات' : 'Permission settings'}</button>
         </>}
-        {folders.length > 0 && <label>{ar ? 'المجلد' : 'Folder'}<select aria-label={ar ? 'المجلد' : 'Folder'} value={folder} onChange={(event) => setFolder(event.currentTarget.value)}><option value="">{ar ? 'كل المجلدات المحملة' : 'All loaded folders'}</option>{folders.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}
+        {folders.length > 0 && <NeonSelect className="kml-folder-select" aria-label={ar ? 'المجلدات المحملة' : 'Loaded folders'} dir={ar ? 'rtl' : 'ltr'} value={folder} onChange={setFolder} options={[{ value: '', label: ar ? 'كل المجلدات المحملة' : 'All loaded folders' }, ...folders.map((value) => ({ value, label: value }))]} />}
         {busy && <p role="status">{ar ? 'جارٍ تحميل الوسائط…' : 'Loading media…'}</p>}
       </div>}
 

@@ -68,3 +68,21 @@ test('revoked device access shows denied state and does not query unauthorized r
   expect(native.queryMedia).not.toHaveBeenCalled();
   expect(host.querySelectorAll('.kml-media-card')).toHaveLength(0);
 });
+
+test('page navigation replaces cards and uses stable cursors in both directions', async () => {
+  const item = (name: string, id: number) => ({ uri: `content://media/external/video/media/${id}`, name, kind: 'videos', mime: 'video/mp4', size: 1024 });
+  native.queryMedia
+    .mockResolvedValueOnce({ items: [item('first-page.mp4', 20)], after: '20', hasMore: true, access: 'full' })
+    .mockResolvedValueOnce({ items: [item('second-page.mp4', 10)], after: '10', hasMore: false, access: 'full' })
+    .mockResolvedValueOnce({ items: [item('first-page.mp4', 20)], after: '20', hasMore: true, access: 'full' });
+  await mount();
+  await click('Next media page');
+  expect(native.queryMedia.mock.calls[1][0].after).toBe('20');
+  expect(host.textContent).toContain('second-page.mp4');
+  expect(host.textContent).not.toContain('first-page.mp4');
+  expect(host.querySelectorAll('.kml-media-card')).toHaveLength(1);
+  await click('Previous media page');
+  expect(native.queryMedia.mock.calls[2][0].after).toBeUndefined();
+  expect(host.textContent).toContain('first-page.mp4');
+  expect(host.textContent).not.toContain('second-page.mp4');
+});

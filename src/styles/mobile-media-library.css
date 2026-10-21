@@ -320,10 +320,10 @@ html[data-platform='android'] .kml-footer {
   html[data-platform='android'] .kml-quick-grid button { min-height: 70px; flex-direction: row; align-items: center; }
 }
 .kml-discovery-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; color: #ddd3f5; }
-.kml-discovery-controls button, .kml-discovery-controls select, .kml-load-more { background: #20132f; color: #eee6ff; border: 1px solid #77529c; border-radius: 14px; padding: 12px 16px; min-height: 44px; }
+.kml-discovery-controls button, .kml-load-more { background: #20132f; color: #eee6ff; border: 1px solid #77529c; border-radius: 14px; padding: 12px 16px; min-height: 44px; }
 .kml-discovery-controls p { flex-basis: 100%; margin: 0; }
 .kml-discovery-controls label { display: flex; align-items: center; gap: 12px; max-width: 100%; }
-.kml-discovery-controls select { max-width: 65vw; }
+.kml-folder-select { max-width: 80vw; }
 .kml-thumbnail { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
 .kml-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
 .kml-media-art > small { z-index: 1; }

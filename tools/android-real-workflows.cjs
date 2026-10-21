@@ -1476,8 +1476,19 @@ function readRecordingBytes(uri) {
         return { ...info, id: item.id, name: item.name };
       }, vaultPin);
       if (!container) throw new Error('The vault did not report the stored container');
-      if (container.header !== 'KNVX') throw new Error(`The stored vault file is not the encrypted container: ${JSON.stringify(container)}`);
+      /* The container starts with the KNOUX X vault header, and it is larger
+       * than the original because the header and the GCM tag are stored with
+       * it. */
+      if (!/^4b4e5658/i.test(container.headerHex || '') || !/^KNVX/.test(container.header || '')) {
+        throw new Error(`The stored vault file is not the encrypted container: ${JSON.stringify(container)}`);
+      }
       if (!container.bytes || container.bytes <= 0) throw new Error('The stored vault container is empty');
+      /* The stored container is the original plus the header, the IV and the
+       * GCM tag, so the ciphertext is really the media and not a copy of it. */
+      const originalSize = Number((original.match(/\s(\d{5,})\s/) || [])[1] || 0);
+      if (originalSize && container.bytes !== originalSize + 34) {
+        throw new Error(`The stored container is ${container.bytes} bytes for an original of ${originalSize} bytes`);
+      }
       /* The debug build can also show the container on the device. */
       try {
         const stored = adb('shell', 'run-as', PACKAGE, 'ls', 'files/vault');

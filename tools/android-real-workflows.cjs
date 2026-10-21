@@ -1230,6 +1230,94 @@ function readRecordingBytes(uri) {
       return 'First-run welcome dismissed with a trusted tap and Home is available';
     }));
 
+    await runCase('mediastore-library-organization', () => withSession('mediastore-library-organization', async () => {
+      const openLibrary = async () => {
+        await ensureHome(page);
+        await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'library-org:open-library' });
+      };
+      const card = (name) => page.locator('.kml-media-card').filter({ hasText: name }).first();
+      const capture = async (name) => {
+        adb('shell', 'screencap', '-p', `/sdcard/${name}.png`);
+        adb('pull', `/sdcard/${name}.png`, `${output}/${name}.png`);
+        fs.writeFileSync(`${output}/${name}.xml`, dumpNativeXml());
+      };
+      const selectCollection = async (label) => {
+        await trustedTap(page.locator('button[aria-label="Device collections"]'), { note: `library-org:open-${label}`, timeout: 45000 });
+        await trustedTapUntil(
+          page.locator('li[role="option"]').filter({ hasText: label }).first(),
+          () => page.locator('.kml-media-card').count() > 0,
+          { note: `library-org:select-${label}`, timeout: 45000, checkTimeout: 12000 },
+        );
+      };
+      const selectFolder = async (label) => {
+        await trustedTap(page.locator('button[aria-label="Device folders"]'), { note: `library-org:open-folder-filter-${label}`, timeout: 45000 });
+        await trustedTapUntil(
+          page.locator('li[role="option"]').filter({ hasText: label }).first(),
+          () => page.locator('button[aria-label="Device folders"]').count() > 0,
+          { note: `library-org:select-folder-${label}`, timeout: 45000, checkTimeout: 12000 },
+        );
+      };
+      await resetMediaPermissions();
+      await openLibrary();
+      await until(() => page.locator('[data-media-access="denied"]').count(), 'Clean install must show permission-aware library');
+      await trustedTapUntil(page.getByRole('button', { name: 'Allow media access', exact: true }), () => /permissioncontroller/.test(foregroundSurface().package || ''), { note: 'library-org:request-video-access' });
+      await stableTap((node) => {
+        const id = nativeCore.attrOf(node, 'resource-id');
+        const text = nativeCore.attrOf(node, 'text');
+        return /permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && (/permission_allow(_all)?_button$/.test(id) || /^Allow all( photos and videos| videos| photos)?$/i.test(text));
+      }, { note: 'library-org:grant-all-video', description: 'Android full media permission', timeout: 15000 });
+      await until(() => page.locator('[data-media-access="full"]').count(), 'Native permission did not grant full video access');
+
+      /* The folder index is a real device-folder count, and opening one scopes
+       * the library to exactly that folder. */
+      await trustedTapUntil(page.getByRole('tab', { name: 'Folders', exact: true }), () => page.locator('.kml-folder-row').count() > 0, { note: 'library-org:open-folders', timeout: 45000 });
+      const discoveryFolder = page.locator('.kml-folder-row[data-folder-path="Movies/KNOUX-Discovery/"]');
+      await until(() => discoveryFolder.count(), 'The device folder index did not list the staged device folder');
+      const folderCount = Number((await discoveryFolder.innerText()).match(/(\d+)\s*$/)?.[1] ?? '0');
+      if (!folderCount) throw new Error('The device folder index did not report a real media count');
+      await trustedTapUntil(discoveryFolder, () => page.locator('.kml-media-card').count() > 0, { note: 'library-org:open-folder', timeout: 45000 });
+      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The opened device folder did not list its own media');
+      const folderPaths = await page.locator('.kml-media-card').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-media-path')));
+      if (folderPaths.some((path) => path !== 'Movies/KNOUX-Discovery/')) throw new Error(`The device folder scope leaked other folders: ${JSON.stringify(folderPaths)}`);
+      await capture('library-org-device-folder');
+      /* The collection filters and the folder scope are independent, so the
+       * folder scope is cleared before the collections are proved. */
+      await selectFolder('All folders');
+      await until(() => card('KNOUX-Discovery-A.mp4').count() && card('KNOUX-QA.mp4').count(), 'Clearing the folder scope did not restore the whole library');
+
+      /* The device collections are real MediaStore filters, not a client side
+       * guess over the loaded page. */
+      await selectCollection('Downloads');
+      await until(() => card('KNOUX-QA.mp4').count(), 'The Downloads collection did not list the downloaded media');
+      if (await card('KNOUX-Discovery-A.mp4').count()) throw new Error('The Downloads collection leaked media from another folder');
+      await capture('library-org-downloads');
+      await selectCollection('Camera');
+      await until(() => card('KNOUX-Camera.mp4').count(), 'The Camera collection did not list the camera media');
+      await capture('library-org-camera');
+      await selectCollection('Screen recordings');
+      await until(() => card('KNOUX-Screen.mp4').count(), 'The screen recording collection did not list the recorded media');
+      await capture('library-org-screen-recordings');
+      await selectCollection('All media');
+
+      /* Favorites are persisted in the runtime store and survive the tab
+       * switch, so the user never loses a mark. */
+      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The library did not return to the video collection');      const favoriteName = (await card('KNOUX-Discovery-A.mp4').locator('strong').innerText()).trim();
+      await trustedTapUntil(page.locator('.kml-favorite').first(), () => page.locator('.kml-favorite[aria-pressed="true"]').count() > 0, { note: 'library-org:favorite', timeout: 45000 });
+      await trustedTapUntil(page.getByRole('tab', { name: 'Favorites', exact: true }), () => page.locator('.kml-media-card').count() > 0, { note: 'library-org:open-favorites', timeout: 45000 });
+      await until(() => card(favoriteName).count(), 'The favorite did not reappear in the Favorites view');
+      await capture('library-org-favorites');
+
+      /* The loaded page can be ordered and reshaped without leaving the
+       * library. */
+      await trustedTapUntil(page.locator('button[aria-label="Sort ascending"]'), () => page.locator('button[aria-label="Sort descending"]').count() > 0, { note: 'library-org:sort-direction', timeout: 45000 });
+      await trustedTapUntil(page.locator('button[aria-label="List view"]'), () => page.locator('.kml-card-list').count() > 0, { note: 'library-org:list-layout', timeout: 45000 });
+      await trustedTapUntil(page.getByRole('tab', { name: 'Recent', exact: true }), () => page.locator('.kml-media-card').count() > 0, { note: 'library-org:open-recent', timeout: 45000 });
+      const recentDates = await page.locator('.kml-media-card > small').evaluateAll((nodes) => nodes.map((node) => node.textContent ?? ''));
+      if (!recentDates.some((text) => /\d{4}/.test(text))) throw new Error('Recently added media did not show a real added date');
+      await capture('library-org-recently-added');
+      return { folderCount, folderScope: 'Movies/KNOUX-Discovery/', collections: ['downloads', 'camera', 'screen'], favorite: favoriteName, layout: 'list', recentlyAdded: true };
+    }));
+
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {
       const started = Date.now();
       const openLibrary = async () => {

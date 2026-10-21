@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Grid2x2,
   Image as ImageIcon,
+  ListOrdered,
   List,
   Music,
   Play,
@@ -125,6 +126,7 @@ export const MobileMediaLibraryView: React.FC = () => {
   const locale = useAppStore((state) => state.locale);
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
   const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
+  const addToQueue = usePlayerStore((state) => state.addToQueue);
   const setImageSource = useImageEditorStore((state) => state.setSource);
   const [tab, setTab] = useState<MediaTab>('videos');
   const [collection, setCollection] = useState<MediaCollection>('media');
@@ -449,8 +451,7 @@ export const MobileMediaLibraryView: React.FC = () => {
     else await openPlayable('video');
   }, [openPhoto, openPlayable, tab]);
 
-  const toggleFavorite = useCallback(async (entry: LibraryEntry): Promise<void> => {
-    const favorite: MediaFavorite = {
+  const toggleFavorite = useCallback(async (entry: LibraryEntry): Promise<void> => {    const favorite: MediaFavorite = {
       uri: entry.uri,
       name: entry.name,
       kind: entry.kind,
@@ -513,6 +514,19 @@ export const MobileMediaLibraryView: React.FC = () => {
     else void openPlayable(entry.kind === 'audio' ? 'audio' : 'video', entry.uri, entry.name);
   }, [openPhoto, openPlayable]);
 
+  /* The queue is built from real library items, so the player has a playlist
+   * to repeat and shuffle over. */
+  const queueEntry = useCallback((entry: LibraryEntry): void => {
+    setMediaTitle(entry.uri, entry.name);
+    addToQueue(entry.uri);
+    addNotification({
+      type: 'success',
+      title: ar ? 'أُضيف إلى قائمة التشغيل' : 'Added to the queue',
+      message: entry.name,
+      duration: 2500,
+    });
+  }, [addNotification, addToQueue, ar, setMediaTitle]);
+
   const openFolder = useCallback((entry: MediaFolder): void => {
     setFolder(entry.path);
     setCollection('media');
@@ -555,6 +569,14 @@ export const MobileMediaLibraryView: React.FC = () => {
           onClick={() => void toggleFavorite(entry)}
         >
           <Star size={16} fill={favorite ? 'currentColor' : 'none'} />
+        </button>
+        <button
+          type="button"
+          className="kml-queue"
+          aria-label={ar ? `إضافة ${entry.name} إلى قائمة التشغيل` : `Add ${entry.name} to the queue`}
+          onClick={() => queueEntry(entry)}
+        >
+          <ListOrdered size={15} />
         </button>
       </div>
     );

@@ -396,3 +396,21 @@ html[data-platform='android'] .kml-folder-row > small { grid-area: meta; color: 
 
 html[data-platform='android'] .kml-empty { position: relative; z-index: 2; margin: 8px 2px; color: rgba(213, 196, 235, 0.66); font-size: 12px; }
 html[data-platform='android'] .kml-collection-select { max-width: 60vw; }
+
+/* The queue button sits next to the favorite star on a library card. */
+html[data-platform='android'] .kml-queue {
+  position: absolute;
+  top: 6px;
+  left: 46px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(190, 134, 255, 0.42);
+  border-radius: 50%;
+  color: #d7b7ff;
+  background: rgba(8, 5, 14, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}

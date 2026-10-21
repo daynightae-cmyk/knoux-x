@@ -1333,6 +1333,77 @@ function readRecordingBytes(uri) {
       return { folderCount, folderScope: 'Movies/KNOUX-Discovery/', collections: ['downloads', 'camera', 'screen'], favorite: favoriteName, layout: 'list', recentlyAdded: true };
     }));
 
+    await runCase('player-tools-sleep-repeat-details-queue', () => withSession('player-tools-sleep-repeat-details-queue', async () => {
+      const capture = async (name) => {
+        adb('shell', 'screencap', '-p', `/sdcard/${name}.png`);
+        adb('pull', `/sdcard/${name}.png`, `${output}/${name}.png`);
+        fs.writeFileSync(`${output}/${name}.xml`, dumpNativeXml());
+      };
+      const more = page.locator('.ump-topbar button[aria-label="More"]');
+      const openQuickSheet = async (note) => {
+        if (!(await more.count()) || !(await more.first().isVisible())) {
+          await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: `${note}:reveal-controls`, timeout: 45000 });
+          await until(async () => (await more.count()) > 0 && await more.first().isVisible(), 'the player controls did not appear', 8000);
+        }
+        await trustedTapUntil(more, async () => (await page.locator('.ump-sheet').count()) > 0, { note: `${note}:open-quick-sheet`, timeout: 45000, checkTimeout: 10000 });
+      };
+      const closeSheet = async (note) => {
+        await trustedTapUntil(page.locator('button[aria-label="Close player menu"]'), async () => (await page.locator('.ump-sheet').count()) === 0, { note: `${note}:close-sheet`, timeout: 30000, checkTimeout: 8000 });
+      };
+      /* The queue is built from a real library item, so the player has a
+       * playlist to repeat and shuffle over. */
+      await ensureHome(page);
+      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'player-tools:open-library' });
+      const wrap = page.locator('.kml-media-card-wrap').filter({ hasText: 'KNOUX-Discovery-A.mp4' }).first();
+      await until(() => wrap.count(), 'the discovered clip was not listed in the library');
+      await trustedTapUntil(wrap.locator('.kml-queue'), async () => (await wrap.locator('.kml-queue').count()) > 0, { note: 'player-tools:add-to-queue', timeout: 45000, checkTimeout: 10000 });
+      await trustedTapUntil(wrap.locator('.kml-media-card'), () => page.locator('video').count(), { note: 'player-tools:open-player', timeout: 45000 });
+      await page.locator('video').first().waitFor({ timeout: 45000 });
+
+      /* The quick toolbox is a real bottom sheet with the session tools in
+       * it. */
+      await openQuickSheet('player-tools');
+      await until(() => page.getByRole('button', { name: 'Sleep timer', exact: true }).count(), 'the quick toolbox does not offer a sleep timer');
+      await capture('player-tools-quick-menu');
+      await trustedTapUntil(page.getByRole('button', { name: 'Sleep timer', exact: true }), async () => (await page.getByRole('button', { name: '5 min', exact: true }).count()) > 0, { note: 'player-tools:open-sleep-sheet', timeout: 45000, checkTimeout: 10000 });
+      await trustedTapUntil(page.getByRole('button', { name: '5 min', exact: true }), async () => (await page.locator('.ump-sleep-badge').count()) > 0, { note: 'player-tools:set-sleep-timer', timeout: 45000, checkTimeout: 10000 });
+      const sleepBadge = await page.locator('.ump-sleep-badge').first().innerText();
+      if (!/Sleep \d+:\d\d/.test(sleepBadge)) throw new Error(`The sleep timer did not start counting down: ${sleepBadge}`);
+      await capture('player-tools-sleep-timer');
+      await closeSheet('player-tools');
+
+      /* Repeat and shuffle are the real queue modes, not a decorative
+       * button. */
+      await openQuickSheet('player-tools');
+      await trustedTapUntil(page.getByRole('button', { name: 'Repeat', exact: true }), async () => (await page.getByRole('button', { name: 'Repeat one', exact: true }).count()) > 0, { note: 'player-tools:open-playback-sheet', timeout: 45000, checkTimeout: 10000 });
+      await trustedTapUntil(page.getByRole('button', { name: 'Repeat one', exact: true }), async () => (await page.locator('.ump-sheet button.active').filter({ hasText: 'Repeat one' }).count()) > 0, { note: 'player-tools:set-repeat-one', timeout: 45000, checkTimeout: 10000 });
+      await capture('player-tools-repeat-modes');
+      await closeSheet('player-tools');
+
+      /* The media details are read from the device, not invented. */
+      await openQuickSheet('player-tools');
+      await trustedTapUntil(page.getByRole('button', { name: 'Details', exact: true }), async () => (await page.locator('.ump-media-info').count()) > 0, { note: 'player-tools:open-details-sheet', timeout: 45000, checkTimeout: 12000 });
+      await until(async () => (await page.locator('.ump-media-info').innerText()).includes('640×360'), 'the media details did not report the decoded resolution', 12000);
+      const details = await page.locator('.ump-media-info').innerText();
+      if (!/Name/.test(details) || !/Size/.test(details)) throw new Error(`The media details are incomplete: ${details}`);
+      await capture('player-tools-media-details');
+      await closeSheet('player-tools');
+
+      /* The queue shows the item the library really queued. */
+      await openQuickSheet('player-tools');
+      await trustedTapUntil(page.getByRole('button', { name: 'Queue', exact: true }), async () => (await page.locator('.ump-queue-row').count()) > 0, { note: 'player-tools:open-queue-sheet', timeout: 45000, checkTimeout: 10000 });
+      const queueText = await page.locator('.ump-queue-list').innerText();
+      if (!queueText.includes('KNOUX-Discovery-A.mp4')) throw new Error(`The queue does not list the queued library item: ${queueText}`);
+      await capture('player-tools-queue');
+      await closeSheet('player-tools');
+      /* Leave the shared player state as it was found. */
+      await openQuickSheet('player-tools');
+      await trustedTapUntil(page.getByRole('button', { name: 'Repeat', exact: true }), async () => (await page.getByRole('button', { name: 'Repeat one', exact: true }).count()) > 0, { note: 'player-tools:reopen-playback-sheet', timeout: 45000, checkTimeout: 10000 });
+      await trustedTapUntil(page.getByRole('button', { name: 'Repeat off', exact: true }), async () => (await page.locator('.ump-sheet button.active').filter({ hasText: 'Repeat off' }).count()) > 0, { note: 'player-tools:reset-repeat', timeout: 45000, checkTimeout: 10000 });
+      await closeSheet('player-tools');
+      return { sleepTimer: sleepBadge.trim(), repeatModes: ['off', 'one', 'all'], mediaDetails: true, queued: 'KNOUX-Discovery-A.mp4' };
+    }));
+
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {
       const started = Date.now();
       const openLibrary = async () => {

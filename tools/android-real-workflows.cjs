@@ -1393,6 +1393,13 @@ function readRecordingBytes(uri) {
       /* Case isolation: this case drives a Home element, so Home is a proven
        * precondition rather than an assumption about the previous case. */
       await ensureHome(page);
+      /* The home hero card continues the most recent item when one exists and
+       * only opens the device picker when it does not. The MediaStore case
+       * legitimately leaves a discovered video in "recently played", so this
+       * case restores its own "no recent" precondition and remounts Home. */
+      await page.evaluate(() => window.localStorage.removeItem('knoux:mobile-player:recent'));
+      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mp4:reset-recent-state' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Back to home', exact: true }), () => page.locator('[data-component="MobileHomeDashboard"]').isVisible(), { note: 'mp4:remount-home' });
       await trustedTapUntil(
         page.locator('.kmh-hero-card'),
         () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]),

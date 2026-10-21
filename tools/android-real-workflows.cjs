@@ -739,6 +739,18 @@ async function ensureHome(page) {
 async function ensurePlayback(page, video) {
   const attempts = [];
   for (let attempt = 0; attempt < 4; attempt += 1) {
+    /* A saved resume position opens a "Continue from ...?" prompt over the
+     * player. It is dismissed deterministically by starting the clip over, so
+     * every case measures playback from the same state and the prompt never
+     * covers the next trusted tap. */
+    const startOver = page.getByRole('button', { name: 'Start over', exact: true });
+    try {
+      if ((await startOver.count()) > 0 && await startOver.first().isVisible()) {
+        await trustedTapUntil(startOver.first(), async () => (await startOver.count()) === 0 || !(await startOver.first().isVisible()), { note: 'player:start-over', timeout: 8000, checkTimeout: 5000 });
+        attempts.push('trusted-tap:start-over (dismissed the resume prompt)');
+        await delay(600);
+      }
+    } catch { /* the prompt is optional; the play path below still applies */ }
     if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts };
     const playButton = page.locator('button.ump-play');
     const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();

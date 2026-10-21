@@ -76,6 +76,28 @@
         call.resolve();
     }
 
+    /* Device collections are real MediaStore filters, never a client side
+     * guess. On API 29+ the relative path is authoritative; older releases fall
+     * back to the bucket display name, which the media provider still exposes
+     * for the video and image tables. */
+    private String mediaCollectionFilter(String kind, String collection) {
+        if (collection == null || collection.isEmpty() || "media".equals(collection)) return null;
+        boolean api29 = android.os.Build.VERSION.SDK_INT >= 29;
+        if (!api29 && "audio".equals(kind)) throw new IllegalArgumentException("Media collections need a device folder index");
+        if ("downloads".equals(collection)) {
+            return api29 ? "relative_path LIKE 'Download/%'" : "bucket_display_name IN ('Download','Downloads')";
+        }
+        if ("camera".equals(collection)) {
+            return api29 ? "(relative_path LIKE 'DCIM/Camera%' OR relative_path LIKE 'Camera/%')" : "bucket_display_name IN ('Camera')";
+        }
+        if ("screen".equals(collection)) {
+            return api29
+                ? "(relative_path LIKE 'Movies/KNOUX X%' OR relative_path LIKE 'Movies/Screen recordings%' OR relative_path LIKE 'ScreenRecordings/%')"
+                : "bucket_display_name IN ('KNOUX X','Screen recordings','Screen Recordings')";
+        }
+        throw new IllegalArgumentException("Invalid media collection");
+    }
+
     @PluginMethod public void queryMedia(PluginCall call) {
         mediaTask(call, signal -> {
             String kind = mediaKind(call);
@@ -89,12 +111,21 @@
             if (!after.isEmpty() && !after.matches("[0-9]{1,19}")) throw new IllegalArgumentException("Invalid cursor");
             java.util.List<String> columns = new java.util.ArrayList<>(java.util.Arrays.asList("_id", "_display_name", "mime_type", "_size", "date_added", "date_modified"));
             if (!"photos".equals(kind)) columns.add("duration");
-            if (!"audio".equals(kind)) { columns.add("width"); columns.add("height"); columns.add("bucket_display_name"); columns.add("bucket_id"); }
+            if (!"audio".equals(kind)) { columns.add("width"); columns.add("height"); }
+            if (!"audio".equals(kind)) { columns.add("bucket_display_name"); columns.add("bucket_id"); }
             if (android.os.Build.VERSION.SDK_INT >= 29) columns.add("relative_path");
             String selection = android.os.Build.VERSION.SDK_INT >= 29 ? "is_pending=0" : "1=1";
             if (android.os.Build.VERSION.SDK_INT >= 30) selection += " AND is_trashed=0";
-            if (!after.isEmpty()) selection += " AND _id < ?";
-            String[] args = after.isEmpty() ? null : new String[]{after};
+            java.util.List<String> selectionArgs = new java.util.ArrayList<>();
+            String collectionFilter = mediaCollectionFilter(kind, call.getString("collection", "media"));
+            if (collectionFilter != null) selection += " AND " + collectionFilter;
+            String bucket = call.getString("bucket", "");
+            if (!bucket.isEmpty()) {
+                selection += android.os.Build.VERSION.SDK_INT >= 29 ? " AND relative_path = ?" : " AND bucket_display_name = ?";
+                selectionArgs.add(bucket);
+            }
+            if (!after.isEmpty()) { selection += " AND _id < ?"; selectionArgs.add(after); }
+            String[] args = selectionArgs.isEmpty() ? null : selectionArgs.toArray(new String[0]);
             Uri collection = mediaCollection(kind);
             Cursor result;
             ContentResolver resolver = getContext().getContentResolver();
@@ -130,6 +161,65 @@
             }
             signal.throwIfCanceled();
             call.resolve(new JSObject().put("items", items).put("access", mediaAccess(kind)).put("after", next).put("hasMore", more));
+        });
+    }
+
+    /* A real folder index of the device library: every MediaStore row is
+     * reduced to its device folder and counted. The scan is bounded, and the
+     * relative path is preferred because it is the authoritative folder on
+     * API 29+. */
+    @PluginMethod public void mediaFolders(PluginCall call) {
+        mediaTask(call, signal -> {
+            String kind = mediaKind(call);
+            String access = mediaAccess(kind);
+            if ("denied".equals(access)) {
+                call.resolve(new JSObject().put("folders", new JSArray()).put("access", access));
+                return;
+            }
+            boolean api29 = android.os.Build.VERSION.SDK_INT >= 29;
+            java.util.List<String> columns = new java.util.ArrayList<>();
+            if (!"audio".equals(kind)) columns.add("bucket_display_name");
+            if (api29) columns.add("relative_path");
+            JSArray folders = new JSArray();
+            if (columns.isEmpty()) { call.resolve(new JSObject().put("folders", folders).put("access", access)); return; }
+            String selection = api29 ? "is_pending=0" : "1=1";
+            if (android.os.Build.VERSION.SDK_INT >= 30) selection += " AND is_trashed=0";
+            Cursor result;
+            ContentResolver resolver = getContext().getContentResolver();
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                android.os.Bundle query = new android.os.Bundle();
+                query.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection);
+                query.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "_id DESC");
+                query.putInt(ContentResolver.QUERY_ARG_LIMIT, 5000);
+                result = resolver.query(mediaCollection(kind), columns.toArray(new String[0]), query, signal);
+            } else result = resolver.query(mediaCollection(kind), columns.toArray(new String[0]), selection, null, "_id DESC LIMIT 5000", signal);
+            java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+            java.util.Map<String, String> names = new java.util.HashMap<>();
+            try (Cursor cursor = result) {
+                if (cursor == null) throw new IllegalStateException("Media provider returned no cursor");
+                int pathIndex = cursor.getColumnIndex("relative_path");
+                int bucketIndex = cursor.getColumnIndex("bucket_display_name");
+                while (cursor.moveToNext()) {
+                    signal.throwIfCanceled();
+                    String path = pathIndex >= 0 && !cursor.isNull(pathIndex) ? cursor.getString(pathIndex) : "";
+                    String bucket = bucketIndex >= 0 && !cursor.isNull(bucketIndex) ? cursor.getString(bucketIndex) : "";
+                    String key = path.isEmpty() ? bucket : path;
+                    if (key.isEmpty()) continue;
+                    counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                    if (!names.containsKey(key)) names.put(key, bucket.isEmpty() ? key : bucket);
+                }
+            }
+            signal.throwIfCanceled();
+            java.util.List<String> keys = new java.util.ArrayList<>(counts.keySet());
+            java.util.Collections.sort(keys, (left, right) -> {
+                int byCount = counts.get(right) - counts.get(left);
+                if (byCount != 0) return byCount;
+                return String.valueOf(names.get(left)).compareToIgnoreCase(String.valueOf(names.get(right)));
+            });
+            for (String key : keys) {
+                folders.put(new JSObject().put("name", names.get(key)).put("path", key).put("count", counts.get(key)).put("kind", kind));
+            }
+            call.resolve(new JSObject().put("folders", folders).put("access", access));
         });
     }
 

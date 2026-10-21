@@ -1,6 +1,7 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
 export type MediaStoreKind = 'videos' | 'photos' | 'audio';
+export type MediaCollection = 'media' | 'downloads' | 'camera' | 'screen';
 export type MediaAccess = 'full' | 'limited' | 'denied';
 export type MediaPermissions = Record<MediaStoreKind, MediaAccess>;
 export interface MediaStoreItem {
@@ -18,6 +19,12 @@ export interface MediaStoreItem {
   bucket_display_name?: string;
   bucket_id?: string;
 }
+export interface MediaFolder {
+  name: string;
+  path: string;
+  count: number;
+  kind: MediaStoreKind;
+}
 export interface MediaStorePage {
   items: MediaStoreItem[];
   access: MediaAccess;
@@ -28,7 +35,8 @@ export interface MediaStoreMethods {
   mediaPermissions(): Promise<MediaPermissions>;
   requestMediaAccess(options: { kind: MediaStoreKind }): Promise<MediaPermissions>;
   mediaSettings(): Promise<void>;
-  queryMedia(options: { kind: MediaStoreKind; limit: number; after?: string; requestId: string }): Promise<MediaStorePage>;
+  queryMedia(options: { kind: MediaStoreKind; limit: number; after?: string; requestId: string; collection?: MediaCollection; bucket?: string }): Promise<MediaStorePage>;
+  mediaFolders(options: { kind: MediaStoreKind; requestId: string }): Promise<{ folders: MediaFolder[]; access: MediaAccess }>;
   mediaThumbnail(options: { kind: MediaStoreKind; uri: string; requestId: string }): Promise<{ dataUrl?: string }>;
   cancelMediaRequest(options: { requestId: string }): Promise<void>;
   addListener(event: 'mediaStoreChanged', listener: () => void): Promise<PluginListenerHandle> | PluginListenerHandle;

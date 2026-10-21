@@ -27,6 +27,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -45,22 +47,24 @@ import org.json.JSONObject;
 /**
  * The KNOUX X private vault.
  *
- * The media itself is encrypted with AES-256-GCM under a key that only exists
- * in the Android Keystore. The Keystore key is itself wrapped with a key
- * derived from the user's PIN, so the PIN is the only secret that ever
- * reaches the app, and it never leaves the native layer: the renderer only
- * ever holds a short lived session token.
- *
- * There is no recovery path. If the Keystore key is invalidated, the vault
- * data is gone and the plugin says so.
+ * Cryptographic architecture:
+ * 1. A random 256-bit Data Encryption Key (DEK) is generated per vault.
+ * 2. The DEK encrypts all media, the index, and thumbnails using AES-256-GCM.
+ * 3. The DEK is wrapped by a PIN-derived key (PBKDF2-HMAC-SHA256, 210k iterations).
+ * 4. The wrapped DEK is then encrypted with the Android KeyStore key.
+ * 5. The KeyStore key never leaves the hardware-backed enclave; it only performs
+ *    authenticated encryption/decryption of the wrapped DEK envelope.
+ * 6. On unlock: validate PIN -> unwrap DEK -> use DEK for all media operations.
+ * 7. PIN rotation rewraps the DEK; no media re-encryption needed.
+ * 8. Container versioning and authenticated encryption provide integrity.
  */
 @CapacitorPlugin(name = "KnouxVault")
 public class KnouxVaultPlugin extends Plugin {
     private static final String KEY_ALIAS = "knoux-vault-key";
     private static final String PREFS = "knoux-vault";
-    private static final String KEY_WRAPPED = "wrapped_key";
+    private static final String KEY_ENVELOPE = "key_envelope";
     private static final String KEY_SALT = "pin_salt";
-    private static final String KEY_IV = "wrap_iv";
+    private static final String KEY_IV = "envelope_iv";
     private static final String KEY_FAILURES = "failed_attempts";
     private static final String KEY_LOCKED_UNTIL = "locked_until";
     private static final String KEY_CREATED = "created_at";
@@ -68,16 +72,14 @@ public class KnouxVaultPlugin extends Plugin {
     private static final int SALT_BYTES = 16;
     private static final int IV_BYTES = 12;
     private static final int TAG_BITS = 128;
+    private static final int DEK_BYTES = 32;
     private static final int MAX_FAILURES_BEFORE_BACKOFF = 5;
     private static final long MAX_BACKOFF_MS = 15L * 60L * 1000L;
-    /* The vault locks itself when the app has really been away. A system file
-     * picker also pauses the app, so the grace period keeps a vault operation
-     * alive while the user is still inside the flow. */
     private static final long BACKGROUND_LOCK_MS = 20_000L;
     private static final byte[] MAGIC = new byte[] { 'K', 'N', 'V', 'X' };
     private static final byte VERSION = 1;
 
-    /** The unwrapped vault key, held in memory only while the vault is open. */
+    /** The unwrapped DEK, held in memory only while the vault is open. */
     private SecretKey sessionKey;
     private String sessionToken;
     private long pausedAt = 0L;
@@ -140,7 +142,52 @@ public class KnouxVaultPlugin extends Plugin {
         return bytes;
     }
 
+    // ----------------------------------------------------------- envelope
+
+    /**
+     * Encrypt the wrapped DEK envelope with the KeyStore key.
+     * Returns: MAGIC | VERSION | iv_len | iv | ciphertext
+     */
+    private byte[] encryptEnvelope(SecretKey keystoreKey, byte[] wrappedDek) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, keystoreKey);
+        byte[] iv = cipher.getIV();
+        byte[] body = cipher.doFinal(wrappedDek);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(MAGIC);
+        out.write(VERSION);
+        out.write(iv.length);
+        out.write(iv);
+        out.write(body);
+        return out.toByteArray();
+    }
+
+    /**
+     * Decrypt the wrapped DEK envelope with the KeyStore key.
+     * Returns the raw wrapped DEK (PIN-encrypted).
+     */
+    private byte[] decryptEnvelope(SecretKey keystoreKey, byte[] container) throws Exception {
+        if (container == null || container.length < MAGIC.length + 2 + IV_BYTES) throw new IllegalArgumentException("The key envelope is truncated.");
+        for (int index = 0; index < MAGIC.length; index += 1) {
+            if (container[index] != MAGIC[index]) throw new IllegalArgumentException("The key envelope is not a KNOUX X vault envelope.");
+        }
+        int ivLength = container[MAGIC.length + 1] & 0xff;
+        int offset = MAGIC.length + 2;
+        if (ivLength <= 0 || container.length < offset + ivLength) throw new IllegalArgumentException("The key envelope is truncated.");
+        byte[] iv = new byte[ivLength];
+        System.arraycopy(container, offset, iv, 0, ivLength);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, keystoreKey, new GCMParameterSpec(TAG_BITS, iv));
+        return cipher.doFinal(container, offset + ivLength, container.length - offset - ivLength);
+    }
+
     // ------------------------------------------------------------- crypto
+
+    private SecretKey generateDek() throws Exception {
+        KeyGenerator generator = KeyGenerator.getInstance("AES");
+        generator.init(256);
+        return generator.generateKey();
+    }
 
     private byte[] encrypt(SecretKey key, byte[] plain) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -169,6 +216,33 @@ public class KnouxVaultPlugin extends Plugin {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
         return cipher.doFinal(container, offset + ivLength, container.length - offset - ivLength);
+    }
+
+    /**
+     * Decrypt a stored container straight into a stream. The media is never
+     * held in memory as a whole, and the GCM tag is still verified when the
+     * stream ends, so a tampered container fails instead of playing.
+     */
+    private long decryptToStream(SecretKey key, File source, OutputStream output) throws Exception {
+        long written = 0;
+        try (FileInputStream input = new FileInputStream(source)) {
+            byte[] header = new byte[MAGIC.length + 2];
+            if (input.read(header) != header.length) throw new IllegalArgumentException("The encrypted payload is truncated.");
+            for (int index = 0; index < MAGIC.length; index += 1) {
+                if (header[index] != MAGIC[index]) throw new IllegalArgumentException("The encrypted payload is not a KNOUX X vault file.");
+            }
+            int ivLength = header[MAGIC.length + 1] & 0xff;
+            if (ivLength <= 0) throw new IllegalArgumentException("The encrypted payload is truncated.");
+            byte[] iv = new byte[ivLength];
+            if (input.read(iv) != ivLength) throw new IllegalArgumentException("The encrypted payload is truncated.");
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            try (javax.crypto.CipherInputStream cipherStream = new javax.crypto.CipherInputStream(input, cipher)) {
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = cipherStream.read(buffer)) > 0) { output.write(buffer, 0, read); written += read; }
+            }
+        }
     }
 
     // ------------------------------------------------------------ session
@@ -213,20 +287,23 @@ public class KnouxVaultPlugin extends Plugin {
 
     // -------------------------------------------------------------- index
 
-    private JSONArray readIndex(SecretKey key) {
+    private JSONArray readIndex(SecretKey key) throws Exception {
         File file = new File(vaultDir(), "index.knvx");
         if (!file.exists()) return new JSONArray();
         try {
             byte[] container = readFile(file);
             return new JSONArray(new String(decrypt(key, container), StandardCharsets.UTF_8));
         } catch (Exception error) {
-            return new JSONArray();
+            throw new IllegalStateException("The vault index is corrupted or the key is invalid.", error);
         }
     }
 
     private void writeIndex(SecretKey key, JSONArray index) throws Exception {
         byte[] container = encrypt(key, index.toString().getBytes(StandardCharsets.UTF_8));
-        writeFile(new File(vaultDir(), "index.knvx"), container);
+        File target = new File(vaultDir(), "index.knvx");
+        File temp = new File(vaultDir(), "index.knvx.tmp");
+        writeFile(temp, container);
+        Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private byte[] readFile(File file) throws Exception {
@@ -249,10 +326,6 @@ public class KnouxVaultPlugin extends Plugin {
     // ----------------------------------------------------------- lifecycle
 
     @Override protected void handleOnPause() {
-        // The app is leaving the foreground. The session is not dropped yet:
-        // a system file picker also pauses the app, and the user is still in
-        // the middle of a vault operation. The lock is applied on resume when
-        // the app was really away.
         pausedAt = System.currentTimeMillis();
         super.handleOnPause();
     }
@@ -275,8 +348,11 @@ public class KnouxVaultPlugin extends Plugin {
     // ------------------------------------------------------------- methods
 
     @PluginMethod public void vaultStatus(PluginCall call) {
-        boolean created = prefs().contains(KEY_WRAPPED);
-        boolean keyAvailable = keystoreKeyExists();
+        boolean created = prefs().contains(KEY_ENVELOPE);
+        /* The key is only "unavailable" when a vault exists and its Keystore
+         * key is gone. Before the first vault is created there is no key yet,
+         * and that is not a failure. */
+        boolean keyAvailable = !created || keystoreKeyExists();
         JSObject result = new JSObject();
         result.put("created", created);
         result.put("locked", sessionKey == null);
@@ -289,22 +365,24 @@ public class KnouxVaultPlugin extends Plugin {
     @PluginMethod public void vaultCreate(PluginCall call) {
         String pin = call.getString("pin", "");
         if (pin == null || pin.length() < 4) { call.reject("The vault PIN must have at least four characters."); return; }
-        if (prefs().contains(KEY_WRAPPED)) { call.reject("A vault already exists on this device."); return; }
+        if (prefs().contains(KEY_ENVELOPE)) { call.reject("A vault already exists on this device."); return; }
         try {
-            SecretKey vaultKey = keystoreKey();
+            SecretKey keystoreKey = keystoreKey();
+            SecretKey dek = generateDek();
             byte[] salt = randomBytes(SALT_BYTES);
             SecretKey pinKey = derivePinKey(pin.toCharArray(), salt);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, pinKey);
             byte[] iv = cipher.getIV();
-            byte[] wrapped = cipher.doFinal(vaultKey.getEncoded());
+            byte[] wrapped = cipher.doFinal(dek.getEncoded());
+            byte[] envelope = encryptEnvelope(keystoreKey, wrapped);
             prefs().edit()
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString(KEY_IV, Base64.encodeToString(iv, Base64.NO_WRAP))
-                .putString(KEY_WRAPPED, Base64.encodeToString(wrapped, Base64.NO_WRAP))
+                .putString(KEY_ENVELOPE, Base64.encodeToString(envelope, Base64.NO_WRAP))
                 .putLong(KEY_CREATED, System.currentTimeMillis())
                 .apply();
-            sessionKey = vaultKey;
+            sessionKey = dek;
             sessionToken = java.util.UUID.randomUUID().toString();
             clearFailures();
             JSObject result = new JSObject();
@@ -324,15 +402,16 @@ public class KnouxVaultPlugin extends Plugin {
         String pin = call.getString("pin", "");
         if (pin == null || pin.isEmpty()) { call.reject("The vault PIN is required."); return; }
         try {
-            SecretKey vaultKey = keystoreKey();
+            SecretKey keystoreKey = keystoreKey();
             byte[] salt = Base64.decode(prefs().getString(KEY_SALT, ""), Base64.NO_WRAP);
             byte[] iv = Base64.decode(prefs().getString(KEY_IV, ""), Base64.NO_WRAP);
-            byte[] wrapped = Base64.decode(prefs().getString(KEY_WRAPPED, ""), Base64.NO_WRAP);
+            byte[] envelope = Base64.decode(prefs().getString(KEY_ENVELOPE, ""), Base64.NO_WRAP);
+            byte[] wrapped = decryptEnvelope(keystoreKey, envelope);
             SecretKey pinKey = derivePinKey(pin.toCharArray(), salt);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, pinKey, new GCMParameterSpec(TAG_BITS, iv));
-            byte[] raw = cipher.doFinal(wrapped);
-            sessionKey = new SecretKeySpec(raw, "AES");
+            byte[] dekRaw = cipher.doFinal(wrapped);
+            sessionKey = new SecretKeySpec(dekRaw, "AES");
             sessionToken = java.util.UUID.randomUUID().toString();
             clearFailures();
             JSObject result = new JSObject();
@@ -350,6 +429,7 @@ public class KnouxVaultPlugin extends Plugin {
 
     @PluginMethod public void vaultLock(PluginCall call) {
         lockSession();
+        clearPlayCache();
         call.resolve();
     }
 
@@ -358,17 +438,19 @@ public class KnouxVaultPlugin extends Plugin {
         String next = call.getString("newPin", "");
         if (next == null || next.length() < 4) { call.reject("The vault PIN must have at least four characters."); return; }
         try {
-            SecretKey vaultKey = keystoreKey();
+            SecretKey keystoreKey = keystoreKey();
+            // The DEK is already in sessionKey; rewrap it with the new PIN.
             byte[] salt = randomBytes(SALT_BYTES);
             SecretKey pinKey = derivePinKey(next.toCharArray(), salt);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, pinKey);
             byte[] iv = cipher.getIV();
-            byte[] wrapped = cipher.doFinal(vaultKey.getEncoded());
+            byte[] wrapped = cipher.doFinal(sessionKey.getEncoded());
+            byte[] envelope = encryptEnvelope(keystoreKey, wrapped);
             prefs().edit()
                 .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
                 .putString(KEY_IV, Base64.encodeToString(iv, Base64.NO_WRAP))
-                .putString(KEY_WRAPPED, Base64.encodeToString(wrapped, Base64.NO_WRAP))
+                .putString(KEY_ENVELOPE, Base64.encodeToString(envelope, Base64.NO_WRAP))
                 .apply();
             call.resolve();
         } catch (Exception error) {
@@ -483,6 +565,11 @@ public class KnouxVaultPlugin extends Plugin {
         try {
             File source = new File(vaultDir(), id + ".knvx");
             if (!source.exists()) { call.reject("That vault item is no longer on this device."); return; }
+            // Validate id does not contain path traversal
+            if (id.contains("..") || id.contains("/") || id.contains("\\")) {
+                call.reject("Invalid vault item identifier.");
+                return;
+            }
             JSONArray index = readIndex(sessionKey);
             String name = "media";
             String mime = "application/octet-stream";
@@ -493,9 +580,10 @@ public class KnouxVaultPlugin extends Plugin {
                     mime = entry.optString("mime");
                 }
             }
-            byte[] plain = decrypt(sessionKey, readFile(source));
             File target = new File(playDir(), id + "-" + sanitizedName(name));
-            writeFile(target, plain);
+            try (OutputStream output = new FileOutputStream(target)) {
+                decryptToStream(sessionKey, source, output);
+            }
             Uri shared = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".vaultprovider", target);
             JSObject result = new JSObject();
             result.put("uri", shared.toString());
@@ -519,6 +607,7 @@ public class KnouxVaultPlugin extends Plugin {
     @PluginMethod public void vaultThumbnail(PluginCall call) {
         if (!authorized(call)) return;
         String id = call.getString("id", "");
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) { call.resolve(new JSObject()); return; }
         try {
             File source = new File(vaultDir(), id + ".thumb.knvx");
             if (!source.exists()) { call.resolve(new JSObject()); return; }
@@ -532,9 +621,41 @@ public class KnouxVaultPlugin extends Plugin {
         }
     }
 
+    /**
+     * Reports what is actually on the device for one vault item: the header
+     * of the stored container and its size. The evidence that the media is
+     * encrypted has to be readable without a debuggable build, so it comes
+     * from the plugin itself and not from a shell.
+     */
+    @PluginMethod public void vaultContainerInfo(PluginCall call) {
+        if (!authorized(call)) return;
+        String id = call.getString("id", "");
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) { call.reject("Invalid vault item identifier."); return; }
+        try {
+            File source = new File(vaultDir(), id + ".knvx");
+            if (!source.exists()) { call.reject("That vault item is no longer on this device."); return; }
+            byte[] head = new byte[8];
+            try (FileInputStream input = new FileInputStream(source)) {
+                if (input.read(head) != head.length) throw new IllegalStateException("The stored container is truncated.");
+            }
+            StringBuilder hex = new StringBuilder();
+            for (byte value : head) hex.append(String.format("%02x", value));
+            StringBuilder printable = new StringBuilder();
+            for (byte value : head) printable.append(value >= 0x20 && value < 0x7f ? (char) value : '.');
+            JSObject result = new JSObject();
+            result.put("header", printable.toString());
+            result.put("headerHex", hex.toString());
+            result.put("bytes", source.length());
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("The vault container could not be inspected.", error);
+        }
+    }
+
     @PluginMethod public void vaultExport(PluginCall call) {
         if (!authorized(call)) return;
         String id = call.getString("id", "");
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) { call.reject("Invalid vault item identifier."); return; }
         String target = call.getString("targetUri", "");
         if (target == null || !target.startsWith("content://")) {
             call.reject("The export needs a destination the user chose.");
@@ -543,14 +664,14 @@ public class KnouxVaultPlugin extends Plugin {
         try {
             File source = new File(vaultDir(), id + ".knvx");
             if (!source.exists()) { call.reject("That vault item is no longer on this device."); return; }
-            byte[] plain = decrypt(sessionKey, readFile(source));
             ContentResolver resolver = getContext().getContentResolver();
+            long written = 0;
             try (OutputStream output = resolver.openOutputStream(Uri.parse(target))) {
                 if (output == null) throw new IllegalStateException("The destination could not be written.");
-                output.write(plain);
+                written = decryptToStream(sessionKey, source, output);
                 output.flush();
             }
-            call.resolve(new JSObject().put("exported", true).put("bytes", plain.length));
+            call.resolve(new JSObject().put("exported", true).put("bytes", written));
         } catch (Exception error) {
             call.reject("The vault item could not be exported.", error);
         }
@@ -559,11 +680,21 @@ public class KnouxVaultPlugin extends Plugin {
     @PluginMethod public void vaultDelete(PluginCall call) {
         if (!authorized(call)) return;
         String id = call.getString("id", "");
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) { call.reject("Invalid vault item identifier."); return; }
         try {
+            // Read index first to verify membership
+            JSONArray index = readIndex(sessionKey);
+            boolean found = false;
+            for (int position = 0; position < index.length(); position += 1) {
+                JSONObject entry = index.optJSONObject(position);
+                if (entry != null && id.equals(entry.optString("id"))) { found = true; break; }
+            }
+            if (!found) { call.reject("That vault item does not exist."); return; }
+            // Delete files
             new File(vaultDir(), id + ".knvx").delete();
             new File(vaultDir(), id + ".thumb.knvx").delete();
             new File(playDir(), id + "-thumb.jpg").delete();
-            JSONArray index = readIndex(sessionKey);
+            // Update index atomically
             JSONArray kept = new JSONArray();
             for (int position = 0; position < index.length(); position += 1) {
                 JSONObject entry = index.optJSONObject(position);

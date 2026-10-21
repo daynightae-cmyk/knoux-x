@@ -972,6 +972,12 @@ async function captureImageLabLogcat(label) {
   } catch { /* logcat evidence is best-effort; the live capture already runs */ }
 }
 
+async function captureVaultLogcat(label) {
+  try {
+    fs.writeFileSync(`${output}/vault-${label}-logcat.txt`, adb('shell', 'logcat', '-d', '-t', '2000'));
+  } catch { /* the logcat evidence is best-effort */ }
+}
+
 function mp4Bytes(bytes) {
   return bytes.length > 1000 && bytes.subarray(0, 64).includes('ftyp');
 }
@@ -1443,6 +1449,7 @@ function readRecordingBytes(uri) {
       const confirmField = page.locator('input[aria-label="Confirm vault PIN"]').first();
       await setTextFieldWithKeyboard(page, confirmField, vaultPin, 'vault:confirm-pin');
       await trustedTapUntil(page.getByRole('button', { name: 'Create the vault', exact: true }), async () => (await page.locator('[data-vault-stage="open"]').count()) > 0, { note: 'vault:create', timeout: 45000, checkTimeout: 12000 });
+      await captureVaultLogcat('create');
       await capture('vault-created');
 
       /* Real media is encrypted into the app private storage. */
@@ -1456,11 +1463,30 @@ function readRecordingBytes(uri) {
        * itself. */
       const original = adb('shell', 'ls', '/sdcard/Download/KNOUX-QA.mp4');
       if (!/KNOUX-QA\.mp4/.test(original)) throw new Error('The original file was not preserved on the device');
-      /* The stored file is really encrypted, not a renamed copy. */
-      const stored = adb('shell', 'run-as', PACKAGE, 'ls', 'files/vault');
-      if (!/\.knvx/.test(stored)) throw new Error(`The vault did not store an encrypted container: ${stored}`);
-      const header = adb('shell', 'run-as', PACKAGE, 'cat', `files/vault/${(stored.match(/([0-9a-f-]+\.knvx)/) || [])[1] || ''}`).slice(0, 4);
-      if (header !== 'KNVX') throw new Error(`The stored vault file is not the encrypted container: ${JSON.stringify(header)}`);
+      /* The stored file is really encrypted, and the evidence comes from the
+       * plugin itself so it also holds for a release build that cannot be
+       * inspected with a shell. */
+      const container = await page.evaluate(async (pin) => {
+        const plugin = window.Capacitor?.Plugins?.KnouxVault;
+        if (!plugin) return null;
+        const unlocked = await plugin.vaultUnlock({ pin });
+        const item = (unlocked.items || [])[0];
+        if (!item) return null;
+        const info = await plugin.vaultContainerInfo({ token: unlocked.token, id: item.id });
+        return { ...info, id: item.id, name: item.name };
+      }, vaultPin);
+      if (!container) throw new Error('The vault did not report the stored container');
+      if (container.header !== 'KNVX') throw new Error(`The stored vault file is not the encrypted container: ${JSON.stringify(container)}`);
+      if (!container.bytes || container.bytes <= 0) throw new Error('The stored vault container is empty');
+      /* The debug build can also show the container on the device. */
+      try {
+        const stored = adb('shell', 'run-as', PACKAGE, 'ls', 'files/vault');
+        const storedFiles = stored.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.knvx/g) || [];
+        if (!storedFiles.length) throw new Error(`The vault did not store an encrypted container: ${stored}`);
+      } catch (error) {
+        if (/run-as|unknown package/i.test(String(error && error.message))) { /* a release build is not inspectable */ }
+        else throw error;
+      }
 
       /* The vault locks itself, and a wrong PIN is refused. */
       await trustedTapUntil(page.getByRole('button', { name: 'Lock', exact: true }), async () => (await page.locator('[data-vault-stage="unlock"]').count()) > 0, { note: 'vault:lock', timeout: 30000, checkTimeout: 9000 });
@@ -1496,7 +1522,7 @@ function readRecordingBytes(uri) {
       const newPid = adb('shell', 'pidof', PACKAGE);
       if (!newPid || oldPid === newPid) throw new Error('The restart check did not restart the process');
       await capture('vault-after-restart');
-      return { item: itemName, originalPreserved: true, encryptedHeader: header, wrongPinRefused: true, decoded: true, restart: { oldPid, newPid } };
+      return { item: itemName, originalPreserved: true, encryptedHeader: container.header, encryptedBytes: container.bytes, wrongPinRefused: true, decoded: true, restart: { oldPid, newPid } };
     }));
 
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {

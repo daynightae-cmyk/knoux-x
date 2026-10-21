@@ -315,7 +315,7 @@ export const MobileVaultView: React.FC = () => {
   const statusLine = useMemo(() => {
     if (!status) return '';
     if (status.lockedOutForMs > 0) return ar ? 'تم إيقاف القفل مؤقتًا. حاول لاحقًا.' : 'The vault is locked for a moment after too many attempts.';
-    if (!status.keyAvailable) return ar ? 'مفتاح الجهاز لم يعد متاحًا. لا يمكن استعادة المحتوى المشفر.' : 'The device key is no longer available. The encrypted media cannot be recovered.';
+    if (status.created && !status.keyAvailable) return ar ? 'مفتاح الجهاز لم يعد متاحًا. لا يمكن استعادة المحتوى المشفر.' : 'The device key is no longer available. The encrypted media cannot be recovered.';
     return '';
   }, [ar, status]);
 

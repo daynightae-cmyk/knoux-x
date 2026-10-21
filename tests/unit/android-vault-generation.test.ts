@@ -21,15 +21,31 @@ test('Android preparation installs the encrypted vault with a real keystore key'
 
     expect(plugin).toContain('package dev.knoux.playerx;');
     expect(plugin).toContain('@CapacitorPlugin(name = "KnouxVault")');
-    // The media is really encrypted, and the key really lives in the
-    // Android Keystore.
+    // The media is really encrypted with a DEK that is protected by the Android Keystore.
     expect(plugin).toContain('AndroidKeyStore');
     expect(plugin).toContain('AES/GCM/NoPadding');
     expect(plugin).toContain('KeyProperties.KEY_ALGORITHM_AES');
-    // The PIN is never stored: it derives a key that wraps the vault key.
+    // The PIN is never stored: it derives a key that wraps the DEK.
     expect(plugin).toContain('PBKDF2WithHmacSHA256');
     expect(plugin).toContain('210_000');
     expect(plugin).not.toContain('putString("pin"');
+    // A Keystore key is never exported. The DEK is generated randomly,
+    // wrapped by the PIN-derived key, then the wrapped DEK is encrypted with the KeyStore key.
+    expect(plugin).toContain('generateDek');
+    expect(plugin).toContain('derivePinKey');
+    expect(plugin).toContain('encryptEnvelope');
+    expect(plugin).toContain('decryptEnvelope');
+    expect(plugin).not.toContain('vaultKey.getEncoded()');
+    // The KeyStore key is never exported. The derivePinKey method uses getEncoded()
+    // on a PBKDF2-derived key which is legitimate; only KeyStore key export is forbidden.
+    expect(plugin).not.toMatch(/keystoreKey\(\)\.getEncoded\(\)/);
+    // The stored media is decrypted as a stream, so a large file is never held
+    // in memory as a whole.
+    expect(plugin).toContain('decryptToStream');
+    expect(plugin).toContain('CipherInputStream');
+    // Before the first vault exists there is no Keystore key yet, and that is
+    // not a failure.
+    expect(plugin).toContain('!created || keystoreKeyExists()');
     // There is no recovery backdoor and no hardcoded key.
     expect(plugin).not.toMatch(/[A-Fa-f0-9]{64}/);
     expect(plugin).not.toContain('masterKey');

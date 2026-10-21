@@ -25,6 +25,7 @@ export interface VaultMethods {
   vaultList(options: { token: string }): Promise<{ items: VaultItem[] }>;
   vaultImport(options: { token: string; uri: string; name: string; mime: string }): Promise<{ id: string; bytes: number; items: VaultItem[] }>;
   vaultOpen(options: { token: string; id: string }): Promise<{ uri: string; mime: string; name: string }>;
+  vaultContainerInfo(options: { token: string; id: string }): Promise<{ header: string; headerHex: string; bytes: number }>;
   vaultThumbnail(options: { token: string; id: string }): Promise<{ uri?: string }>;
   vaultExport(options: { token: string; id: string; targetUri: string }): Promise<{ exported: boolean; bytes: number }>;
   vaultDelete(options: { token: string; id: string }): Promise<{ items: VaultItem[] }>;

@@ -14,18 +14,23 @@ import {
   Image as ImageIcon,
   Images,
   Info,
+  ListOrdered,
   Lock,
   Maximize,
   Minimize,
+  Moon,
   MoreHorizontal,
   Music2,
   Pause,
   PictureInPicture,
   Play,
+  Repeat,
   Repeat2,
   RotateCcw,
+  Shuffle,
   SlidersHorizontal,
   Sparkles,
+  Star,
   Volume2,
   VolumeX,
   Waves,
@@ -35,14 +40,30 @@ import {
 import type { CaptureFormat } from '../../core/creative/capture';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
+import { readMediaFavorites, toggleMediaFavorite, type MediaFavorite } from '../../platform/androidMediaFavorites';
 import type { LoadedSubtitle } from '../../../electron/creative/subtitle-service';
 
 import { computeFrameStepTime, DEFAULT_FRAME_RATE } from './frameStep';
 import { mediaTitle } from './mobilePlayerSession';
+import {
+  cancelSleepTimer,
+  describeRepeat,
+  formatBytes,
+  formatCountdown,
+  IDLE_SLEEP_TIMER,
+  mediaDetailsFromInfo,
+  PICTURE_FILTER_DISCLOSURE,
+  SLEEP_TIMER_MINUTES,
+  startEndOfMediaTimer,
+  startSleepTimer,
+  tickSleepTimer,
+  type MediaDetails,
+  type SleepTimerState,
+} from './mobilePlaybackTools';
 import { PlayerAudioManager } from './PlayerAudioManager';
 import '../../styles/ultimate-mobile-player.css';
 
-type PlayerSheet = null | 'quick' | 'speed' | 'picture' | 'audio' | 'subtitles' | 'capture' | 'display';
+type PlayerSheet = null | 'quick' | 'speed' | 'picture' | 'audio' | 'subtitles' | 'capture' | 'display' | 'sleep' | 'playback' | 'queue' | 'details';
 type FitMode = 'contain' | 'cover' | 'fill' | 'original' | '16:9' | '4:3' | '21:9' | '1:1' | '9:16';
 
 type ColorControls = {
@@ -55,10 +76,27 @@ type ColorControls = {
   temperature: number;
   tint: number;
   gamma: number;
-  sharpness: number;
   vibrance: number;
   blackLevel: number;
   whiteLevel: number;
+};
+
+/* The picture controls are display filters. Every label below describes what
+ * the compositor actually receives, so no control claims tone mapping, a real
+ * white balance or a sharpening pass the player cannot perform. */
+const COLOR_CONTROL_LABELS: Record<keyof ColorControls, string> = {
+  brightness: 'Brightness',
+  contrast: 'Contrast',
+  saturation: 'Saturation',
+  exposure: 'Exposure lift',
+  highlights: 'Highlight rolloff',
+  shadows: 'Shadow lift',
+  temperature: 'Warmth',
+  tint: 'Tint',
+  gamma: 'Gamma lift',
+  vibrance: 'Vibrance',
+  blackLevel: 'Black level',
+  whiteLevel: 'White level',
 };
 
 type Marker = { id: string; time: number; label: string };
@@ -85,7 +123,6 @@ const DEFAULT_COLOR: ColorControls = {
   temperature: 0,
   tint: 0,
   gamma: 0,
-  sharpness: 0,
   vibrance: 0,
   blackLevel: 0,
   whiteLevel: 0,
@@ -95,19 +132,19 @@ const COLOR_PRESETS: Record<string, Partial<ColorControls>> = {
   Natural: {},
   Cinema: { contrast: 16, saturation: -8, temperature: 8, blackLevel: -12, highlights: -10 },
   'Cinema Dark': { brightness: -12, contrast: 24, saturation: -10, blackLevel: -22 },
-  Vivid: { contrast: 12, saturation: 28, vibrance: 24, sharpness: 14 },
+  Vivid: { contrast: 12, saturation: 28, vibrance: 24 },
   Warm: { temperature: 30, saturation: 8 },
   Cool: { temperature: -28, tint: -6 },
-  Sports: { brightness: 7, contrast: 18, saturation: 18, sharpness: 28 },
+  Sports: { brightness: 7, contrast: 18, saturation: 18 },
   Night: { brightness: -8, contrast: 10, saturation: -14, blackLevel: -18 },
   Comfort: { brightness: -5, contrast: -5, saturation: -10, temperature: 18 },
   'Black & White': { saturation: -100, contrast: 16 },
   Vintage: { saturation: -24, temperature: 25, contrast: -5 },
   'Deep Black': { brightness: -8, contrast: 30, blackLevel: -35, saturation: 5 },
   'OLED Boost': { contrast: 22, saturation: 16, blackLevel: -25, whiteLevel: 10 },
-  Anime: { contrast: 20, saturation: 35, sharpness: 30 },
-  'Soft Skin': { contrast: -8, saturation: 6, temperature: 8, sharpness: -20 },
-  'HDR Boost': { contrast: 18, highlights: -18, shadows: 22, vibrance: 22, sharpness: 18 },
+  Anime: { contrast: 20, saturation: 35 },
+  'Soft Skin': { contrast: -8, saturation: 6, temperature: 8 },
+  'Cinema Contrast': { contrast: 18, highlights: -18, shadows: 22, vibrance: 22 },
   'Low Light Rescue': { brightness: 24, shadows: 35, contrast: -5, saturation: 8 },
 };
 
@@ -192,6 +229,11 @@ export const UltimateMobilePlayer: React.FC = () => {
   const [cinemaMode, setCinemaMode] = useState(false);
   const [frameStepCount, setFrameStepCount] = useState<1 | 5 | 10>(1);
   const [detectedFrameRate, setDetectedFrameRate] = useState<number>(DEFAULT_FRAME_RATE);
+  const [sleepTimer, setSleepTimer] = useState<SleepTimerState>(IDLE_SLEEP_TIMER);
+  const [sleepNotice, setSleepNotice] = useState<string | null>(null);
+  const [mediaDetails, setMediaDetails] = useState<MediaDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [favorites, setFavorites] = useState<MediaFavorite[]>([]);
 
   const setView = useAppStore((state) => state.setView);
   const {
@@ -213,6 +255,13 @@ export const UltimateMobilePlayer: React.FC = () => {
     setPlaybackRate,
     toggleMute,
     next,
+    repeatMode,
+    setRepeatMode,
+    shuffle,
+    toggleShuffle,
+    playlist,
+    selectQueueIndex,
+    removeFromQueue,
   } = usePlayerStore();
 
   const mediaLabel = currentMedia ? mediaTitles[currentMedia] ?? mediaName(currentMedia) : 'KNOUX X';
@@ -355,6 +404,78 @@ export const UltimateMobilePlayer: React.FC = () => {
       lastTime: videoRef.current?.currentTime ?? currentTime,
     }));
   }, [activePreset, bookmarks, currentMedia, currentTime, fitMode, playbackRate]);
+
+  /* The sleep timer is a real countdown: it stops the playback when the
+   * deadline is reached, and it can be cancelled at any time. */
+  useEffect(() => {
+    if (sleepTimer.mode !== 'minutes' || sleepTimer.deadline === null) return undefined;
+    const timer = window.setInterval(() => setSleepTimer((current) => tickSleepTimer(current)), 1000);
+    return () => window.clearInterval(timer);
+  }, [sleepTimer.deadline, sleepTimer.mode]);
+
+  useEffect(() => {
+    if (!sleepTimer.finished) return;
+    videoRef.current?.pause();
+    pause();
+    setSleepNotice('Sleep timer ended — playback paused.');
+    setSleepTimer(cancelSleepTimer());
+  }, [pause, sleepTimer.finished]);
+
+  const beginSleepTimer = useCallback((minutes: number): void => {
+    setSleepNotice(null);
+    setSleepTimer(startSleepTimer(minutes));
+  }, []);
+
+  const beginEndOfMediaTimer = useCallback((): void => {
+    setSleepNotice(null);
+    setSleepTimer(startEndOfMediaTimer());
+  }, []);
+
+  const clearSleepTimer = useCallback((): void => {
+    setSleepNotice(null);
+    setSleepTimer(cancelSleepTimer());
+  }, []);
+
+  /* The real media details come from the platform bridge, with the decoder
+   * measurements filling in what the bridge cannot report. */
+  const loadMediaDetails = useCallback(async (): Promise<void> => {
+    if (!currentMedia) return;
+    setDetailsLoading(true);
+    try {
+      const info = await window.knouxAPI.file.getMediaInfo(currentMedia);
+      const video = videoRef.current;
+      setMediaDetails(mediaDetailsFromInfo(info, {
+        width: video && video.videoWidth > 0 ? video.videoWidth : undefined,
+        height: video && video.videoHeight > 0 ? video.videoHeight : undefined,
+        duration: video && Number.isFinite(video.duration) ? video.duration : undefined,
+        frameRate: detectedFrameRate > 0 ? detectedFrameRate : undefined,
+      }));
+    } catch {
+      setMediaDetails(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, [currentMedia, detectedFrameRate]);
+
+  useEffect(() => {
+    let active = true;
+    void readMediaFavorites().then((list) => { if (active) setFavorites(list); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  const currentFavorite = useMemo(() => (
+    currentMedia ? favorites.find((entry) => entry.uri === currentMedia) ?? null : null
+  ), [currentMedia, favorites]);
+
+  const toggleCurrentFavorite = useCallback(async (): Promise<void> => {
+    if (!currentMedia) return;
+    const entry: MediaFavorite = {
+      uri: currentMedia,
+      name: mediaLabel,
+      kind: 'videos',
+    };
+    setFavorites(await toggleMediaFavorite(entry, favorites));
+  }, [currentMedia, favorites, mediaLabel]);
 
   const openMedia = useCallback(async () => {
     setError(null);
@@ -772,7 +893,21 @@ export const UltimateMobilePlayer: React.FC = () => {
             onPlaying={() => setBuffering(false)}
             onCanPlay={() => setBuffering(false)}
             onLoadedData={() => setBuffering(false)}
-            onEnded={() => { persistMediaPreferences(); next(); }}
+            onEnded={() => {
+              persistMediaPreferences();
+              /* The end-of-media sleep timer stops the session here instead of
+               * continuing with the next item. */
+              if (sleepTimer.mode === 'end-of-media') { clearSleepTimer(); return; }
+              /* Repeat one replays the same clip from its beginning; the queue
+               * keeps its place. */
+              if (repeatMode === 'one') {
+                const video = videoRef.current;
+                if (video) { video.currentTime = 0; void video.play(); }
+                seek(0);
+                return;
+              }
+              next();
+            }}
             onError={() => setError('This video format could not be decoded. Try compatibility mode or another file.')}
           >
             {subtitleUrl && <track kind="subtitles" src={subtitleUrl} srcLang="und" label={subtitle?.name ?? 'Subtitles'} default />}
@@ -789,6 +924,14 @@ export const UltimateMobilePlayer: React.FC = () => {
         )}
 
         {buffering && mediaUrl && <div className="ump-buffering" aria-label="Buffering"><span /></div>}
+        {/* The sleep countdown stays on screen while the controls are hidden,
+         * so the user can always see when the playback will stop. */}
+        {sleepTimer.mode !== 'off' && (
+          <div className="ump-sleep-badge" role="status" aria-live="polite">
+            {sleepTimer.mode === 'minutes' ? `Sleep ${formatCountdown(sleepTimer.remainingSeconds)}` : 'Sleep at end'}
+          </div>
+        )}
+        {sleepNotice && <div className="ump-sleep-notice" role="status">{sleepNotice}</div>}
         {error && <button type="button" className="ump-error" onClick={() => setError(null)}>{error}</button>}
 
         {locked && mediaUrl && (
@@ -886,9 +1029,10 @@ export const UltimateMobilePlayer: React.FC = () => {
               {sheet === 'picture' && (
                 <div className="ump-sheet-body">
                   <div className="ump-preset-strip">{Object.keys(COLOR_PRESETS).map((name) => <button type="button" key={name} className={activePreset === name ? 'active' : ''} onClick={() => applyColorPreset(name)}><Sparkles size={16} /><span>{name}</span></button>)}</div>
-                  {(['brightness','contrast','saturation','exposure','highlights','shadows','temperature','tint','gamma','sharpness','vibrance','blackLevel','whiteLevel'] as const).map((key) => (
-                    <label key={key} className="ump-range-row"><span>{key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase())}<strong>{Math.round(color[key])}</strong></span><input type="range" min="-100" max="100" step="1" value={color[key]} onChange={(event) => { setActivePreset('Custom'); setColor((current) => ({ ...current, [key]: Number(event.currentTarget.value) })); }} /></label>
+                  {(['brightness','contrast','saturation','exposure','highlights','shadows','temperature','tint','gamma','vibrance','blackLevel','whiteLevel'] as const).map((key) => (
+                    <label key={key} className="ump-range-row"><span>{COLOR_CONTROL_LABELS[key]}<strong>{Math.round(color[key])}</strong></span><input type="range" min="-100" max="100" step="1" value={color[key]} onChange={(event) => { setActivePreset('Custom'); setColor((current) => ({ ...current, [key]: Number(event.currentTarget.value) })); }} /></label>
                   ))}
+                  <p className="ump-disclosure">{PICTURE_FILTER_DISCLOSURE}</p>
                   <button type="button" className="ump-secondary" onClick={() => { setActivePreset('Natural'); setColor(DEFAULT_COLOR); }}>Reset picture</button>
                 </div>
               )}
@@ -924,15 +1068,76 @@ export const UltimateMobilePlayer: React.FC = () => {
                 </div>
               )}
 
+              {sheet === 'sleep' && (
+                <div className="ump-sheet-body">
+                  <p className="ump-disclosure">The sleep timer stops this playback for real. The countdown keeps running while the app is open.</p>
+                  <div className="ump-speed-grid">{SLEEP_TIMER_MINUTES.map((minutes) => <button type="button" key={minutes} className={sleepTimer.mode === 'minutes' && sleepTimer.remainingSeconds === minutes * 60 ? 'active' : ''} onClick={() => beginSleepTimer(minutes)}>{minutes} min</button>)}</div>
+                  <div className="ump-chip-row"><span>End of media</span><button type="button" className={sleepTimer.mode === 'end-of-media' ? 'active' : ''} onClick={beginEndOfMediaTimer}>Stop after this media</button></div>
+                  {sleepTimer.mode !== 'off' && <div className="ump-media-info"><span><strong>Sleep timer</strong>{sleepTimer.mode === 'minutes' ? formatCountdown(sleepTimer.remainingSeconds) : 'End of media'}</span>{sleepNotice && <span><strong>Status</strong>{sleepNotice}</span>}</div>}
+                  {sleepTimer.mode !== 'off' && <button type="button" className="ump-secondary" onClick={clearSleepTimer}>Cancel sleep timer</button>}
+                </div>
+              )}
+
+              {sheet === 'playback' && (
+                <div className="ump-sheet-body">
+                  <div className="ump-chip-row"><span>Repeat</span>{(['off','one','all'] as const).map((mode) => <button type="button" key={mode} className={repeatMode === mode ? 'active' : ''} onClick={() => setRepeatMode(mode)}>{describeRepeat(mode)}</button>)}</div>
+                  <label className="ump-toggle-row"><span>Shuffle the queue</span><input type="checkbox" checked={shuffle} onChange={toggleShuffle} /></label>
+                  <div className="ump-media-info"><span><strong>Repeat</strong>{describeRepeat(repeatMode)}</span><span><strong>Shuffle</strong>{shuffle ? 'On' : 'Off'}</span><span><strong>Queue</strong>{playlist.length} item{playlist.length === 1 ? '' : 's'}</span></div>
+                  <button type="button" className="ump-secondary" onClick={() => setSheet('queue')}>Open the queue</button>
+                </div>
+              )}
+
+              {sheet === 'queue' && (
+                <div className="ump-sheet-body">
+                  {playlist.length === 0 ? (
+                    <p className="ump-disclosure">The queue is empty. Add media from the library to build a playlist.</p>
+                  ) : (
+                    <div className="ump-queue-list">
+                      {playlist.map((path, index) => (
+                        <div key={path} className={`ump-queue-row${path === currentMedia ? ' is-current' : ''}`}>
+                          <button type="button" className="ump-queue-select" onClick={() => selectQueueIndex(index)}>
+                            <strong>{mediaTitles[path] ?? mediaName(path)}</strong>
+                            <small>{path === currentMedia ? 'Now playing' : `Item ${index + 1}`}</small>
+                          </button>
+                          <button type="button" className="ump-queue-remove" aria-label={`Remove ${mediaTitles[path] ?? mediaName(path)} from the queue`} onClick={() => removeFromQueue(path)}><X size={16} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {sheet === 'details' && (
+                <div className="ump-sheet-body">
+                  {detailsLoading && <p className="ump-disclosure">Reading the media details…</p>}
+                  {mediaDetails ? (
+                    <div className="ump-media-info">
+                      <span><strong>Name</strong>{mediaDetails.name}</span>
+                      <span><strong>Type</strong>{mediaDetails.format || '—'}</span>
+                      <span><strong>Size</strong>{formatBytes(mediaDetails.size)}</span>
+                      <span><strong>Duration</strong>{formatTime(mediaDetails.duration, true)}</span>
+                      <span><strong>Resolution</strong>{mediaDetails.width && mediaDetails.height ? `${mediaDetails.width}×${mediaDetails.height}` : '—'}</span>
+                      <span><strong>Frame rate</strong>{mediaDetails.frameRate ? `${mediaDetails.frameRate.toFixed(2)} fps` : '—'}</span>
+                      <span><strong>Bitrate</strong>{mediaDetails.bitrate ? `${Math.round(mediaDetails.bitrate / 1000)} kbps` : '—'}</span>
+                      <span><strong>Rotation</strong>{mediaDetails.rotation ? `${mediaDetails.rotation}°` : '—'}</span>
+                    </div>
+                  ) : (
+                    !detailsLoading && <p className="ump-disclosure">The device did not report the details of this media.</p>
+                  )}
+                  <button type="button" className="ump-secondary" onClick={() => void loadMediaDetails()}>Refresh details</button>
+                </div>
+              )}
+
               {sheet === 'quick' && (
                 <div className="ump-sheet-body ump-quick-groups">
-                  <div className="ump-quick-group"><h3><Play size={17} /> Playback</h3><div><button type="button" onClick={() => setSheet('speed')}><Gauge size={19} />Speed</button><button type="button" onClick={() => { setPoint('a'); setAbEnabled(false); }}><ChevronLeft size={19} />Set A</button><button type="button" onClick={() => { setPoint('b'); setAbEnabled(aPoint !== null); }}><ChevronRight size={19} />Set B</button><button type="button" className={abEnabled ? 'active' : ''} onClick={() => setAbEnabled((value) => !value)}><Repeat2 size={19} />A-B</button></div></div>
+                  <div className="ump-quick-group"><h3><Play size={17} /> Playback</h3><div><button type="button" onClick={() => setSheet('speed')}><Gauge size={19} />Speed</button><button type="button" onClick={() => setSheet('playback')}><Repeat size={19} />Repeat</button><button type="button" className={shuffle ? 'active' : ''} onClick={toggleShuffle}><Shuffle size={19} />Shuffle</button><button type="button" onClick={() => setSheet('queue')}><ListOrdered size={19} />Queue</button></div></div>
                   <div className="ump-quick-group"><h3><ImageIcon size={17} /> Picture</h3><div><button type="button" onClick={() => setSheet('capture')}><Camera size={19} />Screenshot</button><button type="button" onClick={() => setSheet('picture')}><SlidersHorizontal size={19} />Color</button><button type="button" onClick={() => setSheet('display')}><Expand size={19} />Fit / Zoom</button><button type="button" onClick={() => { setColor(DEFAULT_COLOR); setActivePreset('Natural'); }}><RotateCcw size={19} />Reset</button></div></div>
                   <div className="ump-quick-group"><h3><Waves size={17} /> Audio</h3><div><button type="button" onClick={() => setSheet('audio')}><SlidersHorizontal size={19} />EQ</button><button type="button" onClick={toggleMute}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}Mute</button><button type="button" onClick={() => toggleEffect('voice-enhance')}><Music2 size={19} />Voice</button><button type="button" onClick={() => toggleEffect('bass-boost')}><Waves size={19} />Bass</button></div></div>
                   <div className="ump-quick-group"><h3><Captions size={17} /> Subtitles</h3><div><button type="button" onClick={() => setSheet('subtitles')}><Captions size={19} />Track</button><button type="button" disabled={!subtitle} onClick={() => void shiftSubtitle(-0.1)}><ChevronLeft size={19} />-100ms</button><button type="button" disabled={!subtitle} onClick={() => void shiftSubtitle(0.1)}><ChevronRight size={19} />+100ms</button><button type="button" onClick={() => setSubtitle(null)}><X size={19} />Off</button></div></div>
-                  <div className="ump-quick-group"><h3><Sparkles size={17} /> Tools</h3><div><button type="button" onClick={addBookmark}><Bookmark size={19} />Bookmark</button><button type="button" onClick={() => setSheet('capture')}><Camera size={19} />Capture</button><button type="button" onClick={() => frameStep(-1)}><ChevronLeft size={19} />Frame -</button><button type="button" onClick={() => frameStep(1)}><ChevronRight size={19} />Frame +</button></div><div className="ump-chip-row compact"><span>Frame step</span>{([1,5,10] as const).map((count) => <button type="button" key={count} className={frameStepCount === count ? 'active' : ''} onClick={() => setFrameStepCount(count)}>{count}</button>)}</div></div>
+                  <div className="ump-quick-group"><h3><Sparkles size={17} /> Tools</h3><div><button type="button" onClick={addBookmark}><Bookmark size={19} />Bookmark</button><button type="button" onClick={() => setSheet('capture')}><Camera size={19} />Capture</button><button type="button" onClick={() => { setPoint('a'); setAbEnabled(false); }}><ChevronLeft size={19} />Set A</button><button type="button" onClick={() => { setPoint('b'); setAbEnabled(aPoint !== null); }}><ChevronRight size={19} />Set B</button><button type="button" className={abEnabled ? 'active' : ''} onClick={() => setAbEnabled((value) => !value)}><Repeat2 size={19} />A-B</button><button type="button" onClick={() => frameStep(-1)}><ChevronLeft size={19} />Frame -</button><button type="button" onClick={() => frameStep(1)}><ChevronRight size={19} />Frame +</button></div><div className="ump-chip-row compact"><span>Frame step</span>{([1,5,10] as const).map((count) => <button type="button" key={count} className={frameStepCount === count ? 'active' : ''} onClick={() => setFrameStepCount(count)}>{count}</button>)}</div></div>
+                  <div className="ump-quick-group"><h3><Moon size={17} /> Session</h3><div><button type="button" onClick={() => setSheet('sleep')}><Moon size={19} />Sleep timer</button><button type="button" className={currentFavorite ? 'active' : ''} onClick={() => void toggleCurrentFavorite()}><Star size={19} />Favorite</button><button type="button" onClick={() => { setSheet('details'); void loadMediaDetails(); }}><Info size={19} />Details</button></div></div>
                   <div className="ump-quick-group"><h3><Maximize size={17} /> Display</h3><div><button type="button" onClick={() => setSheet('display')}><Expand size={19} />Fit / Fill</button><button type="button" onClick={() => { setLocked(true); setSheet(null); setShowControls(false); }}><Lock size={19} />Lock</button><button type="button" onClick={() => void togglePip()} disabled={!document.pictureInPictureEnabled}><PictureInPicture size={19} />PiP</button><button type="button" className={cinemaMode ? 'active' : ''} onClick={() => setCinemaMode((value) => !value)}><Minimize size={19} />Cinema</button></div></div>
-                  <div className="ump-quick-group"><h3><Info size={17} /> Media</h3><div className="ump-media-info"><span><strong>Time</strong>{formatTime(currentTime, true)}</span><span><strong>Speed</strong>{playbackRate.toFixed(2)}×</span><span><strong>Zoom</strong>{Math.round(zoom * 100)}%</span><span><strong>Buffer</strong>{Math.round(buffered)}%</span></div></div>
+                  <div className="ump-quick-group"><h3><Info size={17} /> Media</h3><div className="ump-media-info"><span><strong>Time</strong>{formatTime(currentTime, true)}</span><span><strong>Speed</strong>{playbackRate.toFixed(2)}×</span><span><strong>Zoom</strong>{Math.round(zoom * 100)}%</span><span><strong>Buffer</strong>{Math.round(buffered)}%</span><span><strong>Sleep</strong>{sleepTimer.mode === 'minutes' ? formatCountdown(sleepTimer.remainingSeconds) : sleepTimer.mode === 'end-of-media' ? 'End of media' : 'Off'}</span></div><div><button type="button" onClick={() => { setSheet('details'); void loadMediaDetails(); }}><Info size={19} />Media details</button></div></div>
                 </div>
               )}
             </motion.div>

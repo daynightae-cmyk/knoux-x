@@ -138,6 +138,7 @@ export const PlayerView: React.FC = () => {
     muted,
     playbackRate,
     loop,
+    repeatMode,
     shuffle,
     setCurrentMedia,
     play,
@@ -225,7 +226,9 @@ export const PlayerView: React.FC = () => {
     if (!video) return;
 
     video.playbackRate = playbackRate;
-    video.loop = loop;
+    /* Only "repeat one" replays the element itself. "Repeat all" has to
+     * advance the queue, which the queue state already does. */
+    video.loop = repeatMode === 'one';
     audioManager?.setPreservesPitch(prefs.preservesPitch);
 
     if (audioManager && audioManager.isAttached()) {
@@ -239,7 +242,7 @@ export const PlayerView: React.FC = () => {
       video.volume = Math.max(0, Math.min(1, volume));
       video.muted = muted;
     }
-  }, [loop, mediaUrl, muted, playbackRate, volume, balance, equalizer, prefs.boost, prefs.delayMs, prefs.preservesPitch]);
+  }, [loop, mediaUrl, muted, playbackRate, repeatMode, volume, balance, equalizer, prefs.boost, prefs.delayMs, prefs.preservesPitch]);
 
   useEffect(() => () => {
     if (controlsTimeoutRef.current !== null) window.clearTimeout(controlsTimeoutRef.current);
@@ -676,7 +679,11 @@ export const PlayerView: React.FC = () => {
             onError={() => setError(videoRef.current?.error?.message ?? t('player.decodeError'))}
             onEnded={() => {
               void persistPlayback(true);
-              if (!loop) next();
+              /* "Repeat one" replays the element itself, so the queue stays
+               * put. Every other mode advances the queue, and the queue state
+               * decides whether that means the next item or a wrap around. */
+              if (repeatMode === 'one') return;
+              next();
             }}
           >
             {subtitleUrl && <track key={subtitleUrl} kind="subtitles" src={subtitleUrl} srcLang="und" label={subtitle?.name ?? 'Subtitles'} default />}

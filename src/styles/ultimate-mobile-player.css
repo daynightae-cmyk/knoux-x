@@ -573,3 +573,43 @@ html[data-platform='android'] .app-shell[data-current-view='player'] .app-body {
   .ump-video,
   .ump-buffering span { transition: none; animation-duration: 1.5s; }
 }
+
+/* The player sheet states plainly what the filters and the details are. */
+.ump-disclosure { margin: 2px 2px 10px; color: rgba(226,213,244,.66); font-size: .72rem; line-height: 1.5; }
+.ump-sleep-badge {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border: 1px solid rgba(190,134,255,.42);
+  border-radius: 999px;
+  color: #e6d6ff;
+  background: rgba(12,8,22,.82);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.ump-sleep-notice {
+  position: absolute;
+  bottom: 16%;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid rgba(190,134,255,.42);
+  border-radius: 14px;
+  color: #f3ecff;
+  background: rgba(12,8,22,.86);
+  font-size: .74rem;
+}
+.ump-queue-list { display: grid; gap: 6px; }
+.ump-queue-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid rgba(154,91,255,.19); border-radius: 13px; background: rgba(255,255,255,.026); }
+.ump-queue-row.is-current { border-color: rgba(169,92,255,.55); background: rgba(124,58,237,.16); }
+.ump-queue-select { display: grid; gap: 2px; min-width: 0; text-align: left; background: transparent; border: 0; color: #fff; font: inherit; }
+.ump-queue-select strong { overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.ump-queue-select small { color: rgba(226,213,244,.6); font-size: .68rem; }
+.ump-queue-remove { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(154,91,255,.24); border-radius: 50%; color: rgba(226,213,244,.72); background: transparent; }

@@ -127,7 +127,9 @@ export const usePlayerStore = create<PlayerState>()(
       setPlaybackRate: (rate) => set({ playbackRate: Math.max(0.1, Math.min(4, rate)) }),
       loop: false,
       repeatMode: 'off',
-      toggleLoop: () => set((state) => queuePatch(setRepeatMode(queueState(state), state.repeatMode === 'off' ? 'all' : 'off'))),
+      /* The repeat control cycles through the three real modes, so "repeat
+       * one" is reachable and not hidden behind a boolean mirror. */
+      toggleLoop: () => set((state) => queuePatch(setRepeatMode(queueState(state), state.repeatMode === 'off' ? 'all' : state.repeatMode === 'all' ? 'one' : 'off'))),
       setRepeatMode: (repeatMode) => set((state) => queuePatch(setRepeatMode(queueState(state), repeatMode))),
       shuffle: false,
       shuffleOrder: [],

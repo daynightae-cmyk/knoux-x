@@ -1516,7 +1516,17 @@ function readRecordingBytes(uri) {
       await trustedTapUntil(page.locator('.kvv-item button').filter({ hasText: 'Play' }).first(), async () => (await page.locator('video').count()) > 0, { note: 'vault:play', timeout: 45000, checkTimeout: 15000 });
       const video = page.locator('video').first();
       await video.waitFor({ timeout: 30000 });
-      await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth > 0), 'the vault media did not decode real frames', 25000);
+      let videoState = null;
+      await until(async () => {
+        videoState = await video.evaluate((element) => ({
+          readyState: element.readyState,
+          videoWidth: element.videoWidth,
+          networkState: element.networkState,
+          error: element.error ? { code: element.error.code, message: element.error.message } : null,
+          src: element.currentSrc,
+        }));
+        return videoState.readyState >= 2 && videoState.videoWidth > 0;
+      }, `the vault media did not decode real frames: ${JSON.stringify(videoState)}`, 25000);
       await capture('vault-playing');
 
       /* A process restart leaves the vault locked and the encrypted media

@@ -7,7 +7,6 @@ test('Android preparation installs the encrypted vault with a real keystore key'
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knoux-vault-generation-'));
   const java = path.join(root, 'android/app/src/main/java/dev/knoux/playerx');
   const manifestPath = path.join(root, 'android/app/src/main/AndroidManifest.xml');
-  const pathsPath = path.join(root, 'android/app/src/main/res/xml/knoux_vault_paths.xml');
   try {
     fs.mkdirSync(java, { recursive: true });
     fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({ appId: 'dev.knoux.playerx' }));
@@ -64,13 +63,12 @@ test('Android preparation installs the encrypted vault with a real keystore key'
     // The encrypted index and the encrypted thumbnails are real files.
     expect(plugin).toContain('index.knvx');
     expect(plugin).toContain('.thumb.knvx');
-    // The playback copy is served through a scoped provider.
-    expect(plugin).toContain('FileProvider.getUriForFile');
+    // The playback copy is served as an app private file, so the plaintext
+    // never leaves the sandbox and no URI grant is handed out.
+    expect(plugin).toContain('Uri.fromFile(target)');
+    expect(plugin).not.toContain('FileProvider');
     expect(activity).toContain('registerPlugin(KnouxVaultPlugin.class)');
-    expect(manifest).toContain('.vaultprovider');
-    expect(manifest).toContain('knoux_vault_paths');
-    expect(fs.existsSync(pathsPath)).toBe(true);
-    // The provider is not exported and the vault needs no storage permission.
+    // The provider needs no storage permission.
     expect(manifest).not.toContain('MANAGE_EXTERNAL_STORAGE');
   } finally {
     // This directory is created exclusively by this test; no repository data.

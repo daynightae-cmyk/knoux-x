@@ -11,8 +11,6 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
-import androidx.core.content.FileProvider;
-
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -658,7 +656,11 @@ public class KnouxVaultPlugin extends Plugin {
             try (OutputStream output = new FileOutputStream(target)) {
                 decryptToStream(sessionKey, source, output);
             }
-            Uri shared = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".vaultprovider", target);
+            /* The decrypted copy is served as an app private file. The
+             * WebView reads it through the local server, so the plaintext
+             * never leaves the app sandbox and no grant has to be handed
+             * out. */
+            Uri shared = Uri.fromFile(target);
             JSObject result = new JSObject();
             result.put("uri", shared.toString());
             result.put("mime", mime);
@@ -688,7 +690,7 @@ public class KnouxVaultPlugin extends Plugin {
             byte[] plain = decrypt(sessionKey, readFile(source));
             File target = new File(playDir(), id + "-thumb.jpg");
             writeFile(target, plain);
-            Uri shared = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".vaultprovider", target);
+            Uri shared = Uri.fromFile(target);
             call.resolve(new JSObject().put("uri", shared.toString()));
         } catch (Exception error) {
             call.resolve(new JSObject());

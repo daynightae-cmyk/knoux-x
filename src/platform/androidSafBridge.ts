@@ -84,7 +84,10 @@ function toBytes(data: unknown): Uint8Array {
 }
 
 function playableUrl(uri: string): string {
-  if (!uri.startsWith('content://')) return uri;
+  /* A content URI is served through the platform file bridge, and an app
+   * private file is served through the local server, which is the route the
+   * player already uses for its own assets. */
+  if (!uri.startsWith('content://') && !uri.startsWith('file://')) return uri;
   return window.Capacitor?.convertFileSrc?.(uri) ?? uri;
 }
 
@@ -191,7 +194,10 @@ export function installAndroidSafBridge(): void {
         if (!item) return null;
         return { filePath: item.uri, mediaUrl: playableUrl(item.uri), mediaName: item.name };
       },
-      toUrl: async (filePath: string): Promise<string> => filePath.startsWith('content://') ? playableUrl(filePath) : creativeBase.media.toUrl(filePath),
+      toUrl: async (filePath: string): Promise<string> =>
+        filePath.startsWith('content://') || filePath.startsWith('file://')
+          ? playableUrl(filePath)
+          : creativeBase.media.toUrl(filePath),
     },
   } as Window['knouxCreativeAPI'];
 

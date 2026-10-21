@@ -580,11 +580,10 @@ fs.writeFileSync(path.join(javaDir, 'KnouxVaultPlugin.java'), vaultTemplate.repl
 
 const resXmlDir = path.join(root, 'android', 'app', 'src', 'main', 'res', 'xml');
 fs.mkdirSync(resXmlDir, { recursive: true });
-fs.writeFileSync(path.join(resXmlDir, 'knoux_vault_paths.xml'), `<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <cache-path name="knoux-vault" path="vault-play/" />
-</paths>
-`, 'utf8');
+
+// The vault serves its decrypted playback copy as an app private file, which
+// the WebView reads through the local server. No provider and no URI grant is
+// involved, so the plaintext never leaves the app sandbox.
 
 // The vault serves its decrypted playback copy through the scoped
 // FileProvider, so the support library has to be on the compile classpath.
@@ -625,10 +624,6 @@ if (!manifest.includes('android:name=".KnouxScreenCaptureService"')) {
   const service = `        <service\n            android:name=".KnouxScreenCaptureService"\n            android:exported="false"\n            android:foregroundServiceType="mediaProjection" />\n`;
   manifest = manifest.replace('    </application>', `${service}    </application>`);
 }
-if (!manifest.includes('.vaultprovider')) {
-  const provider = `        <provider\n            android:name="androidx.core.content.FileProvider"\n            android:authorities="\${applicationId}.vaultprovider"\n            android:exported="false"\n            android:grantUriPermissions="true">\n            <meta-data\n                android:name="android.support.FILE_PROVIDER_PATHS"\n                android:resource="@xml/knoux_vault_paths" />\n        </provider>\n`;
-  manifest = manifest.replace('    </application>', `${provider}    </application>`);
-}
 fs.writeFileSync(manifestPath, manifest, 'utf8');
 
 const checks = [
@@ -649,5 +644,4 @@ for (const [file, token] of checks) {
   if (!source.includes(token)) throw new Error(`Android functional closure token missing in ${file}: ${token}`);
 }
 if (!manifest.includes('android:foregroundServiceType="mediaProjection"')) throw new Error('MediaProjection service declaration missing.');
-if (!manifest.includes('.vaultprovider')) throw new Error('The vault playback provider declaration is missing.');
 console.log(`[PASS] KNOUX Android functional closure installed for ${appId}: persisted SAF + native MediaProjection + encrypted vault.`);

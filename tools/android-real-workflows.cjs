@@ -1282,11 +1282,38 @@ function readRecordingBytes(uri) {
       await reveal();
       await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'mediastore:pause', timeout: 45000, checkTimeout: 12000 });
       const pausedTime = await video.evaluate((element) => element.currentTime);
-      await reveal();
-      const beforeSeek = await video.evaluate((element) => element.currentTime);
-      await trustedTap(page.locator('input.ump-timeline'), { minHeight: 12, fractionX: 0.3, note: 'mediastore:seek', timeout: 45000 });
-      await until(() => video.evaluate((element, before) => Math.abs(element.currentTime - before) > 5, beforeSeek), 'Discovered video seek did not change playback');
-      const seekedTo = await video.evaluate((element) => element.currentTime);
+      /* The control layer auto-hides a few seconds after it is revealed, and a
+       * single trusted scrub can land while the layer is already gone, so the
+       * scrub follows the proven retry pattern: reveal only when the timeline
+       * is genuinely absent, tap it at a known fraction, and accept the move
+       * only when the decoder actually reports a new position. */
+      const timeline = page.locator('input.ump-timeline').first();
+      const timelineVisible = async () => (await timeline.count()) > 0 && await timeline.isVisible();
+      const seek = { requestedFraction: 0.3, before: 0, after: null, moved: false, attempts: [] };
+      for (let attempt = 0; attempt < 3 && !seek.moved; attempt += 1) {
+        const attemptRecord = { attempt: attempt + 1 };
+        try {
+          if (!(await timelineVisible())) {
+            await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-scrub' });
+            await until(timelineVisible, 'timeline control did not appear after revealing the player controls', 5000);
+            attemptRecord.revealed = true;
+          }
+          seek.before = await video.evaluate((element) => element.currentTime);
+          await trustedTap(timeline, { minHeight: 12, fractionX: seek.requestedFraction, note: 'mediastore:seek', timeout: 45000 });
+          const duration = await video.evaluate((element) => element.duration);
+          const expected = Number.isFinite(duration) && duration > 0 ? seek.requestedFraction * duration : 0;
+          await until(async () => {
+            const time = await video.evaluate((element) => element.currentTime);
+            if (time > seek.before + 0.6 || (expected > 0 && time >= expected * 0.6)) { seek.after = time; seek.moved = true; return true; }
+            return false;
+          }, 'trusted timeline tap did not move playback position', 5000);
+        } catch (error) {
+          attemptRecord.error = String(error && error.message).slice(0, 200);
+        }
+        seek.attempts.push(attemptRecord);
+      }
+      if (!seek.moved) throw new Error('Discovered video seek did not change playback');
+      const seekedTo = seek.after;
       await ensurePlayback(page, video);
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Discovered video did not resume');
       await capture('mediastore-playing-discovered-video');
@@ -1318,7 +1345,7 @@ function readRecordingBytes(uri) {
       await capture('mediastore-revoked');
       await ensureHome(page);
       results.measurements.push({ name: 'library-to-first-discovered-media', milliseconds: discoveredMs, includesPermissionInteraction: true, N: 1 });
-      return { metadata, discoveredMs, pausedTime, seekedTo, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
+      return { metadata, discoveredMs, pausedTime, seekedTo, seekBefore: seek.before, seekAttempts: seek.attempts, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
     }));
 
     if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {

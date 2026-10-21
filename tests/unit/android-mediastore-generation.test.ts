@@ -20,7 +20,14 @@ test('Android preparation packages MediaStore in the existing SAF plugin idempot
     expect(fs.readFileSync(path.join(java, 'KnouxSafPlugin.java'), 'utf8')).toBe(first);
     expect(fs.readFileSync(manifestPath, 'utf8')).toBe(manifest);
     expect(first).toContain('public void queryMedia(PluginCall call)');
+    expect(first).toContain('public void mediaFolders(PluginCall call)');
     expect(first).toContain('public void pick(PluginCall call)');
+    // The device collections and the folder index are real MediaStore filters,
+    // not a client side guess over the loaded page.
+    expect(first).toContain('relative_path LIKE \'Download/%\'');
+    expect(first).toContain('relative_path LIKE \'DCIM/Camera%\'');
+    expect(first).toContain('relative_path LIKE \'Movies/KNOUX X%\'');
+    expect(first).toContain('relative_path = ?');
     expect(manifest).toContain('android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"');
     expect(manifest).toContain('android.permission.READ_MEDIA_VISUAL_USER_SELECTED');
     expect(manifest).not.toContain('MANAGE_EXTERNAL_STORAGE');

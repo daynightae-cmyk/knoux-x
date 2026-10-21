@@ -330,3 +330,69 @@ html[data-platform='android'] .kml-footer {
 .kml-thumbnail { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
 .kml-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
 .kml-load-more { display: block; margin: 16px auto; }
+
+/* Six library sections live in one tab strip, so the strip folds into two
+ * rows of three instead of squeezing six targets into one line. */
+html[data-platform='android'] .kml-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-platform='android'] .kml-tabs button { min-height: 52px; }
+
+html[data-platform='android'] .kml-media-card-wrap { position: relative; min-width: 0; }
+html[data-platform='android'] .kml-media-card-wrap .kml-media-card { width: 100%; height: 100%; }
+
+html[data-platform='android'] .kml-favorite {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(190, 134, 255, 0.42);
+  border-radius: 50%;
+  color: #d7b7ff;
+  background: rgba(8, 5, 14, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+html[data-platform='android'] .kml-favorite[aria-pressed='true'] {
+  color: #ffd479;
+  border-color: rgba(255, 212, 121, 0.66);
+  box-shadow: 0 0 18px rgba(255, 196, 87, 0.28);
+}
+
+html[data-platform='android'] .kml-card-list { display: grid; gap: 8px; }
+html[data-platform='android'] .kml-card-list .kml-media-card-wrap .kml-media-card {
+  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-areas: 'art title' 'art meta' 'art path';
+  align-items: center;
+  column-gap: 12px;
+}
+html[data-platform='android'] .kml-card-list .kml-media-art { grid-area: art; aspect-ratio: 16 / 10; }
+html[data-platform='android'] .kml-card-list .kml-media-card > strong { grid-area: title; white-space: normal; }
+html[data-platform='android'] .kml-card-list .kml-media-card > small:nth-of-type(1) { grid-area: meta; }
+html[data-platform='android'] .kml-card-list .kml-media-card > small:nth-of-type(2) { grid-area: path; }
+
+html[data-platform='android'] .kml-folder-list { position: relative; z-index: 2; display: grid; gap: 8px; }
+html[data-platform='android'] .kml-folder-row {
+  min-width: 0;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'icon name' 'icon meta';
+  align-items: center;
+  column-gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(169, 106, 255, 0.22);
+  border-radius: 18px;
+  color: #fff;
+  text-align: left;
+  background: rgba(14, 9, 25, 0.76);
+}
+html[data-platform='android'] .kml-folder-row > svg { grid-area: icon; color: #c9a2ff; }
+html[data-platform='android'] .kml-folder-row > strong { grid-area: name; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+html[data-platform='android'] .kml-folder-row > small { grid-area: meta; color: rgba(213, 196, 235, 0.61); font-size: 10px; }
+
+html[data-platform='android'] .kml-empty { position: relative; z-index: 2; margin: 8px 2px; color: rgba(213, 196, 235, 0.66); font-size: 12px; }
+html[data-platform='android'] .kml-collection-select { max-width: 60vw; }

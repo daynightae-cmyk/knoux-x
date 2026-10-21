@@ -17,7 +17,7 @@ jest.mock('../../src/platform/androidMediaStore', () => ({ androidMediaStore: je
 let root: Root;
 let host: HTMLDivElement;
 const native = {
-  mediaPermissions: jest.fn(), queryMedia: jest.fn(), cancelMediaRequest: jest.fn().mockResolvedValue(undefined),
+  mediaPermissions: jest.fn(), queryMedia: jest.fn(), mediaFolders: jest.fn(), cancelMediaRequest: jest.fn().mockResolvedValue(undefined),
   // The Android bridge exposes addListener as a plain handle with remove(), never a promise.
   addListener: jest.fn(() => ({ remove: jest.fn().mockResolvedValue(undefined) })),
 };
@@ -33,6 +33,7 @@ beforeEach(() => {
   getSetting.mockImplementation((_key: string, fallback: unknown) => Promise.resolve(fallback));
   native.mediaPermissions.mockResolvedValue({ videos: 'full', photos: 'denied', audio: 'denied' });
   native.queryMedia.mockResolvedValue({ items: [], after: '', hasMore: false, access: 'full' });
+  native.mediaFolders.mockResolvedValue({ folders: [], access: 'full' });
   (androidMediaStore as jest.Mock).mockReturnValue(native);
   host = document.createElement('div'); document.body.appendChild(host); root = createRoot(host);
 });
@@ -48,7 +49,7 @@ test('Recents cancels an outstanding scan and leaves ordinary file opening usabl
   native.queryMedia.mockImplementation(() => new Promise(() => undefined));
   await mount();
   expect(host.textContent).toContain('Loading media');
-  await click('Recents');
+  await click('Recent');
   expect(native.cancelMediaRequest).toHaveBeenCalled();
   await click('Open Video');
   expect(openFile).toHaveBeenCalledTimes(1);

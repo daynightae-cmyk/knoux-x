@@ -227,10 +227,18 @@ export const MobileMediaLibraryView: React.FC = () => {
     let remove: (() => Promise<void>) | undefined;
     const refresh = (): void => { if (!document.hidden) setRevision((value) => value + 1); };
     const onVisibility = (): void => {
-      // Backgrounding cancels the scan. Access state stays truthful: only the
-      // native permission check may change it, and it runs again on return.
-      if (document.hidden) { generation.current++; setEntries([]); }
-      else refresh();
+      // Backgrounding cancels the scan and releases the busy state; the access
+      // state stays truthful because only the native permission check may
+      // change it, and it runs again on return.
+      if (document.hidden) {
+        generation.current++;
+        setEntries([]);
+        setBusy(false);
+        if (pendingRequest.current) {
+          void androidMediaStore()?.cancelMediaRequest({ requestId: pendingRequest.current }).catch(() => undefined);
+          pendingRequest.current = null;
+        }
+      } else refresh();
     };
     // The Android bridge exposes addListener as a plain handle with remove(), never a promise.
     void Promise.resolve(androidMediaStore()?.addListener('mediaStoreChanged', refresh)).then((handle) => {

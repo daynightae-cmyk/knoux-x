@@ -1313,14 +1313,17 @@ function readRecordingBytes(uri) {
 
       /* Favorites are persisted in the runtime store and survive the tab
        * switch, so the user never loses a mark. */
-      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The library did not return to the video collection');      const favoriteName = (await page.locator('.kml-media-card').first().locator('strong').innerText()).trim();
+      await until(() => card('KNOUX-Discovery-A.mp4').count(), 'The library did not return to the video collection');
+      const favoriteName = (await page.locator('.kml-media-card').first().locator('strong').innerText()).trim();
       await trustedTapUntil(page.locator('.kml-favorite').first(), async () => (await page.locator('.kml-favorite[aria-pressed="true"]').count()) > 0, { note: 'library-org:favorite', timeout: 45000 });
       await trustedTapUntil(page.getByRole('tab', { name: 'Favorites', exact: true }), async () => (await page.locator('.kml-media-card').count()) > 0, { note: 'library-org:open-favorites', timeout: 45000 });
       await until(() => card(favoriteName).count(), 'The favorite did not reappear in the Favorites view');
       await capture('library-org-favorites');
 
       /* The loaded page can be ordered and reshaped without leaving the
-       * library. */
+       * library. The ordering toolbar belongs to a media-kind view, so the
+       * library goes back to the video collection first. */
+      await trustedTapUntil(page.getByRole('tab', { name: 'Videos', exact: true }), async () => (await page.locator('.kml-media-card').count()) > 0, { note: 'library-org:back-to-videos', timeout: 45000 });
       await trustedTapUntil(page.locator('button[aria-label="Sort ascending"]'), async () => (await page.locator('button[aria-label="Sort descending"]').count()) > 0, { note: 'library-org:sort-direction', timeout: 45000 });
       await trustedTapUntil(page.locator('button[aria-label="List view"]'), async () => (await page.locator('.kml-card-list').count()) > 0, { note: 'library-org:list-layout', timeout: 45000 });
       await trustedTapUntil(page.getByRole('tab', { name: 'Recent', exact: true }), async () => (await page.locator('.kml-media-card').count()) > 0, { note: 'library-org:open-recent', timeout: 45000 });

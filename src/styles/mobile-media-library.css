@@ -216,6 +216,8 @@ html[data-platform='android'] .kml-media-card {
 }
 
 html[data-platform='android'] .kml-media-art {
+  position: relative;
+  overflow: hidden;
   aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
@@ -229,8 +231,9 @@ html[data-platform='android'] .kml-media-art {
 
 html[data-platform='android'] .kml-media-art small {
   position: absolute;
-  right: 16px;
-  top: 16px;
+  right: 7px;
+  top: 7px;
+  z-index: 1;
   padding: 3px 6px;
   border-radius: 8px;
   background: rgba(0,0,0,0.55);
@@ -326,5 +329,4 @@ html[data-platform='android'] .kml-footer {
 .kml-folder-select { max-width: 80vw; }
 .kml-thumbnail { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
 .kml-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-.kml-media-art > small { z-index: 1; }
 .kml-load-more { display: block; margin: 16px auto; }

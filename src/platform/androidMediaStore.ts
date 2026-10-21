@@ -31,7 +31,7 @@ export interface MediaStoreMethods {
   queryMedia(options: { kind: MediaStoreKind; limit: number; after?: string; requestId: string }): Promise<MediaStorePage>;
   mediaThumbnail(options: { kind: MediaStoreKind; uri: string; requestId: string }): Promise<{ dataUrl?: string }>;
   cancelMediaRequest(options: { requestId: string }): Promise<void>;
-  addListener(event: 'mediaStoreChanged', listener: () => void): Promise<PluginListenerHandle>;
+  addListener(event: 'mediaStoreChanged', listener: () => void): Promise<PluginListenerHandle> | PluginListenerHandle;
 }
 
 export function androidMediaStore(): MediaStoreMethods | null {

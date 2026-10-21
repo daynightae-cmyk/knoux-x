@@ -18,7 +18,8 @@ let root: Root;
 let host: HTMLDivElement;
 const native = {
   mediaPermissions: jest.fn(), queryMedia: jest.fn(), cancelMediaRequest: jest.fn().mockResolvedValue(undefined),
-  addListener: jest.fn().mockResolvedValue({ remove: jest.fn().mockResolvedValue(undefined) }),
+  // The Android bridge exposes addListener as a plain handle with remove(), never a promise.
+  addListener: jest.fn(() => ({ remove: jest.fn().mockResolvedValue(undefined) })),
 };
 const openFile = jest.fn().mockResolvedValue(null);
 const scanDirectory = jest.fn().mockResolvedValue([]);
@@ -85,4 +86,11 @@ test('page navigation replaces cards and uses stable cursors in both directions'
   expect(native.queryMedia.mock.calls[2][0].after).toBeUndefined();
   expect(host.textContent).toContain('first-page.mp4');
   expect(host.textContent).not.toContain('second-page.mp4');
+});
+
+test('observes device media changes through the non-promise handle the Android bridge returns', async () => {
+  await mount();
+  expect(native.addListener).toHaveBeenCalledWith('mediaStoreChanged', expect.any(Function));
+  const handle = native.addListener.mock.results[0].value;
+  expect(typeof handle.remove).toBe('function');
 });

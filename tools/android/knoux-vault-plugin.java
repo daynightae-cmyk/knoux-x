@@ -75,6 +75,9 @@ public class KnouxVaultPlugin extends Plugin {
     private static final int MAX_FAILURES_BEFORE_BACKOFF = 5;
     private static final long MAX_BACKOFF_MS = 15L * 60L * 1000L;
     private static final long BACKGROUND_LOCK_MS = 20_000L;
+    /* A vault operation that needs the system file picker may hold the
+     * session for this long; the hold is never open ended. */
+    private static final long HOLD_MS = 180_000L;
     private static final byte[] MAGIC = new byte[] { 'K', 'N', 'V', 'X' };
     private static final byte VERSION = 1;
 
@@ -82,6 +85,8 @@ public class KnouxVaultPlugin extends Plugin {
     private SecretKey sessionKey;
     private String sessionToken;
     private long pausedAt = 0L;
+    private boolean sessionHeld = false;
+    private long holdUntil = 0L;
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -363,11 +368,28 @@ public class KnouxVaultPlugin extends Plugin {
 
     @Override protected void handleOnResume() {
         super.handleOnResume();
-        if (pausedAt > 0L && System.currentTimeMillis() - pausedAt > BACKGROUND_LOCK_MS) {
+        if (sessionHeld && holdUntil > 0L && System.currentTimeMillis() > holdUntil) sessionHeld = false;
+        /* A vault operation that needs a system picker keeps the session
+         * alive, because a file picker also pauses the app. Every other
+         * background excursion locks the vault. */
+        if (!sessionHeld && pausedAt > 0L && System.currentTimeMillis() - pausedAt > BACKGROUND_LOCK_MS) {
             lockSession();
             clearPlayCache();
         }
         pausedAt = 0L;
+    }
+
+    /**
+     * Holds the vault session open while an operation needs the system file
+     * picker, which pauses the app and would otherwise lock the vault. The
+     * hold is bounded, so a session can never be held open forever.
+     */
+    @PluginMethod public void vaultHold(PluginCall call) {
+        if (!authorized(call)) return;
+        boolean hold = Boolean.TRUE.equals(call.getBoolean("hold", false));
+        sessionHeld = hold;
+        holdUntil = hold ? System.currentTimeMillis() + HOLD_MS : 0L;
+        call.resolve();
     }
 
     private void clearPlayCache() {

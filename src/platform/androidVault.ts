@@ -21,6 +21,7 @@ export interface VaultMethods {
   vaultCreate(options: { pin: string }): Promise<{ token: string; createdAt: number }>;
   vaultUnlock(options: { pin: string }): Promise<{ token: string; items: VaultItem[] }>;
   vaultLock(): Promise<void>;
+  vaultHold(options: { token: string; hold: boolean }): Promise<void>;
   vaultChangePin(options: { token: string; newPin: string }): Promise<void>;
   vaultList(options: { token: string }): Promise<{ items: VaultItem[] }>;
   vaultImport(options: { token: string; uri: string; name: string; mime: string }): Promise<{ id: string; bytes: number; items: VaultItem[] }>;
@@ -53,6 +54,32 @@ export function forgetVaultSession(): void {
   sessionToken = null;
 }
 
+/* A system file picker also pauses the app, so a vault operation that needs
+ * one holds the session open for the duration. The hold is bounded on both
+ * sides: the native layer expires it, and the renderer never keeps it past
+ * the operation that asked for it. */
+let sessionHolds = 0;
+
+export function isVaultSessionHeld(): boolean {
+  return sessionHolds > 0;
+}
+
+export async function holdVaultSession(): Promise<void> {
+  sessionHolds += 1;
+  const token = sessionToken;
+  const plugin = androidVault();
+  if (!token || !plugin) return;
+  await plugin.vaultHold({ token, hold: true }).catch(() => undefined);
+}
+
+export async function releaseVaultSession(): Promise<void> {
+  sessionHolds = Math.max(0, sessionHolds - 1);
+  const token = sessionToken;
+  const plugin = androidVault();
+  if (!token || !plugin) return;
+  await plugin.vaultHold({ token, hold: false }).catch(() => undefined);
+}
+
 export function vaultPlaybackUrl(uri: string): string {
   return window.Capacitor?.convertFileSrc?.(uri) ?? uri;
 }
@@ -74,7 +101,7 @@ export function watchVaultAutoLock(): () => void {
     clear();
     timer = window.setTimeout(() => {
       timer = null;
-      if (document.hidden) {
+      if (document.hidden && !isVaultSessionHeld()) {
         forgetVaultSession();
         void androidVault()?.vaultLock().catch(() => undefined);
       }

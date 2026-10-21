@@ -18,6 +18,8 @@ import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import {
   androidVault,
   forgetVaultSession,
+  holdVaultSession,
+  releaseVaultSession,
   setVaultSessionToken,
   vaultPlaybackUrl,
   vaultSessionToken,
@@ -187,11 +189,19 @@ export const MobileVaultView: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      const picked = await window.knouxAPI.file.openFile({
-        title: ar ? 'اختر وسائط للتشفير' : 'Choose media to encrypt',
-        filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv'] }, { name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'] }],
-        properties: ['openFile'],
-      });
+      /* The system picker pauses the app, so the vault session is held open
+       * for the duration of the import. */
+      await holdVaultSession();
+      let picked: string | null = null;
+      try {
+        picked = await window.knouxAPI.file.openFile({
+          title: ar ? 'اختر وسائط للتشفير' : 'Choose media to encrypt',
+          filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv'] }, { name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'] }],
+          properties: ['openFile'],
+        });
+      } finally {
+        await releaseVaultSession();
+      }
       if (!picked) { setBusy(false); return; }
       const name = await androidDocumentTitle(picked).catch(() => '') || picked.split('/').pop() || 'Encrypted media';
       const extension = name.split('.').pop()?.toLowerCase() ?? '';
@@ -240,11 +250,17 @@ export const MobileVaultView: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      const target = await window.knouxAPI.file.saveFile({
-        title: ar ? 'أين تريد فك التشفير؟' : 'Where should the decrypted copy go?',
-        defaultPath: item.name,
-        filters: [{ name: 'Media', extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv', 'mp3', 'wav', 'ogg', 'm4a'] }],
-      });
+      let target: string | null = null;
+      try {
+        await holdVaultSession();
+        target = await window.knouxAPI.file.saveFile({
+          title: ar ? 'أين تريد فك التشفير؟' : 'Where should the decrypted copy go?',
+          defaultPath: item.name,
+          filters: [{ name: 'Media', extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv', 'mp3', 'wav', 'ogg', 'm4a'] }],
+        });
+      } finally {
+        await releaseVaultSession();
+      }
       if (!target) { setBusy(false); return; }
       const result = await native.vaultExport({ token, id: item.id, targetUri: target });
       addNotification({

@@ -32,6 +32,17 @@ test('the vault keeps the original until the user confirms the deletion', () => 
   expect(view).toContain('The encrypted copy is verified');
 });
 
+test('a vault operation that needs the system picker holds the session open', () => {
+  const view = read('src/features/vault/MobileVaultView.tsx');
+  const bridge = read('src/platform/androidVault.ts');
+  // The picker pauses the app, so the session has to be held for the import
+  // and the export, and the hold has to be released again.
+  expect(view).toContain('holdVaultSession()');
+  expect(view).toContain('releaseVaultSession()');
+  expect(bridge).toContain('vaultHold');
+  expect(bridge).toContain('isVaultSessionHeld');
+});
+
 test('the vault is reachable from the navigation and the router', () => {
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
   const app = read('src/App.tsx');

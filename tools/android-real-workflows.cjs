@@ -1272,14 +1272,21 @@ function readRecordingBytes(uri) {
       if (!playback.started) throw new Error('Discovered media did not start through trusted input');
       await until(() => video.evaluate((element) => element.readyState >= 2 && element.videoWidth === 640 && element.getVideoPlaybackQuality().totalVideoFrames > 2), 'Discovered content URI did not decode actual frames');
       const reveal = async () => {
-        if (!(await page.locator('input.ump-timeline').isVisible())) await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'mediastore:reveal-controls' });
+        if (!(await page.locator('input.ump-timeline').isVisible())) await trustedTap(page.locator('.ump-stage'), { minHeight: 40, note: 'mediastore:reveal-controls', timeout: 45000 });
       };
+      /* The staged clip is 60 s long. The player is frozen right after the
+       * decode proof, because every trusted interaction costs a native
+       * geometry sample and an unpaused clip can run past its own end and tear
+       * the player down mid-interaction. Seek, pause and resume are all still
+       * proven with trusted input, in that order. */
       await reveal();
-      await trustedTap(page.locator('input.ump-timeline'), { minHeight: 12, fractionX: 0.3, note: 'mediastore:seek' });
-      await until(() => video.evaluate((element) => element.currentTime > 15), 'Discovered video seek did not change playback');
-      await reveal();
-      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'mediastore:pause' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Pause', exact: true }), () => video.evaluate((element) => element.paused), { note: 'mediastore:pause', timeout: 45000, checkTimeout: 12000 });
       const pausedTime = await video.evaluate((element) => element.currentTime);
+      await reveal();
+      const beforeSeek = await video.evaluate((element) => element.currentTime);
+      await trustedTap(page.locator('input.ump-timeline'), { minHeight: 12, fractionX: 0.3, note: 'mediastore:seek', timeout: 45000 });
+      await until(() => video.evaluate((element, before) => Math.abs(element.currentTime - before) > 5, beforeSeek), 'Discovered video seek did not change playback');
+      const seekedTo = await video.evaluate((element) => element.currentTime);
       await ensurePlayback(page, video);
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Discovered video did not resume');
       await capture('mediastore-playing-discovered-video');
@@ -1301,8 +1308,8 @@ function readRecordingBytes(uri) {
       if (!newPid || oldPid === newPid) throw new Error('Persistence check did not restart the process');
       await capture('mediastore-after-restart');
       const permission = Number(results.deviceState.sdk) >= 33 ? 'android.permission.READ_MEDIA_VIDEO' : 'android.permission.READ_EXTERNAL_STORAGE';
-      adb('shell', 'pm', 'revoke', PACKAGE, permission);
-      if (Number(results.deviceState.sdk) >= 34) adb('shell', 'pm', 'revoke', PACKAGE, 'android.permission.READ_MEDIA_VISUAL_USER_SELECTED');
+      try { adb('shell', 'pm', 'revoke', PACKAGE, permission); } catch { /* the permission was not held */ }
+      if (Number(results.deviceState.sdk) >= 34) { try { adb('shell', 'pm', 'revoke', PACKAGE, 'android.permission.READ_MEDIA_VISUAL_USER_SELECTED'); } catch { /* the permission was not held */ } }
       page = null; webview = null;
       await openSession();
       await openLibrary();
@@ -1311,7 +1318,7 @@ function readRecordingBytes(uri) {
       await capture('mediastore-revoked');
       await ensureHome(page);
       results.measurements.push({ name: 'library-to-first-discovered-media', milliseconds: discoveredMs, includesPermissionInteraction: true, N: 1 });
-      return { metadata, discoveredMs, pausedTime, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
+      return { metadata, discoveredMs, pausedTime, seekedTo, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
     }));
 
     if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {

@@ -216,6 +216,8 @@ html[data-platform='android'] .kml-media-card {
 }
 
 html[data-platform='android'] .kml-media-art {
+  position: relative;
+  overflow: hidden;
   aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
@@ -229,8 +231,9 @@ html[data-platform='android'] .kml-media-art {
 
 html[data-platform='android'] .kml-media-art small {
   position: absolute;
-  right: 16px;
-  top: 16px;
+  right: 7px;
+  top: 7px;
+  z-index: 1;
   padding: 3px 6px;
   border-radius: 8px;
   background: rgba(0,0,0,0.55);
@@ -319,3 +322,11 @@ html[data-platform='android'] .kml-footer {
   html[data-platform='android'] .kml-quick-grid { grid-template-columns: 1fr; }
   html[data-platform='android'] .kml-quick-grid button { min-height: 70px; flex-direction: row; align-items: center; }
 }
+.kml-discovery-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; color: #ddd3f5; }
+.kml-discovery-controls button, .kml-load-more { background: #20132f; color: #eee6ff; border: 1px solid #77529c; border-radius: 14px; padding: 12px 16px; min-height: 44px; }
+.kml-discovery-controls p { flex-basis: 100%; margin: 0; }
+.kml-discovery-controls label { display: flex; align-items: center; gap: 12px; max-width: 100%; }
+.kml-folder-select { max-width: 80vw; }
+.kml-thumbnail { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.kml-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.kml-load-more { display: block; margin: 16px auto; }

@@ -21,6 +21,7 @@ on:
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/android/**'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
@@ -50,6 +51,7 @@ on:
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/android/**'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
@@ -146,7 +148,7 @@ jobs:
           node tools/prepare-android-native-media.cjs
           node tools/prepare-android-functional-closure.cjs
           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
-          grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F '@CapacitorPlugin(name = "KnouxSaf", permissions = {' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
           grep -F '@CapacitorPlugin(name = "KnouxScreenCapture")' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
 
       - name: Configure Android media permissions

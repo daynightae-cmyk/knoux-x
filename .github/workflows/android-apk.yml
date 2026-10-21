@@ -20,6 +20,7 @@ on:
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/android/**'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
@@ -48,6 +49,7 @@ on:
       - 'tools/prepare-android-premium-splash.cjs'
       - 'tools/prepare-android-native-media.cjs'
       - 'tools/prepare-android-functional-closure.cjs'
+      - 'tools/android/**'
       - 'tools/verify-android-apk.cjs'
       - 'tools/verify-android-app-plugin.cjs'
       - 'tools/android-acceptance-diagnostics.sh'
@@ -149,7 +151,7 @@ jobs:
           grep -F '@CapacitorPlugin(name = "KnouxMediaSession")' android/app/src/main/java/dev/knoux/playerx/KnouxMediaSessionPlugin.java
           grep -F 'class KnouxPlaybackService extends Service' android/app/src/main/java/dev/knoux/playerx/KnouxPlaybackService.java
           grep -F 'registerPlugin(KnouxMediaSessionPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java
-          grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+          grep -F '@CapacitorPlugin(name = "KnouxSaf", permissions = {' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
           grep -F 'Intent.ACTION_OPEN_DOCUMENT' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
           grep -F 'takePersistableUriPermission' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
           grep -F 'registerPlugin(KnouxSafPlugin.class)' android/app/src/main/java/dev/knoux/playerx/MainActivity.java

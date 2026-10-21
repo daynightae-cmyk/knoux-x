@@ -1161,6 +1161,24 @@ function readRecordingBytes(uri) {
     await prepareSession();
     return page;
   };
+  /* A reused emulator image can carry a media grant from an earlier run: the
+   * recorded debug run of 2ccae2e started with READ_MEDIA_VIDEO already held,
+   * so the "clean install" precondition could not be observed. The Unit A
+   * cases therefore clear every media permission first and restart the app, so
+   * the real authorization flow is always exercised instead of depending on the
+   * history of the image. */
+  const resetMediaPermissions = async () => {
+    const sdk = Number(results.deviceState.sdk);
+    const held = sdk >= 33
+      ? ['android.permission.READ_MEDIA_VIDEO', 'android.permission.READ_MEDIA_IMAGES', 'android.permission.READ_MEDIA_AUDIO', 'android.permission.READ_MEDIA_VISUAL_USER_SELECTED']
+      : ['android.permission.READ_EXTERNAL_STORAGE'];
+    for (const permission of held) {
+      try { adb('shell', 'pm', 'revoke', PACKAGE, permission); } catch { /* the permission was not held */ }
+    }
+    adb('shell', 'am', 'force-stop', PACKAGE);
+    page = null; webview = null;
+    await openSession();
+  };
   /* A WebView session can die mid-run (the observed runner lost the app process
    * right after the chooser returned: "Target page, context or browser has been
    * closed", and even adb screenshots timed out). Re-attach instead of letting
@@ -1224,6 +1242,7 @@ function readRecordingBytes(uri) {
         adb('pull', `/sdcard/${name}.png`, `${output}/${name}.png`);
         fs.writeFileSync(`${output}/${name}.xml`, dumpNativeXml());
       };
+      await resetMediaPermissions();
       await openLibrary();
       await until(() => page.locator('[data-media-access="denied"]').count(), 'Clean install must show permission-aware library');
       await capture('mediastore-before-permission');
@@ -1296,37 +1315,77 @@ function readRecordingBytes(uri) {
     }));
 
     if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {
-      await ensureHome(page);
-      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:open-library' });
-      await trustedTapUntil(page.getByRole('button', { name: 'Allow media access', exact: true }), () => /permissioncontroller/.test(foregroundSurface().package || ''), { note: 'mediastore-partial:request' });
-      fs.writeFileSync(`${output}/mediastore-partial-permission.xml`, dumpNativeXml());
-      await stableTap((node) => /permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && (
-        /permission_allow_selected_button$/.test(nativeCore.attrOf(node, 'resource-id')) || /^Select (photos and videos|videos|photos)$/i.test(nativeCore.attrOf(node, 'text'))
-      ), { note: 'mediastore-partial:choose-selected', description: 'Select videos permission option' });
-      fs.writeFileSync(`${output}/mediastore-partial-picker.xml`, dumpNativeXml());
-      await stableTap((node) => /photopicker|providers\.media|permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && /\/(icon_thumbnail|thumbnail)$/.test(nativeCore.attrOf(node, 'resource-id')),
-        { note: 'mediastore-partial:select-real-video', description: 'System photo picker video thumbnail', timeout: 15000 });
-      await stableTap((node) => /photopicker|providers\.media|permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && /^Add(?:\s*\(\d+\))?$|^Allow$/i.test(nativeCore.attrOf(node, 'text')),
-        { note: 'mediastore-partial:confirm-one', description: 'System photo picker selection confirmation' });
-      await until(() => page.locator('[data-media-access="limited"]').count(), 'Selected-only access was reported incorrectly', 20000);
-      await until(() => page.locator('.kml-media-card').count(), 'Selected video did not appear');
-      const selected = await page.evaluate(() => window.Capacitor.Plugins.KnouxSaf.queryMedia({ kind: 'videos', limit: 100, requestId: 'qa-selected-only' }));
-      if (selected.access !== 'limited' || selected.items.length !== 1 || !/KNOUX-/.test(selected.items[0].name)) throw new Error(`Selected-only query leaked or omitted media: ${JSON.stringify(selected)}`);
-      adb('shell', 'screencap', '-p', '/sdcard/mediastore-selected-only.png');
-      adb('pull', '/sdcard/mediastore-selected-only.png', `${output}/mediastore-selected-only.png`);
-      adb('shell', 'am', 'force-stop', PACKAGE);
-      page = null; webview = null;
-      await openSession();
-      await ensureHome(page);
-      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:reopen' });
-      await until(async () => await page.locator('[data-media-access="limited"]').count() && await page.locator('.kml-media-card').count() === 1, 'Selected authorization did not survive app restart');
-      await ensureHome(page);
-      return { selected: selected.items.map((item) => ({ name: item.name, uri: item.uri })), unselectedMediaExcluded: true, restartVerified: true, permissionInput: 'trusted-system-picker' };
+      try {
+        await resetMediaPermissions();
+        await ensureHome(page);
+        await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:open-library' });
+        await trustedTapUntil(page.getByRole('button', { name: 'Allow media access', exact: true }), () => /permissioncontroller/.test(foregroundSurface().package || ''), { note: 'mediastore-partial:request' });
+        fs.writeFileSync(`${output}/mediastore-partial-permission.xml`, dumpNativeXml());
+        await stableTap((node) => /permissioncontroller/.test(nativeCore.attrOf(node, 'package')) && (
+          /permission_allow_selected_button$/.test(nativeCore.attrOf(node, 'resource-id')) || /^Select (photos and videos|videos|photos)$/i.test(nativeCore.attrOf(node, 'text'))
+        ), { note: 'mediastore-partial:choose-selected', description: 'Select videos permission option' });
+        fs.writeFileSync(`${output}/mediastore-partial-picker.xml`, dumpNativeXml());
+        /* The MediaProvider permission picker reports its selection on the bottom
+         * bar, and the label family is version specific: the recorded API 35 run
+         * shows "Allow none" with nothing picked and "Allow (N)" once items are
+         * selected. The count is therefore read from that control instead of
+         * assumed, and a tile is only accepted when the control confirms it. */
+        const pickerPackage = (node) => /photopicker|providers\.media|permissioncontroller/.test(nativeCore.attrOf(node, 'package'));
+        const pickerConfirmText = () => {
+          const node = dumpNativeNodes().find((candidate) => pickerPackage(candidate) && /^(Add|Allow)(\s*\(\d+\))?$/i.test(String(nativeCore.attrOf(candidate, 'text') ?? '')));
+          return node ? String(nativeCore.attrOf(node, 'text') ?? '') : '';
+        };
+        const pickerSelectionCount = () => {
+          const text = pickerConfirmText();
+          const counted = /\((\d+)\)/.exec(text);
+          if (counted) return Number(counted[1]);
+          if (/^allow\s*none$/i.test(text)) return 0;
+          if (/^(add|allow)$/i.test(text)) return 1;
+          return -1;
+        };
+        let selectionCount = -1;
+        for (let attempt = 0; attempt < 3 && selectionCount !== 1; attempt += 1) {
+          const thumbnails = dumpNativeNodes().filter((node) => pickerPackage(node) && /\/(icon_thumbnail|thumbnail)$/.test(nativeCore.attrOf(node, 'resource-id')));
+          if (!thumbnails.length) break;
+          const target = nodeBounds(thumbnails[attempt % thumbnails.length]);
+          await stableTap((node) => {
+            const bounds = nodeBounds(node);
+            return bounds.left === target.left && bounds.top === target.top && bounds.right === target.right && bounds.bottom === target.bottom;
+          }, { note: 'mediastore-partial:select-real-video', description: 'System photo picker video thumbnail', timeout: 15000 });
+          await delay(700);
+          selectionCount = pickerSelectionCount();
+        }
+        if (selectionCount !== 1) throw new Error(`System photo picker did not report exactly one selected video (bottom bar read "${pickerConfirmText() || 'none'}")`);
+        await stableTap((node) => pickerPackage(node) && /^(Add|Allow)\s*\(1\)$/i.test(String(nativeCore.attrOf(node, 'text') ?? '')),
+          { note: 'mediastore-partial:confirm-one', description: 'System photo picker selection confirmation' });
+        await until(() => page.locator('[data-media-access="limited"]').count(), 'Selected-only access was reported incorrectly', 20000);
+        await until(() => page.locator('.kml-media-card').count(), 'Selected video did not appear');
+        const selected = await page.evaluate(() => window.Capacitor.Plugins.KnouxSaf.queryMedia({ kind: 'videos', limit: 100, requestId: 'qa-selected-only' }));
+        if (selected.access !== 'limited' || selected.items.length !== 1 || !/KNOUX-/.test(selected.items[0].name)) throw new Error(`Selected-only query leaked or omitted media: ${JSON.stringify(selected)}`);
+        adb('shell', 'screencap', '-p', '/sdcard/mediastore-selected-only.png');
+        adb('pull', '/sdcard/mediastore-selected-only.png', `${output}/mediastore-selected-only.png`);
+        adb('shell', 'am', 'force-stop', PACKAGE);
+        page = null; webview = null;
+        await openSession();
+        await ensureHome(page);
+        await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore-partial:reopen' });
+        await until(async () => await page.locator('[data-media-access="limited"]').count() && await page.locator('.kml-media-card').count() === 1, 'Selected authorization did not survive app restart');
+        await ensureHome(page);
+        return { selected: selected.items.map((item) => ({ name: item.name, uri: item.uri })), unselectedMediaExcluded: true, restartVerified: true, permissionInput: 'trusted-system-picker' };
+      } finally {
+        /* The system picker is a foreign window: a leftover one breaks every
+         * later case, so the case always hands the screen back to the app. */
+        await dismissNativeWindows(2);
+        try { await ensureHome(page); } catch { /* the next case re-establishes its own precondition */ }
+      }
     }));
 
     await runCase('mp4-actual-player-first-frame-seek-audio', () => withSession('mp4-actual-player-first-frame-seek-audio', async () => {
       const started = Date.now();
       const fixture = verifyFixtureOnDevice();
+      /* Case isolation: this case drives a Home element, so Home is a proven
+       * precondition rather than an assumption about the previous case. */
+      await ensureHome(page);
       await trustedTapUntil(
         page.locator('.kmh-hero-card'),
         () => nativeTextPresent(['Show roots', 'Downloads', 'Download', nativeCore.FIXTURE_NAME]),

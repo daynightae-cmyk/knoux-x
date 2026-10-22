@@ -737,40 +737,64 @@ async function ensureHome(page) {
   throw new Error('Could not navigate back to the home dashboard');
 }
 
+/* A saved resume position opens a full-screen .ump-resume-layer over the
+ * player. The layer is the topmost <div> at the stage, so elementFromPoint
+ * reports it for every control underneath and trusted taps fail as covered.
+ * Dismiss it through trusted input (Start over first, Resume as fallback) and
+ * fail closed when a visible prompt cannot be cleared, instead of letting the
+ * covered taps surface as an unrelated "target unavailable" error. */
+async function clearResumePrompt(page) {
+  const layer = page.locator('.ump-resume-layer');
+  const layerVisible = async () => (await layer.count()) > 0 && await layer.first().isVisible();
+  if (!(await layerVisible())) return false;
+  const problems = [];
+  for (const name of ['Start over', 'Resume']) {
+    const action = page.getByRole('button', { name, exact: true }).first();
+    if (!(await action.count())) { problems.push(`${name}: no action button`); continue; }
+    try {
+      await trustedTapUntil(action, async () => !(await layerVisible()), { note: `player:resume-${name.toLowerCase().replaceAll(' ', '-')}`, timeout: 20000, checkTimeout: 12000, attempts: 2 });
+      await delay(500);
+      if (!(await layerVisible())) return true;
+    } catch (error) {
+      problems.push(`${name}: ${String(error && error.message).split('\n')[0]}`);
+    }
+  }
+  if (await layerVisible()) throw new Error(`The resume prompt could not be dismissed (${problems.join('; ')})`);
+  return true;
+}
+
 async function ensurePlayback(page, video) {
   const attempts = [];
+  const problems = [];
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    /* A saved resume position opens a "Continue from ...?" prompt over the
-     * player. It is dismissed deterministically by starting the clip over, so
-     * every case measures playback from the same state and the prompt never
-     * covers the next trusted tap. */
-    const startOver = page.getByRole('button', { name: 'Start over', exact: true });
+    if (await clearResumePrompt(page)) attempts.push('trusted-tap:start-over (dismissed the resume prompt)');
+    if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts, problems };
     try {
-      if ((await startOver.count()) > 0 && await startOver.first().isVisible()) {
-        await trustedTapUntil(startOver.first(), async () => (await startOver.count()) === 0 || !(await startOver.first().isVisible()), { note: 'player:start-over', timeout: 8000, checkTimeout: 5000 });
-        attempts.push('trusted-tap:start-over (dismissed the resume prompt)');
-        await delay(600);
+      const playButton = page.locator('button.ump-play');
+      const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();
+      if (!playVisible) {
+        await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls' });
+        attempts.push('trusted-tap:stage (reveal controls)');
+        await delay(700);
+        continue;
       }
-    } catch { /* the prompt is optional; the play path below still applies */ }
-    if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts };
-    const playButton = page.locator('button.ump-play');
-    const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();
-    if (!playVisible) {
-      await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls' });
-      attempts.push('trusted-tap:stage (reveal controls)');
-      await delay(700);
+      const label = await playButton.first().getAttribute('aria-label');
+      if (label && /pause/i.test(label)) { await delay(400); continue; }
+      await trustedTap(playButton, { timeout: 8000, note: 'player:play' });
+      attempts.push('trusted-tap:ump-play (trusted play button)');
+    } catch (error) {
+      /* A prompt that mounts mid-tap covers the stage; the next iteration
+       * clears it before retrying instead of failing on a transient overlay. */
+      problems.push(String(error && error.message).split('\n')[0]);
+      await delay(400);
       continue;
     }
-    const label = await playButton.first().getAttribute('aria-label');
-    if (label && /pause/i.test(label)) { await delay(400); continue; }
-    await trustedTap(playButton, { timeout: 8000, note: 'player:play' });
-    attempts.push('trusted-tap:ump-play (trusted play button)');
     try {
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'playback did not start after a trusted play tap', 6000);
-      return { started: true, via: attempts };
+      return { started: true, via: attempts, problems };
     } catch { /* fall through to the next attempt or the honest fallback note */ }
   }
-  return { started: false, via: attempts };
+  return { started: false, via: attempts, problems };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1972,6 +1996,7 @@ function readRecordingBytes(uri) {
       for (let attempt = 0; attempt < 3 && !pause.paused; attempt += 1) {
         const pauseAttempt = { attempt: attempt + 1 };
         try {
+          await clearResumePrompt(page);
           if (!(await pauseVisible())) {
             await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-pause' });
             await until(pauseVisible, 'pause control did not appear after revealing the player controls', 5000);
@@ -1998,6 +2023,7 @@ function readRecordingBytes(uri) {
       for (let attempt = 0; attempt < 3 && !seek.moved; attempt += 1) {
         const attemptRecord = { attempt: attempt + 1 };
         try {
+          await clearResumePrompt(page);
           if (!(await timelineVisible())) {
             await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-scrub' });
             await until(timelineVisible, 'timeline control did not appear after revealing the player controls', 5000);

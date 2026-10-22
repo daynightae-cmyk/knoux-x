@@ -67,3 +67,14 @@ describe('trusted Android tap after native foreground verification', () => {
     expect(test.taps).toHaveLength(1);
   });
 });
+
+describe('player resume prompt handling', () => {
+  test('dismisses a saved-position layer through trusted input before control taps', () => {
+    expect(harness).toContain('async function clearResumePrompt(page)');
+    expect(harness).toContain("page.locator('.ump-resume-layer')");
+    expect(harness).toContain('The resume prompt could not be dismissed');
+    const playback = harness.slice(harness.indexOf('async function ensurePlayback('));
+    expect(playback.slice(0, playback.indexOf('Image Lab SAF acceptance helpers'))).toContain('await clearResumePrompt(page)');
+    expect((harness.match(/await clearResumePrompt\(page\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+});

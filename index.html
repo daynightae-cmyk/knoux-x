@@ -17,8 +17,11 @@
   <link rel="icon" type="image/png" href="/assets/icons/favicon.png" />
 
   <style>
-    /* Critical first-paint CSS. It deliberately matches the Daylight default so
-       browser/Electron startup never flashes the retired dark/cyan identity. */
+    /* Critical first-paint CSS. The desktop and browser editions keep the
+       daylight first paint they have always used. Android runs the cinema-dark
+       identity, so the inline runtime probe below switches the very first
+       frame to the native splash background and never flashes a light surface
+       between the native splash and the React overlay. */
     html,
     body {
       margin: 0;
@@ -30,6 +33,13 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       overflow: hidden;
       color-scheme: light;
+    }
+
+    html[data-runtime='android'],
+    html[data-runtime='android'] body {
+      background: #08060d;
+      color: #fbfaff;
+      color-scheme: dark;
     }
 
     #root {
@@ -48,6 +58,14 @@
         linear-gradient(155deg, #ffffff 0%, #f8f7fc 48%, #eee8ff 100%);
       z-index: 9999;
       transition: opacity 160ms ease, visibility 160ms step-end;
+    }
+
+    html[data-runtime='android'] .initial-loading {
+      background:
+        radial-gradient(circle at 50% 34%, rgba(139, 61, 255, 0.32), transparent 28%),
+        radial-gradient(circle at 18% 18%, rgba(191, 90, 255, 0.22), transparent 22%),
+        radial-gradient(circle at 84% 84%, rgba(139, 61, 255, 0.18), transparent 24%),
+        linear-gradient(155deg, #08060d 0%, #0e1015 48%, #151023 100%);
     }
 
     .initial-loading.hidden {
@@ -76,6 +94,20 @@
       to { transform: rotate(360deg); }
     }
   </style>
+
+  <!-- Capacitor injects its native bridge immediately after <head>, so the
+       platform is already known when this runs. Marking the runtime before the
+       body paints keeps the Android first frame on the cinema-dark surface
+       without changing the desktop first paint. -->
+  <script>
+    try {
+      if (window.Capacitor && typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android') {
+        document.documentElement.setAttribute('data-runtime', 'android');
+      }
+    } catch (error) {
+      // A missing native bridge simply keeps the default first paint.
+    }
+  </script>
 </head>
 <body>
   <div id="initial-loading" class="initial-loading" aria-hidden="true">

@@ -218,7 +218,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!android) return;
     let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => console.info('KNOUX_ANDROID_UI_READY'));
+      frame = requestAnimationFrame(() => console.info('KNOUX_ANDROID_APP_MOUNTED'));
     });
     return () => cancelAnimationFrame(frame);
   }, [android]);

@@ -16,6 +16,7 @@ const TEXT = '#F8F5FF';
 const MUTED = '#B9A8CE';
 const PURPLE = '#8B3DFF';
 const LAVENDER = '#C4A6FF';
+const PLASMA = '#BF5AFF';
 
 const portraitSplashes = [
   ['mdpi', 320, 480],
@@ -30,24 +31,30 @@ function ensureDir(directory) {
 }
 
 function escapeXml(value) {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
 }
 
 async function premiumSplash(width, height) {
   const portrait = height >= width;
-  const logoSize = Math.round(Math.min(width, height) * (portrait ? 0.42 : 0.30));
+  const logoSize = Math.round(Math.min(width, height) * (portrait ? 0.50 : 0.36));
   const logo = await sharp(logoPath)
     .resize(logoSize, logoSize, { fit: 'contain', withoutEnlargement: false })
+    .modulate({ brightness: 1.15 })
     .png()
     .toBuffer();
 
   const titleSize = Math.max(34, Math.round(Math.min(width, height) * 0.075));
   const subSize = Math.max(12, Math.round(titleSize * 0.28));
   const signatureSize = Math.max(14, Math.round(titleSize * 0.34));
-  const logoY = portrait ? Math.round(height * 0.36) : Math.round(height * 0.42);
-  const titleY = logoY + Math.round(logoSize * 0.70);
+  const logoY = portrait ? Math.round(height * 0.34) : Math.round(height * 0.40);
+  const titleY = logoY + Math.round(logoSize * 0.68);
   const signatureY = titleY + Math.round(titleSize * 1.35);
-  const ringRadius = Math.round(logoSize * 0.62);
+  const ringRadius = Math.round(logoSize * 0.58);
   const svg = Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <defs>
@@ -56,9 +63,15 @@ async function premiumSplash(width, height) {
           <stop offset="46%" stop-color="${INK}"/>
           <stop offset="100%" stop-color="${DEEP}"/>
         </linearGradient>
-        <radialGradient id="halo" cx="50%" cy="37%" r="54%">
-          <stop offset="0%" stop-color="${PURPLE}" stop-opacity="0.28"/>
-          <stop offset="42%" stop-color="${LAVENDER}" stop-opacity="0.12"/>
+        <radialGradient id="halo" cx="50%" cy="34%" r="58%">
+          <stop offset="0%" stop-color="${PURPLE}" stop-opacity="0.32"/>
+          <stop offset="38%" stop-color="${PLASMA}" stop-opacity="0.18"/>
+          <stop offset="70%" stop-color="${LAVENDER}" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="${INK}" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="plasma-core" cx="50%" cy="34%" r="18%">
+          <stop offset="0%" stop-color="${PLASMA}" stop-opacity="0.45"/>
+          <stop offset="55%" stop-color="${PURPLE}" stop-opacity="0.22"/>
           <stop offset="100%" stop-color="${INK}" stop-opacity="0"/>
         </radialGradient>
         <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
@@ -66,19 +79,24 @@ async function premiumSplash(width, height) {
           <stop offset="46%" stop-color="${PURPLE}" stop-opacity="0.55"/>
           <stop offset="100%" stop-color="${LAVENDER}" stop-opacity="0"/>
         </linearGradient>
-        <filter id="blur"><feGaussianBlur stdDeviation="${Math.max(5, Math.round(width / 90))}"/></filter>
+        <filter id="blur"><feGaussianBlur stdDeviation="${Math.max(6, Math.round(width / 80))}"/></filter>
+        <filter id="logo-glow"><feGaussianBlur stdDeviation="${Math.max(8, Math.round(width / 60))}"/></filter>
       </defs>
       <rect width="100%" height="100%" fill="url(#cinema)"/>
       <rect width="100%" height="100%" fill="url(#halo)"/>
+      <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.6)}" fill="url(#plasma-core)"/>
       <g fill="none" stroke="url(#wave)" stroke-linecap="round" filter="url(#blur)">
-        <path d="M ${-width * 0.1} ${height * 0.16} C ${width * 0.22} ${height * 0.05}, ${width * 0.42} ${height * 0.30}, ${width * 1.1} ${height * 0.09}" stroke-width="${Math.max(4, width * 0.018)}" opacity="0.5"/>
-        <path d="M ${-width * 0.1} ${height * 0.74} C ${width * 0.28} ${height * 0.60}, ${width * 0.52} ${height * 0.94}, ${width * 1.1} ${height * 0.72}" stroke-width="${Math.max(4, width * 0.021)}" opacity="0.45"/>
+        <path d="M ${-width * 0.1} ${height * 0.14} C ${width * 0.22} ${height * 0.04}, ${width * 0.42} ${height * 0.28}, ${width * 1.1} ${height * 0.08}" stroke-width="${Math.max(4, width * 0.018)}" opacity="0.55"/>
+        <path d="M ${-width * 0.1} ${height * 0.76} C ${width * 0.28} ${height * 0.58}, ${width * 0.52} ${height * 0.96}, ${width * 1.1} ${height * 0.70}" stroke-width="${Math.max(4, width * 0.021)}" opacity="0.5"/>
+        <path d="M ${width * 1.1} ${height * 0.22} C ${width * 0.52} ${height * 0.10}, ${width * 0.30} ${height * 0.42}, ${-width * 0.1} ${height * 0.28}" stroke-width="${Math.max(3, width * 0.014)}" opacity="0.35" stroke="${LAVENDER}"/>
+        <path d="M ${width * 1.1} ${height * 0.82} C ${width * 0.48} ${height * 0.70}, ${width * 0.26} ${height * 0.98}, ${-width * 0.1} ${height * 0.88}" stroke-width="${Math.max(3, width * 0.014)}" opacity="0.35" stroke="${LAVENDER}"/>
       </g>
-      <circle cx="${width / 2}" cy="${logoY}" r="${ringRadius}" fill="${SURFACE}" fill-opacity="0.92" stroke="${PURPLE}" stroke-opacity="0.45" stroke-width="${Math.max(1, width * 0.002)}"/>
-      <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.14)}" fill="none" stroke="${LAVENDER}" stroke-opacity="0.30" stroke-width="${Math.max(1, width * 0.0015)}"/>
-      <text x="50%" y="${titleY}" text-anchor="middle" fill="${TEXT}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">Knoux <tspan fill="${LAVENDER}">X</tspan></text>
+      <circle cx="${width / 2}" cy="${logoY}" r="${ringRadius}" fill="${SURFACE}" fill-opacity="0.95" stroke="${PURPLE}" stroke-opacity="0.5" stroke-width="${Math.max(1.5, width * 0.0025)}" filter="url(#logo-glow)"/>
+      <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.18)}" fill="none" stroke="${LAVENDER}" stroke-opacity="0.35" stroke-width="${Math.max(1.5, width * 0.0018)}"/>
+      <circle cx="${width / 2}" cy="${logoY}" r="${Math.round(ringRadius * 1.38)}" fill="none" stroke="${PLASMA}" stroke-opacity="0.22" stroke-width="${Math.max(1, width * 0.0012)}" stroke-dasharray="${Math.max(8, width * 0.03)} ${Math.max(12, width * 0.04)}"/>
+      <text x="50%" y="${titleY}" text-anchor="middle" fill="${TEXT}" font-family="Arial, Helvetica, sans-serif" font-size="${titleSize}" font-weight="800" letter-spacing="${Math.max(2, titleSize * 0.08)}">KNOuX <tspan fill="${LAVENDER}">X</tspan></text>
       <text x="50%" y="${titleY + titleSize * 0.72}" text-anchor="middle" fill="${MUTED}" font-family="Arial, Helvetica, sans-serif" font-size="${subSize}" letter-spacing="${Math.max(2, subSize * 0.55)}">CREATE · PLAY · ENHANCE</text>
-      <text x="50%" y="${signatureY}" text-anchor="middle" fill="${LAVENDER}" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="${signatureSize}" opacity="0.9">${escapeXml('Eng. Sadek Elgazar')}</text>
+      <text x="50%" y="${signatureY}" text-anchor="middle" fill="${LAVENDER}" font-family="Arial, Helvetica, sans-serif" font-style="italic" font-size="${signatureSize}" opacity="0.95">${escapeXml('Eng. Sadek Elgazar')}</text>
     </svg>
   `);
 
@@ -178,7 +196,12 @@ async function run() {
   }
   await main();
 }
-run().catch((error) => {
-  console.error(error && error.stack ? error.stack : error);
-  process.exitCode = 1;
-});
+
+if (require.main === module) {
+  run().catch((error) => {
+    console.error(error && error.stack ? error.stack : error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { escapeXml, premiumSplash };

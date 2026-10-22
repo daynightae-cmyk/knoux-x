@@ -24,7 +24,7 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
 
     test('MobileSplashOverlay keeps official branding without fake loading bars', () => {
       expect(splashOverlay).toContain('knoux-mobile-splash-overlay');
-      expect(splashOverlay).toContain('Knoux <span>X</span>');
+      expect(splashOverlay).toContain('KNOuX <span>X</span>');
       expect(splashOverlay).toContain('Eng. Sadek Elgazar');
       expect(splashOverlay).not.toContain('splash-progress-bar');
       expect(splashOverlay).not.toContain('LOADING...');
@@ -43,7 +43,7 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(splashScript).toContain("knoux-logo-night.png");
       expect(splashScript).toContain("const INK = '#08060D'");
       expect(splashScript).toContain("const PURPLE = '#8B3DFF'");
-      expect(splashScript).toContain('>Knoux <tspan');
+      expect(splashScript).toContain('>KNOuX <tspan');
       expect(splashScript).toContain('android:windowLightStatusBar">false');
       expect(splashScript).toContain('android:windowLightNavigationBar">false');
       expect(splashScript).toContain('cinema-dark');

@@ -14,6 +14,7 @@ describe('Knoux X Android release acceptance contract', () => {
   const diagnostics = read('tools/android-acceptance-diagnostics.sh');
   const configurator = read('tools/configure-android-webview-debugging.cjs');
   const nativeMedia = read('tools/prepare-android-native-media.cjs');
+  const overlay = read('src/components/mobile/MobileSplashOverlay.tsx');
 
   test('builds a real Gradle release variant instead of stopping at assembleDebug', () => {
     expect(helper).toContain('./gradlew assembleRelease --no-daemon --stacktrace');
@@ -75,9 +76,16 @@ describe('Knoux X Android release acceptance contract', () => {
     expect(smoke).toContain('foreground_activity_ready');
     expect(smoke).toContain('native_splash_gone');
     expect(smoke).toContain('Splash Screen $PACKAGE');
-    expect(smoke).toContain('wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1');
-    expect(smoke).toContain("READINESS_SOURCE='foreground+visual'");
+    expect(smoke).toContain('wait_for_home_screen "$OUTPUT_DIR/android-launch.png" 10');
+    expect(smoke).toContain('--require-marker');
+    expect(smoke).toContain("READINESS_SOURCE='foreground+visual+ready-ui'");
     expect(smoke).toContain('android-ui-readiness.txt');
     expect(smoke).toContain("grep -q 'KNOUX_ANDROID_UI_READY'");
+  });
+
+  test('proves the actionable interface instead of accepting a rendered splash', () => {
+    expect(smoke).toContain('write_readiness_marker');
+    expect(smoke).toContain('android-splash-frame.png');
+    expect(overlay).toContain('KNOUX_ANDROID_UI_READY screen=');
   });
 });

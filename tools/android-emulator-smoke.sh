@@ -66,6 +66,46 @@ wait_for_rendered_screen() {
   return 1
 }
 
+# The renderer announces the actionable interface once the splash overlay is
+# dismissed. The debug and acceptance lanes enable WebView debugging, so the
+# console marker reaches logcat. The payload is plain text so logcat quoting
+# cannot corrupt it.
+write_readiness_marker() {
+  local log="$1"
+  local out="$2"
+  local payload
+  payload="$(grep -o 'KNOUX_ANDROID_UI_READY screen=[a-zA-Z]* primaryAction=true' "$log" 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$payload" ]]; then
+    return 1
+  fi
+  local screen
+  screen="$(printf '%s' "$payload" | sed -n 's/.*screen=\([a-zA-Z]*\).*/\1/p')"
+  if [[ -z "$screen" ]]; then
+    return 1
+  fi
+  printf '{"ready":true,"screen":"%s","primaryAction":true}\n' "$screen" > "$out"
+  return 0
+}
+
+# A rendered splash is not a ready application. The renderer announces the
+# actionable interface in its console once the splash overlay is dismissed;
+# the debug and acceptance lanes enable WebView debugging so that marker
+# reaches logcat and is stored next to the frame as a trusted sidecar.
+# The verifier then refuses the frame unless the marker says the application
+# is ready and the frame carries real rendered content.
+wait_for_home_screen() {
+  local destination="$1"
+  local attempts="${2:-30}"
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" --require-marker; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
 png_dimensions() {
   node -e '
 const fs = require("fs");
@@ -352,15 +392,18 @@ if [[ -z "$PID" ]]; then
   exit 1
 fi
 
-# Release WebViews may suppress JavaScript console.info output even when React
-# has rendered successfully. Treat the JS marker as optional corroboration, not
-# as the only readiness signal. Acceptance requires the real MainActivity to be
-# foreground, the Android starting/splash window to be gone, and two consecutive
-# screenshots to contain nonblank rendered application pixels.
+# The renderer announces the actionable interface once the splash overlay is
+# dismissed. The debug lane builds the APK with WebView debugging enabled, so
+# that console marker reaches logcat and is stored next to the frame as a
+# trusted sidecar. Acceptance requires the real MainActivity to be foreground,
+# the Android starting/splash window to be gone, the renderer marker in logcat,
+# and a frame with real rendered content. A rendered splash can satisfy none of
+# those at once, so the launch is never reported as ready from the splash.
 UI_READY=false
 MARKER_READY=false
 READINESS_SOURCE=''
-for attempt in $(seq 1 45); do
+SPLASH_FRAME_CAPTURED=false
+for attempt in $(seq 1 60); do
   if (( attempt % 3 == 0 )); then
     if ! handle_foreign_anr; then
       adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
@@ -371,19 +414,29 @@ for attempt in $(seq 1 45); do
   fi
   if adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" && \
      grep -q 'KNOUX_ANDROID_UI_READY' "$OUTPUT_DIR/android-launch-log.txt"; then
-    MARKER_READY=true
+    if write_readiness_marker "$OUTPUT_DIR/android-launch-log.txt" "$OUTPUT_DIR/android-launch.png.ready.json"; then
+      MARKER_READY=true
+    fi
+  fi
+
+  # Keep the launch animation as its own evidence frame while the renderer has
+  # not announced the actionable interface yet. The final frame below is the
+  # actionable application.
+  if [[ "$SPLASH_FRAME_CAPTURED" != true && "$MARKER_READY" != true ]] && \
+     capture_screen "$OUTPUT_DIR/android-splash-frame.png"; then
+    SPLASH_FRAME_CAPTURED=true
   fi
 
   if foreground_activity_ready && native_splash_gone && \
-     wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
+     wait_for_home_screen "$OUTPUT_DIR/android-launch.png" 10; then
     sleep 1
     if foreground_activity_ready && native_splash_gone && \
-       wait_for_rendered_screen "$OUTPUT_DIR/android-launch.png" 1; then
+       wait_for_home_screen "$OUTPUT_DIR/android-launch.png" 5; then
       UI_READY=true
       if [[ "$MARKER_READY" == true ]]; then
-        READINESS_SOURCE='javascript-marker+foreground+visual'
+        READINESS_SOURCE='javascript-marker+foreground+visual+ready-ui'
       else
-        READINESS_SOURCE='foreground+visual'
+        READINESS_SOURCE='foreground+visual+ready-ui'
       fi
       break
     fi

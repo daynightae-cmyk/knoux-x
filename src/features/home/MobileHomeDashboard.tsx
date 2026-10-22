@@ -71,9 +71,16 @@ export const MobileHomeDashboard: React.FC = () => {
   const [projectCounts, setProjectCounts] = useState({ video: 0, slideshow: 0 });
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setHomeReady(true);
-    });
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      if (frames >= 3) {
+        setHomeReady(true);
+      } else {
+        requestAnimationFrame(tick);
+      }
+    };
+    const frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [setHomeReady]);
 

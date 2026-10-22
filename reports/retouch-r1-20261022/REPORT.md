@@ -42,15 +42,40 @@ No production release, deployment, tag or merge is authorized by this report. Th
 | `tools/verify-image-studio-project-lifecycle.cjs` | Actual Electron UI driver; automates only OS pickers and records failures |
 | `.github/workflows/full-rebuild-windows.yml` | Runs the UI driver against the existing built checkout and preserves evidence, including on failure; does not add another build |
 | `tools/installed-image-lifecycle-driver.cjs` | Drives the real installed EXE via Chromium CDP and the existing native Windows dialog helper; checks build and payload identity |
+| `tools/slideshow-phase1-native-dialog.ps1` | Win32-only native dialog automation (visible dialogs, real key input, exact filename read-back, posted confirmations) |
+| `tests/unit/slideshow-installed-verifier-recovery.test.ts` | Helper contract: Win32-only, no UIA, no hidden address edit, exact read-back, posted confirmation |
+| `tests/unit/image-studio-installed-lifecycle-verifier.test.ts` | Installed verifier contract: picker settle, honest failure reason, cancelled-save and export assertions |
+| `reports/retouch-r1-20261022/installed-evidence.json` | Passing installed Windows journey on the locally packaged `f7e33d0` payload |
 
 The existing Image Studio store, retouch operations, masks, renderer, `syncRetouch` preload/IPC, `ImageStudioService`, persistence envelope, Sharp codecs and authorized file bridge are retained. No replacement editor or AI engine was introduced.
+
+### Installed Windows acceptance (native dialogs)
+
+The `validate-package` job of Windows Full Rebuild run `39782293184` failed waiting for `.image-studio-saved`. Its uploaded artifact (`knoux-installed-image-lifecycle-7a0aaa86187d7cb4793cd66609ecbdb391e89a4f/evidence.json`) records the harness's own reason:
+
+```
+Native dialog directory mismatch after 3 attempts:
+requested 'D:\a\knoux-x\knoux-x\_temp\installed-image-lifecycle-evidence\knoux-image-lifecycle-mG53dt',
+observed ''
+```
+
+The helper required a UI Automation `Address:` label that the Windows common file dialog does not expose, so the Save dialog was never driven and `saveFile` never resolved. The application save and export were not reached and were not the defect. Root cause and repair:
+
+- The helper is Win32-only again: `EnumWindows`/`EnumChildWindows` over the app's own visible `#32770`, no `UIAutomationClient`, no process-wide automation search.
+- Save targets are typed into the dialog's own file-name edit as real `WM_CHAR` input; the hidden address edit (`id=41477`) is never used.
+- Windows applies the dialog's default file name asynchronously, so the first pass can produce `portrait.knouximageC:\...`. The helper now reads the edit back with `WM_GETTEXT` (marshalled across processes) and retypes until the box holds exactly the requested path, then fails with the observed value if it never does.
+- Confirmation buttons are activated with a posted `BM_CLICK` so an overwrite prompt cannot block the helper. Only a secondary window exposing `Yes`/`Replace`/`Save` is treated as an overwrite prompt; a file dialog that is still rebuilding is ignored.
+- The driver resolves a picker on the helper's JSON record instead of on PowerShell teardown (CSC kept the inherited pipe open for ~14 s after the dialog was gone) and reports timeout/exit honestly.
+- The verifier waits until the app has persisted the Image Studio workspace section before proceeding. The shell restores the last section when its settings load resolves; navigating before that settle could leave the app on another view mid-journey.
+
+The verifier now also proves the product path independently of dialog automation: launching the packaged app with its existing `--retouch-phase3b-acceptance-config` seam (used by the app's own acceptance tests, not added for this run) and importing/exporting through the real UI wrote a 108,127-byte PNG with zero renderer errors.
 
 ## Capability matrix
 
 | Feature | Existing path / handler | Processing and export | Evidence / status |
 | --- | --- | --- | --- |
-| Desktop project save | `ImageStudioView` / `ImageStudioToolbar` → `saveStudioProject` → `syncRetouch` / save IPC | Existing service + integrity envelope | VERIFIED in Node; Electron Linux import BLOCKED |
-| Flattened/layer export delivery | Toolbar / ExportDialog → `exportStudioImage` | Existing backend retouch/compositor/Sharp → authorized file write | VERIFIED real Node output for flattened PNG/JPEG/WebP; layer dispatch unit-tested |
+| Desktop project save | `ImageStudioView` / `ImageStudioToolbar` → `saveStudioProject` → `syncRetouch` / save IPC | Existing service + integrity envelope | VERIFIED in Node; VERIFIED in installed Windows app through actual native dialogs |
+| Flattened/layer export delivery | Toolbar / ExportDialog → `exportStudioImage` | Existing backend retouch/compositor/Sharp → authorized file write | VERIFIED real Node output for flattened PNG/JPEG/WebP; installed Windows PNG matches the preview exactly; layer dispatch unit-tested |
 | Masks, zero strength, source preservation | Store → retouch preview bridge / backend flatten | Existing CPU retouch pipeline | VERIFIED on repository-authored synthetic fixture; human portrait quality NOT_TESTED |
 | Android Beauty | `MobileBeautyRetouchView` / Android runtime bridge | Existing mobile path retained | Installed candidate NOT_TESTED |
 | Video retouch | `VideoRetouchInspector`, preview overlay → `VideoFrameProcessor`; `mobileTimelineRenderer` export | Existing tracked frame pipeline retained | STATIC_VERIFIED connection; skipped-layer disclosure and segmentation fallback remain PARTIAL and unchanged |
@@ -73,15 +98,23 @@ The existing Image Studio store, retouch operations, masks, renderer, `syncRetou
 | Windows Full Rebuild on `5c65f299baa53c364be6dad73843c3dd055f46f6` | PASS, including the full image UI lifecycle against the built source checkout |
 | `node node_modules/vite/bin/vite.js build --config vite.renderer.config.ts --outDir .vite/renderer/main_window` | PASS; 2283 modules, 2m 4s |
 | `node --check tools/verify-image-studio-project-lifecycle.cjs` | PASS |
+| `node --check tools/installed-image-lifecycle-driver.cjs` and `node --check tools/run-slideshow-phase1-installed-verification.cjs` | PASS |
+| `npm run typecheck` (final) | PASS, exit 0 |
+| `npm run lint` (final) | PASS, exit 0 |
+| `npm test` (final, full suite) | PASS: 171 suites, 1481 tests, 84.5 s; zero failed/skipped |
+| Installed Windows lifecycle on packaged `f7e33d09a354755bdedf36a210c901e93d383e20` | PASS: import → retouch → cancelled save stays dirty → Ctrl+S project save → PNG exact match → JPEG/WebP → close/reopen after restart → original unchanged |
 | Electron image lifecycle on Linux | FAILED at image import: independently reproduced native Sharp/libvips assertion; no full GUI-flow pass claimed |
-| New Windows UI lifecycle CI step | Added, NOT_RUN locally; it verifies the built source checkout, not installed acceptance |
-| Candidate Windows packaged / Android installed retouch acceptance | NOT_TESTED |
+| Source-checkout lifecycle driver on this Windows host | BLOCKED: `better-sqlite3` built for `NODE_MODULE_VERSION 115` while Electron 32 needs 128; no Visual Studio/Windows SDK for `electron-rebuild`. CI remains the environment for that step. |
+| New Windows UI lifecycle CI step | Added; also runs the installed mode after repair and before uninstall |
+| Android installed retouch acceptance | NOT_TESTED |
 
 The full suite and additional integration test are separate invocations: 170 suites / 1469 tests passed across them, not a single 170-suite run. The initial slow integration attempt was stopped while optimizing byte comparison in the test; its replacement completed successfully without weakening pixel assertions.
 
 The 169-suite run predates the final select-popup correction. Its affected 25-test select suite and typecheck/lint were rerun successfully, and the complete candidate suite is rerun by Windows CI. The initial Windows UI check on `4c8305f` successfully imported, saved and exported a pixel-matching PNG, then failed on a wrong selector for the existing format control. Correcting the selector exposed and led to the real clipped-popup fix. Earlier failed runs are not reported as passes. The latest PR check results must be read on its current head.
 
-The final local rerun after the popup correction passed all 170 suites / 1473 tests. The Windows source-checkout journey then passed on `5c65f29`. The additional installed mode is gated separately and is not assumed to pass from that source-checkout result: it reuses the installer already built by CI, runs after repair and before uninstall, controls actual native Open/Save dialogs with the existing `slideshow-phase1-native-dialog.ps1`, and requires packaged build SHA and installed EXE hash to match the checkout/payload. It adds no production app test flag, weakens no fuse, and does not rebuild the installer a second time.
+The final local rerun after the popup correction passed all 170 suites / 1473 tests. The Windows source-checkout journey then passed on `5c65f29`. The installed mode reuses the installer already built by CI, runs after repair and before uninstall, controls actual native Open/Save dialogs with the existing `slideshow-phase1-native-dialog.ps1`, and requires packaged build SHA and installed EXE hash to match the checkout/payload. It adds no production app test flag, weakens no fuse, and does not rebuild the installer a second time. The locally packaged `f7e33d0` payload passed that journey end to end; CI must reproduce it on the final head.
+
+`reports/retouch-r1-20261022/installed-evidence.json` is the passing installed run on the locally packaged `f7e33d09a354755bdedf36a210c901e93d383e20` app. It records `success: true`, `restartReopenExact: true`, `originalUnchanged: true`, a 147,417-byte `.knouximage`, and outputs that are all 640×960: PNG 73,543 bytes with `maxPreviewDelta: 0` (byte-identical to the rendered preview), JPEG 15,883 bytes, WebP 7,530 bytes. The same evidence directory holds `before.png`, `after.png`, `reopened.png` and the seven `native-picker-*.png` captures of the real dialogs. The Windows CI job uploads its own artifact; the local screenshots are not committed.
 
 `evidence.json` records the real service/file results. The test closes the backend, creates a new backend instance, reopens the saved project, and checks the masks/operations. This models backend restart; it is not an installed application restart.
 
@@ -104,6 +137,8 @@ Raw local gates are retained as `/tmp/retouch-r1-all-tests.log`, `/tmp/retouch-r
 
 ## Remaining / safe next action
 
-R1 is implemented and locally source/build/Node-verified; native application acceptance is incomplete. Do not represent the whole Retouch mission as complete. Do not merge merely because the build or baseline CI is green.
+Windows installed acceptance now passes locally on the packaged `f7e33d0` payload with actual native dialogs. R1 still must not be represented as complete until CI reproduces that evidence on the pushed head SHA and the Android installed lane is exercised; no merge is authorized by this report.
 
-Run the candidate Windows workflow and inspect its new real-file/UI artifact. Windows packaged retouch, Android installed retouch, real human portrait quality, face/body model/license proof, temporal video export disclosure, background protection, performance on real devices and R2–R4 remain outstanding. No release has been created. CPU/RAM/latency baseline-versus-after benchmarking: NOT_MEASURED.
+Two observations are recorded rather than fixed here because they are outside R1's save/export contract: (1) an intermittent renderer error `Cannot read properties of undefined (reading 'parse')` appeared in two exploratory probes but not in any passing acceptance run, and its origin is not yet identified; (2) `electron/ipc/file-dialog-policy.ts` drops `properties`, so `createDirectory`/`showOverwriteConfirmation` passed by callers are not forwarded to the OS dialog. Neither blocks the verified save/export behavior; both should get their own scoped follow-up.
+
+Run the candidate Windows workflow on the final head and inspect its new real-file/UI artifact, including the installed-mode evidence. Android installed retouch, real human portrait quality, face/body model/license proof, temporal video export disclosure, background protection, performance on real devices and R2–R4 remain outstanding. No release has been created. CPU/RAM/latency baseline-versus-after benchmarking: NOT_MEASURED.

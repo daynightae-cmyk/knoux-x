@@ -63,19 +63,52 @@ async function launchInstalledImageDriver(executable, evidence, report) {
   };
 }
 
-function nativeImagePicker(root, processId, kind, file, evidence, sequence) {
-  const args = [
+function nativeDialogArguments(root, processId, kind, file, evidence, sequence) {
+  return [
     '-NoProfile', '-ExecutionPolicy', 'RemoteSigned', '-File', path.join(root, 'tools/slideshow-phase1-native-dialog.ps1'),
     '-ProcessId', String(processId), '-Mode', file ? (kind === 'open' ? 'Open' : 'Save') : 'Cancel',
     '-PayloadBase64', Buffer.from(JSON.stringify(file ? [file] : [])).toString('base64'),
     '-ScreenshotPath', path.join(evidence, `native-picker-${sequence}.png`),
   ];
+}
+
+// The helper prints its record only after the dialog has been driven and closed.
+// Resolving on that line (instead of on process exit) keeps the picker honest and
+// avoids waiting on PowerShell/CSC teardown, which can hold the inherited stdio
+// pipes open long after the dialog is gone.
+function nativeImagePicker(root, processId, kind, file, evidence, sequence) {
+  const args = nativeDialogArguments(root, processId, kind, file, evidence, sequence);
   return new Promise((resolve, reject) => {
-    cp.execFile('powershell.exe', args, { windowsHide: true, timeout: 45000, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) { reject(new Error(`Native ${kind} picker failed: ${error.message}\n${stderr}`)); return; }
-      try { resolve(JSON.parse(stdout.trim().split(/\r?\n/).at(-1))); } catch (parseError) { reject(parseError); }
+    const child = cp.spawn('powershell.exe', args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = (error, record) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.kill();
+      if (error) reject(error); else resolve(record);
+    };
+    const timer = setTimeout(() => {
+      finish(new Error(`Native ${kind} picker produced no record within 60 seconds.${stderr ? `\n${stderr}` : ''}`));
+    }, 60000);
+    child.stdout.on('data', chunk => {
+      stdout += chunk;
+      const line = stdout.split(/\r?\n/).filter(Boolean).at(-1);
+      if (!line || !line.startsWith('{')) return;
+      try {
+        const record = JSON.parse(line);
+        if (record && typeof record.dialogHandle === 'number') finish(null, record);
+      } catch { /* a partial line; the next chunk completes it */ }
+    });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', error => finish(error));
+    child.on('exit', code => {
+      if (settled) return;
+      finish(new Error(`Native ${kind} picker exited with code ${code} without a record.${stderr ? `\n${stderr}` : ''}`));
     });
   });
 }
 
-module.exports = { launchInstalledImageDriver, nativeImagePicker };
+module.exports = { launchInstalledImageDriver, nativeImagePicker, nativeDialogArguments };

@@ -86,13 +86,25 @@ async function launch() {
   await page.locator('[data-view-id="image-studio"]').evaluate(button => button.click());
   console.log('IMAGE_LIFECYCLE navigation-requested', await page.locator('.app-shell').getAttribute('data-current-view'));
   await page.locator('.image-studio-view').waitFor();
+  // The shell restores the persisted workspace section when its settings load
+  // resolves; a nav made before that settles can be overridden afterwards.
+  // The section is persisted as the view changes, so it is the app's own
+  // readiness signal for "settings load finished on this view".
+  await page.waitForFunction(async () => {
+    const view = document.querySelector('.app-shell')?.getAttribute('data-current-view');
+    if (view !== 'image-studio') return false;
+    const workspace = await window.knouxAPI.settings.get('workspace').catch(() => null);
+    return workspace?.lastOpenedSection === 'image-studio';
+  }, undefined, { timeout: 30000, polling: 500 });
+  assert.equal(await page.locator('.app-shell').getAttribute('data-current-view'), 'image-studio');
   console.log('IMAGE_LIFECYCLE workspace-ready');
   return page;
 }
 
 async function picker(kind, file) {
   if (installedExecutable) {
-    if (pendingNativePicker) await pendingNativePicker;
+    await settleNativePicker();
+    report.nativePickerKind = kind;
     pendingNativePicker = nativeImagePicker(root, app.process().pid, kind, file, evidence, ++pickerSequence);
     pendingNativePicker.catch(error => { report.nativePickerError = error.message; });
     return;
@@ -102,8 +114,21 @@ async function picker(kind, file) {
   }, { kind, file });
 }
 
+// A failed native dialog must fail the acceptance with its own reason instead
+// of an unrelated timeout on a state the dialog never reached.
+async function settleNativePicker() {
+  const pending = pendingNativePicker;
+  pendingNativePicker = null;
+  if (!pending) return;
+  try {
+    await pending;
+  } catch (error) {
+    throw new Error(`Native ${report.nativePickerKind || 'file'} dialog failed: ${error.message}`);
+  }
+}
+
 async function idle(page) {
-  if (pendingNativePicker) { await pendingNativePicker; pendingNativePicker = null; }
+  await settleNativePicker();
   await page.locator('.global-loading-overlay').waitFor({ state: 'hidden', timeout: 60000 });
   await page.waitForFunction(() => {
     const canvas = document.querySelector('canvas.image-studio-canvas');
@@ -159,9 +184,24 @@ async function main() {
   const first = await pixels(page, original.hash);
   assert.notEqual(first.hash, original.hash);
 
+  // A cancelled native Save dialog must leave the project unsaved and write nothing.
+  await picker('save', null);
+  await page.keyboard.press('Control+s');
+  await settleNativePicker();
+  // The cancelled save must settle before the state is judged.
+  await page.waitForFunction(() => {
+    const view = document.querySelector('.image-studio-view');
+    return view?.dataset.documentDirty === 'true' && !document.querySelector('.image-studio-loading');
+  }, undefined, { timeout: 30000 });
+  assert.equal(await page.locator('.image-studio-saved').isVisible(), false, 'A cancelled save must not report a saved project');
+  assert.equal(await page.locator('.image-studio-dirty').isVisible(), true, 'A cancelled save must keep the project unsaved');
+  assert.equal(fs.existsSync(project), false, 'A cancelled save must not write a project file');
+  console.log('IMAGE_LIFECYCLE cancelled-save-honest');
+
   // Ctrl+S must choose a destination for an imported, previously untitled image.
   await picker('save', project);
   await page.keyboard.press('Control+s');
+  await settleNativePicker();
   await page.locator('.image-studio-saved').waitFor();
   console.log('IMAGE_LIFECYCLE first-project-saved');
   assert.equal(JSON.parse(fs.readFileSync(project)).document.layers[0].retouche.operations.length, 1);

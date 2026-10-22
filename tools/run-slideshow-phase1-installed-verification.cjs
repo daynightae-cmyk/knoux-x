@@ -813,7 +813,7 @@ async function closeVisible(id) {
   await sleep(800);
 }
 
-function nativeDialog(mode, payload, id, confirmOverwrite = false) {
+function nativeDialog(mode, payload, id) {
   const screenshotPath = path.join(screenshots, `${id}-native.png`);
   const payloadBase64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
   const args = [
@@ -831,7 +831,6 @@ function nativeDialog(mode, payload, id, confirmOverwrite = false) {
     '-ScreenshotPath',
     screenshotPath,
   ];
-  if (confirmOverwrite) args.push('-ConfirmOverwrite');
   const output = execFileSync('powershell.exe', args, { encoding: 'utf8', timeout: 45_000 }).trim();
   const record = { ...JSON.parse(output.split(/\r?\n/).at(-1)), id, expectedHead };
   if (fs.existsSync(screenshotPath)) record.screenshotSha256 = hashFile(screenshotPath);
@@ -1327,7 +1326,7 @@ async function main() {
     'job 1 visible'
   );
   await cdp.pointerClick(button('Start verified render'), 'U19-start-job2');
-  nativeDialog('Save', [job2Output], 'U19-job2-overwrite', true);
+  nativeDialog('Save', [job2Output], 'U19-job2-overwrite');
   await cdp.waitFor(
     `document.querySelectorAll('.slideshow-render-job').length`,
     (value) => value >= 2,

@@ -1,5 +1,10 @@
 export type VaultIndexState = 'ok' | 'recovered' | 'corrupted' | 'unavailable' | 'locked' | 'missing';
 export type VaultKeySecurityLevel = 'strongbox' | 'trusted-environment' | 'software' | 'unknown' | 'unavailable';
+/* Where a recovered index came from. "backup" means the verified backup
+ * restored it. "media" means the index was rebuilt from the encrypted media
+ * that survived on the device: the names, media types and dates are then
+ * placeholders, not the metadata the user imported. */
+export type VaultIndexRecoverySource = 'none' | 'backup' | 'media';
 
 export interface VaultStatus {
   created: boolean;
@@ -10,6 +15,8 @@ export interface VaultStatus {
   /* What the device actually reports for the Keystore key. "software" and
    * "unknown" are real answers and must be shown as such. */
   indexState: VaultIndexState;
+  /* The origin of a recovered index, reported instead of guessed. */
+  indexRecoverySource: VaultIndexRecoverySource;
   indexBackupHealthy: boolean;
   keySecurityAvailable: boolean;
   keySecurityLevel: VaultKeySecurityLevel;
@@ -31,17 +38,17 @@ export interface VaultItem {
 export interface VaultMethods {
   vaultStatus(): Promise<VaultStatus>;
   vaultCreate(options: { pin: string }): Promise<{ token: string; createdAt: number }>;
-  vaultUnlock(options: { pin: string }): Promise<{ token: string; items: VaultItem[]; indexRecovered: boolean }>;
+  vaultUnlock(options: { pin: string }): Promise<{ token: string; items: VaultItem[]; indexRecovered: boolean; recoveredMetadataLimited: boolean }>;
   vaultLock(): Promise<{ cachedPlaintextRemoved: number; cachedPlaintextRetained: number }>;
   vaultHold(options: { token: string; hold: boolean }): Promise<void>;
   vaultChangePin(options: { token: string; newPin: string }): Promise<{ changed: boolean }>;
-  vaultList(options: { token: string }): Promise<{ items: VaultItem[]; indexRecovered: boolean }>;
-  vaultImport(options: { token: string; uri: string; name: string; mime: string }): Promise<{ id: string; bytes: number; items: VaultItem[]; indexRecovered: boolean; indexBackupHealthy: boolean }>;
+  vaultList(options: { token: string }): Promise<{ items: VaultItem[]; indexRecovered: boolean; recoveredMetadataLimited: boolean }>;
+  vaultImport(options: { token: string; uri: string; name: string; mime: string }): Promise<{ id: string; bytes: number; items: VaultItem[]; indexRecovered: boolean; recoveredMetadataLimited: boolean; indexBackupHealthy: boolean }>;
   vaultOpen(options: { token: string; id: string }): Promise<{ uri: string; mime: string; name: string }>;
   vaultContainerInfo(options: { token: string; id: string }): Promise<{ header: string; headerHex: string; bytes: number; version: number; member: boolean }>;
   vaultThumbnail(options: { token: string; id: string }): Promise<{ uri?: string; hasThumbnail: boolean; reason?: string }>;
   vaultExport(options: { token: string; id: string; targetUri: string }): Promise<{ exported: boolean; bytes: number }>;
-  vaultDelete(options: { token: string; id: string }): Promise<{ items: VaultItem[]; filesRemoved: number; filesRetained: number; indexRecovered: boolean }>;
+  vaultDelete(options: { token: string; id: string }): Promise<{ items: VaultItem[]; filesRemoved: number; filesRetained: number; indexRecovered: boolean; recoveredMetadataLimited: boolean }>;
 }
 
 export function androidVault(): VaultMethods | null {

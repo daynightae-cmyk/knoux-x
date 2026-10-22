@@ -72,3 +72,19 @@ test('the vault is reachable from the navigation and the router', () => {
   expect(app).toContain("case 'vault'");
   expect(store).toContain("| 'vault'");
 });
+
+test('the vault never claims a backup restore when the index was rebuilt from media', () => {
+  const view = read('src/features/vault/MobileVaultView.tsx');
+  const bridge = read('src/platform/androidVault.ts');
+  // The device reports where a recovered index came from.
+  expect(bridge).toContain('indexRecoverySource');
+  expect(view).toContain('indexRecoverySource');
+  // An index rebuilt from the surviving media carries placeholder names,
+  // media types and dates, and the user is told so.
+  expect(bridge).toContain('recoveredMetadataLimited');
+  expect(view).toContain('recoveredMetadataLimited');
+  expect(view).toContain('rebuilt from the encrypted media');
+  // The backup restore is only claimed for an index that really came from
+  // the verified backup.
+  expect(view).toContain("indexRecoverySource === 'media'");
+});

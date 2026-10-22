@@ -71,9 +71,67 @@ test('Android preparation installs the encrypted vault with a real keystore key'
     expect(core).toContain('isValidId');
     expect(core).toContain('indexOfId');
     expect(plugin).toContain('requireEntry');
-    // Deletion commits the index before it deletes an encrypted byte.
+    // Deletion commits the index before it deletes an encrypted byte, and
+    // the commit must be durable: the primary AND the verified backup.
     expect(core).toContain('deleteWithIndexCommit');
-    expect(plugin).toContain('KnouxVaultCore.deleteWithIndexCommit');
+    expect(core).toContain('deleteWithDurableIndex');
+    expect(plugin).toContain('KnouxVaultCore.deleteWithDurableIndex');
+    // The index pair is published backup-first, so the primary never
+    // advances to a state the backup cannot reach.
+    expect(core).toContain('commitIndex');
+    expect(core).toContain('INDEX_BACKUP_TEMP');
+    // A lost index with media on the device is never reported as an empty
+    // vault: the media is rebuilt into a fresh index instead.
+    expect(core).toContain('orphanMedia');
+    expect(core).toContain('mediaIds');
+    expect(plugin).toContain('rebuildIndexFromMedia');
+    // The rule that keeps encrypted user data alive is defined once, in the
+    // core, and the plugin uses it instead of reimplementing a weaker test.
+    expect(core).toContain('mayDiscardContainer');
+    expect(plugin).toContain('KnouxVaultCore.mayDiscardContainer(commit)');
+    expect(plugin).not.toContain('commit.newContainerIsUnreferenced()');
+    // The failure injection seam is handed to a commit per call. There is no
+    // global switch that running code could flip to make the app fail a
+    // commit on purpose.
+    expect(core).not.toContain('failureInjector');
+    expect(core).not.toMatch(/static\s+volatile/);
+    // The origin of a recovered index is reported, never guessed: an index
+    // rebuilt from media is not a backup restore.
+    expect(plugin).toContain('indexRecoverySource');
+    expect(plugin).toContain('recoveredMetadataLimited');
+    // The Keystore key is a SECRET key, so it is described through
+    // javax.crypto.SecretKeyFactory. java.security.KeyFactory only
+    // understands asymmetric keys and would fail on every AES key.
+    expect(plugin).toContain('import javax.crypto.SecretKeyFactory;');
+    expect(plugin).not.toContain('import java.security.KeyFactory;');
+    expect(plugin).not.toMatch(/\bKeyFactory\.getInstance/);
+    // java.security.KeyInfo does not exist on Android: the keystore KeyInfo
+    // does, and the secret key spec has to be cast to it.
+    expect(plugin).toContain('import android.security.keystore.KeyInfo;');
+    expect(plugin).not.toContain('import java.security.KeyInfo;');
+    expect(plugin).toContain('(KeyInfo) factory.getKeySpec(key, KeyInfo.class)');
+    expect(core).toContain('keySecurity');
+    // The plugin only uses packages the Android runtime actually ships. A
+    // JDK-only class would fail the Android build and was never caught by
+    // the host suite, so the imports are checked here instead.
+    for (const forbidden of [
+      'import java.security.KeyInfo;',
+      'import java.security.KeyPair;',
+      'import java.security.cert.',
+      'import java.awt.',
+      'import java.beans.',
+      'import java.sql.',
+      'import java.applet.',
+      'import javax.naming.',
+      'import javax.rmi.',
+      'import javax.management.',
+      'import javax.swing.',
+      'import javax.imageio.',
+      'import java.util.stream.',
+      'import java.time.',
+    ]) {
+      expect(plugin).not.toContain(forbidden);
+    }
     // Plaintext cache copies are swept on lock and after a process kill.
     expect(plugin).toContain('load()');
     expect(plugin).toContain('clearPlayCache');

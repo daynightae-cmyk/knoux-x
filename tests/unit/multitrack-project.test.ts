@@ -1,14 +1,17 @@
 import {
   activeAudioGain,
   addTrack,
+  colorFilterCss,
   createMultitrackProject,
   createTimelineItem,
   createTrack,
+  defaultTimelineColor,
   insertItem,
   interpolateKeyframes,
   migrateLegacyClips,
   mixAudioAtTime,
   moveItem,
+  normalizeTimelineColor,
   normalizeTrackOrder,
   parseMultitrackProject,
   projectDuration,
@@ -178,5 +181,49 @@ describe('KNOUX multitrack project model', () => {
     const item = project.tracks.find((track) => track.kind === 'video')!.items[0];
     expect(item).toMatchObject({ timelineStart: 4, duration: 5, playbackRate: 2 });
     expect(item.audio.volume).toBe(0.75);
+  });
+
+  test('models clip colour grading with validated adjustments', () => {
+    expect(defaultTimelineColor()).toEqual({ brightness: 0, contrast: 0, saturation: 0, temperature: 0 });
+    expect(normalizeTimelineColor()).toEqual(defaultTimelineColor());
+    expect(normalizeTimelineColor({ brightness: 25 })).toEqual({ ...defaultTimelineColor(), brightness: 25 });
+    expect(() => normalizeTimelineColor({ contrast: Number.NaN })).toThrow(TypeError);
+    expect(() => normalizeTimelineColor({ saturation: 140 })).toThrow(RangeError);
+    expect(() => normalizeTimelineColor({ temperature: -140 })).toThrow(RangeError);
+  });
+
+  test('turns clip colour adjustments into a usable css filter', () => {
+    const neutral = colorFilterCss();
+    expect(neutral).toContain('brightness(1.000)');
+    expect(neutral).toContain('contrast(1.000)');
+    expect(neutral).toContain('saturate(1.000)');
+
+    const graded = colorFilterCss({ brightness: 20, contrast: -10, saturation: 30, temperature: 50 });
+    expect(graded).toContain('brightness(1.200)');
+    expect(graded).toContain('contrast(0.900)');
+    expect(graded).toContain('saturate(1.300)');
+    expect(graded).toContain('sepia(0.175)');
+
+    const cool = colorFilterCss({ temperature: -50 });
+    expect(cool).toContain('hue-rotate(-9.00deg)');
+  });
+
+  test('keeps clip colour grading through a project round trip', () => {
+    let project = createMultitrackProject('project-color', 'Color');
+    const videoTrack = project.tracks.find((track) => track.kind === 'video')!;
+    const item = createTimelineItem({
+      id: 'graded-clip',
+      trackId: videoTrack.id,
+      kind: 'video',
+      name: 'Graded',
+      timelineStart: 0,
+      duration: 5,
+    });
+    item.color = { brightness: 10, contrast: 5, saturation: -5, temperature: 15 };
+    project = insertItem(project, item);
+
+    const parsed = parseMultitrackProject(JSON.parse(JSON.stringify(project)));
+    const parsedItem = parsed.tracks.find((track) => track.kind === 'video')!.items[0];
+    expect(parsedItem.color).toEqual({ brightness: 10, contrast: 5, saturation: -5, temperature: 15 });
   });
 });

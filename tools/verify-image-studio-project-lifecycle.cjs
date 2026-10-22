@@ -171,8 +171,8 @@ async function main() {
   assert.equal(Number(await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).inputValue()), edited.height);
   for (const format of ['jpeg', 'webp']) {
     const file = path.join(evidence, `portrait.${format}`);
-    // Use the native select's accessible combobox interaction.
-    await dialog.getByRole('combobox').click();
+    // NeonSelect exposes a button controlling an ARIA listbox.
+    await dialog.getByRole('button', { name: 'Format', exact: true }).click();
     await page.getByRole('option', { name: format === 'jpeg' ? 'JPEG' : 'WebP', exact: true }).click();
     await picker('save', file);
     await dialog.getByRole('button', { name: 'Start Export', exact: true }).click();

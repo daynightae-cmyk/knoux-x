@@ -350,6 +350,7 @@ export function createTimelineItem(input: {
     playbackRate: 1,
     transform: clone(DEFAULT_TRANSFORM),
     audio: clone(DEFAULT_AUDIO),
+    color: clone(DEFAULT_COLOR),
     text: input.kind === 'text' || input.kind === 'subtitle' ? clone(DEFAULT_TEXT) : null,
     keyframes: [],
     transitionIn: null,

@@ -93,12 +93,25 @@ write_readiness_marker() {
 # reaches logcat and is stored next to the frame as a trusted sidecar.
 # The verifier then refuses the frame unless the marker says the application
 # is ready and the frame carries real rendered content.
+#
+# Capacitor forwards the WebView console to logcat only while the installed
+# application is debuggable, because android.loggingBehavior defaults to the
+# debug-only behaviour. A signed release APK therefore never emits the renderer
+# marker, so the marker may only be required on lanes that can carry it.
+app_is_debuggable() {
+  adb_retry shell dumpsys package "$PACKAGE" 2>/dev/null | grep -q 'DEBUGGABLE'
+}
+
 wait_for_home_screen() {
   local destination="$1"
   local attempts="${2:-30}"
   local attempt
+  local marker_args=()
+  if [[ "$MARKER_SUPPORTED" == true ]]; then
+    marker_args+=('--require-marker')
+  fi
   for attempt in $(seq 1 "$attempts"); do
-    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" --require-marker; then
+    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" "${marker_args[@]}"; then
       return 0
     fi
     sleep 1
@@ -403,6 +416,11 @@ UI_READY=false
 MARKER_READY=false
 READINESS_SOURCE=''
 SPLASH_FRAME_CAPTURED=false
+MARKER_SUPPORTED=false
+if app_is_debuggable; then
+  MARKER_SUPPORTED=true
+fi
+printf '%s\n' "$MARKER_SUPPORTED" > "$OUTPUT_DIR/android-console-marker-supported.txt"
 for attempt in $(seq 1 60); do
   if (( attempt % 3 == 0 )); then
     if ! handle_foreign_anr; then

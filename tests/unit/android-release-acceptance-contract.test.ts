@@ -83,6 +83,15 @@ describe('Knoux X Android release acceptance contract', () => {
     expect(smoke).toContain("grep -q 'KNOUX_ANDROID_UI_READY'");
   });
 
+  test('requires the renderer marker only where Capacitor forwards the console', () => {
+    expect(smoke).toContain('app_is_debuggable');
+    expect(smoke).toContain('MARKER_SUPPORTED=false');
+    expect(smoke).toContain("marker_args+=('--require-marker')");
+    expect(smoke).toContain('node tools/verify-android-screen.cjs "$destination" "${marker_args[@]}"');
+    expect(smoke).not.toContain('node tools/verify-android-screen.cjs "$destination" --require-marker');
+    expect(smoke).toContain('android-console-marker-supported.txt');
+  });
+
   test('proves the actionable interface instead of accepting a rendered splash', () => {
     expect(smoke).toContain('write_readiness_marker');
     expect(smoke).toContain('android-splash-frame.png');

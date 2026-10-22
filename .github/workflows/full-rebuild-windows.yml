@@ -353,6 +353,9 @@ jobs:
           }
           Get-Process -Name 'knoux-player-x' -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 2
+          $env:KNOUX_IMAGE_LIFECYCLE_EVIDENCE_ROOT = Join-Path $env:GITHUB_WORKSPACE '_temp/installed-image-lifecycle-evidence'
+          node tools/verify-image-studio-project-lifecycle.cjs --installed-executable $installedExecutable
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Image Studio lifecycle acceptance failed.' }
           Invoke-VisualAcceptance -Mode 'uninstall' -Argument '--uninstall-silent-test' -EvidenceName 'uninstall.json'
 
           $updateProcesses = @(Get-Process -Name 'Update' -ErrorAction SilentlyContinue)
@@ -360,6 +363,19 @@ jobs:
             $updateProcesses | Stop-Process -Force
             throw 'Squirrel Update.exe remained after visual installer acceptance.'
           }
+
+      - name: Preserve installed Image Studio lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-installed-image-lifecycle-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            _temp/installed-image-lifecycle-evidence/*/evidence.json
+            _temp/installed-image-lifecycle-evidence/*/*.png
+            _temp/installed-image-lifecycle-evidence/*/*.jpeg
+            _temp/installed-image-lifecycle-evidence/*/*.webp
+            _temp/installed-image-lifecycle-evidence/*/*.knouximage
 
       - uses: actions/upload-artifact@v4
         if: success()

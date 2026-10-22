@@ -41,6 +41,7 @@ No production release, deployment, tag or merge is authorized by this report. Th
 | `tests/integration/image-studio-project-lifecycle.test.ts` | Real service/disk/masked-pixel/restart/export acceptance without network calls |
 | `tools/verify-image-studio-project-lifecycle.cjs` | Actual Electron UI driver; automates only OS pickers and records failures |
 | `.github/workflows/full-rebuild-windows.yml` | Runs the UI driver against the existing built checkout and preserves evidence, including on failure; does not add another build |
+| `tools/installed-image-lifecycle-driver.cjs` | Drives the real installed EXE via Chromium CDP and the existing native Windows dialog helper; checks build and payload identity |
 
 The existing Image Studio store, retouch operations, masks, renderer, `syncRetouch` preload/IPC, `ImageStudioService`, persistence envelope, Sharp codecs and authorized file bridge are retained. No replacement editor or AI engine was introduced.
 
@@ -67,6 +68,9 @@ The existing Image Studio store, retouch operations, masks, renderer, `syncRetou
 | `npm test -- --runInBand tests/unit/neon-select.test.tsx` after the popup correction | PASS: 25 tests, including 4 new cases; existing mouse and keyboard behavior retained |
 | TypeScript and targeted ESLint after the popup correction | PASS, exit 0 |
 | Actual Electron mouse selection of JPEG and WebP | PASS after the popup correction; no export/inference claimed by this interaction-only check |
+| Complete local suite after the popup correction | PASS: 170 suites, 1473 tests, 327.02 s; zero failed/skipped |
+| Production renderer build after the popup correction | PASS: 2283 modules, 1 minute |
+| Windows Full Rebuild on `5c65f299baa53c364be6dad73843c3dd055f46f6` | PASS, including the full image UI lifecycle against the built source checkout |
 | `node node_modules/vite/bin/vite.js build --config vite.renderer.config.ts --outDir .vite/renderer/main_window` | PASS; 2283 modules, 2m 4s |
 | `node --check tools/verify-image-studio-project-lifecycle.cjs` | PASS |
 | Electron image lifecycle on Linux | FAILED at image import: independently reproduced native Sharp/libvips assertion; no full GUI-flow pass claimed |
@@ -76,6 +80,8 @@ The existing Image Studio store, retouch operations, masks, renderer, `syncRetou
 The full suite and additional integration test are separate invocations: 170 suites / 1469 tests passed across them, not a single 170-suite run. The initial slow integration attempt was stopped while optimizing byte comparison in the test; its replacement completed successfully without weakening pixel assertions.
 
 The 169-suite run predates the final select-popup correction. Its affected 25-test select suite and typecheck/lint were rerun successfully, and the complete candidate suite is rerun by Windows CI. The initial Windows UI check on `4c8305f` successfully imported, saved and exported a pixel-matching PNG, then failed on a wrong selector for the existing format control. Correcting the selector exposed and led to the real clipped-popup fix. Earlier failed runs are not reported as passes. The latest PR check results must be read on its current head.
+
+The final local rerun after the popup correction passed all 170 suites / 1473 tests. The Windows source-checkout journey then passed on `5c65f29`. The additional installed mode is gated separately and is not assumed to pass from that source-checkout result: it reuses the installer already built by CI, runs after repair and before uninstall, controls actual native Open/Save dialogs with the existing `slideshow-phase1-native-dialog.ps1`, and requires packaged build SHA and installed EXE hash to match the checkout/payload. It adds no production app test flag, weakens no fuse, and does not rebuild the installer a second time.
 
 `evidence.json` records the real service/file results. The test closes the backend, creates a new backend instance, reopens the saved project, and checks the masks/operations. This models backend restart; it is not an installed application restart.
 

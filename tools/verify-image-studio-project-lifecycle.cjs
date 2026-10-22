@@ -11,8 +11,12 @@ const os = require('node:os');
 const path = require('node:path');
 const { _electron } = require('playwright');
 const sharp = require('sharp');
+const { launchInstalledImageDriver, nativeImagePicker } = require('./installed-image-lifecycle-driver.cjs');
 
 const root = path.resolve(__dirname, '..');
+const installedIndex = process.argv.indexOf('--installed-executable');
+const installedExecutable = installedIndex < 0 ? null : process.argv[installedIndex + 1];
+assert.ok(installedIndex < 0 || installedExecutable, '--installed-executable requires a path');
 const evidenceRoot = process.env.KNOUX_IMAGE_LIFECYCLE_EVIDENCE_ROOT || os.tmpdir();
 fs.mkdirSync(evidenceRoot, { recursive: true });
 const evidence = fs.mkdtempSync(path.join(evidenceRoot, 'knoux-image-lifecycle-'));
@@ -21,6 +25,8 @@ const project = path.join(evidence, 'portrait.knouximage');
 const png = path.join(evidence, 'portrait-edited.png');
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 let app;
+let pendingNativePicker = null;
+let pickerSequence = 0;
 const report = {
   commit: cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
   runtime: `Electron source checkout on ${process.platform} (not packaged or installed acceptance)`,
@@ -29,7 +35,7 @@ const report = {
 };
 
 async function launch() {
-  app = await _electron.launch({
+  app = installedExecutable ? await launchInstalledImageDriver(installedExecutable, evidence, report) : await _electron.launch({
     executablePath: require('electron'), cwd: root,
     args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), '--disable-gpu', `--user-data-dir=${path.join(evidence, 'chromium')}`, root],
     env: { ...process.env, XDG_CONFIG_HOME: path.join(evidence, 'config') }, timeout: 60000,
@@ -37,7 +43,7 @@ async function launch() {
   app.process().stderr.on('data', chunk => {
     report.runtimeLog = `${report.runtimeLog || ''}${chunk}`.slice(-16000);
   });
-  await app.evaluate(({ dialog }) => {
+  if (!installedExecutable) await app.evaluate(({ dialog }) => {
     globalThis.__imageLifecycleOpen = [];
     globalThis.__imageLifecycleSave = [];
     dialog.showOpenDialog = async () => {
@@ -49,13 +55,24 @@ async function launch() {
       return { canceled: !file, filePath: file || undefined };
     };
   });
-  await app.evaluate(({ BrowserWindow }) => {
+  if (!installedExecutable) await app.evaluate(({ BrowserWindow }) => {
     for (const window of BrowserWindow.getAllWindows()) window.setSize(1440, 1000);
   });
   const page = await app.firstWindow();
   page.on('pageerror', error => console.log(`IMAGE_LIFECYCLE page-error ${error.message}`));
   page.setDefaultTimeout(30000);
   await page.waitForFunction(() => typeof window.knouxImageStudioAPI?.create === 'function');
+  if (installedExecutable) {
+    const build = await page.evaluate(() => window.knouxAPI.system.getBuildInfo());
+    assert.equal(build.packaged, true);
+    assert.equal(build.sha.toLowerCase(), report.commit.toLowerCase(), 'Installed build must match the checked-out candidate');
+    const expectedExecutable = path.join(root, 'out/Knoux X-win32-x64/knoux-player-x.exe');
+    assert.equal(hash(installedExecutable), hash(expectedExecutable), 'Installed executable must match the packaged payload');
+    report.runtime = 'Installed Windows app with actual native file dialogs';
+    report.installedBuild = build;
+    report.installedExecutable = installedExecutable;
+    report.installedExecutableSha256 = hash(installedExecutable);
+  }
   await page.locator('.app-shell').waitFor();
   await page.evaluate(() => window.knouxAPI.settings.get('workspace'));
   const skip = page.locator('.tour-skip');
@@ -74,12 +91,19 @@ async function launch() {
 }
 
 async function picker(kind, file) {
+  if (installedExecutable) {
+    if (pendingNativePicker) await pendingNativePicker;
+    pendingNativePicker = nativeImagePicker(root, app.process().pid, kind, file, evidence, ++pickerSequence);
+    pendingNativePicker.catch(error => { report.nativePickerError = error.message; });
+    return;
+  }
   await app.evaluate((_electron, { kind, file }) => {
     globalThis[kind === 'open' ? '__imageLifecycleOpen' : '__imageLifecycleSave'].push(file);
   }, { kind, file });
 }
 
 async function idle(page) {
+  if (pendingNativePicker) { await pendingNativePicker; pendingNativePicker = null; }
   await page.locator('.global-loading-overlay').waitFor({ state: 'hidden', timeout: 60000 });
   await page.waitForFunction(() => {
     const canvas = document.querySelector('canvas.image-studio-canvas');
@@ -199,6 +223,7 @@ async function main() {
   report.originalUnchanged = hash(fixture) === report.fixture.sha256;
   assert.equal(report.originalUnchanged, true);
   await page.screenshot({ path: path.join(evidence, 'reopened.png'), fullPage: true });
+  await app.close(); app = null;
   report.success = true;
 }
 

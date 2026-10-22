@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyInfo;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -180,8 +179,12 @@ public class KnouxVaultPlugin extends Plugin {
                 return info;
             }
             SecretKey key = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+            /* The Keystore key is a SECRET key. It is described through
+             * javax.crypto.SecretKeyFactory and the Android keystore
+             * KeyInfo: java.security.KeyFactory only understands asymmetric
+             * keys and would fail on every AES key. */
             SecretKeyFactory factory = SecretKeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
-            KeyInfo keyInfo = factory.getKeySpec(key, KeyInfo.class);
+            KeyInfo keyInfo = (KeyInfo) factory.getKeySpec(key, KeyInfo.class);
             boolean insideSecureHardware = false;
             try {
                 insideSecureHardware = keyInfo.isInsideSecureHardware();

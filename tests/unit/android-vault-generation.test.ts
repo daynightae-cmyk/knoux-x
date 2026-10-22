@@ -105,7 +105,33 @@ test('Android preparation installs the encrypted vault with a real keystore key'
     expect(plugin).toContain('import javax.crypto.SecretKeyFactory;');
     expect(plugin).not.toContain('import java.security.KeyFactory;');
     expect(plugin).not.toMatch(/\bKeyFactory\.getInstance/);
+    // java.security.KeyInfo does not exist on Android: the keystore KeyInfo
+    // does, and the secret key spec has to be cast to it.
+    expect(plugin).toContain('import android.security.keystore.KeyInfo;');
+    expect(plugin).not.toContain('import java.security.KeyInfo;');
+    expect(plugin).toContain('(KeyInfo) factory.getKeySpec(key, KeyInfo.class)');
     expect(core).toContain('keySecurity');
+    // The plugin only uses packages the Android runtime actually ships. A
+    // JDK-only class would fail the Android build and was never caught by
+    // the host suite, so the imports are checked here instead.
+    for (const forbidden of [
+      'import java.security.KeyInfo;',
+      'import java.security.KeyPair;',
+      'import java.security.cert.',
+      'import java.awt.',
+      'import java.beans.',
+      'import java.sql.',
+      'import java.applet.',
+      'import javax.naming.',
+      'import javax.rmi.',
+      'import javax.management.',
+      'import javax.swing.',
+      'import javax.imageio.',
+      'import java.util.stream.',
+      'import java.time.',
+    ]) {
+      expect(plugin).not.toContain(forbidden);
+    }
     // Plaintext cache copies are swept on lock and after a process kill.
     expect(plugin).toContain('load()');
     expect(plugin).toContain('clearPlayCache');

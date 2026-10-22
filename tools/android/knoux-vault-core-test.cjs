@@ -53,7 +53,7 @@ const sources = {
   'knoux-vault-core-test.java': 'KnouxVaultCoreTest.java',
 };
 for (const [template, className] of Object.entries(sources)) {
-  const source = fs.readFileSync(path.join(root, 'android', template), 'utf8').replace(/APP_PACKAGE/g, packageName);
+  const source = fs.readFileSync(path.join(root, template), 'utf8').replace(/APP_PACKAGE/g, packageName);
   fs.writeFileSync(path.join(sourceDir, className), source, 'utf8');
 }
 

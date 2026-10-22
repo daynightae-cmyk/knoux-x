@@ -27,7 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
+import java.security.KeyInfo;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,6 +35,7 @@ import java.util.List;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.json.JSONArray;
@@ -153,6 +154,11 @@ public class KnouxVaultPlugin extends Plugin {
      * Report the protection the device actually gives the KeyStore key. The
      * plugin never claims "hardware-backed" on its own: it asks KeyInfo and
      * exposes the answer, including "software" and "unknown".
+     *
+     * The key is a SECRET key, so it is described through
+     * javax.crypto.SecretKeyFactory. java.security.KeyFactory only
+     * understands asymmetric keys and would fail on every AES key, which
+     * would silently downgrade the reported protection to "unknown".
      */
     private JSObject keySecurity() {
         JSObject info = new JSObject();
@@ -174,27 +180,30 @@ public class KnouxVaultPlugin extends Plugin {
                 return info;
             }
             SecretKey key = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
-            KeyFactory factory = KeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
+            SecretKeyFactory factory = SecretKeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
             KeyInfo keyInfo = factory.getKeySpec(key, KeyInfo.class);
-            boolean hardwareBacked = false;
+            boolean insideSecureHardware = false;
             try {
-                hardwareBacked = keyInfo.isInsideSecureHardware();
+                insideSecureHardware = keyInfo.isInsideSecureHardware();
             } catch (Throwable ignored) {
                 /* some providers refuse the legacy query; the level below is authoritative */
             }
-            String level;
+            int securityLevel = KnouxVaultCore.SECURITY_LEVEL_UNKNOWN;
             if (Build.VERSION.SDK_INT >= 31) {
-                int securityLevel = keyInfo.getSecurityLevel();
-                if (securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX) level = "strongbox";
-                else if (securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT) level = "trusted-environment";
-                else if (securityLevel == KeyProperties.SECURITY_LEVEL_SOFTWARE) level = "software";
-                else level = "unknown";
-            } else {
-                level = hardwareBacked ? "trusted-environment" : "software";
+                try {
+                    int reported = keyInfo.getSecurityLevel();
+                    if (reported == KeyProperties.SECURITY_LEVEL_STRONGBOX) securityLevel = KnouxVaultCore.SECURITY_LEVEL_STRONGBOX;
+                    else if (reported == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT) securityLevel = KnouxVaultCore.SECURITY_LEVEL_TRUSTED_ENVIRONMENT;
+                    else if (reported == KeyProperties.SECURITY_LEVEL_SOFTWARE) securityLevel = KnouxVaultCore.SECURITY_LEVEL_SOFTWARE;
+                } catch (Throwable ignored) {
+                    /* the provider does not report a level; the hardware flag is the only evidence */
+                    securityLevel = KnouxVaultCore.SECURITY_LEVEL_UNKNOWN;
+                }
             }
+            KnouxVaultCore.KeySecurity security = KnouxVaultCore.keySecurity(Build.VERSION.SDK_INT, securityLevel, insideSecureHardware);
             info.put("available", true);
-            info.put("securityLevel", level);
-            info.put("hardwareBacked", hardwareBacked);
+            info.put("securityLevel", security.level);
+            info.put("hardwareBacked", security.hardwareBacked);
             return info;
         } catch (Throwable error) {
             info.put("available", false);
@@ -263,10 +272,19 @@ public class KnouxVaultPlugin extends Plugin {
     private static final class LoadedIndex {
         private final JSONArray items;
         private final boolean recovered;
+        private final boolean backupHealthy;
+        /**
+         * True when the index was rebuilt from the media containers: the
+         * names, MIME types and timestamps are placeholders, not the metadata
+         * the user originally imported.
+         */
+        private final boolean metadataLimited;
 
-        private LoadedIndex(JSONArray items, boolean recovered) {
+        private LoadedIndex(JSONArray items, boolean recovered, boolean backupHealthy, boolean metadataLimited) {
             this.items = items;
             this.recovered = recovered;
+            this.backupHealthy = backupHealthy;
+            this.metadataLimited = metadataLimited;
         }
     }
 
@@ -285,20 +303,63 @@ public class KnouxVaultPlugin extends Plugin {
                 }
             });
         } catch (KnouxVaultCore.CorruptIndexException corrupt) {
+            /* The index is gone but encrypted media is still on the device.
+             * The vault is rebuilt from the media it can still authenticate,
+             * so the items are never silently replaced by an empty list. */
+            if (corrupt.orphanMedia) {
+                LoadedIndex rebuilt = rebuildIndexFromMedia(key);
+                if (rebuilt != null) return rebuilt;
+            }
             throw new IllegalStateException("The vault index is corrupted and its verified backup could not restore it.", corrupt);
         }
-        if (snapshot == null) return new LoadedIndex(new JSONArray(), false);
+        if (snapshot == null) return new LoadedIndex(new JSONArray(), false, false, false);
         if (parsed[0] == null) {
             parsed[0] = new JSONArray(new String(KnouxVaultCore.decrypt(key, snapshot.container), StandardCharsets.UTF_8));
         }
-        return new LoadedIndex(parsed[0], snapshot.recoveredFromBackup);
+        return new LoadedIndex(parsed[0], snapshot.recoveredFromBackup, snapshot.backupHealthy, false);
     }
 
-    private boolean writeIndex(SecretKey key, JSONArray index) throws Exception {
+    /**
+     * Rebuild the index from the encrypted media that is still on the device.
+     *
+     * Only media that authenticates with the vault key is listed, so a
+     * foreign or half written file can never enter the index. The rebuilt
+     * index is committed durably, so the recovery happens exactly once.
+     */
+    private LoadedIndex rebuildIndexFromMedia(SecretKey key) {
+        try {
+            List<String> ids = KnouxVaultCore.mediaIds(vaultDir());
+            if (ids.isEmpty()) return null;
+            JSONArray index = new JSONArray();
+            for (String id : ids) {
+                File media = new File(vaultDir(), id + MEDIA_SUFFIX);
+                if (!KnouxVaultCore.authenticates(key, media)) continue;
+                JSONObject entry = new JSONObject();
+                entry.put("id", id);
+                entry.put("name", "Recovered media");
+                entry.put("mime", "application/octet-stream");
+                entry.put("size", media.length());
+                entry.put("duration", 0);
+                entry.put("createdAt", media.lastModified());
+                entry.put("hasThumbnail", new File(vaultDir(), id + THUMB_SUFFIX).isFile());
+                index.put(entry);
+            }
+            if (index.length() == 0) return null;
+            KnouxVaultCore.IndexCommit commit = commitIndex(key, index);
+            if (!commit.durable()) return null;
+            /* Names, MIME types and timestamps are placeholders: the recovery
+             * must say so instead of presenting invented metadata as real. */
+            return new LoadedIndex(index, true, true, true);
+        } catch (Exception error) {
+            return null;
+        }
+    }
+
+    private KnouxVaultCore.IndexCommit commitIndex(SecretKey key, JSONArray index) throws Exception {
         byte[] container = KnouxVaultCore.encrypt(key, index.toString().getBytes(StandardCharsets.UTF_8));
-        boolean backupOk = KnouxVaultCore.writeIndex(vaultDir(), container);
-        indexBackupHealthy = backupOk;
-        return backupOk;
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(vaultDir(), container);
+        indexBackupHealthy = commit.durable();
+        return commit;
     }
 
     private String requireItemId(PluginCall call) {
@@ -439,12 +500,19 @@ public class KnouxVaultPlugin extends Plugin {
             result.put("keyAvailable", keyAvailable);
             result.put("lockedOutForMs", lockedOut() ? lockedUntil() : 0);
             String indexState;
+            String indexRecoverySource = "none";
             int itemCount = 0;
+            boolean indexBackupVerified = false;
             if (sessionKey != null) {
                 try {
                     LoadedIndex loaded = readIndex(sessionKey);
                     itemCount = loaded.items.length();
+                    indexBackupVerified = loaded.backupHealthy;
                     indexState = loaded.recovered ? "recovered" : "ok";
+                    /* The origin of the recovered index is reported, never
+                     * guessed: an index rebuilt from surviving media was NOT
+                     * restored from the verified backup. */
+                    indexRecoverySource = loaded.metadataLimited ? "media" : (loaded.recovered ? "backup" : "none");
                 } catch (IllegalStateException corrupted) {
                     indexState = "corrupted";
                 } catch (Exception unreadable) {
@@ -455,9 +523,12 @@ public class KnouxVaultPlugin extends Plugin {
             }
             result.put("itemCount", itemCount);
             result.put("indexState", indexState);
-            /* The flag alone is process local; the file has to exist too. */
+            result.put("indexRecoverySource", indexRecoverySource);
+            /* When the vault is unlocked the backup is authenticated; while
+             * it is locked only its presence and the last commit result are
+             * known, so a healthy backup is never claimed without evidence. */
             boolean backupExists = created && new File(vaultDir(), KnouxVaultCore.INDEX_BACKUP).isFile();
-            result.put("indexBackupHealthy", indexBackupHealthy && backupExists);
+            result.put("indexBackupHealthy", sessionKey != null ? indexBackupVerified : (indexBackupHealthy && backupExists));
             JSObject security = keySecurity();
             result.put("keySecurityAvailable", security.optBoolean("available", false));
             result.put("keySecurityLevel", security.optString("securityLevel", "unknown"));
@@ -568,6 +639,7 @@ public class KnouxVaultPlugin extends Plugin {
                 result.put("token", sessionToken);
                 result.put("items", itemsPayload(loaded.items));
                 result.put("indexRecovered", loaded.recovered);
+                result.put("recoveredMetadataLimited", loaded.metadataLimited);
                 call.resolve(result);
             } catch (Exception error) {
                 call.reject("The vault could not be unlocked on this device: " + String.valueOf(error.getMessage()), error);
@@ -634,6 +706,7 @@ public class KnouxVaultPlugin extends Plugin {
                 JSObject result = new JSObject();
                 result.put("items", itemsPayload(loaded.items));
                 result.put("indexRecovered", loaded.recovered);
+                result.put("recoveredMetadataLimited", loaded.metadataLimited);
                 call.resolve(result);
             } catch (Exception error) {
                 call.reject("The vault could not be read.", error);
@@ -657,7 +730,7 @@ public class KnouxVaultPlugin extends Plugin {
             File media = new File(vaultDir(), id + MEDIA_SUFFIX);
             File mediaPart = new File(vaultDir(), id + MEDIA_SUFFIX + ".part");
             File thumb = new File(vaultDir(), id + THUMB_SUFFIX);
-            boolean indexCommitted = false;
+            KnouxVaultCore.IndexCommit commit = null;
             try {
                 LoadedIndex loaded = readIndex(key);
                 Uri uri = Uri.parse(source);
@@ -683,22 +756,36 @@ public class KnouxVaultPlugin extends Plugin {
                 entry.put("createdAt", System.currentTimeMillis());
                 entry.put("hasThumbnail", thumbnail);
                 index.put(entry);
-                boolean backupOk = writeIndex(key, index);
-                indexCommitted = true;
+                /* The import is only complete when the index AND its verified
+                 * backup hold the new entry. A half committed index would
+                 * leave the media unreferenced on one side. */
+                commit = commitIndex(key, index);
+                if (!commit.durable()) {
+                    throw new IllegalStateException("The vault index could not be committed with its verified backup.", commit.error);
+                }
                 JSObject result = new JSObject();
                 result.put("id", id);
                 result.put("bytes", media.length());
                 result.put("items", itemsPayload(index));
                 result.put("indexRecovered", loaded.recovered);
-                result.put("indexBackupHealthy", backupOk);
+                result.put("recoveredMetadataLimited", loaded.metadataLimited);
+                result.put("indexBackupHealthy", commit.durable());
                 call.resolve(result);
             } catch (Exception error) {
-                /* A failed import must not leave an unreferenced container,
-                 * but a committed index entry must keep its media. */
-                if (!indexCommitted) {
+                /* The new container may only be discarded when both index
+                 * files are proven to hold the state from before this import.
+                 * A commit that left the pair split means the published
+                 * backup may reference the new item, so its encrypted media
+                 * must survive even though the import is reported as failed. */
+                if (KnouxVaultCore.mayDiscardContainer(commit)) {
                     media.delete();
                     mediaPart.delete();
                     thumb.delete();
+                }
+                if (commit != null && !commit.consistent) {
+                    indexBackupHealthy = false;
+                    call.reject("The import could not be committed and the vault index needs recovery. The encrypted media was kept on this device.", error);
+                    return;
                 }
                 call.reject("The media could not be encrypted into the vault.", error);
             }
@@ -937,13 +1024,23 @@ public class KnouxVaultPlugin extends Plugin {
                     new File(vaultDir(), id + THUMB_SUFFIX + ".write"),
                 };
                 /* Index first: when the commit fails, not one encrypted byte
-                 * has been removed yet. */
-                KnouxVaultCore.DeleteReport report = KnouxVaultCore.deleteWithIndexCommit(files, new KnouxVaultCore.IndexCommitter() {
-                    @Override public void commit() throws Exception {
-                        writeIndex(key, kept);
-                    }
-                });
+                 * has been removed yet. The commit is only accepted when the
+                 * primary AND the verified backup hold the new index, so a
+                 * later recovery can never resurrect a deleted item whose
+                 * media is already gone. */
+                KnouxVaultCore.DeleteReport report = KnouxVaultCore.deleteWithDurableIndex(
+                    vaultDir(),
+                    KnouxVaultCore.encrypt(key, kept.toString().getBytes(StandardCharsets.UTF_8)),
+                    files);
                 if (!report.indexCommitted) {
+                    if (!report.consistent) {
+                        /* The failed commit left the pair split. Nothing was
+                         * deleted, and the degraded state is reported instead
+                         * of pretending the index is sound. */
+                        indexBackupHealthy = false;
+                        call.reject("The vault item was not removed. Its encrypted file is still on this device, and the vault index needs recovery.", report.error);
+                        return;
+                    }
                     call.reject("The vault item was not removed. Its encrypted file is still on this device.", report.error);
                     return;
                 }
@@ -955,6 +1052,7 @@ public class KnouxVaultPlugin extends Plugin {
                 result.put("filesRemoved", report.filesRemoved + cache.removed);
                 result.put("filesRetained", report.filesRetained + cache.failed);
                 result.put("indexRecovered", loaded.recovered);
+                result.put("recoveredMetadataLimited", loaded.metadataLimited);
                 call.resolve(result);
             } catch (Exception error) {
                 call.reject("The vault item could not be removed.", error);

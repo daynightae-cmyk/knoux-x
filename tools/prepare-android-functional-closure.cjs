@@ -640,7 +640,7 @@ const checks = [
   ['KnouxVaultPlugin.java', 'AndroidKeyStore'],
   ['KnouxVaultPlugin.java', 'KnouxVaultCore.derivePinKey'],
   ['KnouxVaultPlugin.java', 'KnouxVaultCore.decryptToVerifiedFile'],
-  ['KnouxVaultPlugin.java', 'KnouxVaultCore.deleteWithIndexCommit'],
+  ['KnouxVaultPlugin.java', 'KnouxVaultCore.deleteWithDurableIndex'],
   ['KnouxVaultCore.java', 'public final class KnouxVaultCore'],
   ['KnouxVaultCore.java', 'AES/GCM/NoPadding'],
   ['KnouxVaultCore.java', 'PBKDF2withHmacSHA256'],

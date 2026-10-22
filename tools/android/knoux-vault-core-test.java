@@ -89,6 +89,9 @@ public final class KnouxVaultCoreTest {
             run("a doubly corrupt index fails closed without destroying evidence", new Case() {
                 @Override public void run() throws Exception { doublyCorruptIndexFailsClosed(); }
             });
+            run("a second damaged index never overwrites the preserved evidence", new Case() {
+                @Override public void run() throws Exception { damagedEvidenceIsNeverOverwritten(); }
+            });
             run("a missing index is reported as absent", new Case() {
                 @Override public void run() throws Exception { missingIndex(); }
             });
@@ -112,6 +115,51 @@ public final class KnouxVaultCoreTest {
             });
             run("plaintext cache cleanup reports files it could not remove", new Case() {
                 @Override public void run() throws Exception { cleanupReportsFailure(); }
+            });
+            run("a missing index with media on the device is never an empty vault", new Case() {
+                @Override public void run() throws Exception { missingIndexWithMediaIsNotEmpty(); }
+            });
+            run("a vault that never held an index is still an empty vault", new Case() {
+                @Override public void run() throws Exception { emptyVaultWithoutMediaIsEmpty(); }
+            });
+            run("an interrupted write leaves the committed index and its backup intact", new Case() {
+                @Override public void run() throws Exception { interruptedWriteKeepsBothFiles(); }
+            });
+            run("a failed backup write keeps the previous index and removes nothing", new Case() {
+                @Override public void run() throws Exception { failedBackupWriteKeepsPreviousIndex(); }
+            });
+            run("a failed primary write leaves no backup the primary cannot reach", new Case() {
+                @Override public void run() throws Exception { failedPrimaryWriteRemovesBackup(); }
+            });
+            run("a failed primary write rolls the backup back to the previous index", new Case() {
+                @Override public void run() throws Exception { failedPrimaryWriteRollsBackBackup(); }
+            });
+            run("a delete with a failed commit keeps every encrypted file", new Case() {
+                @Override public void run() throws Exception { deleteWithFailedCommitKeepsMedia(); }
+            });
+            run("a delete removes the media only after a durable commit", new Case() {
+                @Override public void run() throws Exception { deleteRemovesMediaAfterDurableCommit(); }
+            });
+            run("a split index pair is reported as inconsistent", new Case() {
+                @Override public void run() throws Exception { splitIndexPairIsReportedInconsistent(); }
+            });
+            run("the container of a split commit is never discarded", new Case() {
+                @Override public void run() throws Exception { containerOfASplitCommitIsNeverDiscarded(); }
+            });
+            run("a rolled back commit leaves the index pair consistent", new Case() {
+                @Override public void run() throws Exception { rolledBackCommitLeavesThePairConsistent(); }
+            });
+            run("a durable commit holds the new index in both files", new Case() {
+                @Override public void run() throws Exception { durableCommitHoldsBothIndexFiles(); }
+            });
+            run("a delete with a split index pair keeps every encrypted file", new Case() {
+                @Override public void run() throws Exception { deleteWithASplitPairKeepsEveryFile(); }
+            });
+            run("the reported key protection is what the device actually reports", new Case() {
+                @Override public void run() throws Exception { keySecurityReportsDeviceLevel(); }
+            });
+            run("media that does not authenticate is never listed", new Case() {
+                @Override public void run() throws Exception { unauthenticatedMediaIsNotListed(); }
             });
         } finally {
             KnouxVaultCore.clearDirectory(root);
@@ -352,6 +400,31 @@ public final class KnouxVaultCoreTest {
         require(Arrays.equals(backupGarbage, KnouxVaultCore.readFile(new File(dir, KnouxVaultCore.INDEX_BACKUP))), "the corrupt backup is not destroyed");
     }
 
+    private static void damagedEvidenceIsNeverOverwritten() throws Exception {
+        File dir = dir("index-evidence-preserved");
+        SecretKey key = key();
+        KnouxVaultCore.writeIndex(dir, KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"d\"}]")));
+        byte[] firstDamage = bytes("first damaged index");
+        byte[] secondDamage = bytes("second damaged index");
+        KnouxVaultCore.writeDurably(new File(dir, KnouxVaultCore.INDEX_FILE), firstDamage);
+        KnouxVaultCore.readIndex(dir, validator(key, "["));
+        File evidence = new File(dir, KnouxVaultCore.INDEX_QUARANTINE);
+        require(evidence.isFile(), "the damaged index is kept as evidence");
+        require(Arrays.equals(firstDamage, KnouxVaultCore.readFile(evidence)), "the first evidence holds the first damaged index");
+        /* A second damaged index must never overwrite the first evidence: it
+         * is the only copy of what the device held before the last failure. */
+        KnouxVaultCore.writeDurably(new File(dir, KnouxVaultCore.INDEX_FILE), secondDamage);
+        KnouxVaultCore.readIndex(dir, validator(key, "["));
+        require(Arrays.equals(firstDamage, KnouxVaultCore.readFile(evidence)), "the first evidence is not overwritten");
+        File secondEvidence = new File(dir, KnouxVaultCore.INDEX_QUARANTINE + ".1");
+        require(secondEvidence.isFile(), "the second damaged index is kept beside the first evidence");
+        require(Arrays.equals(secondDamage, KnouxVaultCore.readFile(secondEvidence)), "the second evidence holds the second damaged index");
+        /* The same damage seen twice does not pile up evidence copies. */
+        KnouxVaultCore.writeDurably(new File(dir, KnouxVaultCore.INDEX_FILE), secondDamage);
+        KnouxVaultCore.readIndex(dir, validator(key, "["));
+        require(!new File(dir, KnouxVaultCore.INDEX_QUARANTINE + ".2").exists(), "identical evidence is not duplicated");
+    }
+
     private static void missingIndex() throws Exception {
         File dir = dir("index-missing");
         KnouxVaultCore.IndexSnapshot snapshot = KnouxVaultCore.readIndex(dir, validator(key(), "["));
@@ -471,6 +544,354 @@ public final class KnouxVaultCoreTest {
         require(report.failed >= 1, "at least one file is reported as retained");
         KnouxVaultCore.clearDirectory(locked);
         locked.delete();
+    }
+
+    /**
+     * The vault is only empty when it never had an index. A missing index
+     * with media on the device must never be reported as a fresh vault: that
+     * would hide the media and invite an overwrite of the recovery point.
+     */
+    private static void missingIndexWithMediaIsNotEmpty() throws Exception {
+        File dir = dir("index-missing-with-media");
+        SecretKey key = key();
+        File media = new File(dir, UUID.randomUUID().toString() + ".knvx");
+        KnouxVaultCore.writeDurably(media, KnouxVaultCore.encrypt(key, bytes("ciphertext")));
+        boolean reported = false;
+        try {
+            KnouxVaultCore.readIndex(dir, validator(key, "["));
+        } catch (KnouxVaultCore.CorruptIndexException expected) {
+            reported = true;
+            require(expected.orphanMedia, "the lost index is reported as an orphan, not as corruption");
+        }
+        require(reported, "a lost index with media on the device never reads as an empty vault");
+        require(media.isFile(), "the media that is still on the device is never touched");
+    }
+
+    /** A missing index with no media at all is still a genuinely empty vault. */
+    private static void emptyVaultWithoutMediaIsEmpty() throws Exception {
+        File dir = dir("index-empty-vault");
+        KnouxVaultCore.IndexSnapshot snapshot = KnouxVaultCore.readIndex(dir, validator(key(), "["));
+        require(snapshot == null, "a vault that never had an index is still empty");
+    }
+
+    /**
+     * An interrupted write leaves a temporary file behind. The committed
+     * index AND its verified backup must both survive it, because they are
+     * the recovery pair.
+     */
+    private static void interruptedWriteKeepsBothFiles() throws Exception {
+        File dir = dir("index-interrupted-both");
+        SecretKey key = key();
+        byte[] container = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"interrupted\"}]"));
+        KnouxVaultCore.writeIndex(dir, container);
+        KnouxVaultCore.writeDurably(new File(dir, KnouxVaultCore.INDEX_TEMP), bytes("garbage from a killed process"));
+        KnouxVaultCore.writeDurably(new File(dir, KnouxVaultCore.INDEX_BACKUP_TEMP), bytes("garbage from a killed process"));
+        KnouxVaultCore.IndexSnapshot snapshot = KnouxVaultCore.readIndex(dir, validator(key, "["));
+        require(snapshot != null, "the index is still readable after an interrupted write");
+        require(snapshot.interruptedWriteDiscarded, "the interrupted write is reported");
+        require(!new File(dir, KnouxVaultCore.INDEX_TEMP).exists(), "the interrupted temp is discarded");
+        require(!new File(dir, KnouxVaultCore.INDEX_BACKUP_TEMP).exists(), "the interrupted backup temp is discarded");
+        require(Arrays.equals(container, snapshot.container), "the committed index is untouched");
+        require(new File(dir, KnouxVaultCore.INDEX_BACKUP).isFile(), "the verified backup survives the interrupted write");
+        require(Arrays.equals(container, KnouxVaultCore.readFile(new File(dir, KnouxVaultCore.INDEX_BACKUP))), "the backup still holds the committed index");
+    }
+
+    /**
+     * Failure injection: the backup write fails. The primary must keep the
+     * previous index, so the pair still describes the same state, and no
+     * media may be removed.
+     */
+    private static void failedBackupWriteKeepsPreviousIndex() throws Exception {
+        File dir = dir("index-backup-failure");
+        SecretKey key = key();
+        byte[] previous = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"previous\"}]"));
+        KnouxVaultCore.writeIndex(dir, previous);
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        /* The backup path is occupied by a directory, so the backup write
+         * cannot succeed. */
+        File backup = new File(dir, KnouxVaultCore.INDEX_BACKUP);
+        require(backup.delete(), "the backup is removed for the injection");
+        require(backup.mkdirs(), "the backup path is occupied by a directory");
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next);
+        require(!commit.durable(), "a failed backup write is never a durable commit");
+        require(!commit.indexCommitted, "the primary index is not advanced");
+        require(commit.consistent, "the index pair still describes the same state");
+        require(Arrays.equals(previous, KnouxVaultCore.readFile(new File(dir, KnouxVaultCore.INDEX_FILE))), "the primary still holds the previous index");
+    }
+
+    /**
+     * Failure injection: the primary write fails after the backup was
+     * published. The backup must not be left holding a state the primary
+     * cannot reach, because a recovery from it would resurrect an item
+     * whose media was already removed.
+     */
+    private static void failedPrimaryWriteRemovesBackup() throws Exception {
+        File dir = dir("index-primary-failure-fresh");
+        SecretKey key = key();
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        /* The primary path is occupied by a directory, so the primary write
+         * cannot succeed. */
+        File primary = new File(dir, KnouxVaultCore.INDEX_FILE);
+        require(primary.mkdirs(), "the primary path is occupied by a directory");
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next);
+        require(!commit.durable(), "a failed primary write is never a durable commit");
+        require(!commit.indexCommitted, "the primary index is not advanced");
+        require(!commit.backupCommitted, "the backup does not claim a state the primary cannot reach");
+        require(commit.consistent, "the index pair still describes the same state");
+        require(!new File(dir, KnouxVaultCore.INDEX_BACKUP).isFile(), "no backup is left behind");
+    }
+
+    /**
+     * Failure injection on a vault that already has an index: the primary
+     * write fails after the backup was published, and the backup is rolled
+     * back to the previous index so the pair stays consistent.
+     */
+    private static void failedPrimaryWriteRollsBackBackup() throws Exception {
+        if (isWindows()) {
+            System.out.println("[SKIP] replacing an existing index file requires POSIX rename semantics; CI proves it on Linux");
+            return;
+        }
+        File dir = dir("index-primary-failure");
+        SecretKey key = key();
+        byte[] previous = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"previous\"}]"));
+        KnouxVaultCore.writeIndex(dir, previous);
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        /* The primary path is occupied by a directory, so the primary write
+         * cannot succeed. */
+        File primary = new File(dir, KnouxVaultCore.INDEX_FILE);
+        require(primary.delete(), "the primary is removed for the injection");
+        require(primary.mkdirs(), "the primary path is occupied by a directory");
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next);
+        require(!commit.durable(), "a failed primary write is never a durable commit");
+        require(!commit.indexCommitted, "the primary index is not advanced");
+        File backup = new File(dir, KnouxVaultCore.INDEX_BACKUP);
+        require(backup.isFile(), "the backup is a file again after the rollback");
+        require(Arrays.equals(previous, KnouxVaultCore.readFile(backup)), "the backup was rolled back to the previous index");
+    }
+
+    /**
+     * A deletion may only remove encrypted media when the index AND its
+     * verified backup both hold the new state. Otherwise a later recovery
+     * could resurrect an item whose media is already gone.
+     */
+    private static void deleteWithFailedCommitKeepsMedia() throws Exception {
+        File dir = dir("delete-failed-commit");
+        SecretKey key = key();
+        File media = new File(dir, UUID.randomUUID().toString() + ".knvx");
+        File thumbnail = new File(dir, UUID.randomUUID().toString() + ".thumb.knvx");
+        KnouxVaultCore.writeDurably(media, bytes("ciphertext"));
+        KnouxVaultCore.writeDurably(thumbnail, bytes("thumbnail ciphertext"));
+        byte[] container = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"kept\"}]"));
+        KnouxVaultCore.writeIndex(dir, container);
+        /* The backup write now fails, so the commit cannot be durable. */
+        File backup = new File(dir, KnouxVaultCore.INDEX_BACKUP);
+        require(backup.delete(), "the backup is removed for the injection");
+        require(backup.mkdirs(), "the backup path is occupied by a directory");
+        KnouxVaultCore.DeleteReport report = KnouxVaultCore.deleteWithDurableIndex(dir, container, new File[] { media, thumbnail });
+        require(!report.indexCommitted, "the deletion is not committed");
+        require(media.isFile(), "the encrypted media survives a failed commit");
+        require(thumbnail.isFile(), "the encrypted thumbnail survives a failed commit");
+        require(report.filesRemoved == 0, "nothing is reported as removed");
+    }
+
+    /** A durable commit is the only thing that may remove encrypted media. */
+    private static void deleteRemovesMediaAfterDurableCommit() throws Exception {
+        if (isWindows()) {
+            System.out.println("[SKIP] replacing an existing index file requires POSIX rename semantics; CI proves it on Linux");
+            return;
+        }
+        File dir = dir("delete-durable-commit");
+        SecretKey key = key();
+        File media = new File(dir, UUID.randomUUID().toString() + ".knvx");
+        File thumbnail = new File(dir, UUID.randomUUID().toString() + ".thumb.knvx");
+        KnouxVaultCore.writeDurably(media, bytes("ciphertext"));
+        KnouxVaultCore.writeDurably(thumbnail, bytes("thumbnail ciphertext"));
+        byte[] first = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"first\"}]"));
+        KnouxVaultCore.writeIndex(dir, first);
+        byte[] second = KnouxVaultCore.encrypt(key, bytes("[]"));
+        KnouxVaultCore.DeleteReport report = KnouxVaultCore.deleteWithDurableIndex(dir, second, new File[] { media, thumbnail });
+        require(report.indexCommitted, "the durable commit is reported as committed");
+        require(!media.exists() && !thumbnail.exists(), "the encrypted files are removed after the durable commit");
+        require(report.filesRemoved == 2 && report.filesRetained == 0, "the report matches the disk");
+        KnouxVaultCore.IndexSnapshot snapshot = KnouxVaultCore.readIndex(dir, validator(key, "["));
+        require(snapshot != null, "the index is readable after the deletion");
+        require(!snapshot.recoveredFromBackup, "the deletion did not need a recovery");
+    }
+
+    /**
+     * A commit whose backup was published but whose primary failed, and
+     * whose rollback failed as well, leaves the two index files describing
+     * different states. That is reported as inconsistent, never as a success.
+     *
+     * The failure is injected at exact steps, so the case is the same on
+     * every platform.
+     */
+    private static void splitIndexPairIsReportedInconsistent() throws Exception {
+        File dir = dir("index-split-pair");
+        SecretKey key = key();
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next, new KnouxVaultCore.CommitFailureInjector() {
+            @Override public void afterBackupPublished() throws Exception {
+                throw new IllegalStateException("the primary publication fails");
+            }
+            @Override public void beforeBackupRestore() throws Exception {
+                throw new IllegalStateException("the rollback fails");
+            }
+        });
+        require(!commit.indexCommitted, "the primary index is not advanced");
+        require(commit.backupCommitted, "the published backup is reported");
+        require(!commit.consistent, "the split pair is reported as inconsistent");
+        require(!commit.durable(), "a split pair is never a durable commit");
+        require(commit.error != null, "the failure is reported to the caller");
+        File backup = new File(dir, KnouxVaultCore.INDEX_BACKUP);
+        require(backup.isFile(), "the published backup is still on the device");
+        require(Arrays.equals(next, KnouxVaultCore.readFile(backup)), "the published backup holds the new index");
+    }
+
+    /**
+     * The rule that keeps encrypted user data alive: a container written for
+     * a failed commit may only be discarded when both index files are proven
+     * to hold the previous state. A split pair keeps the container, because
+     * the published backup may still list the item whose only copy of bytes
+     * is that container.
+     *
+     * The cleanup is applied exactly as the plugin applies it, so this case
+     * proves the rule end to end.
+     */
+    private static void containerOfASplitCommitIsNeverDiscarded() throws Exception {
+        File dir = dir("import-split-cleanup");
+        SecretKey key = key();
+        String id = UUID.randomUUID().toString();
+        File media = new File(dir, id + ".knvx");
+        KnouxVaultCore.writeDurably(media, KnouxVaultCore.encrypt(key, bytes("the imported media")));
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"" + id + "\"}]"));
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next, new KnouxVaultCore.CommitFailureInjector() {
+            @Override public void afterBackupPublished() throws Exception {
+                throw new IllegalStateException("the primary publication fails");
+            }
+            @Override public void beforeBackupRestore() throws Exception {
+                throw new IllegalStateException("the rollback fails");
+            }
+        });
+        require(!KnouxVaultCore.mayDiscardContainer(commit), "a container of a split commit is never discardable");
+        /* The cleanup the plugin performs after a failed import. */
+        if (KnouxVaultCore.mayDiscardContainer(commit)) media.delete();
+        require(media.isFile(), "the encrypted media of a split commit is kept on the device");
+    }
+
+    /**
+     * A commit that fails on the primary but rolls the backup back leaves
+     * both index files holding the previous state, so the container of the
+     * failed commit is unreachable and may be discarded.
+     */
+    private static void rolledBackCommitLeavesThePairConsistent() throws Exception {
+        File dir = dir("index-rolled-back");
+        SecretKey key = key();
+        byte[] next = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, next, new KnouxVaultCore.CommitFailureInjector() {
+            @Override public void afterBackupPublished() throws Exception {
+                throw new IllegalStateException("the primary publication fails");
+            }
+            @Override public void beforeBackupRestore() throws Exception {
+                /* the rollback is allowed to run */
+            }
+        });
+        require(!commit.indexCommitted, "the primary index is not advanced");
+        require(!commit.backupCommitted, "the rolled back backup no longer holds the new state");
+        require(commit.consistent, "the rolled back pair describes one state");
+        require(!commit.durable(), "a rolled back commit is never durable");
+        require(KnouxVaultCore.mayDiscardContainer(commit), "a container nobody references may be discarded");
+        require(!new File(dir, KnouxVaultCore.INDEX_BACKUP).isFile(), "the rolled back backup is gone");
+    }
+
+    /**
+     * A durable commit is the only state in which both index files hold the
+     * new index. Its container is referenced, so it is never discardable.
+     */
+    private static void durableCommitHoldsBothIndexFiles() throws Exception {
+        File dir = dir("index-durable-commit");
+        SecretKey key = key();
+        byte[] container = KnouxVaultCore.encrypt(key, bytes("[{\"id\":\"next\"}]"));
+        KnouxVaultCore.IndexCommit commit = KnouxVaultCore.commitIndex(dir, container);
+        require(commit.indexCommitted, "the primary index is committed");
+        require(commit.backupCommitted, "the verified backup is committed");
+        require(commit.consistent, "a durable commit describes one state");
+        require(commit.durable(), "both index files hold the new index");
+        require(!KnouxVaultCore.mayDiscardContainer(commit), "a referenced container is never discardable");
+        require(Arrays.equals(container, KnouxVaultCore.readFile(new File(dir, KnouxVaultCore.INDEX_FILE))), "the primary holds the new index");
+        require(Arrays.equals(container, KnouxVaultCore.readFile(new File(dir, KnouxVaultCore.INDEX_BACKUP))), "the backup holds the new index");
+    }
+
+    /**
+     * A deletion whose commit left the pair split keeps every encrypted file
+     * and reports the degraded state, instead of pretending the vault is
+     * sound.
+     */
+    private static void deleteWithASplitPairKeepsEveryFile() throws Exception {
+        File dir = dir("delete-split-pair");
+        SecretKey key = key();
+        File media = new File(dir, UUID.randomUUID().toString() + ".knvx");
+        File thumbnail = new File(dir, UUID.randomUUID().toString() + ".thumb.knvx");
+        KnouxVaultCore.writeDurably(media, bytes("ciphertext"));
+        KnouxVaultCore.writeDurably(thumbnail, bytes("thumbnail ciphertext"));
+        byte[] container = KnouxVaultCore.encrypt(key, bytes("[]"));
+        KnouxVaultCore.DeleteReport report = KnouxVaultCore.deleteWithDurableIndex(dir, container, new File[] { media, thumbnail }, new KnouxVaultCore.CommitFailureInjector() {
+            @Override public void afterBackupPublished() throws Exception {
+                throw new IllegalStateException("the primary publication fails");
+            }
+            @Override public void beforeBackupRestore() throws Exception {
+                throw new IllegalStateException("the rollback fails");
+            }
+        });
+        require(!report.indexCommitted, "the deletion is not committed");
+        require(!report.consistent, "the split pair is reported as degraded");
+        require(media.isFile(), "the encrypted media survives a split commit");
+        require(thumbnail.isFile(), "the encrypted thumbnail survives a split commit");
+        require(report.filesRemoved == 0, "nothing is reported as removed");
+    }
+
+    /**
+     * The reported protection is the one the device states. A key that the
+     * device reports as software is never claimed to be in hardware, and a
+     * provider that refuses to answer is never claimed to be strong.
+     */
+    private static void keySecurityReportsDeviceLevel() throws Exception {
+        KnouxVaultCore.KeySecurity strongbox = KnouxVaultCore.keySecurity(31, KnouxVaultCore.SECURITY_LEVEL_STRONGBOX, true);
+        require("strongbox".equals(strongbox.level), "a reported strongbox level is reported as strongbox");
+        require(strongbox.hardwareBacked, "a strongbox key is hardware backed");
+        KnouxVaultCore.KeySecurity trusted = KnouxVaultCore.keySecurity(31, KnouxVaultCore.SECURITY_LEVEL_TRUSTED_ENVIRONMENT, true);
+        require("trusted-environment".equals(trusted.level), "a reported trusted environment level is reported as such");
+        require(trusted.hardwareBacked, "a trusted environment key is hardware backed");
+        KnouxVaultCore.KeySecurity software = KnouxVaultCore.keySecurity(31, KnouxVaultCore.SECURITY_LEVEL_SOFTWARE, false);
+        require("software".equals(software.level), "a reported software level is reported as software");
+        require(!software.hardwareBacked, "a software key is never claimed to be hardware backed");
+        /* A provider that refuses to report a level must not be guessed. */
+        KnouxVaultCore.KeySecurity refused = KnouxVaultCore.keySecurity(31, KnouxVaultCore.SECURITY_LEVEL_UNKNOWN, false);
+        require("unknown".equals(refused.level), "an unreported level stays unknown");
+        require(!refused.hardwareBacked, "an unreported level is never claimed to be hardware backed");
+        /* Before the platform reported levels, the hardware flag was the
+         * only evidence there was. */
+        KnouxVaultCore.KeySecurity legacy = KnouxVaultCore.keySecurity(30, KnouxVaultCore.SECURITY_LEVEL_UNKNOWN, true);
+        require("trusted-environment".equals(legacy.level), "a legacy hardware key is reported as trusted environment");
+        require(legacy.hardwareBacked, "a legacy hardware key is hardware backed");
+        KnouxVaultCore.KeySecurity legacySoftware = KnouxVaultCore.keySecurity(30, KnouxVaultCore.SECURITY_LEVEL_UNKNOWN, false);
+        require("software".equals(legacySoftware.level), "a legacy software key is reported as software");
+        require(!legacySoftware.hardwareBacked, "a legacy software key is not hardware backed");
+    }
+
+    /** Media that does not authenticate with the vault key is never listed. */
+    private static void unauthenticatedMediaIsNotListed() throws Exception {
+        File dir = dir("media-authentication");
+        SecretKey key = key();
+        String good = UUID.randomUUID().toString();
+        String bad = UUID.randomUUID().toString();
+        KnouxVaultCore.writeDurably(new File(dir, good + ".knvx"), KnouxVaultCore.encrypt(key, bytes("real media")));
+        KnouxVaultCore.writeDurably(new File(dir, bad + ".knvx"), KnouxVaultCore.encrypt(key(), bytes("foreign media")));
+        List<String> ids = KnouxVaultCore.mediaIds(dir);
+        require(ids.size() == 2, "both media files are found on the device");
+        require(KnouxVaultCore.authenticates(key, new File(dir, good + ".knvx")), "the real media authenticates");
+        require(!KnouxVaultCore.authenticates(key, new File(dir, bad + ".knvx")), "media encrypted with another key does not authenticate");
+        require(!KnouxVaultCore.authenticates(key, new File(dir, "missing.knvx")), "a missing file does not authenticate");
     }
 
     // ------------------------------------------------------------- helpers

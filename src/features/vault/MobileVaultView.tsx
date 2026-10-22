@@ -146,10 +146,20 @@ export const MobileVaultView: React.FC = () => {
       setStage('open');
       setStatus(await native.vaultStatus());
       if (result.indexRecovered) {
+        /* An index rebuilt from the surviving media was NOT restored from the
+         * verified backup, and its names, media types and dates are
+         * placeholders. The user is told which one actually happened. */
+        const limited = result.recoveredMetadataLimited === true;
         addNotification({
           type: 'info',
-          title: ar ? 'استُعيد الفهرس' : 'Index restored',
-          message: ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.',
+          title: limited
+            ? (ar ? 'أُعيد بناء الفهرس' : 'Index rebuilt')
+            : (ar ? 'استُعيد الفهرس' : 'Index restored'),
+          message: limited
+            ? (ar
+              ? 'أُعيد بناء فهرس الخزنة من الوسائط المشفرة التي بقيت على هذا الجهاز. قد تكون الأسماء أو أنواع الوسائط أو التواريخ غير مكتملة.'
+              : 'The vault index was rebuilt from the encrypted media that survived on this device. Names, media types and dates may be incomplete.')
+            : (ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.'),
           duration: 4000,
         });
       }
@@ -359,6 +369,7 @@ export const MobileVaultView: React.FC = () => {
     if (status.lockedOutForMs > 0) return ar ? 'تم إيقاف القفل مؤقتًا. حاول لاحقًا.' : 'The vault is locked for a moment after too many attempts.';
     if (status.created && !status.keyAvailable) return ar ? 'مفتاح الجهاز لم يعد متاحًا. لا يمكن استعادة المحتوى المشفر.' : 'The device key is no longer available. The encrypted media cannot be recovered.';
     if (status.indexState === 'corrupted') return ar ? 'فهرس الخزنة تالف ولا توجد نسخة احتياطية صالحة. الوسائط المشفرة ما زالت على الجهاز.' : 'The vault index is corrupt and no verified backup can restore it. The encrypted media is still on the device.';
+    if (status.indexState === 'recovered' && status.indexRecoverySource === 'media') return ar ? 'أُعيد بناء فهرس الخزنة من الوسائط المشفرة التي بقيت على الجهاز. قد تكون الأسماء أو أنواع الوسائط أو التواريخ غير مكتملة.' : 'The vault index was rebuilt from the encrypted media that survived on the device. Names, media types and dates may be incomplete.';
     if (status.indexState === 'recovered') return ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.';
     if (status.created && status.keySecurityLevel === 'software') return ar ? 'يحمي الجهاز مفتاح الخزنة برمجيًا، لا بعتاد أمان مخصص.' : 'This device protects the vault key in software, not in dedicated security hardware.';
     if (status.created && status.keySecurityLevel === 'unknown') return ar ? 'تعذر التحقق من مستوى حماية مفتاح الخزنة على هذا الجهاز.' : 'The protection level of the vault key could not be verified on this device.';

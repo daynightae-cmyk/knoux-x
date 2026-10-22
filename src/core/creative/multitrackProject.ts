@@ -64,6 +64,13 @@ export interface TimelineAudioProperties {
   muted: boolean;
 }
 
+export interface TimelineColorAdjustments {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+}
+
 export interface TimelineTextProperties {
   text: string;
   fontFamily: string;
@@ -90,6 +97,8 @@ export interface TimelineItem {
   playbackRate: number;
   transform: TimelineItemTransform;
   audio: TimelineAudioProperties;
+  /** Optional for projects authored before clip colour grading existed. */
+  color?: TimelineColorAdjustments;
   text: TimelineTextProperties | null;
   keyframes: TimelineKeyframe[];
   transitionIn: TimelineTransition | null;
@@ -168,6 +177,13 @@ const DEFAULT_AUDIO: TimelineAudioProperties = {
   fadeIn: 0,
   fadeOut: 0,
   muted: false,
+};
+
+const DEFAULT_COLOR: TimelineColorAdjustments = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  temperature: 0,
 };
 
 const DEFAULT_TEXT: TimelineTextProperties = {
@@ -269,6 +285,38 @@ export function createTrack(id: string, kind: TrackKind, name: string, order: nu
     pan: 0,
     items: [],
   };
+}
+
+export function defaultTimelineColor(): TimelineColorAdjustments {
+  return { ...DEFAULT_COLOR };
+}
+
+function boundedColorValue(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${name} must be a finite number.`);
+  if (value < -100 || value > 100) throw new RangeError(`${name} must be between -100 and 100.`);
+  return value;
+}
+
+export function normalizeTimelineColor(value?: Partial<TimelineColorAdjustments> | null): TimelineColorAdjustments {
+  return {
+    brightness: boundedColorValue(value?.brightness ?? 0, 'Brightness'),
+    contrast: boundedColorValue(value?.contrast ?? 0, 'Contrast'),
+    saturation: boundedColorValue(value?.saturation ?? 0, 'Saturation'),
+    temperature: boundedColorValue(value?.temperature ?? 0, 'Temperature'),
+  };
+}
+
+/** CSS/canvas filter used by both the live preview and the exported frames. */
+export function colorFilterCss(value?: Partial<TimelineColorAdjustments> | null): string {
+  const color = normalizeTimelineColor(value);
+  const brightness = Math.max(0, 1 + color.brightness / 100);
+  const contrast = Math.max(0, 1 + color.contrast / 100);
+  const saturation = Math.max(0, 1 + color.saturation / 100);
+  const temperature = Math.max(-1, Math.min(1, color.temperature / 100));
+  const warmth = temperature >= 0
+    ? `sepia(${(temperature * 0.35).toFixed(3)}) saturate(${(1 + temperature * 0.15).toFixed(3)}) hue-rotate(${(-temperature * 8).toFixed(2)}deg)`
+    : `hue-rotate(${(temperature * 18).toFixed(2)}deg) saturate(${(1 + temperature * 0.1).toFixed(3)})`;
+  return `brightness(${brightness.toFixed(3)}) contrast(${contrast.toFixed(3)}) saturate(${saturation.toFixed(3)}) ${warmth}`;
 }
 
 export function createTimelineItem(input: {

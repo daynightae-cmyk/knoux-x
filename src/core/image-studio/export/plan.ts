@@ -97,4 +97,3 @@ export function planExport(canvas: { width: number; height: number }, options: E
     upscale,
   };
 }
-

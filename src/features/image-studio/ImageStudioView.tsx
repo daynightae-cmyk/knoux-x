@@ -3,6 +3,7 @@ import React, { useCallback, useEffect } from 'react';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { useTranslation } from '../../i18n';
 
+import { saveStudioProject } from './documentCommands';
 import { ImageStudioToolbar } from './components/ImageStudioToolbar';
 import { ImageStudioCanvas } from './components/ImageStudioCanvas';
 import { ImageStudioLayersPanel } from './components/ImageStudioLayersPanel';
@@ -93,6 +94,10 @@ export const ImageStudioView: React.FC = () => {
       return undefined;
     }
     if (event.ctrlKey || event.metaKey) {
+      if (useImageStudioStore.getState().isLoading) {
+        if (['n', 's'].includes(event.key.toLowerCase())) event.preventDefault();
+        return undefined;
+      }
       if (event.key === 'n') {
         event.preventDefault();
         void window.knouxImageStudioAPI.create({
@@ -106,18 +111,17 @@ export const ImageStudioView: React.FC = () => {
           useImageStudioStore.getState().setDirty(false);
         }).catch(() => undefined);
       }
-      if (event.key === 's') {
+      if (event.key.toLowerCase() === 's') {
         event.preventDefault();
-        const state = useImageStudioStore.getState();
-        if (state.documentPath && state.currentDocument) {
-          void window.knouxImageStudioAPI.save(state.documentPath);
-          state.setDirty(false);
-          state.setSaved(true);
-        }
+        void saveStudioProject({
+          title: t('imageStudio.saveAs'),
+          failureMessage: t('imageStudio.saveFailed'),
+          saveAs: event.shiftKey,
+        });
       }
     }
     return undefined;
-  }, [clearErrors]);
+  }, [clearErrors, t]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);

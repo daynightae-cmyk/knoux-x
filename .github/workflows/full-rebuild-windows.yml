@@ -121,6 +121,27 @@ jobs:
           npm run package -- --arch=x64
           npm run make -- --arch=x64
 
+      - name: Verify built Image Studio save, reopen, and real image exports
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $env:KNOUX_IMAGE_LIFECYCLE_EVIDENCE_ROOT = Join-Path $env:GITHUB_WORKSPACE '_temp/image-lifecycle-evidence'
+          node tools/verify-image-studio-project-lifecycle.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Image Studio source-checkout lifecycle acceptance failed.' }
+
+      - name: Preserve Image Studio lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knoux-image-lifecycle-${{ github.sha }}
+          if-no-files-found: warn
+          path: |
+            _temp/image-lifecycle-evidence/*/evidence.json
+            _temp/image-lifecycle-evidence/*/*.png
+            _temp/image-lifecycle-evidence/*/*.jpeg
+            _temp/image-lifecycle-evidence/*/*.webp
+            _temp/image-lifecycle-evidence/*/*.knouximage
+
       - name: Build bilingual nine-slide visual installer
         shell: pwsh
         run: |

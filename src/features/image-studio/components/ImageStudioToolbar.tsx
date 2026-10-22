@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { useTranslation } from '../../../i18n';
+import { planExport } from '../../../core/image-studio/export/plan';
+import { exportStudioImage, saveStudioProject } from '../documentCommands';
 import { useImageStudioStore } from '../store/imageStudioStore';
 import { syncRetouchState } from '../retouch/syncRetouchState';
 
@@ -64,50 +66,11 @@ export const ImageStudioToolbar: React.FC = () => {
   };
 
   const handleSave = async (): Promise<void> => {
-    const state = useImageStudioStore.getState();
-    const path = state.documentPath;
-    if (!path || !currentDocument) return;
-    setLoading(true);
-    try {
-      await syncRetouchState(currentDocument);
-      await window.knouxImageStudioAPI.save(path);
-      state.setDirty(false);
-      state.setSaved(true);
-    } catch (error) {
-      state.addError(
-        error instanceof Error ? error.message : t('imageStudio.saveFailed')
-      );
-      state.setSaved(false);
-    } finally {
-      setLoading(false);
-    }
+    await saveStudioProject({ title: t('imageStudio.saveAs'), failureMessage: t('imageStudio.saveFailed') });
   };
 
   const handleSaveAs = async (): Promise<void> => {
-    if (!window.knouxAPI.file) return;
-    const state = useImageStudioStore.getState();
-    setLoading(true);
-    try {
-      const filePath = await window.knouxAPI.file.saveFile({
-        title: t('imageStudio.saveAs'),
-        defaultPath: 'untitled.knouximage',
-        filters: [{ name: 'KNOUX Image', extensions: ['knouximage'] }],
-        properties: ['createDirectory', 'showOverwriteConfirmation'],
-      });
-      if (!filePath) return;
-      if (state.currentDocument) await syncRetouchState(state.currentDocument);
-      await window.knouxImageStudioAPI.saveAs(filePath);
-      state.setDocumentPath(filePath);
-      state.setDirty(false);
-      state.setSaved(true);
-    } catch (error) {
-      useImageStudioStore.getState().addError(
-        error instanceof Error ? error.message : t('imageStudio.saveFailed')
-      );
-      useImageStudioStore.getState().setSaved(false);
-    } finally {
-      setLoading(false);
-    }
+    await saveStudioProject({ title: t('imageStudio.saveAs'), failureMessage: t('imageStudio.saveFailed'), saveAs: true });
   };
 
   const handleImportImage = async (): Promise<void> => {
@@ -122,6 +85,7 @@ export const ImageStudioToolbar: React.FC = () => {
       if (!filePath) return;
       const document = await window.knouxImageStudioAPI.importImage(filePath);
       useImageStudioStore.getState().setCurrentDocument(document);
+      useImageStudioStore.getState().setDocumentPath(null);
       useImageStudioStore.getState().setDirty(true);
     } catch (error) {
       useImageStudioStore.getState().addError(
@@ -159,33 +123,13 @@ export const ImageStudioToolbar: React.FC = () => {
   };
 
   const handleExportFlattened = async (): Promise<void> => {
-    if (!currentDocument) return;
-    setLoading(true);
-    try {
-      await syncRetouchState(currentDocument);
-       const result = await window.knouxImageStudioAPI.exportFlattened({
-         format: 'png',
-         quality: null,
-         width: currentDocument.canvas.width,
-         height: currentDocument.canvas.height,
-         mime: 'image/png',
-         extension: 'png',
-         preserveAlpha: true,
-         scaleX: 1,
-         scaleY: 1,
-         upscale: false,
-       });
-      if (result && result.bytes) {
-        useImageStudioStore.getState().setDirty(false);
-        useImageStudioStore.getState().setSaved(true);
-      }
-    } catch (error) {
-      useImageStudioStore.getState().addError(
-        error instanceof Error ? error.message : t('imageStudio.exportFailed')
-      );
-    } finally {
-      setLoading(false);
-    }
+    const document = useImageStudioStore.getState().currentDocument;
+    if (!document) return;
+    await exportStudioImage({
+      plan: planExport(document.canvas, { format: 'png' }),
+      title: t('imageStudio.exportFlattened'),
+      failureMessage: t('imageStudio.exportFailed'),
+    });
   };
 
   const handleClose = async (): Promise<void> => {
@@ -206,7 +150,7 @@ export const ImageStudioToolbar: React.FC = () => {
     setShowCloseConfirm(false);
   };
 
-  const canSave = !!currentDocument && !!useImageStudioStore.getState().documentPath;
+  const canSave = !!currentDocument;
   const canExport = !!currentDocument;
 
   return (

@@ -22,6 +22,7 @@ No production release, deployment, tag or merge is authorized by this report. Th
 - Export no longer clears the editable project's dirty state, so closing still protects unsaved edits. Export cannot overwrite the active `.knouximage` project.
 - Importing a new image clears the previous project destination, preventing accidental reuse of that path.
 - Export dimensions follow the opened/imported document and reject non-finite values. Planning is split into a browser-safe module; Node PNG/BMP/SVG encoding remains in the existing backend module with compatible exports. A runtime test caught and corrected an initial Node `zlib` import crossing into the renderer.
+- Real mouse testing found that the export format popup escaped the viewport inside its scrolling panel. The existing `NeonSelect` now supports an opt-in body portal with bounded positioning, enabled for this export control. The shared component's outside-click/ref handling is corrected and tested without replacing its styling or keyboard behavior.
 
 ### Exact implementation files
 
@@ -33,6 +34,8 @@ No production release, deployment, tag or merge is authorized by this report. Th
 | `src/features/image-studio/components/ImageStudioExportDialog.tsx` | Real file delivery, document-sized defaults, disabled duplicate actions |
 | `src/core/image-studio/export/plan.ts` | Browser-safe export planning and dimension validation |
 | `src/core/image-studio/export/export.ts` | Reuse/re-export planner while retaining backend encoders |
+| `src/components/neon/NeonSelect.tsx` | Opt-in unclipped popup positioning, refs and outside-click handling |
+| `tests/unit/neon-select.test.tsx` | Clipped-panel, viewport, pointer, outside-click, cleanup and RTL regressions |
 | `tests/unit/image-studio-document-commands.test.ts` | Save/export cancellation, errors, races, destination and dirty-state regression tests |
 | `tests/unit/image-studio-export.test.ts` | Non-finite dimension regression tests |
 | `tests/integration/image-studio-project-lifecycle.test.ts` | Real service/disk/masked-pixel/restart/export acceptance without network calls |
@@ -61,6 +64,9 @@ The existing Image Studio store, retouch operations, masks, renderer, `syncRetou
 | `npm test -- --runInBand --watch=false` | PASS: 169 suites, 1468 tests; 669.808 s |
 | `npm test -- --runInBand tests/integration/image-studio-project-lifecycle.test.ts` | PASS: 1 additional suite/test; actual processing/disk workflow 11.756 s |
 | Targeted ESLint for the additional integration test and planner | PASS, exit 0 |
+| `npm test -- --runInBand tests/unit/neon-select.test.tsx` after the popup correction | PASS: 25 tests, including 4 new cases; existing mouse and keyboard behavior retained |
+| TypeScript and targeted ESLint after the popup correction | PASS, exit 0 |
+| Actual Electron mouse selection of JPEG and WebP | PASS after the popup correction; no export/inference claimed by this interaction-only check |
 | `node node_modules/vite/bin/vite.js build --config vite.renderer.config.ts --outDir .vite/renderer/main_window` | PASS; 2283 modules, 2m 4s |
 | `node --check tools/verify-image-studio-project-lifecycle.cjs` | PASS |
 | Electron image lifecycle on Linux | FAILED at image import: independently reproduced native Sharp/libvips assertion; no full GUI-flow pass claimed |
@@ -68,6 +74,8 @@ The existing Image Studio store, retouch operations, masks, renderer, `syncRetou
 | Candidate Windows packaged / Android installed retouch acceptance | NOT_TESTED |
 
 The full suite and additional integration test are separate invocations: 170 suites / 1469 tests passed across them, not a single 170-suite run. The initial slow integration attempt was stopped while optimizing byte comparison in the test; its replacement completed successfully without weakening pixel assertions.
+
+The 169-suite run predates the final select-popup correction. Its affected 25-test select suite and typecheck/lint were rerun successfully, and the complete candidate suite is rerun by Windows CI. The initial Windows UI check on `4c8305f` successfully imported, saved and exported a pixel-matching PNG, then failed on a wrong selector for the existing format control. Correcting the selector exposed and led to the real clipped-popup fix. Earlier failed runs are not reported as passes. The latest PR check results must be read on its current head.
 
 `evidence.json` records the real service/file results. The test closes the backend, creates a new backend instance, reopens the saved project, and checks the masks/operations. This models backend restart; it is not an installed application restart.
 

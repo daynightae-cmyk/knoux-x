@@ -63,7 +63,7 @@ export const ImageStudioExportDialog: React.FC = () => {
       <h3>{t('imageStudio.export')}</h3>
       <label>
         <span>{t('imageStudio.exportFormat')}</span>
-        <NeonSelect value={format} onChange={setFormat} options={formatOptions} aria-label={t('imageStudio.exportFormat')} />
+        <NeonSelect portal value={format} onChange={setFormat} options={formatOptions} aria-label={t('imageStudio.exportFormat')} />
       </label>
       <label>
         <span>{t('imageStudio.exportQuality')}</span>

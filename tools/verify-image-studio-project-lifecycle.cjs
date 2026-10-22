@@ -172,7 +172,7 @@ async function main() {
   for (const format of ['jpeg', 'webp']) {
     const file = path.join(evidence, `portrait.${format}`);
     // NeonSelect exposes a button controlling an ARIA listbox.
-    await dialog.getByRole('button', { name: 'Format', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Export Format', exact: true }).click();
     await page.getByRole('option', { name: format === 'jpeg' ? 'JPEG' : 'WebP', exact: true }).click();
     await picker('save', file);
     await dialog.getByRole('button', { name: 'Start Export', exact: true }).click();

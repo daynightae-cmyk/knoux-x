@@ -43,6 +43,27 @@ test('a vault operation that needs the system picker holds the session open', ()
   expect(bridge).toContain('isVaultSessionHeld');
 });
 
+test('the vault reports the real key protection level and index state', () => {
+  const view = read('src/features/vault/MobileVaultView.tsx');
+  const bridge = read('src/platform/androidVault.ts');
+  // The device decides the level; the UI never claims hardware backing itself.
+  expect(bridge).toContain('keySecurityLevel');
+  expect(bridge).toContain('indexState');
+  expect(view).toContain('keySecurityLevel');
+  expect(view).toContain("'trusted-environment'");
+  expect(view).toContain('software');
+  expect(view).not.toContain('hardware-backed');
+});
+
+test('the vault reports retained encrypted files and decrypted cache copies', () => {
+  const view = read('src/features/vault/MobileVaultView.tsx');
+  const bridge = read('src/platform/androidVault.ts');
+  expect(bridge).toContain('filesRetained');
+  expect(bridge).toContain('cachedPlaintextRetained');
+  expect(view).toContain('filesRetained');
+  expect(view).toContain('cachedPlaintextRetained');
+});
+
 test('the vault is reachable from the navigation and the router', () => {
   const drawer = read('src/components/mobile/MobileGlassDrawer.tsx');
   const app = read('src/App.tsx');

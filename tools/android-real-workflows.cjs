@@ -33,6 +33,7 @@ const nativeCore = require('./android-native-core.cjs');
 const output = process.env.KNOUX_ANDROID_EVIDENCE_DIR || 'android-ci-output';
 fs.mkdirSync(output, { recursive: true });
 const PACKAGE = nativeCore.APP_PACKAGE;
+const LARGE_FIXTURE_NAME = 'KNOUX-QA-LARGE.mp4';
 const IMAGE_FIXTURE_NAME = nativeCore.IMAGE_FIXTURE_NAME;
 const IMAGE_RESIZED_NAME = 'KNOUX-QA-320px.jpg';
 const IMAGE_ROTATED_NAME = 'KNOUX-QA-320px-rotated.jpg';
@@ -736,40 +737,64 @@ async function ensureHome(page) {
   throw new Error('Could not navigate back to the home dashboard');
 }
 
+/* A saved resume position opens a full-screen .ump-resume-layer over the
+ * player. The layer is the topmost <div> at the stage, so elementFromPoint
+ * reports it for every control underneath and trusted taps fail as covered.
+ * Dismiss it through trusted input (Start over first, Resume as fallback) and
+ * fail closed when a visible prompt cannot be cleared, instead of letting the
+ * covered taps surface as an unrelated "target unavailable" error. */
+async function clearResumePrompt(page) {
+  const layer = page.locator('.ump-resume-layer');
+  const layerVisible = async () => (await layer.count()) > 0 && await layer.first().isVisible();
+  if (!(await layerVisible())) return false;
+  const problems = [];
+  for (const name of ['Start over', 'Resume']) {
+    const action = page.getByRole('button', { name, exact: true }).first();
+    if (!(await action.count())) { problems.push(`${name}: no action button`); continue; }
+    try {
+      await trustedTapUntil(action, async () => !(await layerVisible()), { note: `player:resume-${name.toLowerCase().replaceAll(' ', '-')}`, timeout: 20000, checkTimeout: 12000, attempts: 2 });
+      await delay(500);
+      if (!(await layerVisible())) return true;
+    } catch (error) {
+      problems.push(`${name}: ${String(error && error.message).split('\n')[0]}`);
+    }
+  }
+  if (await layerVisible()) throw new Error(`The resume prompt could not be dismissed (${problems.join('; ')})`);
+  return true;
+}
+
 async function ensurePlayback(page, video) {
   const attempts = [];
+  const problems = [];
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    /* A saved resume position opens a "Continue from ...?" prompt over the
-     * player. It is dismissed deterministically by starting the clip over, so
-     * every case measures playback from the same state and the prompt never
-     * covers the next trusted tap. */
-    const startOver = page.getByRole('button', { name: 'Start over', exact: true });
+    if (await clearResumePrompt(page)) attempts.push('trusted-tap:start-over (dismissed the resume prompt)');
+    if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts, problems };
     try {
-      if ((await startOver.count()) > 0 && await startOver.first().isVisible()) {
-        await trustedTapUntil(startOver.first(), async () => (await startOver.count()) === 0 || !(await startOver.first().isVisible()), { note: 'player:start-over', timeout: 8000, checkTimeout: 5000 });
-        attempts.push('trusted-tap:start-over (dismissed the resume prompt)');
-        await delay(600);
+      const playButton = page.locator('button.ump-play');
+      const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();
+      if (!playVisible) {
+        await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls' });
+        attempts.push('trusted-tap:stage (reveal controls)');
+        await delay(700);
+        continue;
       }
-    } catch { /* the prompt is optional; the play path below still applies */ }
-    if (await video.evaluate((element) => !element.paused && element.currentTime > 0)) return { started: true, via: attempts };
-    const playButton = page.locator('button.ump-play');
-    const playVisible = (await playButton.count()) > 0 && await playButton.first().isVisible();
-    if (!playVisible) {
-      await trustedTap(page.locator('.ump-stage'), { timeout: 8000, minHeight: 40, note: 'player:reveal-controls' });
-      attempts.push('trusted-tap:stage (reveal controls)');
-      await delay(700);
+      const label = await playButton.first().getAttribute('aria-label');
+      if (label && /pause/i.test(label)) { await delay(400); continue; }
+      await trustedTap(playButton, { timeout: 8000, note: 'player:play' });
+      attempts.push('trusted-tap:ump-play (trusted play button)');
+    } catch (error) {
+      /* A prompt that mounts mid-tap covers the stage; the next iteration
+       * clears it before retrying instead of failing on a transient overlay. */
+      problems.push(String(error && error.message).split('\n')[0]);
+      await delay(400);
       continue;
     }
-    const label = await playButton.first().getAttribute('aria-label');
-    if (label && /pause/i.test(label)) { await delay(400); continue; }
-    await trustedTap(playButton, { timeout: 8000, note: 'player:play' });
-    attempts.push('trusted-tap:ump-play (trusted play button)');
     try {
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'playback did not start after a trusted play tap', 6000);
-      return { started: true, via: attempts };
+      return { started: true, via: attempts, problems };
     } catch { /* fall through to the next attempt or the honest fallback note */ }
   }
-  return { started: false, via: attempts };
+  return { started: false, via: attempts, problems };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1245,6 +1270,53 @@ function readRecordingBytes(uri) {
       return await work();
     }
   };
+  /* The native vault bridge is the product surface for the behaviour these
+   * cases assert. Every call goes through the installed Capacitor plugin, and
+   * every rejection is observed as a rejection instead of a timeout. */
+  const vaultCall = async (method, args) => page.evaluate(async ({ name, input }) => {
+    const plugin = window.Capacitor?.Plugins?.KnouxVault;
+    if (!plugin) return { ok: false, error: 'The KNOUX vault plugin is unavailable.' };
+    try {
+      const value = await plugin[name](input);
+      return { ok: true, value: value === undefined ? null : value };
+    } catch (error) {
+      return { ok: false, error: String(error && error.message ? error.message : error) };
+    }
+  }, { name: method, input: args ?? {} });
+  const awaitVaultPlugin = async () => {
+    await until(async () => page.evaluate(() => Boolean(window.Capacitor?.Plugins?.KnouxVault)).catch(() => false), 'The native vault plugin did not register', 20000);
+  };
+  const vaultUnlockOrThrow = async (pin, label) => {
+    const result = await vaultCall('vaultUnlock', { pin });
+    if (!result.ok) throw new Error(`${label}: ${result.error}`);
+    return result.value;
+  };
+  /* The debug APK can be inspected with run-as; the CI-signed release APK
+   * cannot. Cases that need byte-level tampering therefore prove the shared
+   * contract in both lanes and the tamper half only where the app sandbox is
+   * legally inspectable. */
+  const vaultDebugListing = () => {
+    try { return adb('shell', 'run-as', PACKAGE, 'ls', 'files/vault'); } catch { return null; }
+  };
+  const vaultReadDeviceFile = (relative) => {
+    try {
+      return execFileSync('adb', ['exec-out', 'run-as', PACKAGE, 'cat', relative], { maxBuffer: 96 * 1024 * 1024 });
+    } catch {
+      return null;
+    }
+  };
+  const vaultWriteDeviceFile = (relative, buffer) => {
+    execFileSync('adb', ['shell', `run-as ${PACKAGE} sh -c 'cat > ${relative}'`], { input: buffer, maxBuffer: 16 * 1024 * 1024 });
+  };
+  const vaultCacheListing = () => {
+    try { return adb('shell', 'run-as', PACKAGE, 'ls', 'cache/vault-play'); } catch { return ''; }
+  };
+  const vaultClearCache = () => {
+    try { execFileSync('adb', ['shell', `run-as ${PACKAGE} sh -c 'rm -f cache/vault-play/*'`], { maxBuffer: 16 * 1024 * 1024 }); } catch { /* release lane is not inspectable */ }
+  };
+  const vaultLockNative = async () => {
+    await vaultCall('vaultLock', {}).catch(() => undefined);
+  };
   try {
     results.deviceState.size = adb('shell', 'wm', 'size');
     results.deviceState.density = adb('shell', 'wm', 'density');
@@ -1546,6 +1618,327 @@ function readRecordingBytes(uri) {
       return { item: itemName, originalPreserved: true, encryptedHeader: container.header, encryptedBytes: container.bytes, wrongPinRefused: true, decoded: true, restart: { oldPid, newPid } };
     }));
 
+    /* The item identifier is a capability: only a canonical UUID that is a
+     * member of the authenticated index may reach media, thumbnail, export or
+     * delete. A syntactically valid UUID that is not a member must be refused
+     * exactly like a path traversal attempt. */
+    await runCase('vault-identifier-membership-gate', () => withSession('vault-identifier-membership-gate', async () => {
+      const unlocked = await vaultUnlockOrThrow('2468', 'vault-membership:unlock');
+      const token = unlocked.token;
+      const items = unlocked.items ?? [];
+      if (!items.length) throw new Error('The vault has no encrypted item to gate.');
+      const real = items[0];
+      const absent = '11111111-2222-4333-8444-555555555555';
+      if (absent === real.id) throw new Error('The synthetic non-member identifier collided with the real item.');
+      const attempts = {
+        openNonMember: await vaultCall('vaultOpen', { token, id: absent }),
+        thumbnailNonMember: await vaultCall('vaultThumbnail', { token, id: absent }),
+        exportNonMember: await vaultCall('vaultExport', { token, id: absent, targetUri: 'content://knoux.invalid/never-written' }),
+        deleteNonMember: await vaultCall('vaultDelete', { token, id: absent }),
+        containerNonMember: await vaultCall('vaultContainerInfo', { token, id: absent }),
+        openTraversal: await vaultCall('vaultOpen', { token, id: `../${real.id}` }),
+        openSuffixed: await vaultCall('vaultOpen', { token, id: `${real.id}.knvx` }),
+        openUppercase: await vaultCall('vaultOpen', { token, id: real.id.toUpperCase() }),
+      };
+      for (const [operation, result] of Object.entries(attempts)) {
+        if (result.ok) throw new Error(`${operation} accepted an identifier that is not a vault member: ${JSON.stringify(result.value)}`);
+      }
+      const after = await vaultCall('vaultList', { token });
+      if (!after.ok || !(after.value.items ?? []).some((entry) => entry.id === real.id)) {
+        throw new Error('A rejected identifier changed the real vault index.');
+      }
+      const container = await vaultCall('vaultContainerInfo', { token, id: real.id });
+      if (!container.ok || container.value.member !== true) throw new Error(`The real item is not reported as a member: ${JSON.stringify(container)}`);
+      await vaultLockNative();
+      fs.writeFileSync(`${output}/vault-membership-gate.json`, JSON.stringify({ realId: real.id, rejected: Object.keys(attempts), member: container.value }, null, 2));
+      return { rejected: Object.keys(attempts), member: container.value.member, itemsIntact: (after.value.items ?? []).length };
+    }));
+
+    /* A tampered container must never publish plaintext, and a verified copy
+     * must always be swept on lock. The tamper half needs the debug sandbox;
+     * the containment half is proven in both lanes. */
+    await runCase('vault-tamper-and-plaintext-containment', () => withSession('vault-tamper-and-plaintext-containment', async () => {
+      const unlocked = await vaultUnlockOrThrow('2468', 'vault-tamper:unlock');
+      const token = unlocked.token;
+      const item = (unlocked.items ?? [])[0];
+      if (!item) throw new Error('The vault has no encrypted item to test.');
+      const container = await vaultCall('vaultContainerInfo', { token, id: item.id });
+      if (!container.ok || !/^KNVX/.test(container.value.header || '')) throw new Error(`The stored container is not inspectable: ${JSON.stringify(container)}`);
+      const listing = vaultDebugListing();
+      const debugLane = Boolean(listing && new RegExp(`${item.id}\\.knvx`).test(listing));
+      const evidence = { debugLane, container: container.value };
+      const firstOpen = await vaultCall('vaultOpen', { token, id: item.id });
+      if (!firstOpen.ok) throw new Error(`The verified container did not decrypt: ${firstOpen.error}`);
+      if (debugLane) {
+        const relative = `files/vault/${item.id}.knvx`;
+        const original = vaultReadDeviceFile(relative);
+        if (!original || !original.length) throw new Error('Could not read the stored container for the tamper proof.');
+        vaultClearCache();
+        const tampered = Buffer.from(original);
+        tampered[tampered.length - 1] ^= 0x01;
+        vaultWriteDeviceFile(relative, tampered);
+        try {
+          const rejected = await vaultCall('vaultOpen', { token, id: item.id });
+          if (rejected.ok) throw new Error('A tampered container was decrypted for playback.');
+          const cacheAfterFailure = vaultCacheListing();
+          if (new RegExp(`${item.id}-`).test(cacheAfterFailure)) {
+            throw new Error(`A plaintext copy survived a failed tag check: ${cacheAfterFailure}`);
+          }
+          evidence.tamperRejected = rejected.error;
+        } finally {
+          vaultWriteDeviceFile(relative, original);
+        }
+        const restored = vaultReadDeviceFile(relative);
+        if (!restored || sha256(restored) !== sha256(original)) throw new Error('The original container could not be restored after the tamper proof.');
+        const reopened = await vaultCall('vaultOpen', { token, id: item.id });
+        if (!reopened.ok) throw new Error(`The restored container did not decrypt: ${reopened.error}`);
+        const cacheAfterSuccess = vaultCacheListing();
+        if (!new RegExp(`${item.id}-`).test(cacheAfterSuccess)) throw new Error(`The verified plaintext copy is missing: ${cacheAfterSuccess}`);
+        evidence.restoredSha = sha256(original);
+      }
+      const beforeLock = await vaultCall('vaultStatus', {});
+      if (!beforeLock.ok || (beforeLock.value.plaintextCacheFiles ?? 0) < 1) {
+        throw new Error(`No plaintext cache copy was reported before the lock: ${JSON.stringify(beforeLock)}`);
+      }
+      const locked = await vaultCall('vaultLock', {});
+      if (!locked.ok) throw new Error(`The vault did not lock: ${locked.error}`);
+      if ((locked.value.cachedPlaintextRemoved ?? 0) < 1) throw new Error('Locking did not report removing the verified plaintext copy.');
+      const afterLock = await vaultCall('vaultStatus', {});
+      if (!afterLock.ok || (afterLock.value.plaintextCacheFiles ?? 0) !== 0) {
+        throw new Error(`The plaintext cache was not cleared on lock: ${JSON.stringify(afterLock)}`);
+      }
+      if (debugLane && vaultCacheListing().trim()) throw new Error(`The plaintext cache directory is not empty after lock: ${vaultCacheListing()}`);
+      evidence.cacheFilesBeforeLock = beforeLock.value.plaintextCacheFiles;
+      evidence.cacheRemoved = locked.value.cachedPlaintextRemoved;
+      evidence.cacheFilesAfterLock = afterLock.value.plaintextCacheFiles;
+      fs.writeFileSync(`${output}/vault-tamper-containment.json`, JSON.stringify(evidence, null, 2));
+      return evidence;
+    }));
+
+    /* A corrupt primary index is recovered from its verified backup, the
+     * corrupt bytes are quarantined instead of deleted, and a session is only
+     * published after the index authenticated. */
+    await runCase('vault-corrupt-index-recovery', () => withSession('vault-corrupt-index-recovery', async () => {
+      const listing = vaultDebugListing();
+      const debugLane = Boolean(listing && /(^|\s)index\.knvx(\s|$)/m.test(listing));
+      const evidence = { debugLane };
+      if (debugLane) {
+        const original = vaultReadDeviceFile('files/vault/index.knvx');
+        const backup = vaultReadDeviceFile('files/vault/index.knvx.bak');
+        if (!original || !original.length) throw new Error('The primary index is missing before the corruption proof.');
+        if (!backup || !backup.length) throw new Error('The verified index backup is missing.');
+        if (sha256(original) !== sha256(backup)) throw new Error('The primary index and its verified backup differ before the corruption proof.');
+        vaultWriteDeviceFile('files/vault/index.knvx', Buffer.from('KNOUX-ACCEPTANCE-CORRUPT-INDEX'));
+        const recovered = await vaultUnlockOrThrow('2468', 'vault-index:unlock');
+        if (!recovered.indexRecovered) throw new Error('The unlock did not report recovering the index from its backup.');
+        if (!(recovered.items ?? []).length) throw new Error('The recovered index has no items.');
+        const after = vaultDebugListing();
+        if (!/index\.knvx\.corrupt/.test(after)) throw new Error(`The corrupt primary index was not quarantined: ${after}`);
+        const restored = vaultReadDeviceFile('files/vault/index.knvx');
+        if (!restored || sha256(restored) !== sha256(backup)) throw new Error('The primary index was not restored from the verified backup.');
+        evidence.quarantined = true;
+        evidence.items = recovered.items.length;
+        evidence.restoredSha = sha256(backup);
+        await vaultLockNative();
+      } else {
+        const unlocked = await vaultUnlockOrThrow('2468', 'vault-index:unlock-release');
+        if (unlocked.indexRecovered) throw new Error('A clean release lane reported an index recovery.');
+        const status = await vaultCall('vaultStatus', {});
+        if (!status.ok || status.value.indexState !== 'ok') throw new Error(`The release lane index is not healthy: ${JSON.stringify(status)}`);
+        evidence.items = (unlocked.items ?? []).length;
+        evidence.indexState = status.value.indexState;
+        await vaultLockNative();
+      }
+      fs.writeFileSync(`${output}/vault-index-recovery.json`, JSON.stringify(evidence, null, 2));
+      return evidence;
+    }));
+
+    /* Deletion is index-first. The encrypted container leaves the disk only
+     * after the new index committed, the original in MediaStore is untouched,
+     * and a repeated delete of the same identifier is refused. */
+    await runCase('vault-delete-integrity', () => withSession('vault-delete-integrity', async () => {
+      const unlocked = await vaultUnlockOrThrow('2468', 'vault-delete:unlock');
+      const token = unlocked.token;
+      const before = unlocked.items ?? [];
+      const query = await page.evaluate(async () => {
+        const saf = window.Capacitor?.Plugins?.KnouxSaf;
+        if (!saf) return { ok: false, error: 'The KNOUX media bridge is unavailable.' };
+        try {
+          return { ok: true, value: await saf.queryMedia({ kind: 'videos', limit: 50, requestId: 'vault-delete-origin' }) };
+        } catch (error) {
+          return { ok: false, error: String(error && error.message ? error.message : error) };
+        }
+      });
+      if (!query.ok) throw new Error(`MediaStore is unavailable: ${query.error}`);
+      const source = (query.value.items ?? []).find((entry) => /KNOUX-QA\.mp4$/i.test(entry.name || entry.uri || ''));
+      if (!source) throw new Error('The staged KNOUX-QA.mp4 is not exposed by MediaStore.');
+      const imported = await vaultCall('vaultImport', { token, uri: source.uri, name: 'KNOUX-QA-delete.mp4', mime: 'video/mp4' });
+      if (!imported.ok) throw new Error(`The delete case could not import: ${imported.error}`);
+      const id = imported.value.id;
+      const listing = vaultDebugListing();
+      const debugLane = Boolean(listing && new RegExp(`${id}\\.knvx`).test(listing));
+      const containerBefore = await vaultCall('vaultContainerInfo', { token, id });
+      if (!containerBefore.ok) throw new Error(`The imported container is not inspectable: ${containerBefore.error}`);
+      const deleted = await vaultCall('vaultDelete', { token, id });
+      if (!deleted.ok) throw new Error(`The delete failed: ${deleted.error}`);
+      if ((deleted.value.filesRetained ?? 0) > 0) throw new Error(`The delete retained ${deleted.value.filesRetained} encrypted file(s).`);
+      if ((deleted.value.items ?? []).some((entry) => entry.id === id)) throw new Error('The deleted item is still in the index.');
+      const after = await vaultCall('vaultList', { token });
+      if (!after.ok || (after.value.items ?? []).some((entry) => entry.id === id)) throw new Error('The deleted item reappeared in the index.');
+      if (debugLane) {
+        const afterListing = vaultDebugListing();
+        if (new RegExp(`${id}\\.knvx`).test(afterListing)) throw new Error(`The encrypted container survived the delete: ${afterListing}`);
+      }
+      const repeated = await vaultCall('vaultDelete', { token, id });
+      if (repeated.ok) throw new Error('A repeated delete of the same identifier succeeded.');
+      const remaining = (after.value.items ?? []).length;
+      if (remaining !== before.length) throw new Error(`The delete changed unrelated items: ${before.length} before, ${remaining} after.`);
+      const originalStillListed = await page.evaluate(async () => {
+        const saf = window.Capacitor?.Plugins?.KnouxSaf;
+        const page = await saf.queryMedia({ kind: 'videos', limit: 50, requestId: 'vault-delete-after' });
+        return (page.items ?? []).some((entry) => /KNOUX-QA\.mp4$/i.test(entry.name || entry.uri || ''));
+      });
+      if (!originalStillListed) throw new Error('The vault deleted the user original from MediaStore.');
+      await vaultLockNative();
+      const evidence = { id, debugLane, filesRemoved: deleted.value.filesRemoved, filesRetained: deleted.value.filesRetained, remaining, originalStillListed };
+      fs.writeFileSync(`${output}/vault-delete-integrity.json`, JSON.stringify(evidence, null, 2));
+      return evidence;
+    }));
+
+    /* A PIN rotation rewraps the DEK without re-encrypting the media and is
+     * durable across a process restart. The large fixture proves the whole
+     * media path is streamed and authenticates at the tail, not just the head. */
+    await runCase('vault-pin-rotation-and-large-media', () => withSession('vault-pin-rotation-and-large-media', async () => {
+      verifyFixtureOnDevice(LARGE_FIXTURE_NAME);
+      const unlocked = await vaultUnlockOrThrow('2468', 'vault-rotation:unlock');
+      let token = unlocked.token;
+      const query = await page.evaluate(async () => {
+        const saf = window.Capacitor?.Plugins?.KnouxSaf;
+        try {
+          return await saf.queryMedia({ kind: 'videos', limit: 100, requestId: 'vault-rotation-origin' });
+        } catch {
+          return { items: [] };
+        }
+      });
+      const source = (query.items ?? []).find((entry) => /KNOUX-QA-LARGE\.mp4$/i.test(entry.name || entry.uri || ''));
+      if (!source) throw new Error(`${LARGE_FIXTURE_NAME} is not exposed by MediaStore.`);
+      const imported = await vaultCall('vaultImport', { token, uri: source.uri, name: LARGE_FIXTURE_NAME, mime: 'video/mp4' });
+      if (!imported.ok) throw new Error(`The large media import failed: ${imported.error}`);
+      const container = await vaultCall('vaultContainerInfo', { token, id: imported.value.id });
+      if (!container.ok || container.value.bytes <= 1024 * 1024) throw new Error(`The large container is too small: ${JSON.stringify(container)}`);
+      const opened = await vaultCall('vaultOpen', { token, id: imported.value.id });
+      if (!opened.ok) throw new Error(`The large container did not decrypt: ${opened.error}`);
+      const playback = await page.evaluate(async (uri) => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.preload = 'auto';
+        video.src = window.Capacitor.convertFileSrc(uri);
+        document.body.appendChild(video);
+        const waitFor = (event, timeout = 30000) => new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error(`${event} timed out`)), timeout);
+          const fail = () => { clearTimeout(timer); reject(new Error(`media error ${video.error?.code ?? 'unknown'}`)); };
+          video.addEventListener(event, () => { clearTimeout(timer); resolve(); }, { once: true });
+          video.addEventListener('error', fail, { once: true });
+        });
+        try {
+          await waitFor('loadedmetadata');
+          const duration = video.duration;
+          const width = video.videoWidth;
+          const height = video.videoHeight;
+          video.currentTime = Math.max(0, duration - 1.5);
+          await waitFor('seeked');
+          await waitFor('canplay', 15000);
+          return { duration, width, height, currentTime: video.currentTime, readyState: video.readyState };
+        } finally {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+          video.remove();
+        }
+      }, opened.value.uri);
+      if (!playback.width || !(playback.duration > 0)) throw new Error(`The large media did not decode: ${JSON.stringify(playback)}`);
+      if (playback.currentTime < playback.duration - 3) throw new Error(`The tail of the large media did not seek: ${JSON.stringify(playback)}`);
+      if (playback.readyState < 2) throw new Error(`The tail of the large media did not decode: ${JSON.stringify(playback)}`);
+
+      const rotated = await vaultCall('vaultChangePin', { token, newPin: '8642' });
+      if (!rotated.ok) throw new Error(`The PIN rotation failed: ${rotated.error}`);
+      await vaultLockNative();
+      const oldPin = await vaultCall('vaultUnlock', { pin: '2468' });
+      if (oldPin.ok) throw new Error('The old PIN still opens the vault after the rotation.');
+      const newPin = await vaultUnlockOrThrow('8642', 'vault-rotation:new-pin');
+      const listed = await vaultCall('vaultList', { token: newPin.token });
+      if (!listed.ok || !(listed.value.items ?? []).some((entry) => entry.id === imported.value.id)) throw new Error('The rotated vault lost the large item.');
+      const back = await vaultCall('vaultChangePin', { token: newPin.token, newPin: '2468' });
+      if (!back.ok) throw new Error(`The PIN rotation back failed: ${back.error}`);
+      await vaultLockNative();
+      const intermediate = await vaultCall('vaultUnlock', { pin: '8642' });
+      if (intermediate.ok) throw new Error('The intermediate PIN still opens the vault after rotating back.');
+      const restored = await vaultUnlockOrThrow('2468', 'vault-rotation:restored-pin');
+      token = restored.token;
+
+      const oldPid = adb('shell', 'pidof', PACKAGE);
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await awaitVaultPlugin();
+      const afterRestart = await vaultUnlockOrThrow('2468', 'vault-rotation:restart');
+      if (!(afterRestart.items ?? []).some((entry) => entry.id === imported.value.id)) throw new Error('The large item did not survive the PIN rotation restart.');
+      const reopened = await vaultCall('vaultOpen', { token: afterRestart.token, id: imported.value.id });
+      if (!reopened.ok) throw new Error(`The large container did not authenticate after the restart: ${reopened.error}`);
+      const containerAfter = await vaultCall('vaultContainerInfo', { token: afterRestart.token, id: imported.value.id });
+      if (!containerAfter.ok || containerAfter.value.bytes !== container.value.bytes) throw new Error('The large container changed across the restart.');
+      const newPid = adb('shell', 'pidof', PACKAGE);
+      if (!newPid || newPid === oldPid) throw new Error('The rotation restart did not replace the process.');
+      await vaultLockNative();
+      const evidence = {
+        largeFixture: LARGE_FIXTURE_NAME,
+        containerBytes: container.value.bytes,
+        playback,
+        pinSequence: ['2468', '8642', '2468'],
+        restart: { oldPid, newPid },
+      };
+      fs.writeFileSync(`${output}/vault-pin-rotation.json`, JSON.stringify(evidence, null, 2));
+      return evidence;
+    }));
+
+    /* A process kill never reaches onResume, so the plaintext playback copy
+     * must be swept when the plugin is created again. The status is read
+     * before the vault is unlocked so the count cannot be confused with a new
+     * playback copy. */
+    await runCase('vault-plaintext-cache-survives-kill', () => withSession('vault-plaintext-cache-survives-kill', async () => {
+      const unlocked = await vaultUnlockOrThrow('2468', 'vault-kill:unlock');
+      const item = (unlocked.items ?? [])[0];
+      if (!item) throw new Error('The vault has no encrypted item to open.');
+      const opened = await vaultCall('vaultOpen', { token: unlocked.token, id: item.id });
+      if (!opened.ok) throw new Error(`The verified container did not decrypt: ${opened.error}`);
+      const before = await vaultCall('vaultStatus', {});
+      if (!before.ok || (before.value.plaintextCacheFiles ?? 0) < 1) throw new Error(`No plaintext cache copy was reported: ${JSON.stringify(before)}`);
+      const debugLane = Boolean(vaultDebugListing());
+      const cacheBefore = debugLane ? vaultCacheListing() : '';
+      if (debugLane && !new RegExp(`${item.id}-`).test(cacheBefore)) throw new Error(`The plaintext playback copy is missing: ${cacheBefore}`);
+      const oldPid = adb('shell', 'pidof', PACKAGE);
+      adb('shell', 'am', 'force-stop', PACKAGE);
+      page = null; webview = null;
+      await openSession();
+      await awaitVaultPlugin();
+      const after = await vaultCall('vaultStatus', {});
+      if (!after.ok || (after.value.plaintextCacheFiles ?? 0) !== 0) {
+        throw new Error(`The plaintext cache survived the process kill: ${JSON.stringify(after)}`);
+      }
+      const cacheAfter = debugLane ? vaultCacheListing() : '';
+      if (debugLane && cacheAfter.trim()) throw new Error(`The plaintext cache directory survived the process kill: ${cacheAfter}`);
+      const newPid = adb('shell', 'pidof', PACKAGE);
+      if (!newPid || newPid === oldPid) throw new Error('The plaintext cache check did not restart the process.');
+      const reopened = await vaultUnlockOrThrow('2468', 'vault-kill:reopen');
+      if (!(reopened.items ?? []).some((entry) => entry.id === item.id)) throw new Error('The encrypted item did not survive the process kill.');
+      const container = await vaultCall('vaultContainerInfo', { token: reopened.token, id: item.id });
+      if (!container.ok) throw new Error(`The encrypted container is unreadable after the kill: ${container.error}`);
+      await vaultLockNative();
+      const evidence = { debugLane, cacheFilesBeforeKill: before.value.plaintextCacheFiles, cacheFilesAfterKill: after.value.plaintextCacheFiles, restart: { oldPid, newPid } };
+      fs.writeFileSync(`${output}/vault-plaintext-cache-kill.json`, JSON.stringify(evidence, null, 2));
+      return evidence;
+    }));
+
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {
       const started = Date.now();
       const openLibrary = async () => {
@@ -1603,6 +1996,7 @@ function readRecordingBytes(uri) {
       for (let attempt = 0; attempt < 3 && !pause.paused; attempt += 1) {
         const pauseAttempt = { attempt: attempt + 1 };
         try {
+          await clearResumePrompt(page);
           if (!(await pauseVisible())) {
             await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-pause' });
             await until(pauseVisible, 'pause control did not appear after revealing the player controls', 5000);
@@ -1629,6 +2023,7 @@ function readRecordingBytes(uri) {
       for (let attempt = 0; attempt < 3 && !seek.moved; attempt += 1) {
         const attemptRecord = { attempt: attempt + 1 };
         try {
+          await clearResumePrompt(page);
           if (!(await timelineVisible())) {
             await trustedTap(page.locator('.ump-stage'), { timeout: 45000, minHeight: 40, note: 'mediastore:reveal-controls-for-scrub' });
             await until(timelineVisible, 'timeline control did not appear after revealing the player controls', 5000);

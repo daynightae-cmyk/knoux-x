@@ -145,26 +145,44 @@ export const MobileVaultView: React.FC = () => {
       setItems(result.items ?? []);
       setStage('open');
       setStatus(await native.vaultStatus());
+      if (result.indexRecovered) {
+        addNotification({
+          type: 'info',
+          title: ar ? 'استُعيد الفهرس' : 'Index restored',
+          message: ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.',
+          duration: 4000,
+        });
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
       void refreshStatus();
     } finally {
       setBusy(false);
     }
-  }, [ar, native, pin, refreshStatus]);
+  }, [addNotification, ar, native, pin, refreshStatus]);
 
   const lockVault = useCallback(async (): Promise<void> => {
     if (!native) return;
     setBusy(true);
+    let retained = 0;
     try {
-      await native.vaultLock();
+      const result = await native.vaultLock();
+      retained = result?.cachedPlaintextRetained ?? 0;
     } catch { /* the session is dropped either way */ }
     forgetVaultSession();
     setItems([]);
     setStage('unlock');
     setStatus(await native.vaultStatus().catch(() => null));
+    if (retained > 0) {
+      addNotification({
+        type: 'error',
+        title: ar ? 'بقيت نسخة غير مشفرة' : 'A decrypted copy was retained',
+        message: ar ? `رفض الجهاز حذف ${retained} ملف مؤقت. أغلق التطبيق لحذفها.` : `The device refused to remove ${retained} temporary file(s). Close the app to force the cleanup.`,
+        duration: 5000,
+      });
+    }
     setBusy(false);
-  }, [native]);
+  }, [addNotification, ar, native]);
 
   const changePin = useCallback(async (): Promise<void> => {
     const token = vaultSessionToken();
@@ -284,12 +302,20 @@ export const MobileVaultView: React.FC = () => {
     try {
       const result = await native.vaultDelete({ token, id: item.id });
       setItems(result.items ?? []);
+      if (result.filesRetained > 0) {
+        addNotification({
+          type: 'error',
+          title: ar ? 'لم تُحذف كل الملفات' : 'Not every file was removed',
+          message: ar ? `أُزيل العنصر من الفهرس، لكن ${result.filesRetained} ملف مشفر بقي على الجهاز.` : `The item left the index, but ${result.filesRetained} encrypted file(s) remain on the device.`,
+          duration: 5000,
+        });
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setBusy(false);
     }
-  }, [native]);
+  }, [addNotification, ar, native]);
 
   const deleteOriginal = useCallback(async (): Promise<void> => {
     if (!pendingOriginal) return;
@@ -332,7 +358,26 @@ export const MobileVaultView: React.FC = () => {
     if (!status) return '';
     if (status.lockedOutForMs > 0) return ar ? 'تم إيقاف القفل مؤقتًا. حاول لاحقًا.' : 'The vault is locked for a moment after too many attempts.';
     if (status.created && !status.keyAvailable) return ar ? 'مفتاح الجهاز لم يعد متاحًا. لا يمكن استعادة المحتوى المشفر.' : 'The device key is no longer available. The encrypted media cannot be recovered.';
+    if (status.indexState === 'corrupted') return ar ? 'فهرس الخزنة تالف ولا توجد نسخة احتياطية صالحة. الوسائط المشفرة ما زالت على الجهاز.' : 'The vault index is corrupt and no verified backup can restore it. The encrypted media is still on the device.';
+    if (status.indexState === 'recovered') return ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.';
+    if (status.created && status.keySecurityLevel === 'software') return ar ? 'يحمي الجهاز مفتاح الخزنة برمجيًا، لا بعتاد أمان مخصص.' : 'This device protects the vault key in software, not in dedicated security hardware.';
+    if (status.created && status.keySecurityLevel === 'unknown') return ar ? 'تعذر التحقق من مستوى حماية مفتاح الخزنة على هذا الجهاز.' : 'The protection level of the vault key could not be verified on this device.';
+    if (status.plaintextCacheFailures > 0) return ar ? `تعذر حذف ${status.plaintextCacheFiles} ملف مؤقت غير مشفر. أغلق التطبيق لحذفها.` : `${status.plaintextCacheFiles} temporary decrypted file(s) could not be removed. Close the app to force the cleanup.`;
     return '';
+  }, [ar, status]);
+
+  /* The device decides the protection level; the UI repeats it verbatim. */
+  const securityLabel = useMemo(() => {
+    if (!status || !status.created) return '';
+    const labels: Record<string, { en: string; ar: string }> = {
+      strongbox: { en: 'StrongBox', ar: 'StrongBox' },
+      'trusted-environment': { en: 'Trusted environment', ar: 'بيئة موثوقة' },
+      software: { en: 'Software key', ar: 'مفتاح برمجي' },
+      unknown: { en: 'Unverified', ar: 'غير متحقق' },
+      unavailable: { en: 'Unavailable', ar: 'غير متاح' },
+    };
+    const label = labels[status.keySecurityLevel] ?? labels.unknown;
+    return `${ar ? 'مفتاح الجهاز: ' : 'Device key: '}${ar ? label.ar : label.en}`;
   }, [ar, status]);
 
   if (!native) {
@@ -426,6 +471,7 @@ export const MobileVaultView: React.FC = () => {
           </>
         )}
 
+        {securityLabel && <p className="kvv-security" data-key-security={status?.keySecurityLevel}>{securityLabel}</p>}
         {statusLine && <p className="kvv-warning" role="alert">{statusLine}</p>}
         {error && <p className="kvv-error" role="alert">{error}</p>}
         {busy && <p className="kvv-busy" role="status">{ar ? 'جارٍ العمل…' : 'Working…'}</p>}

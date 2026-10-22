@@ -123,7 +123,14 @@ jobs:
       - name: ESLint gate
         run: npm run lint -- --max-warnings=0
 
+      - name: Native vault crypto core regression suite
+        env:
+          KNOUX_REQUIRE_NATIVE_JAVA: '1'
+        run: node tools/android/knoux-vault-core-test.cjs
+
       - name: Unit test gate
+        env:
+          KNOUX_REQUIRE_NATIVE_JAVA: '1'
         run: npm test -- --runInBand
 
       - name: Verify locked Capacitor and @capacitor/app toolchain
@@ -211,8 +218,13 @@ jobs:
           // 60 s of playback, same reason as the debug lane: the trusted
           // journey plays, scrubs, waits and then pauses and resumes the clip.
           require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','60','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-release-output/KNOUX-QA.mp4']);
+          // A larger clip proves the vault streams and authenticates media that
+          // is deliberately too big to be treated as one in-memory buffer.
+          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=1280x720:rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','30','-c:v','libx264','-pix_fmt','yuv420p','-b:v','3M','-c:a','aac','-movflags','+faststart','android-ci-release-output/KNOUX-QA-LARGE.mp4']);
           JS
           sha256sum android-ci-release-output/KNOUX-QA.mp4 > android-ci-release-output/fixture.sha256
+          sha256sum android-ci-release-output/KNOUX-QA-LARGE.mp4 > android-ci-release-output/fixture-large.sha256
+          test "$(stat -c '%s' android-ci-release-output/KNOUX-QA-LARGE.mp4)" -gt 8000000
           node tools/create-android-image-fixture.cjs android-ci-release-output/KNOUX-QA.png
           sha256sum android-ci-release-output/KNOUX-QA.png > android-ci-release-output/fixture-image.sha256
 

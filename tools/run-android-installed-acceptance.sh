@@ -6,6 +6,10 @@ APK="${2:?APK path required}"
 bash tools/android-emulator-smoke.sh "$APK" dev.knoux.playerx "$OUTPUT_DIR"
 adb push "$OUTPUT_DIR/KNOUX-QA.mp4" /sdcard/Download/KNOUX-QA.mp4
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
+# The larger clip proves the vault streams and authenticates a media file that
+# is deliberately too big to be treated as a single in-memory buffer.
+adb push "$OUTPUT_DIR/KNOUX-QA-LARGE.mp4" /sdcard/Download/KNOUX-QA-LARGE.mp4
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA-LARGE.mp4
 adb push "$OUTPUT_DIR/KNOUX-QA.png" /sdcard/Download/KNOUX-QA.png
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.png
 adb shell mkdir -p /sdcard/Movies/KNOUX-Discovery /sdcard/DCIM/KNOUX-Discovery /sdcard/DCIM/Camera

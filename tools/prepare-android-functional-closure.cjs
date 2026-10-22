@@ -574,9 +574,12 @@ fs.writeFileSync(path.join(javaDir, 'KnouxScreenCaptureService.java'), projectio
 
 // The private vault is a separate plugin: it owns the Keystore key, the PIN
 // wrapping and the encrypted media, and it must not share a surface with the
-// document bridge.
+// document bridge. The cryptographic core is a plain Java class so the same
+// code can be exercised by a host Java regression suite, not only on device.
 const vaultTemplate = fs.readFileSync(path.join(__dirname, 'android', 'knoux-vault-plugin.java'), 'utf8');
 fs.writeFileSync(path.join(javaDir, 'KnouxVaultPlugin.java'), vaultTemplate.replace(/APP_PACKAGE/g, appId), 'utf8');
+const vaultCoreTemplate = fs.readFileSync(path.join(__dirname, 'android', 'knoux-vault-core.java'), 'utf8');
+fs.writeFileSync(path.join(javaDir, 'KnouxVaultCore.java'), vaultCoreTemplate.replace(/APP_PACKAGE/g, appId), 'utf8');
 
 const resXmlDir = path.join(root, 'android', 'app', 'src', 'main', 'res', 'xml');
 fs.mkdirSync(resXmlDir, { recursive: true });
@@ -635,9 +638,16 @@ const checks = [
   ['KnouxScreenCaptureService.java', 'MediaProjection'],
   ['KnouxVaultPlugin.java', '@CapacitorPlugin(name = "KnouxVault")'],
   ['KnouxVaultPlugin.java', 'AndroidKeyStore'],
-  ['KnouxVaultPlugin.java', 'AES/GCM/NoPadding'],
-  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA256'],
-  ['KnouxVaultPlugin.java', 'PBKDF2withHmacSHA1'],
+  ['KnouxVaultPlugin.java', 'KnouxVaultCore.derivePinKey'],
+  ['KnouxVaultPlugin.java', 'KnouxVaultCore.decryptToVerifiedFile'],
+  ['KnouxVaultPlugin.java', 'KnouxVaultCore.deleteWithIndexCommit'],
+  ['KnouxVaultCore.java', 'public final class KnouxVaultCore'],
+  ['KnouxVaultCore.java', 'AES/GCM/NoPadding'],
+  ['KnouxVaultCore.java', 'PBKDF2withHmacSHA256'],
+  ['KnouxVaultCore.java', 'PBKDF2withHmacSHA1'],
+  ['KnouxVaultCore.java', 'INDEX_BACKUP'],
+  ['KnouxVaultCore.java', 'CorruptIndexException'],
+  ['KnouxVaultCore.java', 'isValidId'],
 ];
 for (const [file, token] of checks) {
   const source = fs.readFileSync(path.join(javaDir, file), 'utf8');

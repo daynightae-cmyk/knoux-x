@@ -102,25 +102,20 @@ async function pixels(page, previousHash) {
     const image = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
     const digest = await crypto.subtle.digest('SHA-256', image.data);
     const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-    return { width: image.width, height: image.height, bytes: Array.from(image.data), hash };
+    return { width: image.width, height: image.height, hash };
   });
 }
 
-async function verifyFile(file, width, height, expectedPixels) {
+async function verifyFile(file, width, height, expectedPixelHash) {
   const decoded = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   assert.equal(decoded.info.width, width);
   assert.equal(decoded.info.height, height);
   let maxDelta = null;
   let changedChannels = null;
-  if (expectedPixels) {
-    assert.equal(decoded.data.length, expectedPixels.length);
+  if (expectedPixelHash) {
+    const actualHash = crypto.createHash('sha256').update(decoded.data).digest('hex');
+    assert.equal(actualHash, expectedPixelHash, 'Export pixels must exactly match the rendered preview');
     maxDelta = 0; changedChannels = 0;
-    for (let i = 0; i < decoded.data.length; i++) {
-      const delta = Math.abs(decoded.data[i] - expectedPixels[i]);
-      maxDelta = Math.max(maxDelta, delta);
-      if (delta) changedChannels++;
-    }
-    assert.ok(maxDelta <= 1, `Preview/export channel delta ${maxDelta}`);
   }
   report.outputs.push({ path: file, sha256: hash(file), width, height, maxPreviewDelta: maxDelta, changedChannels });
 }
@@ -138,7 +133,7 @@ async function main() {
   await page.locator('.retouch-operation-item').waitFor();
   await idle(page);
   const first = await pixels(page, original.hash);
-  assert.notDeepEqual(first.bytes, original.bytes);
+  assert.notEqual(first.hash, original.hash);
 
   // Ctrl+S must choose a destination for an imported, previously untitled image.
   await picker('save', project);
@@ -153,11 +148,11 @@ async function main() {
   await page.locator('.image-studio-dirty').waitFor();
   await idle(page);
   const edited = await pixels(page, first.hash);
-  assert.notDeepEqual(edited.bytes, first.bytes);
+  assert.notEqual(edited.hash, first.hash);
   await picker('save', png);
   await page.getByRole('button', { name: 'Export Flattened', exact: true }).click();
   await idle(page);
-  await verifyFile(png, edited.width, edited.height, edited.bytes);
+  await verifyFile(png, edited.width, edited.height, edited.hash);
   console.log('IMAGE_LIFECYCLE png-verified');
   assert.equal(await page.locator('.image-studio-dirty').isVisible(), true, 'Export must not mark the project saved');
   await page.screenshot({ path: path.join(evidence, 'after.png'), fullPage: true });
@@ -181,11 +176,16 @@ async function main() {
     await page.getByRole('option', { name: format === 'jpeg' ? 'JPEG' : 'WebP', exact: true }).click();
     await picker('save', file);
     await dialog.getByRole('button', { name: 'Start Export', exact: true }).click();
+    await idle(page);
     await page.locator('.export-result.success').waitFor();
     await verifyFile(file, edited.width, edited.height);
   }
   report.savedOperation = savedOperation;
-  report.changedChannels = edited.bytes.reduce((count, value, index) => count + Number(value !== original.bytes[index]), 0);
+  const sourcePixels = await sharp(fixture).rotate().ensureAlpha().raw().toBuffer();
+  const exportedPixels = await sharp(png).ensureAlpha().raw().toBuffer();
+  assert.equal(sourcePixels.length, exportedPixels.length);
+  report.changedChannels = 0;
+  for (let i = 0; i < sourcePixels.length; i++) report.changedChannels += Number(sourcePixels[i] !== exportedPixels[i]);
 
   // Relaunch the actual app with its retained profile and reopen the project.
   await app.close(); app = null;
@@ -194,7 +194,7 @@ async function main() {
   await page.getByRole('toolbar', { name: 'Document operations' }).getByRole('button', { name: 'Open', exact: true }).click();
   await page.locator('.retouch-operation-item').waitFor();
   const reopened = await pixels(page);
-  assert.deepEqual(reopened.bytes, edited.bytes, 'Restart/reopen must preserve edited pixels');
+  assert.equal(reopened.hash, edited.hash, 'Restart/reopen must preserve edited pixels');
   report.restartReopenExact = true;
   report.originalUnchanged = hash(fixture) === report.fixture.sha256;
   assert.equal(report.originalUnchanged, true);

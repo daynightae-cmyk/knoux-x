@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const smoke = fs.readFileSync(path.resolve(__dirname, '../../tools/android-emulator-smoke.sh'), 'utf8');
+const smoke = fs.readFileSync(path.resolve(__dirname, '../../tools/android-emulator-smoke.sh'), 'utf8')
+  .replace(/\r\n/g, '\n');
 const install = 'adb_retry install -r "$APK"';
 const start = smoke.indexOf('\nadb wait-for-device\n');
 const end = smoke.indexOf(`\n${install}\n`, start);

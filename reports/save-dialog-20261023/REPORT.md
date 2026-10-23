@@ -124,3 +124,12 @@ test was skipped, assertion weakened or workflow requirement changed. Old CI log
 both failed Debug artifacts and the passing prior Release artifact are preserved.
 The final pushed head still requires its own CI results, including Windows Bash
 regressions and installed Android acceptance.
+
+Windows run `39946120792` on bbe6fb0 exposed a portability error in the newly
+authored regression: Windows checkout CRLF prevented its exact LF entry markers
+from matching, so the suite failed at collection (173 other suites / 1501 tests
+passed). The test now normalizes CRLF to LF before extracting/executing the actual
+shell entry. No production behavior or expected result changes. All four targeted
+cases and targeted ESLint pass locally. The in-progress Android acceptance runs
+are allowed to finish before pushing this test-only correction, preserving their
+runtime evidence instead of canceling them for a line-ending change.

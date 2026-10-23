@@ -370,7 +370,9 @@ if ! wait_for_launcher_ready; then
   adb_retry shell getprop sys.boot_completed > "$OUTPUT_DIR/android-boot-completed.txt" || true
   exit 1
 fi
-if ! dismiss_foreign_anr; then
+preinstall_anr_status=0
+dismiss_foreign_anr || preinstall_anr_status=$?
+if [[ "$preinstall_anr_status" -ne 0 && "$preinstall_anr_status" -ne 2 ]]; then
   adb_retry shell dumpsys window windows > "$OUTPUT_DIR/android-window.txt" || true
   adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
   echo 'A foreign system ANR dialog blocked the device before KNOUX X was installed.' >&2

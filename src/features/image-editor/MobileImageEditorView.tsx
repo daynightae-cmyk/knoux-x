@@ -53,6 +53,67 @@ const FILTERS = [
   { id: 'cyber', label: 'Cyber' },
 ];
 
+/* The photo editor is one of the few mobile screens that still shipped every
+ * label in English (directive §16.1). Source strings stay English so thrown
+ * bridge messages remain greppable; Arabic is resolved at render time. */
+const COPY_AR: Record<string, string> = {
+  'Back to home': 'رجوع إلى الرئيسية',
+  'PHOTO EDITOR': 'محرّر الصور',
+  'Open Photo': 'فتح صورة',
+  'Export Photo': 'تصدير الصورة',
+  Export: 'تصدير',
+  'Select a Photo': 'اختر صورة',
+  'Choose any JPEG, PNG, or WebP photo from your device to begin editing.':
+    'اختر أي صورة JPEG أو PNG أو WebP من جهازك لبدء التحرير.',
+  'Choose Photo': 'اختر صورة',
+  'Decoding Photo...': 'جارٍ فك ترميز الصورة…',
+  'Error Loading Photo': 'خطأ في تحميل الصورة',
+  'Try Again': 'حاول مجددًا',
+  Adjust: 'ضبط',
+  Filters: 'مرشحات',
+  Transform: 'تحويل',
+  Brightness: 'السطوع',
+  Contrast: 'التباين',
+  Saturation: 'التشبع',
+  'Rotate 90°': 'تدوير ٩٠°',
+  'Flip H': 'قلب أفقي',
+  'Flip V': 'قلب رأسي',
+  'Photo Exported': 'تم تصدير الصورة',
+  'Export Failed': 'فشل التصدير',
+  'Write or verification failed.': 'فشحت الكتابة أو التحقق.',
+  'Failed to decode image bytes.': 'تعذّر فك ترميز بيانات الصورة.',
+  'Could not read file payload.': 'تعذّر قراءة محتوى الملف.',
+  'Could not read file from file input.': 'تعذّر قراءة الملف من مُدخِل الملفات.',
+  'Could not create the export verification canvas.': 'تعذّر إنشاء لوحة التحقق من التصدير.',
+  'The exported JPEG could not be decoded after saving.': 'تعذّر فك ترميز JPEG المُصدَّرة بعد الحفظ.',
+  'The exported photo was not found after writing.': 'لم يُعثر على الصورة المُصدَّرة بعد الكتابة.',
+  'The exported photo is empty or truncated.': 'الصورة المُصدَّرة فارغة أو مبتورة.',
+  'Could not inspect the decoded export.': 'تعذّر فحص المُصدَّر بعد فك الترميز.',
+  'Could not encode the edited canvas as JPEG.': 'تعذّر ترميز اللوحة المُعدَّلة بصيغة JPEG.',
+  'Could not create the full-resolution photo renderer.': 'تعذّر إنشاء مُصيّر الصورة كامل الدقة.',
+  'Unsupported binary file payload.': 'حمولة الملف الثنائية غير مدعومة.',
+  'This photo is open, but the edit draft could not be saved on this device.':
+    'هذه الصورة مفتوحة، لكن تعذّر حفظ مسودة التعديلات على هذا الجهاز.',
+  'Original': 'أصلية',
+  Vivid: 'حيوي',
+  Dramatic: 'درامي',
+  Mono: 'أحادي',
+  Warm: 'دافئ',
+  Cool: 'بارد',
+  Vintage: 'عتيق',
+  Cyber: 'سايبر',
+};
+
+function arabicLabel(text: string): string {
+  if (COPY_AR[text]) return COPY_AR[text];
+  const size = text.match(/^Export verification failed: expected (\d+)×(\d+), decoded (\d+)×(\d+)\.$/);
+  if (size) return `فشل التحقق من التصدير: المتوقع ${size[1]}×${size[2]}، والفعلي ${size[3]}×${size[4]}.`;
+  const drift = text.match(/^Export verification failed: decoded pixel probe drifted by ([\d.]+) levels\.$/);
+  if (drift) return `فشل التحقق من التصدير: انحراف عيّنة البكسل بمقدار ${drift[1]} مستوى.`;
+  return text;
+}
+
+
 const EXPORT_PROBE_SIZE = 8;
 const MAX_JPEG_PROBE_ERROR = 34;
 
@@ -207,6 +268,8 @@ function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 export const MobileImageEditorView: React.FC = () => {
+  const ar = useAppStore((state) => state.locale) === 'ar';
+  const t = (text: string): string => (ar ? arabicLabel(text) : text);
   const setView = useAppStore((state) => state.setView);
   const addNotification = useAppStore((state) => state.addNotification);
 
@@ -214,6 +277,7 @@ export const MobileImageEditorView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ToolTab>('adjust');
   const [adjustments, setAdjustments] = useState<ImageAdjustments>(() => readPhotoDraft()?.adjustments ?? DEFAULT_ADJUSTMENTS);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [draftWarning, setDraftWarning] = useState<string>('');
   const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(() => persistentPhotoState ?? readPhotoDraft()?.photo ?? null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -353,8 +417,19 @@ export const MobileImageEditorView: React.FC = () => {
 
   useEffect(() => {
     if (!photoInfo?.sourceUri.startsWith('content://') || !['READY', 'EDITING'].includes(editorState)) return;
-    try { localStorage.setItem(PHOTO_DRAFT_KEY, JSON.stringify({ photo: photoInfo, adjustments })); }
-    catch { setErrorMessage('Your photo is open, but the edit draft could not be saved on this device.'); }
+    /* A draft that the WebView refused must not be presented as a saved edit
+     * session; the notice is rendered because ERROR is not reached here. */
+    try {
+      const payload = JSON.stringify({ photo: photoInfo, adjustments });
+      window.localStorage.setItem(PHOTO_DRAFT_KEY, payload);
+      if (window.localStorage.getItem(PHOTO_DRAFT_KEY) !== payload) {
+        setDraftWarning('This photo is open, but the edit draft could not be saved on this device.');
+      } else {
+        setDraftWarning('');
+      }
+    } catch {
+      setDraftWarning('This photo is open, but the edit draft could not be saved on this device.');
+    }
   }, [adjustments, editorState, photoInfo]);
 
   // Use ResizeObserver for viewport layout
@@ -468,15 +543,17 @@ export const MobileImageEditorView: React.FC = () => {
 
       addNotification({
         type: 'success',
-        title: 'Photo Exported',
-        message: `Saved, reopened, decoded & verified at ${targetUri}`,
+        title: t('Photo Exported'),
+        message: ar
+          ? `حُفظت الصورة وأُعيد فتحها وفُكّ ترميزها وتحقّق منها في ${targetUri}`
+          : `Saved, reopened, decoded & verified at ${targetUri}`,
         duration: 5000,
       });
     } catch (err) {
       addNotification({
         type: 'error',
-        title: 'Export Failed',
-        message: err instanceof Error ? err.message : 'Write or verification failed.',
+        title: t('Export Failed'),
+        message: t(err instanceof Error ? err.message : 'Write or verification failed.'),
         duration: 5000,
       });
     } finally {
@@ -495,7 +572,7 @@ export const MobileImageEditorView: React.FC = () => {
       />
 
       <header className="kmc-topbar">
-        <button type="button" className="kmc-round-button" aria-label="Back to home" onClick={() => setView('home')}>
+        <button type="button" className="kmc-round-button kx-back" aria-label={t('Back to home')} onClick={() => setView('home')}>
           <ArrowLeft size={21} />
         </button>
 
@@ -503,22 +580,26 @@ export const MobileImageEditorView: React.FC = () => {
           <BrandMark size={32} />
           <div>
             <strong>KNOUX <span>X</span></strong>
-            <small>{photoInfo ? photoInfo.sourceName : 'PHOTO EDITOR'}</small>
+            <small>{photoInfo ? photoInfo.sourceName : t('PHOTO EDITOR')}</small>
           </div>
         </div>
 
         <div className="kmc-topbar-actions">
-          <button type="button" className="kmc-round-button" aria-label="Open Photo" onClick={pickImageFile}>
+          <button type="button" className="kmc-round-button" aria-label={t('Open Photo')} onClick={pickImageFile}>
             <FolderOpen size={19} />
           </button>
 
           {(editorState === 'READY' || editorState === 'EDITING') && (
-            <button type="button" className="kmc-export-button" aria-label="Export Photo" onClick={handleExport}>
-              <Download size={17} /> Export
+            <button type="button" className="kmc-export-button" aria-label={t('Export Photo')} onClick={handleExport}>
+              <Download size={17} /> {t('Export')}
             </button>
           )}
         </div>
       </header>
+
+      {draftWarning && (
+        <div className="kmc-photo-notice" role="alert">{t(draftWarning)}</div>
+      )}
 
       {/* Main Canvas Viewport Area */}
       <div className="kmc-photo-canvas-container" ref={containerRef}>
@@ -527,10 +608,10 @@ export const MobileImageEditorView: React.FC = () => {
             <div className="kmc-empty-icon-ring">
               <ImageIcon size={48} />
             </div>
-            <h3>Select a Photo</h3>
-            <p>Choose any JPEG, PNG, or WebP photo from your device to begin editing.</p>
+            <h3>{t('Select a Photo')}</h3>
+            <p>{t('Choose any JPEG, PNG, or WebP photo from your device to begin editing.')}</p>
             <button type="button" className="kmc-primary-action-btn" onClick={pickImageFile}>
-              <FolderOpen size={18} /> Choose Photo
+              <FolderOpen size={18} /> {t('Choose Photo')}
             </button>
           </div>
         )}
@@ -538,16 +619,16 @@ export const MobileImageEditorView: React.FC = () => {
         {editorState === 'DECODING' && (
           <div className="kmc-photo-loading-state">
             <div className="kmc-spinner" />
-            <span>Decoding Photo...</span>
+            <span>{t('Decoding Photo...')}</span>
           </div>
         )}
 
         {editorState === 'ERROR' && (
-          <div className="kmc-photo-empty-state">
-            <h3>Error Loading Photo</h3>
-            <p>{errorMessage}</p>
+          <div className="kmc-photo-empty-state" role="alert">
+            <h3>{t('Error Loading Photo')}</h3>
+            <p>{t(errorMessage)}</p>
             <button type="button" className="kmc-primary-action-btn" onClick={pickImageFile}>
-              Try Again
+              {t('Try Again')}
             </button>
           </div>
         )}
@@ -573,21 +654,21 @@ export const MobileImageEditorView: React.FC = () => {
               className={activeTab === 'adjust' ? 'active' : ''}
               onClick={() => setActiveTab('adjust')}
             >
-              <Sliders size={16} /> Adjust
+              <Sliders size={16} /> {t('Adjust')}
             </button>
             <button
               type="button"
               className={activeTab === 'filters' ? 'active' : ''}
               onClick={() => setActiveTab('filters')}
             >
-              <Wand2 size={16} /> Filters
+              <Wand2 size={16} /> {t('Filters')}
             </button>
             <button
               type="button"
               className={activeTab === 'transform' ? 'active' : ''}
               onClick={() => setActiveTab('transform')}
             >
-              <RotateCw size={16} /> Transform
+              <RotateCw size={16} /> {t('Transform')}
             </button>
           </div>
 
@@ -596,7 +677,7 @@ export const MobileImageEditorView: React.FC = () => {
               <div className="kmc-adjust-sliders">
                 <div className="kmc-slider-group">
                   <label>
-                    <Sun size={14} /> Brightness ({adjustments.brightness})
+                    <Sun size={14} /> {t('Brightness')} ({adjustments.brightness})
                   </label>
                   <input
                     type="range"
@@ -612,7 +693,7 @@ export const MobileImageEditorView: React.FC = () => {
 
                 <div className="kmc-slider-group">
                   <label>
-                    <Sparkles size={14} /> Contrast ({adjustments.contrast})
+                    <Sparkles size={14} /> {t('Contrast')} ({adjustments.contrast})
                   </label>
                   <input
                     type="range"
@@ -628,7 +709,7 @@ export const MobileImageEditorView: React.FC = () => {
 
                 <div className="kmc-slider-group">
                   <label>
-                    <Wand2 size={14} /> Saturation ({adjustments.saturation})
+                    <Wand2 size={14} /> {t('Saturation')} ({adjustments.saturation})
                   </label>
                   <input
                     type="range"
@@ -656,7 +737,7 @@ export const MobileImageEditorView: React.FC = () => {
                       setEditorState('EDITING');
                     }}
                   >
-                    {f.label} {adjustments.filter === f.id && <Check size={12} />}
+                    {t(f.label)} {adjustments.filter === f.id && <Check size={12} />}
                   </button>
                 ))}
               </div>
@@ -672,7 +753,7 @@ export const MobileImageEditorView: React.FC = () => {
                     setEditorState('EDITING');
                   }}
                 >
-                  <RotateCw size={18} /> Rotate 90°
+                  <RotateCw size={18} /> {t('Rotate 90°')}
                 </button>
                 <button
                   type="button"
@@ -682,7 +763,7 @@ export const MobileImageEditorView: React.FC = () => {
                     setEditorState('EDITING');
                   }}
                 >
-                  <FlipHorizontal size={18} /> Flip H
+                  <FlipHorizontal size={18} /> {t('Flip H')}
                 </button>
                 <button
                   type="button"
@@ -692,7 +773,7 @@ export const MobileImageEditorView: React.FC = () => {
                     setEditorState('EDITING');
                   }}
                 >
-                  <FlipVertical size={18} /> Flip V
+                  <FlipVertical size={18} /> {t('Flip V')}
                 </button>
               </div>
             )}

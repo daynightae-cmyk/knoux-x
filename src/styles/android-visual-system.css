@@ -108,14 +108,14 @@
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-action-chevron { right: auto; inset-inline-end: 10px; bottom: 16px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmh-recent-card, .kmh-empty-recent) { background: var(--kx-surface); border-color: var(--kx-line); border-radius: 20px; text-align: start; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-empty-recent { line-height: 1.5; font-size: 12px; }
-:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { inset-inline: 12px; bottom: max(10px, env(safe-area-inset-bottom)); height: 76px; border-color: #66507f; border-radius: 25px; background: #100d1ef5; box-shadow: 0 12px 35px #0008, inset 0 1px #e0c5ff16; }
+:root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { inset-inline: 12px; bottom: max(var(--kx-bottom-nav-offset), env(safe-area-inset-bottom)); height: var(--kx-bottom-nav-height); border-color: #66507f; border-radius: 25px; background: #100d1ef5; box-shadow: 0 12px 35px #0008, inset 0 1px #e0c5ff16; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button { color: #beb2cf; font-size: 10px; gap: 5px; position: relative; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button.active { color: #f7edff; background: #6b36ab35; text-shadow: none; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button.active::after { content: ''; position: absolute; bottom: 0; width: 18px; height: 3px; background: #d7b6ff; border-radius: 4px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav button[aria-label='Create'] svg { border: 1px solid #bd83ff; border-radius: 50%; padding: 6px; width: 36px; height: 36px; background: #8233ed; box-shadow: 0 2px 12px #8b3dff65; }
 
 /* Shared surface, sheet, status and stage language. */
-:root[data-platform='android'][data-runtime='android'][data-theme] :is(.knoux-mobile-library, .knoux-mobile-recording, .knoux-mobile-settings, .knoux-mobile-export, .knoux-mobile-creative-surface) { min-height: 0; height: 100%; overflow-y: auto; padding-inline: 16px; background: radial-gradient(ellipse at 100% 0, #27133f66, transparent 48%), var(--kx-ink); color: var(--kx-text); }
+:root[data-platform='android'][data-runtime='android'][data-theme] :is(.knoux-mobile-library, .knoux-mobile-recording, .knoux-mobile-settings, .knoux-mobile-export, .knoux-mobile-creative-surface) { min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior-y: contain; padding-inline: 16px; padding-block-end: var(--kx-screen-bottom-inset); background: radial-gradient(ellipse at 100% 0, #27133f66, transparent 48%), var(--kx-ink); color: var(--kx-text); }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-topbar, .kml-header, .kms-topbar, .kmr-topbar, .kme-topbar) { min-height: 66px; padding-block: 6px 12px; gap: 10px; background: #090810f5; border-bottom: 1px solid #35283d; }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-round-button, .kml-round, .kme-round, .kms-topbar > button, .kmr-topbar > button) { width: 48px; min-width: 48px; height: 48px; border-color: var(--kx-line); background: #14101f; border-radius: 17px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kmc-brand-lockup, .kml-brand, .kme-brand) { min-width: 0; }
@@ -195,7 +195,11 @@
 :root[data-platform='android'][data-runtime='android'][data-theme] .ump-media-info { direction: ltr; unicode-bidi: isolate; }
 
 /* Reachable DSP route is a single mobile scroll surface. */
-:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-view { height: 100%; min-height: 0; overflow: auto; padding: 16px 16px 40px; background: var(--kx-ink); }
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-view { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding: 16px 16px var(--kx-screen-bottom-inset); background: var(--kx-ink); }
+/* The merge and batch workspaces replace the studio view at the same depth, so
+   they need the identical scroll-owner contract or their controls are clipped
+   by the app shell with nothing left to scroll. */
+:root[data-platform='android'][data-runtime='android'][data-theme] .audio-lab-workspace { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding: 16px 16px var(--kx-screen-bottom-inset); background: var(--kx-ink); }
 :root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .audio-tools-sidebar { position: static; }
 :root[data-platform='android'][data-runtime='android'][data-theme] .audio-waveform { height: 130px; }
@@ -259,7 +263,12 @@
   }
 }
 
-:root[data-platform='android'][data-runtime='android'][data-theme] [dir='rtl'] :is(.kmh-action-chevron, .kmh-section-heading svg, .kmc-round-button svg, .kml-round svg) { transform: scaleX(-1); }
+/* RTL mirrors directional affordances only. A back arrow points against the
+ * reading direction and a forward chevron points with it, so both flip; the
+ * round controls around them (settings, refresh, open folder, search) are not
+ * directional and must keep their original icon. Media transport glyphs mirror
+ * nowhere. */
+:root[data-platform='android'][data-runtime='android'][data-theme] [dir='rtl'] :is(.kx-back svg, .kx-forward svg, .kmh-action-chevron, .kmh-section-heading svg) { transform: scaleX(-1); }
 :root[data-platform='android'][data-runtime='android'][data-theme][dir='rtl'] :is(h1, h2, h3) { letter-spacing: 0; line-height: 1.4; }
 :root[data-platform='android'][data-runtime='android'][data-theme] [dir='rtl'] :is(.kmh-greeting h1, .kmh-section-heading h2) { letter-spacing: 0; line-height: 1.4; }
 :root[data-platform='android'][data-runtime='android'][data-theme] :is(.kme-source-copy, .kmc-mobile-projectbar > strong) { min-width: 0; overflow-wrap: anywhere; }
@@ -279,7 +288,10 @@
 @media (orientation: landscape) and (max-height: 540px) {
   :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-greeting { padding-block: 18px; }
   :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-hero-card { min-height: 180px; }
-  :root[data-platform='android'][data-runtime='android'][data-theme] .kmh-bottom-nav { height: 64px; }
+  /* Short landscape keeps the nav slim. Driving it from the shared token also
+     shrinks the bottom reservation every scroll owner relies on, so the two can
+     never drift apart. */
+  :root[data-platform='android'][data-runtime='android'][data-theme] { --kx-bottom-nav-height: 64px; }
   :root[data-platform='android'][data-runtime='android'][data-theme] .ump-sheet { max-height: 92dvh; }
   :root[data-platform='android'][data-runtime='android'][data-theme] .ump-quick-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   :root[data-platform='android'][data-runtime='android'][data-theme] .km-welcome-card { max-height: 92dvh; overflow: auto; }

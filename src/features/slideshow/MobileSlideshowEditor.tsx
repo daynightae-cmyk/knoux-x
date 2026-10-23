@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 
 import { NeonSelect } from '../../components/neon/NeonSelect';
+import { useAppStore } from '../../store/appStore';
+import { readSlideshowBridgeFailure } from '../../platform/slideshowRenderStatus';
 import { MobilePromptDialog } from '../../components/mobile/MobilePromptDialog';
 import type { SlideshowRenderSnapshot } from '../../../electron/creative/slideshow-render-service';
 import {
@@ -56,6 +58,76 @@ interface HistoryState {
 const audioExtensions = new Set(['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac', 'opus']);
 const transitions: SlideshowTransition[] = ['none', 'crossfade', 'fade-black', 'wipe', 'slide', 'zoom', 'blur'];
 const motions: KenBurnsMode[] = ['none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'pan-up', 'pan-down'];
+
+/* Every message this screen can show, including the ones the Android render
+ * bridge throws. Source strings stay English and are translated at render so a
+ * raw bridge error can never reach an Arabic reader untranslated. */
+const COPY_AR: Record<string, string> = {
+  'Audio import failed.': 'فشل استيراد الصوت.',
+  'Choose a supported audio file.': 'اختر ملف صوت مدعومًا.',
+  'MP4 render could not be queued.': 'تعذّر إضافة تصدير MP4 إلى قائمة الانتظار.',
+  'MP4 render queued. Progress appears below. Save a copy once it completes.': 'أُضيف تصدير MP4 إلى الانتظار. يظهر التقدّم بالأسفل، واحفظ نسخة عند الاكتمال.',
+  'MP4 slideshow rendering is not implemented on this Android runtime yet. Your project remains saved and editable.': 'تصدير العرض إلى MP4 غير منفّذ بعد في نسخة أندرويد هذه. مشروعك يبقى محفوظًا وقابلًا للتحرير.',
+  'Media duration is unavailable.': 'مدة الوسائط غير متاحة.',
+  'Media import failed.': 'فشل استيراد الوسائط.',
+  'Media metadata could not be decoded.': 'تعذّر فك ترميز بيانات الوسائط.',
+  'Preview media could not be opened.': 'تعذّر فتح وسائط المعاينة.',
+  'Recent slideshow could not be opened.': 'تعذّر فتح العرض الأخير.',
+  'Recent slideshow payload is invalid.': 'بيانات العرض الأخير غير صالحة.',
+  'Slideshow could not be created.': 'تعذّر إنشاء العرض.',
+  'Slideshow could not be opened.': 'تعذّر فتح العرض.',
+  'Slideshow save failed.': 'فشل حفظ العرض.',
+  'The copy is on your device once the file can be read back.': 'توجد النسخة على جهازك عندما يمكن قراءة الملف مرة أخرى.',
+  'The slideshow copy could not be saved.': 'تعذّر حفظ نسخة من العرض.',
+  'Android slideshow rendering failed.': 'فشل تنفيذ العرض على أندرويد.',
+  'Android slideshow rendering produced an empty file.': 'أنتج تنفيذ العرض على أندرويد ملفًا فارغًا.',
+  'Wait for an active slideshow render to finish before starting another.': 'انتظر إنهاء تصدير نشط قبل بدء تصدير آخر.',
+  'The rendered slideshow output is no longer in this session. Render it again before saving.': 'لم يعد مخرج العرض موجودًا في هذه الجلسة. أعد التصدير قبل الحفظ.',
+  'The saved slideshow could not be read back from the device.': 'تعذّرت قراءة ملف العرض المحفوظ من الجهاز.',
+  "The rendered slideshow is held in this session's memory. Save a copy before leaving KNOUX; there is no file on the device yet.": 'العرض المنفَّذ محفوظ في ذاكرة هذه الجلسة فقط. احفظ نسخة قبل مغادرة KNOUX؛ لا يوجد ملف على الجهاز بعد.',
+  'The slideshow was written but the device cannot read it back. Nothing is saved yet.': 'كُتب ملف العرض لكن الجهاز لا يستطيع قراءته. لم يُحفظ شيء بعد.',
+  'The Android storage layer refused this slideshow project, so it is not saved on the device.': 'رفضت طبقة التخزين في أندرويد مشروع العرض هذا، لذلك لم يُحفظ على الجهاز.',
+  'The Android storage layer refused this project, so it is not saved on the device.': 'رفضت طبقة التخزين في أندرويد هذا المشروع، لذلك لم يُحفظ على الجهاز.',
+  'Add media': 'إضافة وسائط',
+  'Add music': 'إضافة موسيقى',
+  'Add photos or videos to begin.': 'أضف صورًا أو فيديوهات لتبدأ.',
+  'Cancel': 'إلغاء',
+  'Caption': 'التعليق',
+  'Create': 'إنشاء',
+  'Create MP4': 'تصدير MP4',
+  'Delete slide': 'حذف الشريحة',
+  'Duplicate slide': 'تكرار الشريحة',
+  'Duration': 'المدة',
+  'Motion': 'حركة',
+  'New project': 'مشروع جديد',
+  'Open project': 'فتح مشروع',
+  'Project name': 'اسم المشروع',
+  'Recent projects': 'المشاريع الأخيرة',
+  'Redo': 'إعادة',
+  'The slideshow render provider did not start on this device.': 'لم تبدأ إضافة تنفيذ العرض على هذا الجهاز.',
+  'Render failed.': 'فشل التصدير.',
+  'Rendered in memory — not a file yet': 'في الذاكرة فقط — ليس ملفًا بعد',
+  'Save': 'حفظ',
+  'Save another copy': 'حفظ نسخة أخرى',
+  'Save copy to device': 'حفظ نسخة على الجهاز',
+  'Saved on this device': 'محفوظ على هذا الجهاز',
+  'Slideshow preview': 'معاينة العرض',
+  'Slideshow render jobs': 'مهام تصدير العرض',
+  'Slide': 'شريحة',
+  'Start a mobile slideshow': 'ابدأ عرضًا للصور على الجوال',
+  'Create a project, then add ordinary photos or videos from your device.': 'أنشئ مشروعًا، ثم أضف صورًا أو فيديوهات من جهازك.',
+  'Transition': 'انتقال',
+  'Undo': 'تراجع',
+  'slides': 'شريحة',
+  'render': 'تصدير',
+  'canceled': 'أُلغي',
+  'completed': 'مكتمل',
+  'failed': 'فشل',
+  'preparing': 'تحضير',
+  'queued': 'في الانتظار',
+  'rendering': 'جارٍ التنفيذ',
+  'validating': 'جارٍ التحقق',
+};
 
 function basename(filePath: string): string {
   return filePath.split(/[\\/]/).pop() ?? filePath;
@@ -110,6 +182,9 @@ function clip(value: number, minimum: number, maximum: number): number {
 }
 
 export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_, ref) => {
+  const ar = useAppStore((state) => state.locale) === 'ar';
+  const t = (en: string): string => (ar ? COPY_AR[en] ?? en : en);
+  const providerFailure = readSlideshowBridgeFailure();
   const [project, setProject] = useState<SlideshowProject | null>(null);
   const projectRef = useRef<SlideshowProject | null>(null);
   const [projectPath, setProjectPath] = useState<string | undefined>();
@@ -307,6 +382,29 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
     }
   }, [busy, projectPath, refreshRecent]);
 
+  /* The Android renderer keeps the encoded bytes in memory, so this is the
+   * only place a slideshow may claim a file. The bridge re-reads the written
+   * destination and publishes the verified path; a thrown error is shown here
+   * instead of being discarded. */
+  const saveOutput = useCallback(async (jobId: string): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      /* Optional chaining used to turn a runtime with no output handler into a
+       * quietly resolved promise and a friendly notice. Nothing was copied in
+       * that case, so say so instead. */
+      if (typeof window.knouxSlideshowAPI.openOutput !== 'function') {
+        throw new Error('This runtime exposes no slideshow output handler, so nothing was copied to your device.');
+      }
+      await window.knouxSlideshowAPI.openOutput(jobId);
+      setNotice('The copy is on your device once the file can be read back.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The slideshow copy could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const renderMp4 = useCallback(async (): Promise<boolean> => {
     const current = projectRef.current;
     if (!current || busy || current.slides.length === 0) return false;
@@ -319,7 +417,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
         setError('MP4 slideshow rendering is not implemented on this Android runtime yet. Your project remains saved and editable.');
         return false;
       }
-      setNotice('MP4 render queued. Progress appears below; open the output when it completes.');
+      setNotice('MP4 render queued. Progress appears below. Save a copy once it completes.');
       return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'MP4 render could not be queued.');
@@ -457,11 +555,11 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
   const promptDialog = (
     <MobilePromptDialog
       open={Boolean(namePrompt?.open)}
-      title="Project name"
-      label="Project name"
+      title={t('Project name')}
+      label={t('Project name')}
       defaultValue={namePrompt?.value ?? ''}
-      confirmLabel="Create"
-      cancelLabel="Cancel"
+      confirmLabel={t('Create')}
+      cancelLabel={t('Cancel')}
       onConfirm={(value) => {
         const submit = namePrompt?.submit;
         setNamePrompt(null);
@@ -474,17 +572,17 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
   if (!project) {
     return (
       <div className="kms-mobile-slideshow" data-component="MobileSlideshowEditor">
-        {error && <div className="kmc-inline-error" role="alert">{error}</div>}
+        {error && <div className="kmc-inline-error" role="alert">{t(error)}</div>}
         <div className="kms-start-card">
-          <strong>Start a mobile slideshow</strong>
-          <p>Create a project, then add ordinary photos or videos from your device.</p>
+          <strong>{t('Start a mobile slideshow')}</strong>
+          <p>{t('Create a project, then add ordinary photos or videos from your device.')}</p>
           <div className="kms-start-actions">
-            <button type="button" onClick={createProject} disabled={busy}>New project</button>
-            <button type="button" onClick={() => void openProject()} disabled={busy}>Open project</button>
+            <button type="button" onClick={createProject} disabled={busy}>{t('New project')}</button>
+            <button type="button" onClick={() => void openProject()} disabled={busy}>{t('Open project')}</button>
           </div>
           {recent.length > 0 && (
             <div className="kms-recent-list">
-              <span>Recent projects</span>
+              <span>{t('Recent projects')}</span>
               {recent.slice(0, 5).map((filePath) => (
                 <button key={filePath} type="button" onClick={() => void openRecent(filePath)}>{basename(filePath)}</button>
               ))}
@@ -499,16 +597,17 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
   return (
     <div className="kms-mobile-slideshow" data-component="MobileSlideshowEditor">
       <div className="kms-project-bar">
-        <div><strong>{project.name}</strong><span>{project.slides.length} slides · {formatTime(duration)}</span></div>
+        <div><strong>{project.name}</strong><span>{project.slides.length} {t('slides')} · {formatTime(duration)}</span></div>
         <div>
-          <button type="button" aria-label="Undo" onClick={undo}><Undo2 size={17} /></button>
-          <button type="button" aria-label="Redo" onClick={redo}><Redo2 size={17} /></button>
-          <button type="button" aria-label="Save" onClick={() => void save()} disabled={busy}><Save size={17} /></button>
+          <button type="button" aria-label={t('Undo')} onClick={undo}><Undo2 size={17} /></button>
+          <button type="button" aria-label={t('Redo')} onClick={redo}><Redo2 size={17} /></button>
+          <button type="button" aria-label={t('Save')} onClick={() => void save()} disabled={busy}><Save size={17} /></button>
         </div>
       </div>
 
       {error && <div className="kmc-inline-error" role="alert">{error}</div>}
-      {notice && <div className="kms-notice" role="status">{notice}</div>}
+      {notice && <div className="kms-notice" role="status">{t(notice)}</div>}
+      {providerFailure && <div className="kms-notice kms-provider" role="status">{t('The slideshow render provider did not start on this device.')} <span dir="ltr">{providerFailure}</span></div>}
 
       <div className="kms-preview-card">
         <div
@@ -519,9 +618,9 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
             return { aspectRatio: `${size.width}/${size.height}`, ['--knoux-slide-ar' as string]: ratio };
           })()}
         >
-          {!activeSlide && <span className="kms-empty-preview">Add photos or videos to begin.</span>}
+          {!activeSlide && <span className="kms-empty-preview">{t('Add photos or videos to begin.')}</span>}
           {activeSlide?.kind === 'image' && activeMediaUrl && (
-            <img src={activeMediaUrl} alt={activeSlide.title || 'Slideshow preview'} style={{ objectFit: activeSlide.fit === 'fit' ? 'contain' : 'cover' }} />
+            <img src={activeMediaUrl} alt={activeSlide.title || t('Slideshow preview')} style={{ objectFit: activeSlide.fit === 'fit' ? 'contain' : 'cover' }} />
           )}
           {activeSlide?.kind === 'video' && activeMediaUrl && (
             <video src={activeMediaUrl} muted={activeSlide.muted} playsInline controls={false} />
@@ -549,33 +648,38 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
       </div>
 
       <div className="kms-import-row">
-        <button type="button" onClick={() => void importSlides()} disabled={busy}><ImagePlus size={18} /> Add media</button>
-        <button type="button" onClick={() => void addAudio()} disabled={busy || duration <= 0}><Music size={18} /> Add music</button>
-        <button type="button" onClick={() => void renderMp4()} disabled={busy || project.slides.length === 0}>Create MP4</button>
+        <button type="button" onClick={() => void importSlides()} disabled={busy}><ImagePlus size={18} /> {t('Add media')}</button>
+        <button type="button" onClick={() => void addAudio()} disabled={busy || duration <= 0}><Music size={18} /> {t('Add music')}</button>
+        <button type="button" onClick={() => void renderMp4()} disabled={busy || project.slides.length === 0}>{t('Create MP4')}</button>
       </div>
 
       {renderSnapshots.length > 0 && (
-        <div className="kms-render-jobs" aria-label="Slideshow render jobs">
+        <div className="kms-render-jobs" aria-label={t('Slideshow render jobs')}>
           {renderSnapshots.map((job) => {
             const active = job.status === 'preparing' || job.status === 'rendering';
             return (
               <div key={job.id} className={`kms-render-job ${job.status}`}>
                 <span className="kms-render-job-title">
-                  {(job.format === 'mp4' ? 'MP4' : job.format.toUpperCase())} render · {job.status}
+                  {(job.format === 'mp4' ? 'MP4' : job.format.toUpperCase())} {t('render')} · {t(job.status)}
                 </span>
                 <span className="kms-render-job-meta">{Math.round(job.percentage)}%</span>
                 {active && (
                   <button type="button" onClick={() => void window.knouxSlideshowAPI.cancelRender?.(job.id)}>
-                    Cancel
+                    {t('Cancel')}
                   </button>
                 )}
-                {job.status === 'failed' && <span className="kms-render-job-error">{job.error ?? 'Render failed.'}</span>}
+                {job.status === 'failed' && <span className="kms-render-job-error">{t(job.error ?? 'Render failed.')}</span>}
                 {job.status === 'completed' && (
                   <div className="kms-render-job-actions">
-                    <button type="button" onClick={() => void window.knouxSlideshowAPI.openOutput?.(job.id).catch(() => undefined)}>Open output</button>
-                    <button type="button" onClick={() => void window.knouxSlideshowAPI.revealOutput?.(job.id).catch(() => undefined)}>Save copy</button>
+                    <span className="kms-render-job-state">
+                      {job.outputExists ? t('Saved on this device') : t('Rendered in memory — not a file yet')}
+                    </span>
+                    <button type="button" disabled={busy} onClick={() => void saveOutput(job.id)}>
+                      {job.outputExists ? t('Save another copy') : t('Save copy to device')}
+                    </button>
                   </div>
                 )}
+                {job.warning && <span className="kms-render-job-warning" role="status">{t(job.warning)}</span>}
               </div>
             );
           })}
@@ -600,18 +704,18 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
       {selectedSlide && (
         <div className="kms-inspector">
           <div className="kms-inspector-head">
-            <strong>Slide {selectedIndex + 1}</strong>
+            <strong>{t('Slide')} {selectedIndex + 1}</strong>
             <div>
               <button type="button" onClick={() => moveSelected(-1)} disabled={selectedIndex <= 0}>←</button>
               <button type="button" onClick={() => moveSelected(1)} disabled={selectedIndex < 0 || selectedIndex >= project.slides.length - 1}>→</button>
-              <button type="button" onClick={duplicateSelected} aria-label="Duplicate slide"><Copy size={16} /></button>
-              <button type="button" onClick={removeSelected} aria-label="Delete slide"><Trash2 size={16} /></button>
+              <button type="button" onClick={duplicateSelected} aria-label={t('Duplicate slide')}><Copy size={16} /></button>
+              <button type="button" onClick={removeSelected} aria-label={t('Delete slide')}><Trash2 size={16} /></button>
             </div>
           </div>
-          <label><span>Duration</span><input type="number" min={0.1} max={86400} step={0.1} value={selectedSlide.duration} onChange={(event) => patchSelected((slide) => ({ ...slide, duration: clip(Number(event.target.value), 0.1, 86400) }))} /></label>
-          <div className="kms-inspector-field"><span>Transition</span><NeonSelect aria-label="Transition" value={selectedSlide.transition} options={transitions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, transition: value as SlideshowTransition }))} /></div>
-          {selectedSlide.kind === 'image' && <div className="kms-inspector-field"><span>Motion</span><NeonSelect aria-label="Motion" value={selectedSlide.kenBurns} options={motions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, kenBurns: value as KenBurnsMode }))} /></div>}
-          <label><span>Caption</span><input value={selectedSlide.caption} onChange={(event) => patchSelected((slide) => ({ ...slide, caption: event.target.value.slice(0, 1000) }))} /></label>
+          <label><span>{t('Duration')}</span><input type="number" min={0.1} max={86400} step={0.1} value={selectedSlide.duration} onChange={(event) => patchSelected((slide) => ({ ...slide, duration: clip(Number(event.target.value), 0.1, 86400) }))} /></label>
+          <div className="kms-inspector-field"><span>{t('Transition')}</span><NeonSelect aria-label={t('Transition')} value={selectedSlide.transition} options={transitions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, transition: value as SlideshowTransition }))} /></div>
+          {selectedSlide.kind === 'image' && <div className="kms-inspector-field"><span>{t('Motion')}</span><NeonSelect aria-label={t('Motion')} value={selectedSlide.kenBurns} options={motions.map((value) => ({ value, label: value }))} onChange={(value) => patchSelected((slide) => ({ ...slide, kenBurns: value as KenBurnsMode }))} /></div>}
+          <label><span>{t('Caption')}</span><input value={selectedSlide.caption} onChange={(event) => patchSelected((slide) => ({ ...slide, caption: event.target.value.slice(0, 1000) }))} /></label>
         </div>
       )}
       {promptDialog}

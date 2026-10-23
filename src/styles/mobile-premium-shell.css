@@ -9,6 +9,33 @@
   --km-text: #ffffff;
   --km-muted: rgba(231, 222, 255, 0.68);
   --km-radius: 24px;
+
+  /* Bottom geometry contract.
+   *
+   * `.kmh-bottom-nav` is `position: fixed` and only mounts with the Home
+   * dashboard, so two reservations are needed:
+   *
+   *   --kx-screen-bottom-inset      every screen: a finger-friendly buffer plus
+   *                                 the Android system inset (gesture bar, or
+   *                                 the three-button bar surfaced through
+   *                                 env(safe-area-inset-bottom)).
+   *   --kx-screen-bottom-clearance  Home only: that inset plus the floating nav
+   *                                 band, or the last row hides underneath it.
+   *
+   * Every Android screen owns its own vertical scroll container (`.app-shell`,
+   * `.app-body`, `.main-content` and `.view-transition` all clip), so a surface
+   * that skips its bottom reservation cannot scroll past it. The nav bar reads
+   * the same geometry tokens, so bar and padding can never drift apart.
+   */
+  --kx-bottom-nav-height: 76px;
+  --kx-bottom-nav-offset: 10px;
+  --kx-screen-scroll-buffer: 26px;
+  --kx-system-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --kx-screen-bottom-inset: calc(var(--kx-screen-scroll-buffer) + var(--kx-system-inset-bottom));
+  --kx-screen-bottom-clearance: calc(
+    var(--kx-bottom-nav-height) + var(--kx-bottom-nav-offset) + var(--kx-screen-bottom-inset)
+  );
+
   background: var(--km-bg);
   color-scheme: dark;
 }
@@ -52,7 +79,7 @@
   touch-action: pan-y;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: max(18px, env(safe-area-inset-top, 0px)) 16px calc(112px + env(safe-area-inset-bottom, 0px));
+  padding: max(18px, env(safe-area-inset-top, 0px)) 16px var(--kx-screen-bottom-clearance);
   background:
     radial-gradient(circle at 85% 7%, rgba(137, 53, 255, 0.16), transparent 24%),
     radial-gradient(circle at 0% 45%, rgba(83, 34, 166, 0.16), transparent 26%),

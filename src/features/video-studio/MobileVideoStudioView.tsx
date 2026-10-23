@@ -81,7 +81,7 @@ export const MobileVideoStudioView: React.FC = () => {
       data-component="MobileVideoStudioView"
     >
       <header className="kmc-topbar">
-        <button type="button" className="kmc-round-button" aria-label={ar ? 'الرجوع إلى الرئيسية' : 'Back to home'} onClick={() => setView('home')}>
+        <button type="button" className="kmc-round-button kx-back" aria-label={ar ? 'الرجوع إلى الرئيسية' : 'Back to home'} onClick={() => setView('home')}>
           <ArrowLeft size={21} />
         </button>
         <div className="kmc-brand-lockup">

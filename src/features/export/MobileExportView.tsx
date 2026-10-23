@@ -69,6 +69,18 @@ function fileName(filePath: string | null): string {
   return filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'KNOUX-export';
 }
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
+}
+
 function recorderMime(): string {
   const candidates = [
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
@@ -115,6 +127,7 @@ function waitForMetadata(video: HTMLVideoElement): Promise<void> {
 export const MobileExportView: React.FC = () => {
   const ar = useAppStore((state) => state.locale) === 'ar';
   const setView = useAppStore((state) => state.setView);
+  const addNotification = useAppStore((state) => state.addNotification);
   const currentMedia = usePlayerStore((state) => state.currentMedia);
   const activeProject = useMemo(() => readActiveAndroidMultitrackProject(), []);
   const [sourceMode, setSourceMode] = useState<SourceMode>(activeProject ? 'project' : 'media');
@@ -365,10 +378,48 @@ export const MobileExportView: React.FC = () => {
         destination,
         bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
       );
+      /* A write is only a success once the device shows the file. This mirrors
+       * the verified save the audio exporter performs: an unverified save used
+       * to leave the screen silently claiming nothing had happened, while a
+       * truncated MediaStore write looked finished. */
+      const exists = await window.knouxAPI.file.exists(destination).catch(() => false);
+      if (!exists) {
+        setError(ar
+          ? 'لم يؤكد الجهاز وجود الملف بعد الكتابة. لم تُحفظ النسخة.'
+          : 'The device did not confirm the file after writing. Nothing was saved.');
+        return;
+      }
+      const stats = await window.knouxAPI.file.getStats(destination).catch(() => null);
+      if (stats && stats.size === 0) {
+        /* The device itself reports an empty file, so the write never landed.
+         * The recording screen already refuses a zero-byte file; claiming
+         * "Saved · <export size>" here would repeat the exact false success
+         * this verified-save path exists to prevent. */
+        setError(ar
+          ? 'أفاد الجهاز بملف بحجم 0 بايت بعد الكتابة. لم تُحفظ النسخة.'
+          : 'The device reports a 0-byte file after writing. Nothing was saved.');
+        return;
+      }
+      if (stats && stats.size !== bytes.length) {
+        setError(ar
+          ? `حجم الملف المحفوظ (${formatBytes(stats.size)}) لا يطابق الفيديو المُصدَّر (${formatBytes(bytes.length)}).`
+          : `The saved file is ${formatBytes(stats.size)} but the export was ${formatBytes(bytes.length)}.`);
+        return;
+      }
+      addNotification({
+        type: 'success',
+        title: ar ? 'تم الحفظ' : 'Saved',
+        message: `${result.file.name} · ${formatBytes(bytes.length)}${stats
+          ? (ar ? ' · حجم مؤكَّد من الجهاز' : ' · size confirmed by the device')
+          : (ar ? ' · لم يؤكد الجهاز الحجم' : ' · size not confirmed by the device')}${destination.startsWith('content://')
+          ? (ar ? ' · محفوظ دائمًا' : ' · permanent (SAF)')
+          : (ar ? ' · مسار مؤقت — تحقق من الملف' : ' · temporary path — verify the file')}`,
+        duration: 4000,
+      });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'The export could not be saved.');
+      setError(reason instanceof Error ? reason.message : (ar ? 'تعذّر حفظ التصدير.' : 'The export could not be saved.'));
     }
-  }, [ar, result]);
+  }, [addNotification, ar, result]);
 
   const shareResult = useCallback(async (): Promise<void> => {
     if (!result) return;
@@ -393,7 +444,7 @@ export const MobileExportView: React.FC = () => {
       <div className="kme-ambient kme-ambient-one" />
       <div className="kme-ambient kme-ambient-two" />
       <header className="kme-topbar">
-        <button type="button" className="kme-round" aria-label={ar ? 'رجوع' : 'Back'} onClick={() => setView(sourceMode === 'project' ? 'editor' : 'home')} disabled={exporting}><ArrowLeft size={21} /></button>
+        <button type="button" className="kme-round kx-back" aria-label={ar ? 'رجوع' : 'Back'} onClick={() => setView(sourceMode === 'project' ? 'editor' : 'home')} disabled={exporting}><ArrowLeft size={21} /></button>
         <div className="kme-brand"><BrandMark size={40} /><div><strong>KNOUX <span>X</span></strong><small>{ar ? 'تصدير ومشاركة' : 'EXPORT & SHARE'}</small></div></div>
         <span className="kme-local-badge"><Sparkles size={14} /> {ar ? 'على الجهاز' : 'ON DEVICE'}</span>
       </header>

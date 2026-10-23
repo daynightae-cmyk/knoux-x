@@ -2,10 +2,15 @@ html[data-platform='android'] .knoux-mobile-vault {
   --kvv-violet: #8b3dff;
   position: relative;
   width: 100%;
-  min-height: 100dvh;
+  /* Same owner contract as the other Android screens: a definite height inside
+     the clipped app shell, and the shared bottom inset so the last row of the
+     vault never ends under the system bar. */
+  height: 100%;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  overscroll-behavior-y: contain;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) var(--kx-screen-bottom-inset) max(12px, env(safe-area-inset-left));
   color: #fff;
   background:
     radial-gradient(circle at 50% -8%, rgba(124, 42, 255, 0.22), transparent 31%),

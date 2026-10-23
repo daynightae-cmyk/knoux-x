@@ -115,9 +115,22 @@ describe('KNOuX X cinematic Android splash', () => {
 
     test('the React splash preloads the official logo before it exits', () => {
       const overlay = read('src/components/mobile/MobileSplashOverlay.tsx');
-      expect(overlay).toContain('knoux-logo-master.png');
+      const brandMark = read('src/components/brand/BrandMark.tsx');
+      // The master logo asset is resolved once, by BrandMark. The splash preloads
+      // exactly that URL: a second `new URL(..., import.meta.url)` could resolve to
+      // a different hashed filename and warm a URL the rendered <img> never uses.
+      expect(brandMark).toContain('knoux-logo-master.png');
+      expect(overlay).toContain('OFFICIAL_LOGO_URL');
+      expect(overlay).toContain('img.src = OFFICIAL_LOGO_URL');
       expect(overlay).toContain('logoLoaded');
       expect(overlay).toContain('data-logo-loaded');
+    });
+
+    test('the React splash hands off to the app shell, never to the welcome tour', () => {
+      const overlay = read('src/components/mobile/MobileSplashOverlay.tsx');
+      expect(overlay).not.toContain("from './MobileOnboarding'");
+      expect(overlay).not.toContain('<MobileOnboarding');
+      expect(overlay).toContain("if (phase === 'hidden') return null;");
     });
 
     test('the React splash renders the brand without literal escape sequences', () => {

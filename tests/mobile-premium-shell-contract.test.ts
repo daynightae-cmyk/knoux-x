@@ -90,7 +90,9 @@ describe('KNOUX X Android premium mobile shell contract', () => {
   });
 
   test('replaces the old unavailable Android image proxy with a real local asset bridge', () => {
-    expect(main).toContain('installAndroidImageEditorBridge();');
+    /* Each Android bridge is installed by name so one failing adapter cannot
+     * blank the WebView; the image-editor bridge is still required. */
+    expect(main).toContain("install('image-editor', installAndroidImageEditorBridge)");
     expect(imageBridge).toContain('androidImageAsset(filePath)');
     expect(imageBridge).toContain('importRetouchAsset: async');
     expect(imageBridge).toContain('readRetouchProxy: async');

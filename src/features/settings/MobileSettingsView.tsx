@@ -17,7 +17,9 @@ function announceMobileSetting(key: string, value: unknown): void {
 export const MobileSettingsView: React.FC = () => {
   const setView = useAppStore((state) => state.setView);
   const locale = useAppStore((state) => state.locale);
-  const copy = (en: string, ar: string): string => locale === 'ar' ? ar : en;
+  // Memoised so the long-lived callbacks below can list it as a real dependency
+  // instead of closing over the first render's language.
+  const copy = useCallback((en: string, ar: string): string => locale === 'ar' ? ar : en, [locale]);
   const theme = useAppStore((state) => state.theme);
   const motionEnabled = useAppStore((state) => state.motionEnabled);
   const setLocale = useAppStore((state) => state.setLocale);
@@ -30,6 +32,7 @@ export const MobileSettingsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [about, setAbout] = useState(false);
   const [welcome, setWelcome] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -42,7 +45,11 @@ export const MobileSettingsView: React.FC = () => {
       setDefaultSpeed(Number(speed) || 1);
       setKeepAwake(Boolean(awake));
       setLibraryPath(typeof path === 'string' ? path : null);
-    }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Settings could not be loaded.'));
+    }).catch((reason) => setError(reason instanceof Error
+      ? reason.message
+      : (useAppStore.getState().locale === 'ar'
+        ? 'تعذّر تحميل الإعدادات.'
+        : 'Settings could not be loaded.')));
     return () => { active = false; };
   }, []);
 
@@ -52,11 +59,13 @@ export const MobileSettingsView: React.FC = () => {
     try {
       await window.knouxAPI.settings.set(key, value);
       announceMobileSetting(key, value);
-      setNotice('Saved on this device.');
+      setNotice(locale === 'ar' ? 'حُفظ على هذا الجهاز.' : 'Saved on this device.');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Setting could not be saved.');
+      setError(reason instanceof Error
+        ? reason.message
+        : (locale === 'ar' ? 'تعذّر حفظ الإعداد.' : 'Setting could not be saved.'));
     }
-  }, []);
+  }, [locale]);
 
   const changeLocale = useCallback((value: 'en' | 'ar'): void => {
     setLocale(value);
@@ -96,16 +105,19 @@ export const MobileSettingsView: React.FC = () => {
       announceMobileSetting('mobile.keepScreenAwake', true);
       announceMobileSetting('mobile.libraryPath', null);
       announceMobileSetting('theme', ANDROID_DEFAULT_THEME);
-      setNotice('Mobile settings reset. KNOUX Cinema Dark is restored.');
+      setConfirmReset(false);
+      setNotice(copy('Mobile settings reset. KNOUX Cinema Dark is restored.', 'أُعيدت إعدادات الجوال إلى الأصل. عاد الوضع السينمائي الداكن.'));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Mobile settings could not be reset.');
+      setError(reason instanceof Error
+        ? reason.message
+        : copy('Mobile settings could not be reset.', 'تعذّرت إعادة ضبط إعدادات الجوال.'));
     }
-  }, [setTheme]);
+  }, [copy, setTheme]);
 
   if (about) return <MobileDeveloperView onBack={() => setAbout(false)} />;
   return (
     <section className="knoux-mobile-settings" data-component="MobileSettingsView" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <header className="kms-topbar"><button type="button" aria-label="Back" onClick={() => setView('home')}><ArrowLeft size={21} /></button><div><BrandMark size={38} /><span><strong>KNOUX <em>X</em></strong><small>{copy('SETTINGS', 'الإعدادات')}</small></span></div><ShieldCheck size={20} /></header>
+      <header className="kms-topbar"><button type="button" className="kx-back" aria-label={copy('Back', 'رجوع')} onClick={() => setView('home')}><ArrowLeft size={21} /></button><div><BrandMark size={38} /><span><strong>KNOUX <em>X</em></strong><small>{copy('SETTINGS', 'الإعدادات')}</small></span></div><ShieldCheck size={20} /></header>
       <div className="kms-hero"><span>{copy('LOCAL PREFERENCES', 'على ذوقك')}</span><h1>{copy('Make KNOUX X', 'اجعل KNOUX X')} <em>{copy('yours.', 'على ذوقك.')}</em></h1><p>{copy('A personal space, shaped around you.', 'مساحتك الخاصة، كما تحبّها.')}</p></div>
       {error && <div className="kms-error" role="alert">{error}</div>}
       {notice && <div className="kms-notice" role="status">{notice}</div>}
@@ -123,7 +135,21 @@ export const MobileSettingsView: React.FC = () => {
       <button type="button" className="kms-wide-button" onClick={() => setAbout(true)}>Eng. Sadek Elgazar · {locale === 'ar' ? 'عن المطوّر' : 'About the developer'}</button>
       <button type="button" className="kms-wide-button" onClick={() => setWelcome(true)}>{locale === 'ar' ? 'جولة في التطبيق' : 'Replay welcome tour'}</button>
       {welcome && <MobileOnboarding replay onClose={() => setWelcome(false)} />}
-      <button type="button" className="kms-reset" onClick={() => void resetMobile()}><RotateCcw size={17} /> {copy('Reset mobile settings', 'إعادة ضبط الإعدادات')}</button>
+      {/* §16.3: a destructive preference action arms first and confirms second,
+        * and the copy states exactly what it touches — nothing else is deleted. */}
+      {confirmReset ? (
+        <div className="kms-confirm" role="group" aria-label={copy('Confirm mobile settings reset', 'تأكيد إعادة ضبط إعدادات الجوال')}>
+          <strong>{copy('Reset mobile settings?', 'إعادة ضبط إعدادات الجوال؟')}</strong>
+          <p className="kms-copy">{copy(
+            'This restores KNOUX preferences on this device only: theme, start speed, keep-screen-awake and the media folder choice. Your media, projects and Vault content are not touched.',
+            'تُستعاد تفضيلات KNOUX على هذا الجهاز فقط: المظهر وسرعة البدء وإبقاء الشاشة مضاءة واختيار مجلد الوسائط. لا يُمسّ أي من وسائطك أو مشاريعك أو محتوى الخزنة.',
+          )}</p>
+          <button type="button" className="kms-reset kms-reset-confirm" onClick={() => void resetMobile()}><RotateCcw size={17} /> {copy('Confirm reset', 'تأكيد إعادة الضبط')}</button>
+          <button type="button" className="kms-wide-button" onClick={() => setConfirmReset(false)}>{copy('Keep my settings', 'الإبقاء على إعداداتي')}</button>
+        </div>
+      ) : (
+        <button type="button" className="kms-reset" onClick={() => { setNotice(null); setError(null); setConfirmReset(true); }}><RotateCcw size={17} /> {copy('Reset mobile settings', 'إعادة ضبط الإعدادات')}</button>
+      )}
     </section>
   );
 };

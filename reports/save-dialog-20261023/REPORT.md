@@ -1,4 +1,4 @@
-# Native save-dialog options
+# Native save-dialog options and installed-acceptance recovery
 
 Baseline: `e29c81857994fc9768d622410be3e483fd027ecb` (`origin/main` fetched on 2026-10-23).
 Branch: `fix/save-dialog-properties-20261023`.
@@ -66,3 +66,36 @@ deployment was performed. Existing repository preview integrations may run on PR
 pushes. Product CPU-load timeline export, intermittent installed `.parse` error,
 full device acceptance, model-license review and unique Windows work recovery
 remain open. Release status: **BLOCKED**.
+
+## Candidate CI failure and bounded fixture repair
+
+On candidate `bda450ea61e412685cd3bb42846003c02001cc7a`, Windows Full Rebuild
+`39939253768`, timeline/creative/recording and Android Debug passed. Windows
+installed image acceptance passed on GitHub's test merge `391683f`; its tree was
+verified equal to bda450e. Android Release `39939253709` failed one of 21 cases.
+
+The retained `real-workflows.json` records a recovered WebView closure inside
+`mediastore-discovery-playback-refresh-revoke`, followed by failure to discover
+the B fixture. Its screenshot shows the new addition already present and B absent:
+the previous attempt had deleted B, but `withSession` reran the whole callback
+without restoring its preconditions. This does not establish the cause of the
+initial WebView closure and does not justify calling the failed run green.
+
+Additional exact files:
+
+- `tools/android-media-discovery-fixtures.cjs`: verify the device QA source against
+  its host SHA-256; restore only the missing B fixture with an exclusive copy;
+  reject different existing bytes; allocate a fresh addition per attempt.
+- `tools/android-real-workflows.cjs`: establish those preconditions on each attempt,
+  prove the addition is absent before creating it, and retain its identity in
+  evidence. Discovery, deletion, permission, restart and pixel/input assertions
+  remain intact. No app feature, emulator permission policy or workflow gate changed.
+- `tests/unit/android-media-discovery-fixtures.test.ts`: five regressions for clean
+  setup, retry after deletion, preserving previous additions, different bytes and
+  refusing stale addition identities.
+
+After this extension, full local Jest with `KNOUX_REQUIRE_NATIVE_JAVA=1` passed
+**173 suites / 1501 tests**, 67.639 s, with no native-Java skip. Typecheck, full
+ESLint, both helper syntax checks and diff whitespace checks passed. The newly
+pushed head must receive its own installed CI evidence. Previous failed artifacts
+and all unique work remain preserved; no assertions were relaxed or tests disabled.

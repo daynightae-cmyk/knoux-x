@@ -99,3 +99,28 @@ After this extension, full local Jest with `KNOUX_REQUIRE_NATIVE_JAVA=1` passed
 ESLint, both helper syntax checks and diff whitespace checks passed. The newly
 pushed head must receive its own installed CI evidence. Previous failed artifacts
 and all unique work remain preserved; no assertions were relaxed or tests disabled.
+
+## Preinstall ANR return-code repair
+
+On 5684230, Windows Full Rebuild and Android Release passed, including all 21
+release emulator cases. Debug attempts 1 and 2 stopped before app installation.
+Inspection found a second verifier defect: `dismiss_foreign_anr` deliberately
+returns 2 after successfully clearing a foreign ANR, but the initial
+`if ! dismiss_foreign_anr` treated that successful recovery as fatal. The retained
+window dump has no remaining Application Not Responding entry. This corrects the
+initial interpretation of the failure as an unresolved emulator dialog.
+
+- `tools/android-emulator-smoke.sh` now accepts exactly the documented clean (0)
+  and recovered (2) statuses before installation. Other statuses remain fatal.
+  The app's own ANR is still rejected by the existing handler.
+- `tests/unit/android-preinstall-anr-status.test.ts` executes the actual production
+  shell entry under strict Bash with isolated device calls: 0 and 2 reach install;
+  1 and unknown 3 do not. Before the fix: 1 failed / 3 passed. After it: the three
+  related suites pass all 51 cases. Git Bash is selected explicitly on Windows.
+
+Final local gates: TypeScript, full ESLint, shell syntax and whitespace checks pass;
+**174 suites / 1505 tests**, 68.287 s, pass with required native Java enabled. No
+test was skipped, assertion weakened or workflow requirement changed. Old CI logs,
+both failed Debug artifacts and the passing prior Release artifact are preserved.
+The final pushed head still requires its own CI results, including Windows Bash
+regressions and installed Android acceptance.

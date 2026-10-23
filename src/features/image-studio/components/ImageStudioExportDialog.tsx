@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { NeonButton } from '../../../components/neon/NeonButton';
 import { NeonSelect } from '../../../components/neon/NeonSelect';
 import { NeonInput } from '../../../components/neon/NeonInput';
 import { useTranslation } from '../../../i18n';
 import { useImageStudioStore } from '../store/imageStudioStore';
-import { syncRetouchState } from '../retouch/syncRetouchState';
+import { planExport } from '../../../core/image-studio/export/plan';
+import { exportStudioImage } from '../documentCommands';
 
 export const ImageStudioExportDialog: React.FC = () => {
   const { t } = useTranslation();
-  const { currentDocument } = useImageStudioStore();
+  const { currentDocument, isLoading } = useImageStudioStore();
   const [format, setFormat] = useState('png');
   const [quality, setQuality] = useState(0.94);
   const [width, setWidth] = useState(currentDocument?.canvas.width ?? 1920);
@@ -17,64 +18,34 @@ export const ImageStudioExportDialog: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportResult, setExportResult] = useState<string | null>(null);
 
-  const handleExport = async (): Promise<void> => {
-    if (!currentDocument) return;
-    setIsExporting(true);
+  useEffect(() => {
+    setWidth(currentDocument?.canvas.width ?? 1920);
+    setHeight(currentDocument?.canvas.height ?? 1080);
     setExportResult(null);
-    try {
-      await syncRetouchState(currentDocument);
-       const result = await window.knouxImageStudioAPI.exportFlattened({
-         format: format as 'png' | 'jpeg' | 'webp',
-         quality: format === 'png' ? null : quality,
-         width,
-         height,
-         mime: format === 'png' ? 'image/png' : format === 'jpeg' ? 'image/jpeg' : 'image/webp',
-         extension: format,
-         preserveAlpha: true,
-         scaleX: 1,
-         scaleY: 1,
-         upscale: false,
-       });
-      if (result && result.bytes) {
-        setExportResult(t('imageStudio.exportSuccess'));
-        useImageStudioStore.getState().setDirty(false);
-        useImageStudioStore.getState().setSaved(true);
-      }
-    } catch (error) {
-      setExportResult(t('imageStudio.exportFailed'));
-      useImageStudioStore.getState().addError(
-        error instanceof Error ? error.message : t('imageStudio.exportFailed')
-      );
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  }, [currentDocument?.documentId, currentDocument?.canvas.width, currentDocument?.canvas.height]);
 
-  const handleExportLayer = async (layerId: string): Promise<void> => {
-    if (!currentDocument) return;
+  const handleExport = async (layerId?: string): Promise<void> => {
+    if (!currentDocument || isExporting || isLoading) return;
     setIsExporting(true);
     setExportResult(null);
     try {
-      await syncRetouchState(currentDocument);
-       const result = await window.knouxImageStudioAPI.exportLayer(layerId, {
-         format: format as 'png' | 'jpeg' | 'webp',
-         quality: format === 'png' ? null : quality,
-         width,
-         height,
-         mime: format === 'png' ? 'image/png' : format === 'jpeg' ? 'image/jpeg' : 'image/webp',
-         extension: format,
-         preserveAlpha: true,
-         scaleX: 1,
-         scaleY: 1,
-         upscale: false,
-       });
-      if (result && result.bytes) {
-        setExportResult(t('imageStudio.exportSuccess'));
-      }
+      const plan = planExport(currentDocument.canvas, {
+        format: format as 'png' | 'jpeg' | 'webp',
+        quality: format === 'png' ? undefined : quality,
+        width,
+        height,
+        preserveAlpha: true,
+      });
+      const path = await exportStudioImage({
+        plan,
+        layerId,
+        title: t('imageStudio.export'),
+        failureMessage: t('imageStudio.exportFailed'),
+      });
+      if (path) setExportResult(t('imageStudio.exportSuccess'));
     } catch (error) {
-      setExportResult(t('imageStudio.exportFailed'));
       useImageStudioStore.getState().addError(
-        error instanceof Error ? error.message : t('imageStudio.exportFailed')
+        error instanceof Error ? error.message : t('imageStudio.exportFailed'),
       );
     } finally {
       setIsExporting(false);
@@ -92,7 +63,7 @@ export const ImageStudioExportDialog: React.FC = () => {
       <h3>{t('imageStudio.export')}</h3>
       <label>
         <span>{t('imageStudio.exportFormat')}</span>
-        <NeonSelect value={format} onChange={setFormat} options={formatOptions} aria-label={t('imageStudio.exportFormat')} />
+        <NeonSelect portal value={format} onChange={setFormat} options={formatOptions} aria-label={t('imageStudio.exportFormat')} />
       </label>
       <label>
         <span>{t('imageStudio.exportQuality')}</span>
@@ -106,7 +77,7 @@ export const ImageStudioExportDialog: React.FC = () => {
         <span>{t('imageStudio.exportHeight')}</span>
         <NeonInput type="number" min={1} max={16384} value={height} onChange={(e) => setHeight(Number(e.target.value))} aria-label={t('imageStudio.exportHeight')} />
       </label>
-      <NeonButton variant="primary" size="sm" onClick={() => void handleExport()} disabled={isExporting || !currentDocument}>
+      <NeonButton variant="primary" size="sm" onClick={() => void handleExport()} disabled={isExporting || isLoading || !currentDocument}>
         {t('imageStudio.exportStart')}
       </NeonButton>
       {exportResult && (
@@ -118,7 +89,7 @@ export const ImageStudioExportDialog: React.FC = () => {
         <div className="image-studio-export-layers">
           <h4>{t('imageStudio.exportSelectedLayer')}</h4>
           {currentDocument.layers.map((layer) => (
-            <NeonButton key={layer.id} variant="ghost" size="sm" onClick={() => void handleExportLayer(layer.id)}>
+            <NeonButton key={layer.id} variant="ghost" size="sm" disabled={isExporting || isLoading} onClick={() => void handleExport(layer.id)}>
               {layer.name}
             </NeonButton>
           ))}

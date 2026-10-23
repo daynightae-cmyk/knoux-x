@@ -185,6 +185,11 @@ describe('image studio export pipeline', () => {
       expect(result.bytes.length).toBeGreaterThan(0);
     });
 
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])('rejects non-finite export dimensions (%s)', (dimension) => {
+      expect(() => planExport({ width: 80, height: 60 }, { format: 'png', width: dimension, height: 60 })).toThrow(RangeError);
+      expect(() => planExport({ width: 80, height: 60 }, { format: 'png', width: 80, height: dimension })).toThrow(RangeError);
+    });
+
     it('reports metadata without leaking secrets', () => {
       const document = createImageStudioDocument({ width: 64, height: 64, title: 'Demo' });
       const plan = planExport(document.canvas, { format: 'png' });

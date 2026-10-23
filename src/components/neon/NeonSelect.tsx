@@ -1,4 +1,5 @@
-import { forwardRef, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import './neon-styles.css';
 
@@ -19,6 +20,8 @@ export interface NeonSelectProps {
   'aria-labelledby'?: string;
   className?: string;
   id?: string;
+  /** Escape clipping/containing blocks in scrollable panels. */
+  portal?: boolean;
 }
 
 export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
@@ -34,12 +37,13 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
       'aria-labelledby': ariaLabelledBy,
       className = '',
       id,
+      portal = false,
     },
     ref,
   ) => {
     const [open, setOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listboxRef = useRef<HTMLUListElement>(null);
     const searchRef = useRef('');
@@ -48,6 +52,45 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
     const selectId = id ?? uniqueId;
     const listboxId = `${selectId}-listbox`;
     const selectedIndex = options.findIndex((opt) => opt.value === value);
+    const [popupPosition, setPopupPosition] = useState<{
+      top: number; left: number; width: number; maxHeight: number;
+    } | null>(null);
+    const attachContainer = useCallback((element: HTMLDivElement | null) => {
+      containerRef.current = element;
+      if (typeof ref === 'function') ref(element);
+      else if (ref) ref.current = element;
+    }, [ref]);
+
+    useLayoutEffect(() => {
+      if (!portal || !open) return undefined;
+      const positionPopup = (): void => {
+        const trigger = triggerRef.current;
+        const popup = listboxRef.current;
+        if (!trigger || !popup) return;
+        const rect = trigger.getBoundingClientRect();
+        const margin = 8;
+        const gap = 4;
+        const below = Math.max(0, window.innerHeight - rect.bottom - margin - gap);
+        const above = Math.max(0, rect.top - margin - gap);
+        const desiredHeight = Math.min(220, popup.scrollHeight || options.length * 36 + 8);
+        const openAbove = below < desiredHeight && above > below;
+        const maxHeight = Math.min(desiredHeight, openAbove ? above : below);
+        const width = Math.max(1, Math.min(rect.width, window.innerWidth - margin * 2));
+        setPopupPosition({
+          top: openAbove ? Math.max(margin, rect.top - gap - maxHeight) : rect.bottom + gap,
+          left: Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)),
+          width,
+          maxHeight,
+        });
+      };
+      positionPopup();
+      window.addEventListener('resize', positionPopup);
+      window.addEventListener('scroll', positionPopup, true);
+      return () => {
+        window.removeEventListener('resize', positionPopup);
+        window.removeEventListener('scroll', positionPopup, true);
+      };
+    }, [portal, open, options.length]);
 
     const close = useCallback(() => {
       setOpen(false);
@@ -170,14 +213,16 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
     );
 
     useEffect(() => {
+      if (!open) return undefined;
       const handleClickOutside = (event: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)
+          && !listboxRef.current?.contains(event.target as Node)) {
           close();
         }
       };
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [close]);
+    }, [close, open]);
 
     useEffect(() => {
       if (open && listboxRef.current && highlightedIndex >= 0) {
@@ -188,49 +233,7 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
 
     const selectedOption = options.find((opt) => opt.value === value);
 
-    return (
-      <div
-        ref={ref}
-        className={['neon-select', className, open ? 'neon-select--open' : ''].filter(Boolean).join(' ')}
-        dir={dir}
-        id={selectId}
-      >
-        {label && (
-          <motion.label
-            className="neon-select-label"
-            htmlFor={selectId}
-            initial={false}
-            animate={{ color: open ? 'var(--knoux-accent)' : 'rgba(255,255,255,0.6)' }}
-            transition={{ duration: 0.2 }}
-          >
-            {label}
-          </motion.label>
-        )}
-        <div className="neon-select-trigger-wrapper">
-          <motion.button
-            ref={triggerRef}
-            type="button"
-            className="neon-select-trigger"
-            onClick={toggle}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            aria-controls={listboxId}
-            aria-label={ariaLabel}
-            aria-labelledby={ariaLabelledBy}
-            aria-disabled={disabled || undefined}
-            whileTap={disabled ? undefined : { scale: 0.98 }}
-          >
-            <span className="neon-select-value">
-              {selectedOption ? selectedOption.label : ''}
-            </span>
-            <span className="neon-select-arrow" aria-hidden="true">
-              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          </motion.button>
+    const popupContent = (
           <AnimatePresence>
             {open && (
               <motion.ul
@@ -238,6 +241,15 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
                 id={listboxId}
                 className="neon-select-popup"
                 role="listbox"
+                dir={portal ? dir : undefined}
+                style={portal ? {
+                  ...popupPosition,
+                  position: 'fixed',
+                  insetInlineStart: 'auto',
+                  minWidth: 0,
+                  marginTop: 0,
+                  visibility: popupPosition ? 'visible' : 'hidden',
+                } : undefined}
                 aria-label={ariaLabel}
                 initial={{ opacity: 0, y: -4, scaleY: 0.96 }}
                 animate={{ opacity: 1, y: 0, scaleY: 1 }}
@@ -281,6 +293,56 @@ export const NeonSelect = forwardRef<HTMLDivElement, NeonSelectProps>(
               </motion.ul>
             )}
           </AnimatePresence>
+    );
+    const popup = portal && typeof document !== 'undefined'
+      ? createPortal(popupContent, document.body)
+      : popupContent;
+
+    return (
+      <div
+        ref={attachContainer}
+        className={['neon-select', className, open ? 'neon-select--open' : ''].filter(Boolean).join(' ')}
+        dir={dir}
+        id={selectId}
+      >
+        {label && (
+          <motion.label
+            className="neon-select-label"
+            htmlFor={selectId}
+            initial={false}
+            animate={{ color: open ? 'var(--knoux-accent)' : 'rgba(255,255,255,0.6)' }}
+            transition={{ duration: 0.2 }}
+          >
+            {label}
+          </motion.label>
+        )}
+        <div className="neon-select-trigger-wrapper">
+          <motion.button
+            ref={triggerRef}
+            type="button"
+            className="neon-select-trigger"
+            onClick={toggle}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={listboxId}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
+            aria-disabled={disabled || undefined}
+            whileTap={disabled ? undefined : { scale: 0.98 }}
+          >
+            <span className="neon-select-value">
+              {selectedOption ? selectedOption.label : ''}
+            </span>
+            <span className="neon-select-arrow" aria-hidden="true">
+              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </motion.button>
+          {popup}
+
         </div>
       </div>
     );

@@ -2,15 +2,12 @@ param(
   [Parameter(Mandatory = $true)][int]$ProcessId,
   [Parameter(Mandatory = $true)][ValidateSet('Open', 'Save', 'Folder', 'Cancel')][string]$Mode,
   [string]$PayloadBase64 = '',
-  [switch]$ConfirmOverwrite,
   [string]$ScreenshotPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
 using System;
 using System.Text;
@@ -27,19 +24,16 @@ public static class KnouxNativeDialog {
   [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect bounds);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
-  [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr hwnd);
-  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint source, uint target, bool attach);
-  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int command);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
-  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extraInfo);
-  [DllImport("user32.dll")] public static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr deviceContext, uint flags);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, string lParam);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, StringBuilder lParam);
   [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
   public struct Rect { public int Left; public int Top; public int Right; public int Bottom; }
 }
 '@
@@ -64,7 +58,7 @@ function Find-Dialog([IntPtr]$Exclude = [IntPtr]::Zero, [int]$TimeoutSeconds = 2
       param([IntPtr]$handle, [IntPtr]$state)
       $ownerPid = [uint32]0
       [KnouxNativeDialog]::GetWindowThreadProcessId($handle, [ref]$ownerPid) | Out-Null
-      if ($ownerPid -eq $ProcessId -and $handle -ne $Exclude -and (Get-WindowClass $handle) -eq '#32770') {
+      if ($ownerPid -eq $ProcessId -and $handle -ne $Exclude -and (Get-WindowClass $handle) -eq '#32770' -and [KnouxNativeDialog]::IsWindowVisible($handle)) {
         $script:foundDialog = $handle
         return $false
       }
@@ -86,12 +80,28 @@ function Get-Controls([IntPtr]$Dialog) {
       Class = Get-WindowClass $handle
       Id = [KnouxNativeDialog]::GetDlgCtrlID($handle)
       Text = Get-WindowTextValue $handle
+      Visible = [KnouxNativeDialog]::IsWindowVisible($handle)
       ParentClass = Get-WindowClass $parent
       ParentId = [KnouxNativeDialog]::GetDlgCtrlID($parent)
     }
     return $true
   }, [IntPtr]::Zero) | Out-Null
   return $script:dialogControls
+}
+
+# The file-name box is the only edit the dialog reads back when it commits.
+# Its control id differs between the Open and Save common dialogs, and the
+# address band keeps a hidden edit of its own, so the lookup is explicit and
+# never falls back to that hidden control.
+function Find-FileNameEditor([object[]]$Controls, [int[]]$PreferredIds) {
+  $edits = @($Controls) | Where-Object { $_.Class -eq 'Edit' }
+  foreach ($id in $PreferredIds) {
+    $visible = $edits | Where-Object { $_.Id -eq $id -and $_.Visible } | Select-Object -First 1
+    if ($visible) { return $visible }
+    $fallback = $edits | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+    if ($fallback) { return $fallback }
+  }
+  return $null
 }
 
 function Capture-Window([IntPtr]$Handle, [string]$OutputPath) {
@@ -113,43 +123,10 @@ function Capture-Window([IntPtr]$Handle, [string]$OutputPath) {
   }
 }
 
-function Get-AutomationControls([IntPtr]$Dialog, [int]$TimeoutSeconds = 10) {
-  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-  $lastError = $null
-  do {
-    try {
-      if (-not [KnouxNativeDialog]::IsWindow($Dialog)) {
-        throw [Runtime.InteropServices.COMException]::new('The native dialog handle is no longer valid.')
-      }
-      # Recreate the UIA root on every attempt. Cached AutomationElement instances become
-      # disconnected while Explorer refreshes a Save/Open dialog and can transiently throw
-      # RPC_E_CALL_REJECTED or UIA_E_ELEMENTNOTAVAILABLE from FindAll.
-      $root = [Windows.Automation.AutomationElement]::FromHandle($Dialog)
-      if (-not $root) { throw [Runtime.InteropServices.COMException]::new('UI Automation did not expose the dialog root.') }
-      $items = @()
-      # Explorer's common dialogs expose several controls only through the process UIA
-      # tree. Reacquire that tree after validating the intended #32770 root, matching the
-      # independently proven Save helper while retaining bounded COM/root retries.
-      $processCondition = [Windows.Automation.PropertyCondition]::new(
-        [Windows.Automation.AutomationElement]::ProcessIdProperty,
-        $ProcessId
-      )
-      $processCollection = [Windows.Automation.AutomationElement]::RootElement.FindAll(
-        [Windows.Automation.TreeScope]::Descendants,
-        $processCondition
-      )
-      for ($index = 0; $index -lt $processCollection.Count; $index += 1) {
-        $items += $processCollection.Item($index)
-      }
-      return $items
-    } catch {
-      $lastError = $_.Exception
-      Start-Sleep -Milliseconds 125
-    }
-  } while ([DateTime]::UtcNow -lt $deadline)
-  throw "UI Automation controls did not stabilize within $TimeoutSeconds seconds: $($lastError.Message)"
-}
-
+# The modern common file dialog is driven entirely through its Win32 window tree.
+# UI Automation is deliberately not part of this path: the dialog exposes its
+# filename edit and buttons only as plain child windows, and a process-wide UIA
+# search can block for a long time on a busy desktop.
 function Get-DialogState(
   [IntPtr]$Dialog = [IntPtr]::Zero,
   [IntPtr]$Exclude = [IntPtr]::Zero,
@@ -164,67 +141,59 @@ function Get-DialogState(
       }
       Activate-Dialog $Dialog
       $controls = @(Get-Controls $Dialog)
-      $automationControls = @(Get-AutomationControls $Dialog -TimeoutSeconds 5)
-      if ($controls.Count -eq 0 -or $automationControls.Count -eq 0) {
-        throw [Runtime.InteropServices.COMException]::new('The native dialog control tree is empty.')
+      $fileName = $controls | Where-Object { $_.Class -eq 'Edit' } | Select-Object -First 1
+      if (-not $fileName) {
+        throw [Runtime.InteropServices.COMException]::new('The native dialog has no filename control yet.')
       }
       return [pscustomobject]@{
         Dialog = $Dialog
         Controls = $controls
-        AutomationControls = $automationControls
       }
     } catch {
       $lastError = $_.Exception
-      # Discard every cached handle/control/root and reacquire the intended visible dialog.
+      # Discard every cached handle/control and reacquire the intended visible dialog.
       $Dialog = [IntPtr]::Zero
       Start-Sleep -Milliseconds 150
     }
   } while ([DateTime]::UtcNow -lt $deadline)
-  throw "Native dialog/root/control reacquisition failed within $TimeoutSeconds seconds: $($lastError.Message)"
+  throw "Native dialog/control reacquisition failed within $TimeoutSeconds seconds: $($lastError.Message)"
 }
 
-function Set-AutomationValue([object[]]$Elements, [string]$AutomationId, [string]$Value, [switch]$Commit) {
-  $element = $null
-  $pattern = $null
-  foreach ($candidate in $Elements) {
-    if ($candidate.Current.AutomationId -ne $AutomationId) { continue }
-    $candidatePattern = $null
-    if ($candidate.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern, [ref]$candidatePattern)) {
-      $element = $candidate
-      $pattern = $candidatePattern
-      break
-    }
-  }
-  if (-not $element -or -not $pattern) { throw "Native edit control $AutomationId was not found through UI Automation." }
-  $pattern.SetValue($Value)
-  if ($Commit) {
-    $element.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait('{END} {BACKSPACE}')
-    Start-Sleep -Milliseconds 120
-  }
+# The modern common file dialog exposes its own buttons only as plain Win32
+# child controls, so the confirmation buttons are driven through those handles.
+# The message is posted rather than sent: a synchronous BM_CLICK blocks the
+# helper inside the dialog's own message loop whenever the dialog raises a
+# secondary prompt, which is exactly how a Save/Open can hang instead of fail.
+function Click-DialogButton([IntPtr]$Handle) {
+  [KnouxNativeDialog]::PostMessage($Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
 }
 
-function Invoke-AutomationButton([object[]]$Elements, [string]$AutomationId, [string]$NamePattern = '', [switch]$Asynchronous) {
-  $element = $Elements | Where-Object {
-    ($_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -or $_.Current.ClassName -eq 'Button') -and
-    (($_.Current.AutomationId -eq $AutomationId) -or ($NamePattern -and $_.Current.Name -match $NamePattern))
-  } | Select-Object -First 1
-  if (-not $element) { throw "Native button $AutomationId/$NamePattern was not found through UI Automation." }
-  if ($Asynchronous) {
-    $handle = [IntPtr]$element.Current.NativeWindowHandle
-    if ($handle -eq [IntPtr]::Zero) { throw "Native button $AutomationId/$NamePattern has no window handle." }
-    [KnouxNativeDialog]::PostMessage($handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
-    return $element.Current.Name
+# WM_GETTEXTLENGTH is the only way to read an edit control that belongs to
+# another process: GetWindowText returns an empty string for it.
+function Get-ControlTextLength([IntPtr]$Handle) {
+  return [int][KnouxNativeDialog]::SendMessage($Handle, 0x000E, [IntPtr]::Zero, [IntPtr]::Zero)
+}
+
+# WM_GETTEXT (unlike GetWindowText) is marshalled across processes for the
+# standard edit controls the common dialog uses, so the exact value the dialog
+# will commit can be verified instead of guessed from its length.
+function Get-ControlText([IntPtr]$Handle) {
+  $length = Get-ControlTextLength $Handle
+  if ($length -le 0) { return '' }
+  $buffer = [Text.StringBuilder]::new($length + 2)
+  [KnouxNativeDialog]::SendMessage($Handle, 0x000D, [IntPtr]($length + 1), $buffer) | Out-Null
+  return $buffer.ToString()
+}
+
+# The file dialog keeps its own file-name state, so the value has to arrive as
+# real key input. A programmatic WM_SETTEXT is visible in the box but the Save
+# dialog still resolves its default name.
+function Type-Control([IntPtr]$Handle, [string]$Value) {
+  [KnouxNativeDialog]::SendMessage($Handle, 0x00B1, [IntPtr]::Zero, [IntPtr](-1)) | Out-Null
+  foreach ($character in $Value.ToCharArray()) {
+    [KnouxNativeDialog]::SendMessage($Handle, 0x0102, [IntPtr][int][char]$character, [IntPtr]::Zero) | Out-Null
   }
-  try {
-    $pattern = $element.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern)
-    $pattern.Invoke()
-  } catch {
-    $handle = [IntPtr]$element.Current.NativeWindowHandle
-    if ($handle -eq [IntPtr]::Zero) { throw }
-    [KnouxNativeDialog]::SendMessage($handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
-  }
-  return $element.Current.Name
+  Start-Sleep -Milliseconds 120
 }
 
 function Activate-Dialog([IntPtr]$Handle) {
@@ -233,31 +202,6 @@ function Activate-Dialog([IntPtr]$Handle) {
   [KnouxNativeDialog]::BringWindowToTop($Handle) | Out-Null
   [KnouxNativeDialog]::SetForegroundWindow($Handle) | Out-Null
   Start-Sleep -Milliseconds 320
-}
-
-function Click-Control([IntPtr]$Handle) {
-  $bounds = [KnouxNativeDialog+Rect]::new()
-  if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
-    throw "Unable to resolve native control bounds for $Handle."
-  }
-  $root = $Handle
-  while ([KnouxNativeDialog]::GetParent($root) -ne [IntPtr]::Zero) { $root = [KnouxNativeDialog]::GetParent($root) }
-  $ownerPid = [uint32]0
-  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($root, [ref]$ownerPid)
-  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
-  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
-  try {
-    [KnouxNativeDialog]::SetForegroundWindow($root) | Out-Null
-    [KnouxNativeDialog]::SetFocus($Handle) | Out-Null
-    $x = [Math]::Round(($bounds.Left + $bounds.Right) / 2)
-    $y = [Math]::Round(($bounds.Top + $bounds.Bottom) / 2)
-    [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new($x, $y)
-    [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-    [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-  } finally {
-    if ($attached) { [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null }
-  }
-  Start-Sleep -Milliseconds 180
 }
 
 function Wait-DialogClosed([IntPtr]$Dialog, [string]$Label, [int]$TimeoutSeconds = 5) {
@@ -270,181 +214,33 @@ function Wait-DialogClosed([IntPtr]$Dialog, [string]$Label, [int]$TimeoutSeconds
   }
 }
 
-function Confirm-DialogDismissed([IntPtr]$Dialog, [object[]]$AutomationControls) {
-  $deadline = [DateTime]::UtcNow.AddSeconds(2)
-  while ([KnouxNativeDialog]::IsWindow($Dialog) -and [DateTime]::UtcNow -lt $deadline) {
-    Start-Sleep -Milliseconds 100
-  }
-  if ([KnouxNativeDialog]::IsWindow($Dialog)) {
-    Invoke-AutomationButton $AutomationControls '1' 'Save' | Out-Null
-  }
-  Wait-DialogClosed $Dialog 'Native Save dialog' 3
-}
-
-function Click-DialogAddress([IntPtr]$Handle) {
-  $bounds = [KnouxNativeDialog+Rect]::new()
-  if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) {
-    throw 'Unable to resolve native dialog bounds for address navigation.'
-  }
-  $x = $bounds.Left + [Math]::Round(($bounds.Right - $bounds.Left) * 0.52)
-  $y = $bounds.Top + 48
-  [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new($x, $y)
-  [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-  [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-  Start-Sleep -Milliseconds 180
-}
-
-function Click-DialogAddressGo([IntPtr]$Handle) {
-  $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-  $toolbar = @($state.AutomationControls) | Where-Object {
-    $_.Current.ClassName -eq 'ToolbarWindow32' -and
-    $_.Current.Name -eq 'Address band toolbar' -and
-    $_.Current.NativeWindowHandle -ne 0
-  } | Select-Object -First 1
-  if (-not $toolbar) { throw 'Native dialog address Go toolbar was not found.' }
-  Click-Control ([IntPtr]$toolbar.Current.NativeWindowHandle)
-}
-
-function Send-DialogKey([IntPtr]$Handle, [int]$VirtualKey) {
-  if (-not [KnouxNativeDialog]::PostMessage($Handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]::Zero)) {
-    throw "Unable to post key-down $VirtualKey to the native dialog."
-  }
-  if (-not [KnouxNativeDialog]::PostMessage($Handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::Zero)) {
-    throw "Unable to post key-up $VirtualKey to the native dialog."
-  }
-}
-
-function Send-VisibleDialogKey([IntPtr]$Handle, [int]$VirtualKey) {
-  Activate-Dialog $Handle
-  [KnouxNativeDialog]::keybd_event([byte]$VirtualKey, 0, 0, [UIntPtr]::Zero)
-  [KnouxNativeDialog]::keybd_event([byte]$VirtualKey, 0, 0x0002, [UIntPtr]::Zero)
-}
-
-function Navigate-DialogAddress([IntPtr]$Handle, [string]$Directory) {
-  $canonicalDirectory = [IO.Path]::GetFullPath($Directory).TrimEnd([IO.Path]::DirectorySeparatorChar)
-  Activate-Dialog $Handle
-
-  # Robust address navigation: use UIA to find the address bar, fall back to multiple
-  # known control IDs. The address bar edit control ID varies across Windows builds
-  # (41477, 1001, etc.) and the tree mutates after F4 opens the dropdown.
-  $observedDirectory = $null
-  for ($attempt = 1; $attempt -le 3; $attempt += 1) {
-    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-
-    # Strategy 1: Find address edit via UIA (stable name "Address:" or similar)
-    $addressEditor = $null
-    $uiaAddressEdit = @($state.AutomationControls) | Where-Object {
-      ($_.Current.ControlType -eq [Windows.Automation.ControlType]::Edit -or $_.Current.ClassName -eq 'Edit') -and
-      ($_.Current.Name -match '^Address' -or $_.Current.AutomationId -match '^41477|^1001')
-    } | Select-Object -First 1
-    if ($uiaAddressEdit -and $uiaAddressEdit.Current.NativeWindowHandle -ne [IntPtr]::Zero) {
-      $addressEditor = [pscustomobject]@{ Handle = $uiaAddressEdit.Current.NativeWindowHandle }
-    }
-
-    # Strategy 2: Fall back to known control IDs (41477, 1001, 1148)
-    # Legacy pattern kept for test compatibility: $_.Class -eq 'Edit' -and $_.Id -eq 41477
-    if (-not $addressEditor) {
-      $knownIds = @(41477, 1001, 1148)
-      foreach ($id in $knownIds) {
-        $candidate = @($state.Controls) | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $id } | Select-Object -First 1
-        if ($candidate) { $addressEditor = $candidate; break }
+# A save over an existing file raises a second common dialog that must be
+# confirmed the way a user confirms it. The confirmation is driven by a posted
+# message so the helper stays responsive while that prompt owns the dialog.
+function Resolve-SaveConfirmation([IntPtr]$Dialog, [IntPtr]$Button, [int]$TimeoutSeconds = 25) {
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  while ([DateTime]::UtcNow -lt $deadline) {
+    if (-not [KnouxNativeDialog]::IsWindow($Dialog)) { return $null }
+    $prompt = [IntPtr]::Zero
+    try { $prompt = Find-Dialog -Exclude $Dialog -TimeoutSeconds 1 } catch { $prompt = [IntPtr]::Zero }
+    if ($prompt -ne [IntPtr]::Zero) {
+      $promptControls = @(Get-Controls $prompt)
+      $confirm = $promptControls | Where-Object {
+        $_.Class -eq 'Button' -and ($_.Text -match 'Yes|Replace|Save')
+      } | Select-Object -First 1
+      # A file dialog being rebuilt or initialized is not an overwrite prompt;
+      # only a window that exposes a confirmation button is acted on.
+      if ($confirm) {
+        Click-DialogButton $confirm.Handle
+        Wait-DialogClosed $prompt 'Native overwrite dialog' 10
+        continue
       }
     }
-
-    if (-not $addressEditor) { throw 'Native dialog address edit was not found (tried UIA and known control IDs).' }
-
-    # Open address dropdown with F4
-    Send-DialogKey $addressEditor.Handle 0x73
-    Start-Sleep -Milliseconds 240
-
-    # Reacquire and find the address edit again (tree may have mutated)
-    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-    $addressEditor = $null
-    $uiaAddressEdit = @($state.AutomationControls) | Where-Object {
-      ($_.Current.ControlType -eq [Windows.Automation.ControlType]::Edit -or $_.Current.ClassName -eq 'Edit') -and
-      ($_.Current.Name -match '^Address' -or $_.Current.AutomationId -match '^41477|^1001')
-    } | Select-Object -First 1
-    if ($uiaAddressEdit -and $uiaAddressEdit.Current.NativeWindowHandle -ne [IntPtr]::Zero) {
-      $addressEditor = [pscustomobject]@{ Handle = $uiaAddressEdit.Current.NativeWindowHandle }
-    }
-    if (-not $addressEditor) {
-      $knownIds = @(41477, 1001, 1148)
-      foreach ($id in $knownIds) {
-        $candidate = @($state.Controls) | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $id } | Select-Object -First 1
-        if ($candidate) { $addressEditor = $candidate; break }
-      }
-    }
-    # Legacy pattern kept for test compatibility: $_.Class -eq 'Edit' -and $_.Id -eq 41477
-    if (-not $addressEditor) { throw 'Native dialog address edit was not reacquired after F4 (tried UIA and known control IDs).' }
-
-    # Type the canonical path via WM_CHAR (keyboard-layout independent)
-    Type-Control $addressEditor.Handle $canonicalDirectory
-
-    # Navigate via the "Go" toolbar button (UIA-driven, stable)
-    Click-DialogAddressGo $Handle
-    Start-Sleep -Milliseconds 900
-
-    # Verify we landed in the correct directory via the address label
-    $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-    $addressLabel = @($state.AutomationControls) | Where-Object {
-      $_.Current.ClassName -eq 'ToolbarWindow32' -and $_.Current.Name -match '^Address:\s*'
-    } | Select-Object -First 1
-    if ($addressLabel) {
-      $observedDirectory = ([string]$addressLabel.Current.Name -replace '^Address:\s*', '').Trim()
-      if ([IO.Path]::GetFullPath($observedDirectory).TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $canonicalDirectory) {
-        break
-      }
-    }
+    Start-Sleep -Milliseconds 150
   }
-  if (-not $observedDirectory -or
-      [IO.Path]::GetFullPath($observedDirectory).TrimEnd([IO.Path]::DirectorySeparatorChar) -ne $canonicalDirectory) {
-    throw "Native dialog directory mismatch after 3 attempts: requested '$canonicalDirectory', observed '$observedDirectory'."
-  }
-
-  # Ensure filename edit is restored (control 1001 for Save)
-  $state = Get-DialogState -Dialog $Handle -TimeoutSeconds 5
-  $filenameEditor = @($state.Controls) | Where-Object {
-    $_.Class -eq 'Edit' -and $_.Id -eq 1001
-  } | Select-Object -First 1
-  if (-not $filenameEditor) { throw 'Native Save filename control was not restored after address navigation.' }
-
-  Start-Sleep -Milliseconds 180
+  throw 'Native Save dialog remained open after visible confirmation.'
 }
 
-function Paste-Control([IntPtr]$Handle, [string]$Value) {
-  $bounds = [KnouxNativeDialog+Rect]::new()
-  if (-not [KnouxNativeDialog]::GetWindowRect($Handle, [ref]$bounds)) { throw 'Unable to resolve native edit bounds.' }
-  $root = $Handle
-  while ([KnouxNativeDialog]::GetParent($root) -ne [IntPtr]::Zero) { $root = [KnouxNativeDialog]::GetParent($root) }
-  $ownerPid = [uint32]0
-  $targetThread = [KnouxNativeDialog]::GetWindowThreadProcessId($root, [ref]$ownerPid)
-  $currentThread = [KnouxNativeDialog]::GetCurrentThreadId()
-  $attached = [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $true)
-  try {
-    [KnouxNativeDialog]::SetForegroundWindow($root) | Out-Null
-    [KnouxNativeDialog]::SetFocus($Handle) | Out-Null
-    [System.Windows.Forms.Cursor]::Position = [Drawing.Point]::new([Math]::Round(($bounds.Left + $bounds.Right) / 2), [Math]::Round(($bounds.Top + $bounds.Bottom) / 2))
-    [KnouxNativeDialog]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
-    [KnouxNativeDialog]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
-    [System.Windows.Forms.Clipboard]::SetText($Value)
-    [System.Windows.Forms.SendKeys]::SendWait('^a')
-    Start-Sleep -Milliseconds 80
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    Start-Sleep -Milliseconds 120
-  } finally {
-    if ($attached) { [KnouxNativeDialog]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null }
-  }
-}
-
-function Type-Control([IntPtr]$Handle, [string]$Value) {
-  [KnouxNativeDialog]::SendMessage($Handle, 0x00B1, [IntPtr]::Zero, [IntPtr](-1)) | Out-Null
-  foreach ($character in $Value.ToCharArray()) {
-    [KnouxNativeDialog]::SendMessage($Handle, 0x0102, [IntPtr][int][char]$character, [IntPtr]::Zero) | Out-Null
-  }
-  Start-Sleep -Milliseconds 120
-}
-
-Add-Type -AssemblyName System.Windows.Forms
 $parsedPayload = if ($PayloadBase64) {
   [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64)) | ConvertFrom-Json
 } else { @() }
@@ -454,7 +250,6 @@ $dialogState = Get-DialogState -TimeoutSeconds 20
 $dialog = $dialogState.Dialog
 $title = Get-WindowTextValue $dialog
 $controls = @($dialogState.Controls)
-$automationControls = @($dialogState.AutomationControls)
 Capture-Window $dialog $ScreenshotPath
 
 $record = [ordered]@{
@@ -474,7 +269,8 @@ $record = [ordered]@{
 if ($Mode -eq 'Cancel') {
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 2 } | Select-Object -First 1
   if (-not $button) { throw 'Native Cancel button was not found.' }
-  Invoke-AutomationButton $automationControls '2' 'Cancel' | Out-Null
+  Click-DialogButton $button.Handle
+  Wait-DialogClosed $dialog 'Native Cancel dialog' 10
 } elseif ($Mode -eq 'Folder') {
   $folderPath = [string]$payload[0]
   $folderEditor = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq 1152 } | Select-Object -First 1
@@ -483,79 +279,63 @@ if ($Mode -eq 'Cancel') {
   Capture-Window $dialog $ScreenshotPath
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 } | Select-Object -First 1
   if (-not $button) { throw 'Native Select Folder button was not found.' }
-  Invoke-AutomationButton $automationControls '1' 'Select Folder' | Out-Null
+  Click-DialogButton $button.Handle
+  Wait-DialogClosed $dialog 'Native folder dialog' 10
 } else {
-  $saveDirectory = $null
-  $saveFilename = $null
   if ($Mode -eq 'Save') {
+    # A Windows file dialog accepts an absolute path in the file-name box and
+    # resolves the destination folder itself. Driving the address band was not
+    # reliable: its edit control stays hidden until the band enters edit mode,
+    # so the typed folder was discarded and the dialog kept its previous
+    # location, leaving the renderer waiting for a path that never arrived.
     $saveTarget = [IO.Path]::GetFullPath([string]$payload[0])
     $saveDirectory = [IO.Path]::GetDirectoryName($saveTarget)
-    $saveFilename = [IO.Path]::GetFileName($saveTarget)
     if (-not [IO.Directory]::Exists($saveDirectory)) {
       throw "Requested Save directory does not exist: $saveDirectory"
     }
-    Navigate-DialogAddress $dialog $saveDirectory
-    Start-Sleep -Milliseconds 1200
-    $dialogState = Get-DialogState -TimeoutSeconds 8
-    $dialog = $dialogState.Dialog
-    $deadline = [DateTime]::UtcNow.AddSeconds(5)
-    do {
-      $dialogState = Get-DialogState -Dialog $dialog -TimeoutSeconds 2
-      $dialog = $dialogState.Dialog
-      $controls = @($dialogState.Controls)
-      $automationControls = @($dialogState.AutomationControls)
-      $saveEditorReady = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq 1001 } | Select-Object -First 1
-      if ($saveEditorReady) { break }
-      Start-Sleep -Milliseconds 200
-    } while ([DateTime]::UtcNow -lt $deadline)
-    $record.navigatedDirectory = $saveDirectory
-    $record.enteredFilename = $saveFilename
+    $record.requestedDirectory = $saveDirectory
+    $record.requestedFilename = [IO.Path]::GetFileName($saveTarget)
+    $text = $saveTarget
+    $preferredIds = @(1001, 1148, 1152)
+  } else {
+    $text = if ($payload.Count -gt 1) {
+      ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
+    } else { [string]$payload[0] }
+    $preferredIds = @(1148, 1001, 1152)
   }
-  $controlId = if ($Mode -eq 'Save') { 1001 } else { 1148 }
-  $editor = $controls | Where-Object { $_.Class -eq 'Edit' -and $_.Id -eq $controlId } | Select-Object -First 1
-  if (-not $editor) { throw "Native $Mode filename control $controlId was not found." }
-  $text = if ($Mode -eq 'Open' -and $payload.Count -gt 1) {
-    ($payload | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
-  } elseif ($Mode -eq 'Save') { $saveFilename } else { [string]$payload[0] }
+  $editor = Find-FileNameEditor $controls $preferredIds
+  if (-not $editor) { throw "Native $Mode filename control was not found." }
   if ($Mode -eq 'Save') {
-    Type-Control $editor.Handle $text
-  } elseif ($Mode -eq 'Open') {
+    # The common dialog applies its default file name asynchronously, so it can
+    # land after the first keystrokes and prefix them ('portrait.knouximageC:\...').
+    # Type until the box holds exactly the requested destination; the value is
+    # read back through WM_GETTEXT, which is marshalled across processes.
+    $observed = ''
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+      Type-Control $editor.Handle $text
+      Start-Sleep -Milliseconds 350
+      $observed = Get-ControlText $editor.Handle
+      if ($observed -eq $text) { break }
+    }
+    if ($observed -ne $text) {
+      throw "Native Save filename control did not hold the requested path after $attempt attempts: observed '$observed'."
+    }
+    $record.enteredPath = $text
+  } else {
     [KnouxNativeDialog]::SendMessage($editor.Handle, 0x000C, [IntPtr]::Zero, $text) | Out-Null
   }
   Capture-Window $dialog $ScreenshotPath
   $button = $controls | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 } | Select-Object -First 1
   if (-not $button) { throw "Native $Mode confirmation button was not found." }
   if ($Mode -eq 'Open') {
-    [KnouxNativeDialog]::SendMessage($button.Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+    Click-DialogButton $button.Handle
+    Wait-DialogClosed $dialog 'Native Open dialog' 10
   } else {
-    if ($ConfirmOverwrite) {
-      Invoke-AutomationButton $automationControls '1' 'Save' -Asynchronous | Out-Null
-    } else {
-      Click-Control $button.Handle
-      Confirm-DialogDismissed $dialog $automationControls
-    }
+    # The confirmation is posted, not sent: a save that raises an overwrite
+    # prompt would otherwise block this helper inside the dialog's own loop.
+    Click-DialogButton $button.Handle
+    $record.overwrite = Resolve-SaveConfirmation $dialog $button.Handle
   }
-}
-
-if ($ConfirmOverwrite) {
-  $overwriteState = Get-DialogState -Exclude $dialog -TimeoutSeconds 20
-  $overwriteDialog = $overwriteState.Dialog
-  $overwriteControls = @($overwriteState.Controls)
-  $overwriteTitle = Get-WindowTextValue $overwriteDialog
-  $yes = $overwriteControls | Where-Object {
-    $_.Class -eq 'Button' -and ($_.Text -match 'Yes|Replace|Save')
-  } | Select-Object -First 1
-  if (-not $yes) { throw "Overwrite confirmation button was not found in '$overwriteTitle'." }
-  $record.overwrite = [ordered]@{
-    title = $overwriteTitle
-    buttons = @($overwriteControls | Where-Object { $_.Class -eq 'Button' } | ForEach-Object { $_.Text })
-    chosen = $yes.Text
-  }
-  [KnouxNativeDialog]::PostMessage($yes.Handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
-  Wait-DialogClosed $overwriteDialog 'Native overwrite dialog'
-  Wait-DialogClosed $dialog 'Native Save dialog'
-} elseif ($Mode -ne 'Save') {
-  Wait-DialogClosed $dialog "Native $Mode dialog"
 }
 
 Start-Sleep -Milliseconds 350

@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "runtime": "Node 20 real ImageStudioService and renderer commands; not Electron IPC",
+  "fixture": "tests/android/fixtures/portrait-two-faces.jpg",
+  "fixtureProvenance": "repository-authored SVG raster, not human/model-inference evidence",
+  "sourceHash": "55626765f0ac963643139d8f5e60fc77f27aa407ed96a2fa7ee2419179e7d2f1",
+  "originalUnchanged": true,
+  "restartReopenExact": true,
+  "previewPngExact": true,
+  "outsideMaskUnchanged": true,
+  "alphaUnchanged": true,
+  "zeroStrengthExact": true,
+  "unsavedEditsPreservedAfterExport": true,
+  "changedPixels": 307200,
+  "networkCalls": 0,
+  "outputs": [
+    {
+      "path": "reports/retouch-r1-20261022/portrait.png",
+      "format": "png",
+      "bytes": 116833,
+      "sha256": "000aa14399e66d5318a9aa822cd96f042dfef72e16224f0fa279e0f62afa06cd",
+      "width": 640,
+      "height": 960
+    },
+    {
+      "path": "reports/retouch-r1-20261022/portrait.jpeg",
+      "format": "jpeg",
+      "bytes": 22696,
+      "sha256": "80122c4c8eef079e854d5d3c10bf900a1e55ba557d32ba1655449fddf7550a9e",
+      "width": 640,
+      "height": 960
+    },
+    {
+      "path": "reports/retouch-r1-20261022/portrait.webp",
+      "format": "webp",
+      "bytes": 13422,
+      "sha256": "7e21eb4932f3c1d2be91456bb660c0be62f0516e5e59d869819fec1a85018059",
+      "width": 640,
+      "height": 960
+    }
+  ],
+  "baseline": "9ccf59310f9410a8832ef50b513d998c8ea54245",
+  "electronLinux": "BLOCKED: independently reproduced Sharp/libvips native assertion before any project code",
+  "windowsInstalled": "NOT_TESTED",
+  "androidInstalled": "NOT_TESTED"
+}

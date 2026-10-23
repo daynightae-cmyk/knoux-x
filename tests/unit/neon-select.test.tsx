@@ -406,6 +406,75 @@ describe('NeonSelect', () => {
     unmount();
   });
 
+  test('a portal escapes a clipped panel and opens inside the viewport above a low trigger', () => {
+    const onChange = jest.fn();
+    const { container, unmount } = renderUi(
+      <div style={{ overflow: 'hidden', transform: 'translateZ(0)' }}>
+        <NeonSelect portal value="small" onChange={onChange} options={OPTIONS} aria-label="size" />
+      </div>,
+    );
+    const button = triggerOf(container);
+    button.getBoundingClientRect = () => ({
+      top: window.innerHeight - 48, bottom: window.innerHeight - 16,
+      left: window.innerWidth - 100, right: window.innerWidth + 100,
+      width: 200, height: 32, x: window.innerWidth - 100, y: window.innerHeight - 48,
+      toJSON: () => ({}),
+    });
+    clickNode(button);
+    const popup = document.getElementById(button.getAttribute('aria-controls')!)!;
+    expect(popup.parentElement).toBe(document.body);
+    expect(container.contains(popup)).toBe(false);
+    expect(parseFloat(popup.style.top)).toBeGreaterThanOrEqual(0);
+    expect(parseFloat(popup.style.top) + parseFloat(popup.style.maxHeight)).toBeLessThan(button.getBoundingClientRect().top);
+    expect(parseFloat(popup.style.left) + parseFloat(popup.style.width)).toBeLessThanOrEqual(window.innerWidth);
+    const option = popup.querySelectorAll<HTMLElement>('[role="option"]')[1];
+    act(() => { option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    clickNode(option);
+    expect(onChange).toHaveBeenCalledWith('medium');
+    unmount();
+    expect(document.getElementById(button.getAttribute('aria-controls')!)).toBeNull();
+  });
+
+  test.each([false, true])('outside clicks close only an open select (portal=%s)', portal => {
+    const { container, unmount } = renderUi(
+      <NeonSelect portal={portal} value="small" onChange={jest.fn()} options={OPTIONS} aria-label="size" />,
+    );
+    const button = triggerOf(container);
+    clickNode(button);
+    act(() => { document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    // A closed select must not steal focus on unrelated clicks.
+    const other = document.createElement('button');
+    document.body.appendChild(other);
+    other.focus();
+    act(() => { other.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+    expect(document.activeElement).toBe(other);
+    other.remove();
+    unmount();
+  });
+
+  test('portaled options reposition on scroll and retain RTL keyboard selection', () => {
+    const onChange = jest.fn();
+    const { container, unmount } = renderUi(
+      <NeonSelect portal dir="rtl" value="small" onChange={onChange} options={OPTIONS} aria-label="size" />,
+    );
+    const button = triggerOf(container);
+    let top = 20;
+    button.getBoundingClientRect = () => ({ top, bottom: top + 32, left: 20, right: 220, width: 200, height: 32, x: 20, y: top, toJSON: () => ({}) });
+    keyOn(button, 'ArrowDown');
+    const popup = document.getElementById(button.getAttribute('aria-controls')!)!;
+    expect(popup.getAttribute('dir')).toBe('rtl');
+    const originalTop = popup.style.top;
+    top = 120;
+    act(() => { window.dispatchEvent(new Event('scroll')); });
+    expect(popup.style.top).not.toBe(originalTop);
+    keyOn(button, 'ArrowDown');
+    keyOn(button, 'Enter');
+    expect(onChange).toHaveBeenCalledWith('medium');
+    unmount();
+  });
+
   test('regression: application source contains no native <select> control', () => {
     const srcDir = path.resolve(__dirname, '../../src');
     const offenders: string[] = [];

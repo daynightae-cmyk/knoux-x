@@ -59,7 +59,10 @@ async function launch() {
     for (const window of BrowserWindow.getAllWindows()) window.setSize(1440, 1000);
   });
   const page = await app.firstWindow();
-  page.on('pageerror', error => console.log(`IMAGE_LIFECYCLE page-error ${error.message}`));
+  page.on('pageerror', error => {
+    (report.rendererErrors ||= []).push({ message: error.message, stack: error.stack });
+    console.log(`IMAGE_LIFECYCLE page-error ${error.stack || error.message}`);
+  });
   page.setDefaultTimeout(30000);
   await page.waitForFunction(() => typeof window.knouxImageStudioAPI?.create === 'function');
   if (installedExecutable) {
@@ -264,6 +267,7 @@ async function main() {
   assert.equal(report.originalUnchanged, true);
   await page.screenshot({ path: path.join(evidence, 'reopened.png'), fullPage: true });
   await app.close(); app = null;
+  assert.deepEqual(report.rendererErrors || [], [], 'Image Studio emitted unhandled renderer errors; inspect their recorded stacks');
   report.success = true;
 }
 

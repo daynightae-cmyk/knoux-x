@@ -133,3 +133,9 @@ shell entry. No production behavior or expected result changes. All four targete
 cases and targeted ESLint pass locally. The in-progress Android acceptance runs
 are allowed to finish before pushing this test-only correction, preserving their
 runtime evidence instead of canceling them for a line-ending change.
+
+`tools/verify-image-studio-project-lifecycle.cjs` additionally retains every
+unhandled renderer error's real message/stack and refuses to mark the journey
+successful if any were emitted. The seven existing lifecycle contract tests and
+Node syntax check pass. This improves evidence for the intermittent `.parse`
+observation; it does not reproduce or resolve that still-open application error.

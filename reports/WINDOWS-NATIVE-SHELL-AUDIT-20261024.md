@@ -240,7 +240,26 @@ Evidence downloaded from the current run's `knoux-windows-evidence-…` artifact
 
 Other lanes on the current head `0bd3b65`: `KNOUX Full Rebuild Windows` **success**, `KNOUX Player Viewport Windows` **success**, `KNOUX Windows Timeline Export E2E` **success**, `KNOUX Windows Packaged Creative + Recording Real E2E` **success**, `Android APK (Capacitor)` **success** (this is the lane that the SQLite ABI gate repaired), `Android Release Acceptance` **success**.
 
-Repeated on the newest head `fe6d172` (run [40122927500](https://github.com/daynightae-cmyk/knoux-x/actions/runs/40122927500)): `KNOUX Full Rebuild Windows` **success** again, with `Knoux X-2.1.0 Setup.exe` SHA-256 `031C52662D4F7961A2840B9491860371977BAE0EF0E58293AA99A4CD47FC8130` — a different hash per commit, as it must be. `Player Viewport Windows`, `Windows Timeline Export E2E` and `Windows Packaged Creative + Recording Real E2E` **success**; the two Android lanes were still running when this was written.
+Repeated on head `fe6d172` (run [40122927500](https://github.com/daynightae-cmyk/knoux-x/actions/runs/40122927500)): `KNOUX Full Rebuild Windows` **success**, `Knoux X-2.1.0 Setup.exe` SHA-256 `031C52662D4F7961A2840B9491860371977BAE0EF0E58293AA99A4CD47FC8130`; `Player Viewport Windows`, `Windows Timeline Export E2E` and `Windows Packaged Creative + Recording Real E2E` **success**. Its Android lanes, and those of the next two heads, were **cancelled by my own subsequent pushes** (`concurrency.cancel-in-progress: true`), so they are not evidence either way — the Android verification is the head below.
+
+The Android lanes did reach a conclusion on head `0bd3b65`: `Android APK (Capacitor)` **success** (run 40120821778) and `Android Release Acceptance` **success** (run 40120821873). That is the direct proof that the `better-sqlite3` availability gate fixed the ABI-mismatch failure without hiding the real coverage — those two lanes ran `npm test` on Node 22 and passed.
+
+Repeated again on head `bb3cec6` (run [40125372890](https://github.com/daynightae-cmyk/knoux-x/actions/runs/40125372890)): `KNOUX Full Rebuild Windows` **success**, `Knoux X-2.1.0 Setup.exe` SHA-256 `CA7BCADFFB0E18E9B812A0184CF5373ABD445599A22349B00075B4302BAA62B4`, `install.json` `installed-before=False` / `setup-exit=0`, `repair.json` `installed-before=True`, `uninstall.json` `removed=True`. Each head produces its own installer hash, as it must.
+
+**Android lane flake, recorded rather than hidden.** The Android lanes tell the real story of pushing repeatedly into a `cancel-in-progress` concurrency group:
+
+| PR head | `Android APK (Capacitor)` | `Android Release Acceptance` |
+| --- | --- | --- |
+| `8a0d2d3` (first push) | **failure** — my SQLite suite on a Node 22 lane | **failure** — same cause, plus the downstream `cp: cannot stat 'android/knoux-app-plugin-report.json'` cascade |
+| `534f3f5` (repairs) | cancelled by the next push | cancelled by the next push |
+| `0bd3b65` | **success** | **success** — this is the head that proves the ABI gate works, because both lanes really ran `npm test` on Node 22 |
+| `fe6d172`, `f2dde54` | cancelled by my own later pushes | cancelled by my own later pushes |
+| `bc95c72` | **failure** — not the unit gate: `Install and launch APK on Android emulator` died with `ERROR | Unable to connect to adb daemon on port: 5037`, `adb` exiting 1 ten seconds after launch, preceded by a GPU fallback (`Selected GPU option 'angle_indirect' … Your GPU drivers may have a bug. Switching to software rendering`) | cancelled |
+| `bb3cec6` (current) | Windows lanes on the same head all green; Android result recorded below once it concludes | — |
+
+The `bc95c72` failure is runner/emulator infrastructure, not this branch's code: the unit gate passed on that lane before (`0bd3b65`) and the Android-facing sources are identical across those heads. It is still reported because an emulator lane that can fail on `adb` is not a proven-stable gate, and because "the lane is flaky" is only a claim until the same head is re-run.
+
+
 
 
 

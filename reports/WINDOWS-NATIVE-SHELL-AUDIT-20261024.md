@@ -216,6 +216,27 @@ Re-verification after the import-path change, on the rebuilt package (`out-expor
 
 **Lesson recorded:** a local green suite is not CI-green in this repository. The historical-repair token gate and the per-lane native-ABI choices are only exercised on GitHub, so pushing to a PR is what exposed them. This is why the statuses below distinguish "unit green" from "CI green".
 
+## [PACKAGED]/[CI] Directive §10 installer gate — now satisfied on the CI Windows runner
+
+The local workstation cannot produce `Setup.exe` (7-Zip not on PATH for Squirrel's zip step, plus the external `app.asar` lock documented above). The gate therefore ran where it belongs, on `full-rebuild-windows.yml` for PR #82 head `534f3f5` → run [40119637327](https://github.com/daynightae-cmyk/knoux-x/actions/runs/40119637327) → **conclusion: success**, job `validate-package`, 0 failed steps.
+
+Evidence downloaded from the run's `knoux-windows-evidence-…` artifact:
+
+| Item | Value |
+| --- | --- |
+| Installer payload | `out/make/squirrel.windows/x64/Knoux X-2.1.0 Setup.exe`, SHA-256 `E556C15E8DBDF0A623FE53F10D07A79D4C8185151357E25CAEB627E98F3A1750`, embedded `setup-bytes=285860352` |
+| CI's own assertions | exactly one `*Setup.exe` in `out/make/squirrel.windows/x64` and size > 1 MB (the lane throws otherwise) — satisfied |
+| Packaged executable | `out/Knoux X-win32-x64/knoux-player-x.exe` SHA-256 `1517BF123913126D8D22CCE3AB0BF1270317E911FAC0372C31E0C0F4593FE58C` |
+| Bundled media tools | `ffmpeg.exe` `04E13079…AD00`, `ffprobe.exe` `3A7E2DC0…1BA4`, both non-empty and re-checked inside the installed tree |
+| Visual installer | `KNOUX-Player-X-Visual-Installer.exe` SHA-256 `9BB2A396E5544EE3EC7EEC3DF0239C16CD12C6F17B425CE00B6F61B4D51F7DF7`, self-test lists all nine bilingual slides |
+| Clean install | `install.json`: `installed-before=False`, `setup-exit=0`, installed executable + `resources` + ffmpeg/ffprobe + Start-Menu shortcut resolved, `runtime-verified` — a real install on a throwaway runner |
+| Repair over an existing install | `repair.json`: `installed-before=True`, `setup-exit=0`, same paths verified again — the "upgrade over an existing version" case, exercised against CI's own isolated `%LOCALAPPDATA%\KNOUX_Player_X`, never against this workstation's |
+| Uninstall | `uninstall.json`: `uninstall-exit=0`, `removed=True`, `shortcut-removed=True`, `uninstall-finalized=True`, `update-removed=False` (the `Update.exe` stub is left by Squirrel; recorded, not hidden) |
+| Installed-app settings contract | `installed-settings-persistence.json` checks: `atomic-save`, `restart-restore`, `reset-defaults`, `import-export-round-trip`, `corrupt-settings-backup-recovery`, `no-temporary-files` |
+| **Signing state** | **UNSIGNED** — there is no `signtool`, certificate, `certFile`/`certPassword` or Authenticode step in `full-rebuild-windows.yml` and none in `forge.config.js`, so nothing signs the payload. `Get-AuthenticodeSignature` was not run on the 595 MB artifact. This build is **never** to be described as a verified signed production release |
+
+Windows lanes on the same head: `KNOUX Windows Timeline Export E2E` **success**, `KNOUX Windows Packaged Creative + Recording Real E2E` **success**, `KNOUX Player Viewport Windows` **success**.
+
 ## [TEST] Round 2 gates (export retry + blocked-row closure)
 
 | Gate | Command | Exit | Result |
@@ -293,7 +314,8 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 | Navigation/new-window policy, window-state persistence | **IMPLEMENTED-NOT-VERIFIED** at runtime — unit-tested predicate, applied to all three app windows; runtime restore/deny not yet exercised on a desktop |
 | Windows shell integration (file associations, taskbar progress, media keys, notifications, tighter fuses) | **UNKNOWN / unchanged** — reviewed, no confirmed defect, no change made without evidence |
 | Electron 32.3.3 → maintained line migration | **NOT-IMPLEMENTED** — evaluation recorded, gated on its own compatibility matrix |
-| Installer `Setup.exe`, clean install, upgrade over earlier version with isolated data | **BLOCKED / NOT-RUN** — Squirrel `.nupkg` built and hashed (`6054f682…3020`), `Setup.exe` blocked by PATH + the external `app.asar` lock described above; no installer was executed on this workstation, and the unsigned local build is never presented as a signed production release |
+| Installer `Setup.exe` + clean install + repair + uninstall | **VERIFIED on the CI Windows runner** (run 40119637327, head `534f3f5`) — exactly one `Setup.exe` >1 MB asserted by the lane itself, SHA-256 `E556C15E…1750`, install from clean (`installed-before=False`), repair over the existing install (`installed-before=True`), uninstall with `removed=True` / `shortcut-removed=True` / `uninstall-finalized=True`, plus the installed-app settings contract (atomic save, restart restore, corrupt-settings recovery). **UNSIGNED** — no signing step exists in the workflow or forge config, and it is not presented as a signed production release. A real version-to-version upgrade (`2.0.x → 2.1.0` through the updater feed) is still **NOT-RUN**, and nothing was installed on this workstation because `%LOCALAPPDATA%\KNOUX_Player_X` belongs to the owner |
+| Latent tripwire, not CI-active | `tools/phase-01-closeout/apply-fixes.cjs:205-215` `replaceExact` expects the pre-round-1 import line in `LibraryView.tsx` and would throw if it ever ran; no workflow invokes it (it is a writer). Recorded so it is not mistaken for a live gate |
 | Screen recording / AI provider live calls / physical camera-microphone behaviour | **NOT-RUN** by choice — would capture the owner's screen, spend provider money, or use devices belonging to the session |
 
 ## Final Git status
@@ -306,8 +328,8 @@ No `reset`/`clean`/force operation was run; no worktree was created or deleted; 
 
 ## [NEXT] Remaining steps on PR #82
 
-1. Let the Windows CI lane finish on the fixed head, confirm the artefact contract (exactly one `*Setup.exe` over 1 MB), record its SHA-256 and whether it is signed — the workflow does not sign, so the expected honest result is **unsigned**, and it must never be labelled a verified signed production release.
-2. Only then decide on clean-install / upgrade testing, and only against **isolated** user data: this workstation already has `%LOCALAPPDATA%\KNOUX_Player_X` installed, so running a `Setup.exe` here would touch a real user's installed app and needs its own explicit go-ahead.
-3. Do not merge without review; the export-retry behaviour, the drop contract and the `file:append` IPC addition are the three areas worth a second pair of eyes.
+1. Review and merge only by decision, not by default: the export-retry policy, the unified drop contract and the new `file:append` IPC channel (channel count is pinned at 299) are the three areas worth a second pair of eyes.
+2. If a distributable installer is wanted, add a real code-signing step (certificate + `signtool`/maker signing) and re-verify `Get-AuthenticodeSignature`; until then every artifact stays labelled **unsigned**.
+3. Version-to-version upgrade (`2.0.x → 2.1.0` through the GitHub Releases feed) still has no runner; it needs an environment that can hold two installed versions, and must not use this workstation's `%LOCALAPPDATA%\KNOUX_Player_X`.
 4. Keep the two export follow-ups as their own slices: non-realtime rendering (`manualFrameCapture.ts`, owned by the concurrent agent) and the native FFmpeg pipeline.
 

@@ -1,10 +1,10 @@
 {
   "schema": "knoux-multitrack",
   "version": 1,
-  "id": "d4b39db1-7072-4d6f-8ae2-664a82de913b",
+  "id": "336a594f-53fe-4ac5-b35c-e2b682158fbf",
   "name": "Untitled project",
-  "createdAt": "2026-10-24T17:40:14.845Z",
-  "updatedAt": "2026-10-24T17:40:22.990Z",
+  "createdAt": "2026-10-24T19:20:41.077Z",
+  "updatedAt": "2026-10-24T19:21:02.758Z",
   "settings": {
     "width": 1920,
     "height": 1080,
@@ -18,7 +18,7 @@
   },
   "tracks": [
     {
-      "id": "d4b39db1-7072-4d6f-8ae2-664a82de913b-video-1",
+      "id": "336a594f-53fe-4ac5-b35c-e2b682158fbf-video-1",
       "kind": "video",
       "name": "Video 1",
       "order": 0,
@@ -31,8 +31,8 @@
       "pan": 0,
       "items": [
         {
-          "id": "aa5af747-e825-4ca3-b02c-00803cdaa2a2",
-          "trackId": "d4b39db1-7072-4d6f-8ae2-664a82de913b-video-1",
+          "id": "619200f4-a1c9-4c31-a4fc-66b1160bae2e",
+          "trackId": "336a594f-53fe-4ac5-b35c-e2b682158fbf-video-1",
           "kind": "video",
           "name": "army-exercise.mp4",
           "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
@@ -79,7 +79,7 @@
       ]
     },
     {
-      "id": "d4b39db1-7072-4d6f-8ae2-664a82de913b-audio-1",
+      "id": "336a594f-53fe-4ac5-b35c-e2b682158fbf-audio-1",
       "kind": "audio",
       "name": "Audio 1",
       "order": 1,
@@ -93,7 +93,7 @@
       "items": []
     },
     {
-      "id": "d4b39db1-7072-4d6f-8ae2-664a82de913b-title-1",
+      "id": "336a594f-53fe-4ac5-b35c-e2b682158fbf-title-1",
       "kind": "text",
       "name": "Titles",
       "order": 2,

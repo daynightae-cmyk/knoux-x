@@ -2,7 +2,7 @@
   "product": "Knoux X",
   "mode": "packaged-video-import-user-path",
   "executable": {
-    "path": "out-export3\\Knoux X-win32-x64\\knoux-player-x.exe",
+    "path": "out-export5\\Knoux X-win32-x64\\knoux-player-x.exe",
     "bytes": 186361344
   },
   "fixture": {
@@ -59,11 +59,11 @@
   "build": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5",
+    "sha": "0bd3b651fd840400688a383395d4fb07c402be95",
     "branch": "main",
-    "builtAt": "2026-10-24T17:07:48.997Z",
+    "builtAt": "2026-10-24T18:40:25.820Z",
     "packaged": true,
     "electronVersion": "32.3.3"
   },
-  "completedAt": "2026-10-24T17:44:36.802Z"
+  "completedAt": "2026-10-24T19:25:22.220Z"
 }

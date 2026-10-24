@@ -255,9 +255,10 @@ Repeated again on head `bb3cec6` (run [40125372890](https://github.com/daynighta
 | `0bd3b65` | **success** | **success** — this is the head that proves the ABI gate works, because both lanes really ran `npm test` on Node 22 |
 | `fe6d172`, `f2dde54` | cancelled by my own later pushes | cancelled by my own later pushes |
 | `bc95c72` | **failure** — not the unit gate: `Install and launch APK on Android emulator` died with `ERROR | Unable to connect to adb daemon on port: 5037`, `adb` exiting 1 ten seconds after launch, preceded by a GPU fallback (`Selected GPU option 'angle_indirect' … Your GPU drivers may have a bug. Switching to software rendering`) | cancelled |
-| `bb3cec6` (current) | Windows lanes on the same head all green; Android result recorded below once it concludes | — |
+| `bb3cec6` (current) | **success** (run 40125372917) | **success** (run 40125372912) — every lane on this head is green: `KNOUX Full Rebuild Windows` 40125372890, `Player Viewport Windows` 40125372885, `Windows Timeline Export E2E` 40125372963, `Windows Packaged Creative + Recording Real E2E` 40125372866 |
 
-The `bc95c72` failure is runner/emulator infrastructure, not this branch's code: the unit gate passed on that lane before (`0bd3b65`) and the Android-facing sources are identical across those heads. It is still reported because an emulator lane that can fail on `adb` is not a proven-stable gate, and because "the lane is flaky" is only a claim until the same head is re-run.
+The `bc95c72` failure is runner/emulator infrastructure, not this branch's code: the unit gate passed on that lane before (`0bd3b65`) and the Android-facing sources are identical across those heads — and `bb3cec6`, which contains exactly the same Android-relevant code, went green on both lanes. It is still reported because an emulator lane that can fail on `adb` is not a proven-stable gate.
+
 
 
 

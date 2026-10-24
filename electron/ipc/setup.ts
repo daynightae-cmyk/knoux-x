@@ -26,7 +26,7 @@ import { registerUpdateHandlers } from '../startup/app-updater';
 import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
 import type { StructuredValue } from './channel-types';
 import type { AuthoritativeIpcRegistry, IpcRegistrar } from './registry';
-import { cancelledDialogResult, validateFileDialogOptions } from './file-dialog-policy';
+import { cancelledDialogResult, validateFileDialogOptions, validateSaveDialogOptions } from './file-dialog-policy';
 
 const authorizedPaths = authorizedMediaPaths;
 const deterministicDialogCancellation = process.argv.includes('--ipc-smoke-test') || process.argv.includes('--sprint-02-smoke');
@@ -103,16 +103,11 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
   });
 
   ipc.handle(IPC_INVOKE.FILE_SAVE, async (event, rawOptions) => {
-    const options = validateFileDialogOptions(rawOptions);
+    const options = validateSaveDialogOptions(rawOptions);
     const acceptancePath = getPhase3bAcceptanceSavePath();
     const result = deterministicDialogCancellation ? { canceled: true, filePath: undefined }
       : acceptancePath ? { canceled: false, filePath: acceptancePath }
-        : await dialog.showSaveDialog(dialogOwner(event), {
-          title: options.title || 'Save File',
-          defaultPath: options.defaultPath,
-          buttonLabel: options.buttonLabel,
-          filters: options.filters,
-        });
+        : await dialog.showSaveDialog(dialogOwner(event), options);
     return result.canceled || !result.filePath ? cancelledDialogResult('save') : authorizedPaths.authorizeFile(result.filePath);
   });
 

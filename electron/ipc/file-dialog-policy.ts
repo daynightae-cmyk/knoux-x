@@ -1,3 +1,5 @@
+import type { SaveDialogOptions } from 'electron';
+
 export interface DialogOptions {
   title?: string;
   defaultPath?: string;
@@ -26,6 +28,27 @@ export function validateFileDialogOptions(value: unknown): DialogOptions {
     }
   }
   return structuredClone(options);
+}
+
+/** Forward only the supported save flags, after validating the renderer input. */
+export function validateSaveDialogOptions(value: unknown): SaveDialogOptions {
+  const options = validateFileDialogOptions(value);
+  const properties = (options as { properties?: unknown }).properties;
+  const allowed: NonNullable<SaveDialogOptions['properties']> = [
+    'showHiddenFiles', 'createDirectory', 'treatPackageAsDirectory',
+    'showOverwriteConfirmation', 'dontAddToRecent',
+  ];
+  if (properties !== undefined && (
+    !Array.isArray(properties) || properties.length > allowed.length
+    || properties.some(property => !allowed.includes(property))
+  )) throw new TypeError('Save dialog properties are invalid.');
+  return {
+    title: options.title || 'Save File',
+    defaultPath: options.defaultPath,
+    buttonLabel: options.buttonLabel,
+    filters: options.filters,
+    properties: properties as SaveDialogOptions['properties'],
+  };
 }
 
 export function cancelledDialogResult(kind: 'open-multiple'): string[];

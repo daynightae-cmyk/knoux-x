@@ -30,6 +30,7 @@ const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { _android: android } = require('playwright');
 const nativeCore = require('./android-native-core.cjs');
+const { prepareMediaDiscoveryAttempt } = require('./android-media-discovery-fixtures.cjs');
 const output = process.env.KNOUX_ANDROID_EVIDENCE_DIR || 'android-ci-output';
 fs.mkdirSync(output, { recursive: true });
 const PACKAGE = nativeCore.APP_PACKAGE;
@@ -1954,6 +1955,7 @@ function readRecordingBytes(uri) {
 
     await runCase('mediastore-discovery-playback-refresh-revoke', () => withSession('mediastore-discovery-playback-refresh-revoke', async () => {
       const started = Date.now();
+      const fixtures = prepareMediaDiscoveryAttempt(adb, sha256(fs.readFileSync(`${output}/${nativeCore.FIXTURE_NAME}`)));
       const openLibrary = async () => {
         await ensureHome(page);
         await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Library"]'), () => page.locator('[data-component="MobileMediaLibraryView"]').isVisible(), { note: 'mediastore:open-library' });
@@ -2062,9 +2064,10 @@ function readRecordingBytes(uri) {
       await until(() => video.evaluate((element) => !element.paused && element.currentTime > 0), 'Discovered video did not resume');
       await capture('mediastore-playing-discovered-video');
       await openLibrary();
-      adb('shell', 'cp', '/sdcard/Download/KNOUX-QA.mp4', '/sdcard/Movies/KNOUX-Discovery/KNOUX-Discovery-New.mp4');
-      adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/Movies/KNOUX-Discovery/KNOUX-Discovery-New.mp4');
-      await until(() => card('KNOUX-Discovery-New.mp4').count(), 'ContentObserver did not discover newly added media', 25000);
+      if (await card(fixtures.addedName).count()) throw new Error('The fresh discovery addition is already visible before it is created.');
+      adb('shell', 'cp', '-n', fixtures.source, fixtures.addedPath);
+      adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', `file://${fixtures.addedPath}`);
+      await until(() => card(fixtures.addedName).count(), 'ContentObserver did not discover newly added media', 25000);
       await capture('mediastore-added-media');
       adb('shell', 'rm', '/sdcard/DCIM/KNOUX-Discovery/KNOUX-Discovery-B.mp4');
       adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/DCIM/KNOUX-Discovery/KNOUX-Discovery-B.mp4');
@@ -2074,7 +2077,7 @@ function readRecordingBytes(uri) {
       page = null; webview = null;
       await openSession();
       await openLibrary();
-      await until(() => card('KNOUX-Discovery-New.mp4').count(), 'MediaStore reference did not survive process restart', 25000);
+      await until(() => card(fixtures.addedName).count(), 'MediaStore reference did not survive process restart', 25000);
       const newPid = adb('shell', 'pidof', PACKAGE);
       if (!newPid || oldPid === newPid) throw new Error('Persistence check did not restart the process');
       await capture('mediastore-after-restart');
@@ -2089,7 +2092,7 @@ function readRecordingBytes(uri) {
       await capture('mediastore-revoked');
       await ensureHome(page);
       results.measurements.push({ name: 'library-to-first-discovered-media', milliseconds: discoveredMs, includesPermissionInteraction: true, N: 1 });
-      return { metadata, discoveredMs, pausedTime, seekedTo, seekBefore: seek.before, seekAttempts: seek.attempts, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
+      return { fixtures, metadata, discoveredMs, pausedTime, seekedTo, seekBefore: seek.before, seekAttempts: seek.attempts, playbackStartedVia: playback.via, distinctFolders: true, realThumbnail: true, paginationDistinctUris: true, addedViaObserver: true, removedViaObserver: true, restart: { oldPid, newPid }, revoked: true, manualFilePickerUsed: false };
     }));
 
     if (Number(results.deviceState.sdk) >= 34) await runCase('mediastore-selected-video-access', () => withSession('mediastore-selected-video-access', async () => {

@@ -108,6 +108,17 @@ afterEach(() => {
 describe('Windows timeline export survives an encoder that stops early', () => {
   jest.setTimeout(30_000);
 
+  test('an export that renders in one attempt claims no retries', async () => {
+    (creative.export.probe as jest.Mock).mockResolvedValue(completeProbe());
+
+    await exportSavedProject();
+
+    expect((renderMultitrackProject as jest.Mock).mock.calls.length).toBe(1);
+    expect(host.textContent).toContain('Export verified');
+    expect(host.textContent).not.toContain('automatic attempts');
+    expect(host.textContent).not.toContain('Attempt 1 of 3');
+  });
+
   test('rejects the truncated file, retries, and only reports success for a covered render', async () => {
     (creative.export.probe as jest.Mock)
       .mockResolvedValueOnce(truncatedProbe())
@@ -118,6 +129,9 @@ describe('Windows timeline export survives an encoder that stops early', () => {
     expect((renderMultitrackProject as jest.Mock).mock.calls.length).toBe(2);
     expect(file.deleteFile).toHaveBeenCalledWith(DESTINATION);
     expect(host.textContent).toContain('Export verified');
+    // The recovered export says how many tries it took, so a slow export is
+    // explainable instead of looking like a silent success.
+    expect(host.textContent).toContain('· after 2 automatic attempts');
     expect(host.textContent).not.toContain('ended before the timeline');
     // The retry re-encodes the identical timeline at the same settings; nothing is
     // downgraded to make the second attempt look successful.

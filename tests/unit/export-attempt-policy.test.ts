@@ -1,5 +1,6 @@
 import {
   MAX_RENDER_ATTEMPTS,
+  attemptCountSuffix,
   isEarlyTruncation,
   isTransientEncoderFailure,
   numberedSibling,
@@ -85,5 +86,13 @@ describe('desktop export attempt policy', () => {
     expect(numberedSibling('C:\\out\\film', 2)).toBe('C:\\out\\film (2)');
     // A retry must never collapse onto the file it is meant to protect.
     expect(numberedSibling('C:\\out\\film.webm', 2)).not.toBe('C:\\out\\film.webm');
+  });
+
+  it('only labels the attempt count when more than one attempt was needed', () => {
+    expect(attemptCountSuffix(1)).toBe('');
+    expect(attemptCountSuffix(0)).toBe('');
+    expect(attemptCountSuffix(Number.NaN)).toBe('');
+    expect(attemptCountSuffix(2)).toBe('· after 2 automatic attempts');
+    expect(attemptCountSuffix(3, true)).toContain('بعد 3 محاولات');
   });
 });

@@ -10,6 +10,7 @@ import { measureTimelineOutputCoverage, timelineOutputCoversDuration } from '../
 import { writeBlobInChunks } from './chunkedBlobWriter';
 import {
   MAX_RENDER_ATTEMPTS,
+  attemptCountSuffix,
   isTransientEncoderFailure,
   numberedSibling,
   renderRetryDelayMs,
@@ -112,6 +113,7 @@ export const DesktopVideoStudioView: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [retryNote, setRetryNote] = useState<string | null>(null);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [verifiedOutput, setVerifiedOutput] = useState<VerifiedOutput | null>(null);
   const cancelRequestedRef = useRef(false);
   const progressReporterRef = useRef({ lastUpdateAt: 0, value: -1 });
@@ -168,6 +170,7 @@ export const DesktopVideoStudioView: React.FC = () => {
     cancelRequestedRef.current = false;
     setError(null);
     setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
     setProgress(0);
@@ -233,6 +236,7 @@ export const DesktopVideoStudioView: React.FC = () => {
           if (!timelineOutputCoversDuration(coverage, rendered.duration)) throw new Error(labels.truncatedOutput);
           const audio = probe.streams?.find((stream) => stream.codec_type === 'audio');
           setRetryNote(null);
+          setAttemptsUsed(attempt);
           setVerifiedOutput({
             path: destination,
             videoCodec: video.codec_name,
@@ -288,6 +292,7 @@ export const DesktopVideoStudioView: React.FC = () => {
     if (phase) return;
     setError(null);
     setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     setPhase('saving');
     try {
@@ -314,6 +319,7 @@ export const DesktopVideoStudioView: React.FC = () => {
     if (phase) return;
     setError(null);
     setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     try {
       const opened = await window.knouxMultitrackAPI.open();
@@ -356,6 +362,9 @@ export const DesktopVideoStudioView: React.FC = () => {
               <strong>{labels.complete}</strong>
               <span dir="auto">{verifiedOutput.path}</span>
               <small>{verifiedOutput.videoCodec}{verifiedOutput.audioCodec ? ` + ${verifiedOutput.audioCodec}` : ''}</small>
+              {attemptsUsed > 1 && (
+                <span className="knoux-desktop-export-attempts">{attemptCountSuffix(attemptsUsed, ar)}</span>
+              )}
             </div>
           )}
           {error && <div className="knoux-desktop-export-error" role="alert"><XCircle size={16} /> {error}</div>}

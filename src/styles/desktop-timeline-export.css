@@ -70,6 +70,11 @@
   color: var(--knoux-accent);
 }
 
+.knoux-desktop-export-attempts {
+  color: var(--knoux-accent);
+  white-space: nowrap;
+}
+
 .knoux-desktop-export-success {
   color: var(--knoux-text-primary, #f5f7fb);
 }

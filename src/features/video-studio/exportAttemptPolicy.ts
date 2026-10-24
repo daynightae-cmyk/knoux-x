@@ -58,6 +58,20 @@ export function retryAttemptLabel(attempt: number, maxAttempts = MAX_RENDER_ATTE
 }
 
 /**
+ * Suffix for the success line when an export needed more than one attempt. The
+ * file is verified either way, but saying how many tries it took is what lets a
+ * user connect "this took a while" to "the machine was busy", and gives support a
+ * concrete number instead of a guess.
+ */
+export function attemptCountSuffix(attempts: number, arabic = false): string {
+  if (!Number.isFinite(attempts) || attempts < 2) return '';
+  const safeAttempts = Math.trunc(attempts);
+  return arabic
+    ? `· بعد ${safeAttempts} محاولات تلقائية`
+    : `· after ${safeAttempts} automatic attempts`;
+}
+
+/**
  * A retry must never overwrite an existing file — including the rejected
  * partial file from the attempt before it, which Windows can keep locked for a
  * moment after deletion. Insert " (N)" before the extension so the automatic

@@ -14,6 +14,17 @@ html[data-platform='android'] .app-shell *::after {
   backdrop-filter: none !important;
 }
 
+/* Limit glass blur to one 144px branded disc during the startup handoff.
+ * Android's blanket performance guard intentionally remains in force for
+ * every normal Dashboard/module surface. Older low-memory devices use the
+ * gradient fallback rather than paying for backdrop-filter. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-platform='android'] .app-shell .knoux-mobile-splash-overlay:not([data-low-memory='true']) .km-splash-logo-wrapper {
+    -webkit-backdrop-filter: blur(12px) saturate(135%) !important;
+    backdrop-filter: blur(12px) saturate(135%) !important;
+  }
+}
+
 html[data-platform='android'] .view-transition {
   animation: none !important;
   transform: none !important;

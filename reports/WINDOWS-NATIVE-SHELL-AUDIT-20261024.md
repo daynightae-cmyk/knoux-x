@@ -154,8 +154,11 @@ p50 UI-ready 8,464 ms, p95 10,217 ms; p50 working set 423.7 MB. Historical packa
 Harness: `tools/verify-packaged-import-matrix.cjs` (each row starts from the Video
 Studio landing cards after a renderer reload, so every case gets a clean project,
 a clean error surface and the right request kind). Evidence:
-`reports/windows-import-matrix/evidence.json` + `final.png` + `run.log`, against
-`out-import/Knoux X-win32-x64/knoux-player-x.exe` built from `eaeb83a`.
+`reports/windows-import-matrix/evidence.json` + `final.png` + `run.log`. The first
+pass ran against `out-import/Knoux X-win32-x64/knoux-player-x.exe` (186,361,344 B,
+SHA-256 `e0ce0042…da9a9`, built from `eaeb83a`); the round-2 subset rows were
+re-measured against `out-export3/Knoux X-win32-x64` (`app.asar` SHA-256
+`59358dea…97063`, built from `28e1d25b` plus the export-retry edits).
 
 **verdict = `PASS_WITH_BLOCKED(1)` — 26 PASS, 0 FAIL, 1 BLOCKED** (27 rows; round 2 merged subset runs against `out-export3/Knoux X-win32-x64`, `app.asar` SHA-256 `59358dea…97063`, build sha reported by the app itself `28e1d25b`)
 
@@ -281,7 +284,7 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 
 ## Final Git status
 
-Round 1 was committed locally as `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191) and round 2 as the commit recorded in `[NEXT]` below; both sit on the local `main` of this worktree and **neither is pushed**. Remote `main` remains `eaeb83a`.
+Round 1 was committed locally as `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191) and round 2 as `23f9e774d70079c44d593e3f3ccb3b827cbd2e9d` (14 paths, +921/−155); both sit on the local `main` of this worktree and **neither is pushed**. Remote `main` remains `eaeb83a`.
 
 No push, PR, merge, tag, release or publication was performed; no branch or worktree was created or deleted; no `reset`/`clean`/force operation was run; the three other worktrees and all of their uncommitted and untracked artifacts (`manualFrameCapture.ts`, `file-dialog-policy.ts`, `electron/ipc/setup.ts` edits in `knoux-x-r3-acceptance-20261023`, the 31 evidence files in `knoux-x-authority`) were left untouched and were explicitly checked before each commit; the preservation archives under `Backups\` were extended, never trimmed. Isolated verification builds (`out-export*`, `out-verify`, `out-import`) and harness profiles are git-ignored by `out-*/` and `reports/.*-profile-*/`, so they cannot be committed by accident.
 

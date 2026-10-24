@@ -83,6 +83,20 @@ What PR #80 contributes, and why it was worth landing: `electron/ipc/file-dialog
 | Signer identity | — | `CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, L=Abu Dhabi, ST=Abu Dhabi, C=AE`, RSA 3072, certificate SHA-256 `f0ede6c760517640d58d65dda966203888d8745c0df723d332cc175170859759` |
 | Reading | installable debug APK proven on an API-35 KVM emulator | a **CI verification key**, proving the release build signs, installs and launches — **not** a Play/production upload key |
 
+## Release APK produced and delivered to `artifacts/`
+
+After the merge train, `Android Release Acceptance` was dispatched on `main` so the final merged content has its own release APK:
+
+| Item | Value |
+| --- | --- |
+| Run | [40135730610](https://github.com/daynightae-cmyk/knoux-x/actions/runs/40135730610) (`workflow_dispatch`, `emulator-api=35`) → job **success** |
+| Commit | `f2c367aca8246f5e1720e516483bd15c6bd2258a` |
+| APK | `KNOUX-X-Android-release-ci-signed.apk`, **45,374,900 bytes**, SHA-256 `8becebe1134a5182786c57f4d12666e319d5da3b7b8ba71ebe6ffeec89ade455`, package `dev.knoux.playerx`, variant `release` |
+| Local copy | `artifacts/android-release-f2c367ac/` — 145 files / 117 MB (APK + verdicts + device screenshots + signing report), `MANIFEST.sha256` self-verifies, `RELEASE-APK-REPORT.md` carries provenance. `artifacts/` is git-ignored by design |
+| On-device proof from the lane | `status: PASS`, `installedAndLaunched: true`, **21 functional cases**, `android-launch.verdict` PASS, `android-back-policy.verdict` PASS, `android-apk-verification.json` PASS (launcher/round PNGs checked per density by SHA-256) |
+| Independent signature check | New `tools/verify-apk-signing-block.cjs` parses the APK Signing Block and accepts a certificate only if JDK `keytool` parses it. It reports **v2 + v3 present**, signer `CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, L=Abu Dhabi, ST=Abu Dhabi, C=AE`, certificate SHA-256 `3e7470febe667cd4479bf36b3962d7fd41eabe2c334e357e7e9b55622b56b0b2` (1188-byte DER, valid 2026-10-25 → 2036-10-22) — byte-identical to the CI `apksigner --print-certs` output in the same bundle |
+| What it is **not** | `signing: acceptance`, `signingLabel: TEST_SIGNED`, `productionSigned: false`, `webContentsDebuggingEnabled: true` (the documented behaviour of `tools/configure-android-webview-debugging.cjs` outside `production` mode). A production-signed APK needs `KNOUX_ANDROID_KEYSTORE`, which this repository does not have; no tag and no GitHub Release were created, and nothing was installed on this workstation |
+
 ## Final status after the merge train — every lane settled
 
 | Ref | Debug APK lane | Release acceptance lane | Full Rebuild Windows | Timeline export E2E |

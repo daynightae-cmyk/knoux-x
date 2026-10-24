@@ -531,19 +531,20 @@ export const MultitrackEditorView: React.FC = () => {
     options: { fresh?: boolean; preferredTrackId?: string } = {},
   ): Promise<MultitrackProject> => {
     const classified = classifyMediaExtension(selected.filePath);
-    /* FFprobe owns the real duration. The browser element is a bounded
+    /* Shared import path (dialog + Explorer drop) probes real streams; the
+     * local is named `raw` because the resolved summary is called `probe`.
+     * FFprobe owns the real duration; the browser element is a bounded
      * fallback only, so a preview codec Chromium cannot decode never blocks
-     * a valid import. */
-    const rawProbe = classified === 'image'
+     * a valid import. An image carries no timeline duration of its own, so its
+     * probe result is deliberately not used for streams or timing. */
+    const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);
+    const streams = raw?.streams ?? [];
+    const probe = classified === 'image' || !raw
       ? null
-      : await window.knouxCreativeAPI.export.probe(selected.filePath);
-    const streams = rawProbe?.streams ?? [];
-    const probe = rawProbe
-      ? {
+      : {
         hasVideo: streams.some((stream) => stream.codec_type === 'video'),
         hasAudio: streams.some((stream) => stream.codec_type === 'audio'),
-      }
-      : null;
+      };
     let kind: ImportMediaKind;
     try {
       kind = resolveImportKind(selected.filePath, probe, requested);
@@ -559,7 +560,7 @@ export const MultitrackEditorView: React.FC = () => {
     if (kind === 'image') {
       itemDuration = 5;
     } else {
-      const nativeDuration = probeDurationSeconds(rawProbe);
+      const nativeDuration = probeDurationSeconds(raw);
       if (nativeDuration !== null) {
         itemDuration = nativeDuration;
       } else {

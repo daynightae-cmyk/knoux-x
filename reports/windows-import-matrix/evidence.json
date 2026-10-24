@@ -2,7 +2,7 @@
   "product": "Knoux X",
   "mode": "packaged-import-matrix",
   "executable": {
-    "path": "out-export3\\Knoux X-win32-x64\\knoux-player-x.exe",
+    "path": "out-export4\\Knoux X-win32-x64\\knoux-player-x.exe",
     "bytes": 186361344
   },
   "expectationLegend": {
@@ -12,35 +12,6 @@
     "any": "decisive outcome, or a clean OS-level refusal with no partial import"
   },
   "cases": [
-    {
-      "id": "h264-aac-mp4",
-      "fixture": "_temp\\import-matrix-fixtures\\base\\h264-aac.mp4",
-      "card": "Import video",
-      "expect": "item",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\base\\h264-aac.mp4\""
-      },
-      "outcome": "item",
-      "item": {
-        "name": "h264-aac.mp4",
-        "clock": "00:00:03.000",
-        "kind": "video"
-      },
-      "ffprobeDurationSeconds": 3,
-      "videoCodec": "h264",
-      "preview": {
-        "kind": "video",
-        "readyState": 4,
-        "width": 640,
-        "height": 360,
-        "error": null
-      },
-      "previewWarning": null,
-      "pathLength": 118,
-      "verdict": "PASS",
-      "note": ""
-    },
     {
       "id": "mp4-without-audio",
       "fixture": "_temp\\import-matrix-fixtures\\no-audio.mp4",
@@ -216,64 +187,6 @@
       "note": ""
     },
     {
-      "id": "audio-only-mp3",
-      "fixture": "_temp\\import-matrix-fixtures\\track.mp3",
-      "card": "Import media",
-      "expect": "item",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\track.mp3\""
-      },
-      "outcome": "item",
-      "item": {
-        "name": "track.mp3",
-        "clock": "00:00:04.049",
-        "kind": "audio"
-      },
-      "ffprobeDurationSeconds": 4.04898,
-      "videoCodec": null,
-      "preview": {
-        "kind": "audio",
-        "readyState": 4,
-        "width": 0,
-        "height": 0,
-        "error": null
-      },
-      "previewWarning": null,
-      "pathLength": 110,
-      "verdict": "PASS",
-      "note": ""
-    },
-    {
-      "id": "image-png",
-      "fixture": "_temp\\import-matrix-fixtures\\frame.png",
-      "card": "Import media",
-      "expect": "item",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\frame.png\""
-      },
-      "outcome": "item",
-      "item": {
-        "name": "frame.png",
-        "clock": "00:00:05.000",
-        "kind": "image"
-      },
-      "ffprobeDurationSeconds": null,
-      "videoCodec": "png",
-      "preview": {
-        "kind": "image",
-        "readyState": 4,
-        "width": 800,
-        "height": 600,
-        "error": null
-      },
-      "previewWarning": null,
-      "pathLength": 110,
-      "verdict": "PASS",
-      "note": ""
-    },
-    {
       "id": "arabic-filename",
       "fixture": "_temp\\import-matrix-fixtures\\فيديو-اختبار.mp4",
       "card": "Import video",
@@ -328,63 +241,6 @@
       },
       "previewWarning": null,
       "pathLength": 125,
-      "verdict": "PASS",
-      "note": ""
-    },
-    {
-      "id": "invalid-file",
-      "fixture": "_temp\\import-matrix-fixtures\\invalid.mp4",
-      "card": "Import video",
-      "expect": "error",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\invalid.mp4\""
-      },
-      "outcome": "error",
-      "item": null,
-      "ffprobeDurationSeconds": null,
-      "videoCodec": null,
-      "preview": null,
-      "previewWarning": null,
-      "pathLength": 112,
-      "verdict": "PASS",
-      "note": ""
-    },
-    {
-      "id": "zero-byte-file",
-      "fixture": "_temp\\import-matrix-fixtures\\zero-byte.mp4",
-      "card": "Import video",
-      "expect": "error",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\zero-byte.mp4\""
-      },
-      "outcome": "error",
-      "item": null,
-      "ffprobeDurationSeconds": null,
-      "videoCodec": null,
-      "preview": null,
-      "previewWarning": null,
-      "pathLength": 114,
-      "verdict": "PASS",
-      "note": ""
-    },
-    {
-      "id": "truncated-media",
-      "fixture": "_temp\\import-matrix-fixtures\\truncated.mp4",
-      "card": "Import video",
-      "expect": "any",
-      "dialog": {
-        "exitCode": 0,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\truncated.mp4\""
-      },
-      "outcome": "error",
-      "item": null,
-      "ffprobeDurationSeconds": null,
-      "videoCodec": null,
-      "preview": null,
-      "previewWarning": null,
-      "pathLength": 114,
       "verdict": "PASS",
       "note": ""
     },
@@ -698,16 +554,166 @@
       },
       "verdict": "BLOCKED",
       "note": "Windows' classic dialog refuses a 386-char path (over MAX_PATH), so the app never receives it; the authorization gate also refuses to probe or serve a path it never authorized (\"The desktop service could not complete the request.\") and no partial item was imported"
+    },
+    {
+      "id": "h264-aac-mp4",
+      "fixture": "_temp\\import-matrix-fixtures\\base\\h264-aac.mp4",
+      "card": "Import video",
+      "expect": "item",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\base\\h264-aac.mp4\""
+      },
+      "outcome": "item",
+      "item": {
+        "name": "h264-aac.mp4",
+        "clock": "00:00:03.000",
+        "kind": "video"
+      },
+      "ffprobeDurationSeconds": 3,
+      "videoCodec": "h264",
+      "preview": {
+        "kind": "video",
+        "readyState": 4,
+        "width": 640,
+        "height": 360,
+        "error": null
+      },
+      "previewWarning": null,
+      "pathLength": 118,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "audio-only-mp3",
+      "fixture": "_temp\\import-matrix-fixtures\\track.mp3",
+      "card": "Import media",
+      "expect": "item",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\track.mp3\""
+      },
+      "outcome": "item",
+      "item": {
+        "name": "track.mp3",
+        "clock": "00:00:04.049",
+        "kind": "audio"
+      },
+      "ffprobeDurationSeconds": 4.04898,
+      "videoCodec": null,
+      "preview": {
+        "kind": "audio",
+        "readyState": 4,
+        "width": 0,
+        "height": 0,
+        "error": null
+      },
+      "previewWarning": null,
+      "pathLength": 110,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "image-png",
+      "fixture": "_temp\\import-matrix-fixtures\\frame.png",
+      "card": "Import media",
+      "expect": "item",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\frame.png\""
+      },
+      "outcome": "item",
+      "item": {
+        "name": "frame.png",
+        "clock": "00:00:05.000",
+        "kind": "image"
+      },
+      "ffprobeDurationSeconds": null,
+      "videoCodec": "png",
+      "preview": {
+        "kind": "image",
+        "readyState": 4,
+        "width": 800,
+        "height": 600,
+        "error": null
+      },
+      "previewWarning": null,
+      "pathLength": 110,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "invalid-file",
+      "fixture": "_temp\\import-matrix-fixtures\\invalid.mp4",
+      "card": "Import video",
+      "expect": "error",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\invalid.mp4\""
+      },
+      "outcome": "error",
+      "item": null,
+      "ffprobeDurationSeconds": null,
+      "videoCodec": null,
+      "preview": null,
+      "previewWarning": null,
+      "pathLength": 112,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "zero-byte-file",
+      "fixture": "_temp\\import-matrix-fixtures\\zero-byte.mp4",
+      "card": "Import video",
+      "expect": "error",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\zero-byte.mp4\""
+      },
+      "outcome": "error",
+      "item": null,
+      "ffprobeDurationSeconds": null,
+      "videoCodec": null,
+      "preview": null,
+      "previewWarning": null,
+      "pathLength": 114,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "truncated-media",
+      "fixture": "_temp\\import-matrix-fixtures\\truncated.mp4",
+      "card": "Import video",
+      "expect": "any",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\truncated.mp4\""
+      },
+      "outcome": "error",
+      "item": null,
+      "ffprobeDurationSeconds": null,
+      "videoCodec": null,
+      "preview": null,
+      "previewWarning": null,
+      "pathLength": 114,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
     }
   ],
   "verdict": "PASS_WITH_BLOCKED(1)",
-  "startedAt": "2026-10-24T17:31:46.455Z",
+  "startedAt": "2026-10-24T18:06:33.896Z",
   "build": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5",
+    "sha": "8a0d2d37e094c94e64b392df2425c815e6aa8ab5",
     "branch": "main",
-    "builtAt": "2026-10-24T17:07:48.997Z",
+    "builtAt": "2026-10-24T17:58:30.298Z",
     "packaged": true,
     "electronVersion": "32.3.3"
   },
@@ -745,11 +751,22 @@
       "ids": [
         "very-long-path"
       ]
+    },
+    {
+      "ranAt": "2026-10-24T18:08:56.343Z",
+      "ids": [
+        "h264-aac-mp4",
+        "image-png",
+        "invalid-file",
+        "zero-byte-file",
+        "truncated-media",
+        "audio-only-mp3"
+      ]
     }
   ],
   "failedIds": [],
   "blockedIds": [
     "very-long-path"
   ],
-  "completedAt": "2026-10-24T17:33:40.546Z"
+  "completedAt": "2026-10-24T18:09:11.430Z"
 }

@@ -202,6 +202,20 @@ Run history, kept because the machine was busy: `project-persist-and-reopen` pas
 | `node --check` on 10 touched tools + `forge.config.js` | 0 | clean |
 | image-name kill scan (`'/IM'` in `tools`/`scripts`) | — | **0 matches** |
 
+## [FOUND]/[FIXED] Round 3 — what the real CI gate caught that local gates could not
+
+PR #82 (`fix/windows-native-shell-20261024`, four commits) triggered the whole CI matrix. Two lanes failed **because of my changes**, and both were invisible to the local gates:
+
+| CI failure | Real cause | Fix |
+| --- | --- | --- |
+| `KNOUX Full Rebuild Windows` → `validate-package` → `node tools/fix-final-quality-gates.cjs`: `Expected repaired source was not found in src/features/editor/MultitrackEditorView.tsx: const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);` | `tools/repair-professional-suite-source.cjs` pins that **literal call shape** so the historical "FFprobe owns metadata" repair cannot silently regress. My round-1 rewrite renamed the local to `rawProbe` and skipped the probe for images, so the pinned token vanished while every unit test stayed green | Restored the pinned shape: FFprobe is now called as `const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);` for every import, the image case simply ignores the stream summary, and `probeDurationSeconds(raw)` keeps the native-duration-first ladder. `node tools/fix-final-quality-gates.cjs` (read-only, verified: 0 `writeFileSync`) now exits **0** locally, all 11 historical repairs `[PASS]` |
+| `Android APK (Capacitor)`, `Android Release Acceptance`, `KNOUX Player Viewport Windows` → unit gate: 4 failed in `tests/unit/library-summary-pagination.test.ts`, `Could not locate the bindings file … better_sqlite3.node` | Those lanes install with `npm ci --ignore-scripts` and rebuild only `electron ffmpeg-static @derhuerst/ffprobe-static sharp`, on **Node 22**; the repository ships a single `better-sqlite3` prebuild for **Node 20 / ABI 115**. My new suite was the first test in the repo to touch the real binding, so it turned an ABI mismatch into a red build (the `cp: cannot stat 'android/knoux-app-plugin-report.json'` error in Release Acceptance was a downstream cascade of the aborted lane) | The suite now probes the binding once (`new BetterSqlite3(':memory:')`) and reports **skipped** where it cannot load, with the reason written into the file. Verified both ways on this machine: Node 20 → `4 passed`; Node 24 → `1 skipped, 0 of 1 total` (no failure). The real SQLite coverage still runs for real in `full-rebuild-windows.yml`, which uses Node **20.20.2** and `npm test -- --runInBand` |
+| Nothing to fix: `KNOUX Windows Timeline Export E2E` and `KNOUX Windows Packaged Creative + Recording Real E2E` | — | **success** on the PR head |
+
+Re-verification after the import-path change, on the rebuilt package (`out-export4/Knoux X-win32-x64`; its `app.asar` was checked to contain the pinned `const raw = …` line and no `rawProbe`): `h264-aac-mp4`, `audio-only-mp3`, `image-png`, `invalid-file`, `zero-byte-file`, `truncated-media` → **all PASS**, matrix still `PASS_WITH_BLOCKED(1)` (`very-long-path` only). Local gates after the fix: `npm run typecheck` 0, `npx eslint --max-warnings=0` on the touched files 0, `node tools/fix-final-quality-gates.cjs` 0, full suite `npx node@20 jest` **191 suites / 1,637 tests, 0 failed**.
+
+**Lesson recorded:** a local green suite is not CI-green in this repository. The historical-repair token gate and the per-lane native-ABI choices are only exercised on GitHub, so pushing to a PR is what exposed them. This is why the statuses below distinguish "unit green" from "CI green".
+
 ## [TEST] Round 2 gates (export retry + blocked-row closure)
 
 | Gate | Command | Exit | Result |
@@ -284,14 +298,16 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 
 ## Final Git status
 
-Round 1 was committed locally as `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191) and round 2 as `23f9e774d70079c44d593e3f3ccb3b827cbd2e9d` (14 paths, +921/−155); both sit on the local `main` of this worktree and **neither is pushed**. Remote `main` remains `eaeb83a`.
+Round 1: `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191). Round 2: `23f9e774d70079c44d593e3f3ccb3b827cbd2e9d` (14 paths, +921/−155) plus `7c6922e` (report) and `8a0d2d3` (re-verified import evidence). Round 3 carries the two CI-caught repairs below.
 
-No push, PR, merge, tag, release or publication was performed; no branch or worktree was created or deleted; no `reset`/`clean`/force operation was run; the three other worktrees and all of their uncommitted and untracked artifacts (`manualFrameCapture.ts`, `file-dialog-policy.ts`, `electron/ipc/setup.ts` edits in `knoux-x-r3-acceptance-20261023`, the 31 evidence files in `knoux-x-authority`) were left untouched and were explicitly checked before each commit; the preservation archives under `Backups\` were extended, never trimmed. Isolated verification builds (`out-export*`, `out-verify`, `out-import`) and harness profiles are git-ignored by `out-*/` and `reports/.*-profile-*/`, so they cannot be committed by accident.
+The four commits are published on the branch `fix/windows-native-shell-20261024` and reviewed in **PR #82** against `main`. **`main` itself has not been pushed to, nothing has been merged, tagged, released or published.** Remote `main` remains `eaeb83a`.
 
-## [NEXT] Steps for a future GitHub PR (not executed)
+No `reset`/`clean`/force operation was run; no worktree was created or deleted; the three other worktrees and all of their uncommitted and untracked artifacts (`manualFrameCapture.ts`, `file-dialog-policy.ts`, `electron/ipc/setup.ts` edits in `knoux-x-r3-acceptance-20261023`, the 31 evidence files in `knoux-x-authority`) were left untouched and were explicitly checked before each commit; the preservation archives under `Backups\` were extended, never trimmed. Isolated verification builds (`out-export*`, `out-verify`, `out-import`) and harness profiles are git-ignored by `out-*/` and `reports/.*-profile-*/`, so they cannot be committed by accident.
 
-1. `git log --oneline eaeb83a..HEAD` and review both commits; run `npm run typecheck && npm run lint && npm test` on a quiet machine.
-2. `git push -u origin main` (or fast-forward a fresh branch) requires explicit authorization — it has not been done.
-3. Open the PR and let `full-rebuild-windows.yml` / `knoux-live-release.yml` produce `Setup.exe` on a Windows runner (this workstation cannot: `7z` not on PATH and the external `app.asar` lock), then verify exactly one `*Setup.exe` over 1 MB, record its SHA-256 and signing state, and run clean-install + upgrade tests against isolated user data.
+## [NEXT] Remaining steps on PR #82
+
+1. Let the Windows CI lane finish on the fixed head, confirm the artefact contract (exactly one `*Setup.exe` over 1 MB), record its SHA-256 and whether it is signed — the workflow does not sign, so the expected honest result is **unsigned**, and it must never be labelled a verified signed production release.
+2. Only then decide on clean-install / upgrade testing, and only against **isolated** user data: this workstation already has `%LOCALAPPDATA%\KNOUX_Player_X` installed, so running a `Setup.exe` here would touch a real user's installed app and needs its own explicit go-ahead.
+3. Do not merge without review; the export-retry behaviour, the drop contract and the `file:append` IPC addition are the three areas worth a second pair of eyes.
 4. Keep the two export follow-ups as their own slices: non-realtime rendering (`manualFrameCapture.ts`, owned by the concurrent agent) and the native FFmpeg pipeline.
 

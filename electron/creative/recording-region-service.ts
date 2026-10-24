@@ -10,6 +10,7 @@ import {
 
 import { IPC_INBOUND } from '../ipc/contract';
 import type { IpcRegistrar } from '../ipc/registry';
+import { applyNavigationPolicy, rendererNavigationContext } from '../navigation-policy';
 import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from '../window-security';
 
 import type { RegionAspectPreset } from './region-capture-service';
@@ -141,6 +142,7 @@ export class RecordingRegionService {
       },
     });
     this.selectorWindow = window;
+    applyNavigationPolicy(window.webContents, rendererNavigationContext());
     window.setAlwaysOnTop(true, 'screen-saver');
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 

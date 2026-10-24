@@ -6,12 +6,19 @@ const path = require('node:path');
 
 const { chromium } = require('playwright');
 
+const {
+  createIsolatedProfile,
+  removeIsolatedProfile,
+  terminateOwnedChild,
+} = require('./lib/packaged-process-lifecycle.cjs');
+
 const root = path.resolve(__dirname, '..');
-const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
+const packageRoot = process.env.KNOUX_PERF_PACKAGE_ROOT
+  ? path.resolve(process.env.KNOUX_PERF_PACKAGE_ROOT)
+  : path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
 const evidenceDir = path.join(root, '_temp', 'live-evidence');
 const traceDir = path.join(root, '_temp', 'performance-traces');
-const processName = 'knoux-player-x';
 
 const runCount = Number(process.env.KNOUX_PERF_RUNS || 5);
 const cdpPort = Number(process.env.KNOUX_PERF_PORT || 9333);
@@ -46,25 +53,25 @@ async function waitForCdp(deadline, exitInfo) {
   throw new Error('PACKAGED_CDP_ENDPOINT_TIMEOUT');
 }
 
-function listAppProcesses() {
+/**
+ * Measures only the process tree rooted at OUR launched PID. Image-name
+ * matching would silently include the owner's open app or another agent's
+ * run, invalidating every memory/CPU number in the report.
+ */
+function listAppProcesses(rootPid) {
+  if (!Number.isInteger(rootPid) || rootPid <= 0) return null;
   const script = [
-    `$p = Get-Process -Name '${processName}' -ErrorAction SilentlyContinue`,
-    'if ($p) { @{ count = @($p).Count; workingSetBytes = (@($p) | Measure-Object WorkingSet64 -Sum).Sum; privateBytes = (@($p) | Measure-Object PrivateMemorySize64 -Sum).Sum; cpuSeconds = (@($p) | Measure-Object CPU -Sum).Sum } | ConvertTo-Json -Compress } else { Write-Output "null" }',
+    `$root = ${rootPid}`,
+    '$procs = Get-CimInstance Win32_Process',
+    '$ids = New-Object System.Collections.Generic.HashSet[int]',
+    '[void]$ids.Add($root)',
+    '$changed = $true',
+    'while ($changed) { $changed = $false; foreach ($p in $procs) { if ($ids.Contains([int]$p.ParentProcessId) -and -not $ids.Contains([int]$p.ProcessId)) { [void]$ids.Add([int]$p.ProcessId); $changed = $true } } }',
+    '$live = @(Get-Process -Id @($ids) -ErrorAction SilentlyContinue)',
+    'if ($live.Count -gt 0) { @{ count = $live.Count; workingSetBytes = ($live | Measure-Object WorkingSet64 -Sum).Sum; privateBytes = ($live | Measure-Object PrivateMemorySize64 -Sum).Sum; cpuSeconds = ($live | Measure-Object CPU -Sum).Sum } | ConvertTo-Json -Compress } else { Write-Output "null" }',
   ].join('; ');
   const output = childProcess.execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' }).trim();
   return JSON.parse(output);
-}
-
-function killAppTree() {
-  childProcess.spawnSync('taskkill', ['/IM', `${processName}.exe`, '/T', '/F'], { encoding: 'utf8', windowsHide: true });
-}
-
-async function waitForProcessExit(deadline) {
-  while (Date.now() < deadline) {
-    const processes = listAppProcesses();
-    if (!processes || processes.count === 0) return;
-    await sleep(250);
-  }
 }
 
 function parseTrace(traceFile) {
@@ -114,21 +121,23 @@ async function readRendererMetrics(page) {
 async function runOnce(index) {
   const traceFile = path.join(traceDir, `run-${index + 1}.log`);
   fs.rmSync(traceFile, { force: true });
-  const preClean = listAppProcesses();
-  killAppTree();
-  await waitForProcessExit(Date.now() + 20000);
-  const preCleanSurvivors = listAppProcesses();
   const launches = [];
+  const ownedChildren = [];
+  const profileDir = createIsolatedProfile(path.join(root, '_temp'), `.perf-profile-run-${index + 1}`);
 
   async function launchAndAttach(attempt) {
     const startedAt = Date.now();
     const exitInfo = { code: null, signal: null };
-    const child = childProcess.spawn(executablePath, [`--remote-debugging-port=${cdpPort}`], {
+    const child = childProcess.spawn(executablePath, [
+      `--remote-debugging-port=${cdpPort}`,
+      `--user-data-dir=${profileDir}`,
+    ], {
       cwd: packageRoot,
       env: { ...process.env, KNOUX_STARTUP_TRACE_FILE: traceFile },
       stdio: 'ignore',
       windowsHide: true,
     });
+    ownedChildren.push(child);
     child.on('exit', (code, signal) => {
       exitInfo.code = code;
       exitInfo.signal = signal;
@@ -175,8 +184,7 @@ async function runOnce(index) {
     } catch (error) {
       if (error.launchPhase !== true) throw error;
       relaunchReason = error.message;
-      killAppTree();
-      await waitForProcessExit(Date.now() + 20000);
+      await terminateOwnedChild(ownedChildren[ownedChildren.length - 1]);
       launch = await launchAndAttach(2);
     }
     browser = launch.browser;
@@ -193,9 +201,9 @@ async function runOnce(index) {
     const uiMs = Date.now() - startedAt;
     const renderer = await readRendererMetrics(page);
     await sleep(3000);
-    const memoryAfter3s = listAppProcesses();
+    const memoryAfter3s = listAppProcesses(launch.child.pid);
     await sleep(5000);
-    const memorySettled = listAppProcesses();
+    const memorySettled = listAppProcesses(launch.child.pid);
     return {
       index,
       cold: index === 0,
@@ -204,17 +212,16 @@ async function runOnce(index) {
       renderer,
       memoryAfter3s,
       memorySettled,
+      processScope: 'owned-pid-tree',
       trace: parseTrace(traceFile),
       traceFile,
-      preClean,
-      preCleanSurvivors,
       launches,
       relaunchReason,
     };
   } finally {
     if (browser) await browser.close().catch(() => {});
-    killAppTree();
-    await waitForProcessExit(Date.now() + 15000);
+    for (const child of ownedChildren) await terminateOwnedChild(child);
+    removeIsolatedProfile(profileDir, path.join(root, '_temp'));
   }
 }
 
@@ -239,8 +246,6 @@ async function main() {
   fs.mkdirSync(evidenceDir, { recursive: true });
   fs.mkdirSync(traceDir, { recursive: true });
   if (!fs.existsSync(executablePath)) throw new Error(`PACKAGED_EXECUTABLE_MISSING ${executablePath}`);
-  killAppTree();
-  await waitForProcessExit(Date.now() + 10000);
   const artifact = {
     executable: { path: executablePath, bytes: fs.statSync(executablePath).size, sha256: hashFile(executablePath) },
     head: git(['rev-parse', 'HEAD']),

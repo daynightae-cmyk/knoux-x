@@ -7,6 +7,7 @@ import { useTranslation } from '../../i18n';
 import { renderMultitrackProject } from '../export/mobileTimelineRenderer';
 import { measureTimelineOutputCoverage, timelineOutputCoversDuration } from '../export/timelineOutputCoverage';
 
+import { writeBlobInChunks } from './chunkedBlobWriter';
 import { VideoStudioView } from './VideoStudioView';
 
 import '../../styles/desktop-timeline-export.css';
@@ -160,6 +161,8 @@ export const DesktopVideoStudioView: React.FC = () => {
     setVerifiedOutput(null);
     progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
     setProgress(0);
+    let destination: string | null = null;
+    let destinationWritten = false;
 
     try {
       setPhase('rendering');
@@ -176,7 +179,7 @@ export const DesktopVideoStudioView: React.FC = () => {
 
       const extension = outputExtension(rendered.mimeType);
       setPhase('choosing-output');
-      const destination = await window.knouxAPI.file.saveFile({
+      destination = await window.knouxAPI.file.saveFile({
         title: ar ? 'حفظ تصدير KNOUX X' : 'Save KNOUX X timeline export',
         defaultPath: `${safeOutputName(project)}-timeline.${extension}`,
         filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
@@ -187,12 +190,20 @@ export const DesktopVideoStudioView: React.FC = () => {
       // Never overwrite a pre-existing file, even when the save dialog allows it.
       // The IPC handler enforces this atomically with O_EXCL as well.
       if (await window.knouxAPI.file.exists(destination)) throw new Error(labels.existingOutput);
-      const bytes = new Uint8Array(await rendered.blob.arrayBuffer());
-      await window.knouxAPI.file.writeFile(
-        destination,
-        bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
-        { exclusive: true },
-      );
+      // Stream bounded chunks instead of materialising the whole render in
+      // memory. The first chunk creates the file exclusively; every later
+      // chunk is offset-checked against the destination size in the main
+      // process, so a lost or duplicated chunk can never pass silently.
+      const writtenBytes = await writeBlobInChunks(rendered.blob, {
+        writeFirst: (data) => window.knouxAPI.file.writeFile(
+          destination as string,
+          data as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
+          { exclusive: true },
+        ),
+        append: (data, offset) => window.knouxAPI.file.appendFile(destination as string, data, offset),
+      });
+      destinationWritten = true;
+      if (writtenBytes !== rendered.blob.size) throw new Error(labels.truncatedOutput);
 
       setPhase('verifying');
       const probe = await window.knouxCreativeAPI.export.probe(destination, { verifyVideoPacketExtent: true });
@@ -211,6 +222,11 @@ export const DesktopVideoStudioView: React.FC = () => {
       });
       setProgress(100);
     } catch (reason) {
+      // A failed or cancelled write must not leave a half-file that looks
+      // like a real export. Only the destination this run created is removed.
+      if (destinationWritten && destination) {
+        await window.knouxAPI.file.deleteFile(destination).catch(() => undefined);
+      }
       if ((reason as DOMException)?.name !== 'AbortError' && !cancelRequestedRef.current) {
         setError(reason instanceof Error ? reason.message : labels.exportFailed);
       }

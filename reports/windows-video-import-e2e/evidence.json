@@ -1,0 +1,69 @@
+{
+  "product": "Knoux X",
+  "mode": "packaged-video-import-user-path",
+  "executable": {
+    "path": "out-verify\\Knoux X-win32-x64\\knoux-player-x.exe",
+    "bytes": 186361344
+  },
+  "fixture": {
+    "path": "tests\\fixtures\\retouch-real\\army-exercise.mp4",
+    "durationSeconds": 3,
+    "videoCodec": "h264",
+    "width": 640,
+    "height": 360,
+    "hasAudio": true
+  },
+  "stages": {
+    "landing": true,
+    "nativeDialog": {
+      "title": "Import video",
+      "selectPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+      "exitCode": 0,
+      "output": "DIALOG_FOUND title=\"Import video into Knoux X\"\r\nFILENAME_SET method=WM_SETTEXT\r\nCONFIRM method=IDOK_CLICK\r\nDIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\tests\\fixtures\\retouch-real\\army-exercise.mp4\""
+    },
+    "timeline": {
+      "name": "army-exercise.mp4",
+      "kind": "video",
+      "clock": "00:00:03.000",
+      "clockSeconds": 3,
+      "inspectorDuration": 3
+    },
+    "preview": {
+      "readyState": 4,
+      "width": 640,
+      "height": 360,
+      "error": null
+    },
+    "nativeSaveDialog": {
+      "title": "Save KNOUX multitrack project",
+      "selectPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\windows-video-import-e2e\\imported-project.knouxedit",
+      "exitCode": 0,
+      "output": "DIALOG_FOUND title=\"Save KNOUX multitrack project\"\r\nFILENAME_SET method=SENDKEYS\r\nCONFIRM method=IDOK_CLICK\r\nDIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\windows-video-import-e2e\\imported-project.knouxedit\""
+    },
+    "project": {
+      "path": "reports\\windows-video-import-e2e\\imported-project.knouxedit",
+      "bytes": 2775,
+      "timelineStart": 0,
+      "duration": 3,
+      "itemCount": 1
+    },
+    "reopen": {
+      "found": true,
+      "name": "army-exercise.mp4",
+      "clock": "00:00:03.000",
+      "inspectorDuration": 3
+    }
+  },
+  "verdict": "PASS",
+  "error": null,
+  "build": {
+    "product": "Knoux X",
+    "version": "2.1.0",
+    "sha": "eaeb83ae8b6d368ffe8bace29821c5917cbf2006",
+    "branch": "main",
+    "builtAt": "2026-10-24T03:59:35.363Z",
+    "packaged": true,
+    "electronVersion": "32.3.3"
+  },
+  "completedAt": "2026-10-24T04:23:48.112Z"
+}

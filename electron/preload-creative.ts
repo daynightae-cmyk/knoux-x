@@ -20,6 +20,7 @@ import type {
   LibraryFolder,
   LibraryMediaItem,
   LibraryQuery,
+  LibrarySummary,
   ScanProgress,
 } from './library/library-service';
 
@@ -50,7 +51,7 @@ export const creativeAPI = {
   library: {
     chooseFolder: (): Promise<LibraryFolder | null> => invokeDesktop(IPC_INVOKE.LIBRARY_CHOOSE_FOLDER),
     folders: (): Promise<LibraryFolder[]> => invokeDesktop(IPC_INVOKE.LIBRARY_FOLDERS),
-    query: (request: LibraryQuery = {}): Promise<{ items: LibraryMediaItem[]; total: number }> =>
+    query: (request: LibraryQuery = {}): Promise<{ items: LibraryMediaItem[]; total: number; summary: LibrarySummary }> =>
       invokeDesktop(IPC_INVOKE.LIBRARY_QUERY, request),
     scan: (folderPath: string): Promise<ScanProgress> => invokeDesktop(IPC_INVOKE.LIBRARY_SCAN, folderPath),
     cancelScan: (jobId: string): Promise<boolean> => invokeDesktop(IPC_INVOKE.LIBRARY_CANCEL_SCAN, jobId),

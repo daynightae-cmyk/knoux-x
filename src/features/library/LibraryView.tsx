@@ -21,6 +21,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import type {
   LibraryFolder,
   LibraryMediaItem,
+  LibrarySummary,
   ScanProgress,
 } from '../../../electron/library/library-service';
 
@@ -41,15 +42,23 @@ export const LibraryView: React.FC = () => {
   const [folders, setFolders] = useState<LibraryFolder[]>([]);
   const [items, setItems] = useState<LibraryMediaItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<LibrarySummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FilterType>('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [scan, setScan] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const queryLibrary = useCallback(async (): Promise<void> => {
-    setLoading(true);
+  /**
+   * Pages are 500 rows (the backend hard cap). Library-wide statistics come
+   * from result.summary, never from this page; "Load more" walks the offset
+   * until every matching item is reachable.
+   */
+  const queryLibrary = useCallback(async (offset = 0, append = false): Promise<void> => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setError(null);
     try {
       const [nextFolders, result] = await Promise.all([
@@ -60,27 +69,29 @@ export const LibraryView: React.FC = () => {
           favoritesOnly: filter === 'favorites',
           missingOnly: filter === 'missing',
           limit: 500,
-          offset: 0,
+          offset,
         }),
       ]);
       setFolders(nextFolders);
-      setItems(result.items);
+      setItems((current) => append ? [...current, ...result.items] : result.items);
       setTotal(result.total);
+      setSummary(result.summary);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Library data could not be loaded.');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [filter, searchQuery]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void queryLibrary(), 220);
+    const timer = window.setTimeout(() => void queryLibrary(0, false), 220);
     return () => window.clearTimeout(timer);
   }, [queryLibrary]);
 
   useEffect(() => window.knouxCreativeAPI.library.onScanProgress((progress) => {
     setScan(progress);
-    if (progress.done) void queryLibrary();
+    if (progress.done) void queryLibrary(0, false);
   }), [queryLibrary]);
 
   const addFolderAndScan = useCallback(async (): Promise<void> => {
@@ -130,10 +141,10 @@ export const LibraryView: React.FC = () => {
   }, []);
 
   const stats = useMemo(() => ({
-    video: items.filter((item) => item.mediaType === 'video').length,
-    audio: items.filter((item) => item.mediaType === 'audio').length,
-    favorites: items.filter((item) => item.favorite).length,
-  }), [items]);
+    video: summary ? summary.video : items.filter((item) => item.mediaType === 'video').length,
+    audio: summary ? summary.audio : items.filter((item) => item.mediaType === 'audio').length,
+    favorites: summary ? summary.favorites : items.filter((item) => item.favorite).length,
+  }), [summary, items]);
 
   return (
     <section className="creative-view library-view" aria-labelledby="library-title">
@@ -200,6 +211,18 @@ export const LibraryView: React.FC = () => {
         <NeonPanel variant="dark" padding="sm" className="stat-item"><Heart size={20} /><span>{stats.favorites} favorites</span></NeonPanel>
         <NeonPanel variant="dark" padding="sm" className="stat-item"><span>{total} matching items</span></NeonPanel>
       </div>
+
+      {!loading && items.length < total && (
+        <div className="library-load-more">
+          <NeonButton
+            variant="secondary"
+            onClick={() => void queryLibrary(items.length, true)}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading more…' : `Load more (${total - items.length} remaining)`}
+          </NeonButton>
+        </div>
+      )}
 
       {loading ? (
         <div className="creative-loading">Loading library…</div>

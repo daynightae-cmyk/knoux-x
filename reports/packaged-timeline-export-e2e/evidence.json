@@ -2,7 +2,7 @@
   "product": "Knoux X",
   "mode": "packaged-desktop-timeline-export-e2e",
   "commit": null,
-  "executable": "out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "executable": "out-verify\\Knoux X-win32-x64\\knoux-player-x.exe",
   "fixture": {
     "path": "reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
     "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -17,7 +17,7 @@
   "packagedIdentity": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+    "sha": "eaeb83ae8b6d368ffe8bace29821c5917cbf2006",
     "packaged": true
   },
   "project": {
@@ -37,18 +37,18 @@
   },
   "output": {
     "path": "reports\\packaged-timeline-export-e2e\\timeline-export.webm",
-    "bytes": 1172173,
+    "bytes": 508003,
     "formatName": "matroska,webm",
     "duration": 0,
-    "size": 1172173,
+    "size": 508003,
     "videoCodec": "vp8",
     "audioCodec": "opus",
     "width": 1920,
     "height": 1080,
     "avgFrameRate": "0/0",
-    "measuredDuration": 3.284,
+    "measuredDuration": 3.235,
     "durationMeasurement": "packet-pts",
-    "durationPacketCount": 98
+    "durationPacketCount": 70
   },
   "pixelProof": {
     "sourceEarly": {
@@ -63,24 +63,24 @@
     "outputEarly": {
       "width": 320,
       "height": 180,
-      "sha256": "9c79c21a76da172a9517bb0502bbcd2b9e87b84dae2135a3367b47cdf275e329",
-      "meanChannel": 126.1605787037037,
+      "sha256": "d3c12c87da4066b8b07a0592d6bef049e88ac2aa93de1f434659ad1a9d74d56a",
+      "meanChannel": 126.11870949074074,
       "nonBlackPixelRatio": 1,
-      "brightPixelRatio": 0.9805729166666667,
+      "brightPixelRatio": 0.9825694444444445,
       "maxChannel": 255
     },
     "outputLate": {
       "width": 320,
       "height": 180,
-      "sha256": "53b8cf05d35190cfc7c5055ac3dae46d1bb0e6b8ae5d8ed9f6be2362fbba2c79",
-      "meanChannel": 2.476724537037037,
+      "sha256": "38d7ed871f4c85e2216e83d954a91e29a7b404b4968c48dcae1d74cb3852fbc6",
+      "meanChannel": 2.476747685185185,
       "nonBlackPixelRatio": 0.014427083333333333,
       "brightPixelRatio": 0.007795138888888889,
       "maxChannel": 255
     },
     "earlyDifference": {
-      "meanAbsoluteChannelDifference": 16.856689814814814,
-      "materiallyDifferentPixelRatio": 0.13798611111111111
+      "meanAbsoluteChannelDifference": 17.16705439814815,
+      "materiallyDifferentPixelRatio": 0.14024305555555555
     },
     "lateSampleSeconds": 2.5,
     "sourceEndsBeforeLateSample": true,
@@ -88,6 +88,13 @@
     "outputLateDecodeMode": "strict"
   },
   "ui": {
+    "onboarding": {
+      "clicked": true,
+      "x": 157.765625,
+      "y": 646.1875,
+      "label": "Skip tour",
+      "method": "CDP mouse input with hit-test"
+    },
     "workspace": {
       "view": "editor",
       "editorMounted": true,
@@ -130,7 +137,10 @@
     },
     "titleClick": {
       "clicked": true,
-      "label": "KNOUX TIMELINE E2E BAKED00:00:03.500"
+      "x": 615.828125,
+      "y": 666.171875,
+      "label": "KNOUX TIMELINE E2E BAKED00:00:03.500",
+      "method": "CDP mouse input with hit-test"
     },
     "titleSelectedThroughUI": true,
     "titleSelection": {
@@ -177,12 +187,14 @@
     "titleVisibleBeforeExport": true,
     "exportButton": {
       "clicked": true,
-      "count": 2,
-      "label": "Export Current Project"
+      "x": 958.40625,
+      "y": 120.1875,
+      "label": "Export Current Project",
+      "method": "CDP mouse input with hit-test"
     },
     "exportOutcome": {
       "status": "success",
-      "text": "Export verifiedK:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\timeline-export.webmvp8 + opus"
+      "text": "Export verifiedK:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\packaged-timeline-export-e2e\\timeline-export.webmvp8 + opus"
     }
   },
   "network": {

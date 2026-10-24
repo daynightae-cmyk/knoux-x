@@ -23,6 +23,13 @@ const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  createIsolatedProfile,
+  isPidAlive,
+  removeIsolatedProfile,
+  terminateOwnedChild,
+} = require('./lib/packaged-process-lifecycle.cjs');
+
 const root = path.resolve(__dirname, '..');
 const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
@@ -152,18 +159,17 @@ async function main() {
   logLine(`asar: ${JSON.stringify(asarChecks)}`);
 
   // 2. Launch packaged app with the real MP4 on argv.
-  const profileDir = path.join(root, 'reports', '.video-studio-entry-profile');
-  fs.mkdirSync(profileDir, { recursive: true });
+  // A run-unique profile and PID-scoped lifecycle keep this test from ever
+  // touching the installed user's session or another agent's packaged app.
+  const profileDir = createIsolatedProfile(path.join(root, 'reports'), '.video-studio-entry-profile');
+  let child = null;
   try {
-    childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
-  } catch { /* nothing to kill */ }
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  const child = childProcess.spawn(executablePath, [
-    `--remote-debugging-port=${DEBUG_PORT}`,
-    `--user-data-dir=${profileDir}`,
-    sourceVideo,
-  ], { cwd: packageRoot, windowsHide: true, stdio: 'ignore', detached: true });
-  child.unref();
+    child = childProcess.spawn(executablePath, [
+      `--remote-debugging-port=${DEBUG_PORT}`,
+      `--user-data-dir=${profileDir}`,
+      sourceVideo,
+    ], { cwd: packageRoot, windowsHide: true, stdio: 'ignore', detached: true });
+    child.unref();
 
   let socket = null;
   const gate = {
@@ -468,18 +474,11 @@ async function main() {
     try {
       if (socket) socket.close();
     } catch { /* ignore */ }
-    try {
-      childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
-    } catch { /* ignore */ }
-    await new Promise((resolve) => setTimeout(resolve, 8000));
+    // Shut down only the process tree this run started.
+    await terminateOwnedChild(child);
   }
-  try {
-    const tasklist = childProcess.spawnSync('tasklist', ['/FI', 'IMAGENAME eq knoux-player-x.exe', '/FO', 'CSV'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
-    gate.orphans = (tasklist.stdout || '').split('\n').filter((line) => line.includes('knoux-player-x.exe')).length;
-  } catch {
-    gate.orphans = null;
-  }
-  try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  gate.orphans = child && isPidAlive(child.pid) ? 1 : 0;
+  removeIsolatedProfile(profileDir, path.join(root, 'reports'));
   const finalEvidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
   finalEvidence.orphans = gate.orphans;
   fs.writeFileSync(evidencePath, `${JSON.stringify(finalEvidence, null, 2)}\n`, 'utf8');
@@ -489,6 +488,11 @@ async function main() {
     process.exitCode = 1;
   } else {
     process.stdout.write(`PACKAGED_VIDEO_STUDIO_ENTRY verdict=PASS evidence=${evidencePath}\n`);
+  }
+  } catch (error) {
+    // Preserve the isolated profile as diagnostic evidence on failure only.
+    logLine(`run profile preserved for diagnostics: ${profileDir}`);
+    throw error;
   }
 }
 

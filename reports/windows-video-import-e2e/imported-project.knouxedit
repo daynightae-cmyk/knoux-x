@@ -1,0 +1,110 @@
+{
+  "schema": "knoux-multitrack",
+  "version": 1,
+  "id": "e35444b3-c541-471e-9fe0-eb724aaed20b",
+  "name": "Untitled project",
+  "createdAt": "2026-10-24T04:19:28.141Z",
+  "updatedAt": "2026-10-24T04:19:37.620Z",
+  "settings": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "audioSampleRate": 48000,
+    "backgroundColor": "#000000",
+    "timelineZoom": 1,
+    "snapEnabled": true,
+    "snapThreshold": 0.08,
+    "autosaveSeconds": 30
+  },
+  "tracks": [
+    {
+      "id": "e35444b3-c541-471e-9fe0-eb724aaed20b-video-1",
+      "kind": "video",
+      "name": "Video 1",
+      "order": 0,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": [
+        {
+          "id": "4bac6e73-e57c-478b-9f44-d6bf7a4a23f1",
+          "trackId": "e35444b3-c541-471e-9fe0-eb724aaed20b-video-1",
+          "kind": "video",
+          "name": "army-exercise.mp4",
+          "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+          "timelineStart": 0,
+          "duration": 3,
+          "sourceIn": 0,
+          "sourceOut": 3,
+          "playbackRate": 1,
+          "transform": {
+            "positionX": 0,
+            "positionY": 0,
+            "scale": 1,
+            "rotation": 0,
+            "opacity": 1,
+            "cropLeft": 0,
+            "cropTop": 0,
+            "cropRight": 0,
+            "cropBottom": 0,
+            "flipHorizontal": false,
+            "flipVertical": false,
+            "blendMode": "normal"
+          },
+          "audio": {
+            "volume": 1,
+            "pan": 0,
+            "fadeIn": 0,
+            "fadeOut": 0,
+            "muted": false
+          },
+          "color": {
+            "brightness": 0,
+            "contrast": 0,
+            "saturation": 0,
+            "temperature": 0
+          },
+          "text": null,
+          "keyframes": [],
+          "transitionIn": null,
+          "transitionOut": null,
+          "linkedItemId": null,
+          "groupId": null,
+          "locked": false
+        }
+      ]
+    },
+    {
+      "id": "e35444b3-c541-471e-9fe0-eb724aaed20b-audio-1",
+      "kind": "audio",
+      "name": "Audio 1",
+      "order": 1,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    },
+    {
+      "id": "e35444b3-c541-471e-9fe0-eb724aaed20b-title-1",
+      "kind": "text",
+      "name": "Titles",
+      "order": 2,
+      "height": 84,
+      "locked": false,
+      "hidden": false,
+      "muted": false,
+      "solo": false,
+      "volume": 1,
+      "pan": 0,
+      "items": []
+    }
+  ]
+}

@@ -26,6 +26,13 @@ const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  createIsolatedProfile,
+  isPidAlive,
+  removeIsolatedProfile,
+  terminateOwnedChild,
+} = require('./lib/packaged-process-lifecycle.cjs');
+
 const root = path.resolve(__dirname, '..');
 const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
@@ -168,15 +175,10 @@ async function cdpEvaluate(session, expression) {
 async function phaseB() {
   const result = { relaunchSuccess: false, argvOpenWithSuccess: false, detail: {} };
   const debugPort = 9333;
-  const profileDir = path.join(root, 'reports', '.packaged-retouch-e2e-profile');
-  fs.mkdirSync(profileDir, { recursive: true });
+  const profileDir = createIsolatedProfile(path.join(root, 'reports'), '.packaged-retouch-e2e-profile');
   let child = null;
   let socket = null;
   try {
-    try {
-      childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
-    } catch { /* nothing to kill */ }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
     child = childProcess.spawn(executablePath, [
       `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${profileDir}`,
@@ -244,18 +246,11 @@ async function phaseB() {
     try {
       if (socket) socket.close();
     } catch { /* ignore */ }
-    try {
-      childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, timeout: 30000 });
-    } catch { /* ignore */ }
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Shut down only the process tree this run started.
+    await terminateOwnedChild(child);
   }
-  try {
-    const tasklist = childProcess.spawnSync('tasklist', ['/FI', 'IMAGENAME eq knoux-player-x.exe', '/FO', 'CSV'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
-    result.detail.orphans = (tasklist.stdout || '').split('\n').filter((line) => line.includes('knoux-player-x.exe')).length;
-  } catch {
-    result.detail.orphans = null;
-  }
-  try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  result.detail.orphans = child && isPidAlive(child.pid) ? 1 : 0;
+  removeIsolatedProfile(profileDir, path.join(root, 'reports'));
   return result;
 }
 
@@ -276,8 +271,10 @@ async function main() {
   logLine(`head=${headSha} branch=${branch}`);
 
   logLine('Phase A: launching packaged app with --retouch-e2e');
+  const phaseAProfile = createIsolatedProfile(path.join(root, 'reports'), '.packaged-retouch-e2e-phaseA');
   const launch = childProcess.spawnSync(executablePath, [
     '--retouch-e2e',
+    `--user-data-dir=${phaseAProfile}`,
     `--retouch-e2e-evidence=${runtimeEvidencePath}`,
     `--retouch-e2e-source=${sourceVideo}`,
     `--retouch-e2e-output=${outputPath}`,
@@ -291,7 +288,11 @@ async function main() {
   const combinedLog = [launch.stdout || '', launch.stderr || '', launch.error ? String(launch.error.stack || launch.error) : ''].filter(Boolean).join('\n');
   fs.appendFileSync(logPath, combinedLog, 'utf8');
   logLine(`Phase A exit status=${launch.status} signal=${launch.signal || 'none'}`);
-  if (launch.error || launch.status !== 0) throw new Error(`PACKAGED_RETOUCH_E2E_PROCESS_FAILED status=${launch.status} signal=${launch.signal || 'none'}`);
+  if (launch.error || launch.status !== 0) {
+    logLine(`Phase A isolated profile preserved for diagnostics: ${phaseAProfile}`);
+    throw new Error(`PACKAGED_RETOUCH_E2E_PROCESS_FAILED status=${launch.status} signal=${launch.signal || 'none'}`);
+  }
+  removeIsolatedProfile(phaseAProfile, path.join(root, 'reports'));
   requireFile(runtimeEvidencePath, 'runtime evidence');
   const runtime = JSON.parse(fs.readFileSync(runtimeEvidencePath, 'utf8'));
   if (!runtime.success) throw new Error(`PACKAGED_RETOUCH_E2E_RUNTIME_FAILED ${runtime.error || ''}`.slice(0, 2000));

@@ -23,8 +23,12 @@ const path = require('node:path');
 const sharp = require('sharp');
 const WebSocket = require('ws');
 
+const { terminateOwnedChild } = require('./lib/packaged-process-lifecycle.cjs');
+
 const root = path.resolve(__dirname, '..');
-const packageRoot = path.join(root, 'out', 'Knoux X-win32-x64');
+const packageRoot = process.env.KNOUX_EXPORT_PACKAGE_ROOT
+  ? path.resolve(process.env.KNOUX_EXPORT_PACKAGE_ROOT)
+  : path.join(root, 'out', 'Knoux X-win32-x64');
 const executablePath = path.join(packageRoot, 'knoux-player-x.exe');
 const ffmpegPath = path.join(packageRoot, 'resources', 'ffmpeg.exe');
 const ffprobePath = path.join(packageRoot, 'resources', 'ffprobe.exe');
@@ -392,16 +396,6 @@ async function captureUiState(session) {
   })()`);
 }
 
-async function killPackagedProcesses() {
-  if (process.platform !== 'win32') return;
-  childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], {
-    windowsHide: true,
-    encoding: 'utf8',
-    timeout: 30_000,
-  });
-  await new Promise((resolve) => setTimeout(resolve, 1_500));
-}
-
 function prepare() {
   fs.rmSync(evidenceDir, { recursive: true, force: true });
   fs.mkdirSync(profileDir, { recursive: true });
@@ -439,7 +433,6 @@ function prepare() {
   let child = null;
   let socket = null;
   try {
-    await killPackagedProcesses();
     log('Launching packaged Knoux X with deterministic acceptance I/O and CDP.');
     child = childProcess.spawn(executablePath, [
       `--remote-debugging-port=${DEBUG_PORT}`,
@@ -696,7 +689,8 @@ function prepare() {
   } finally {
     fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     try { socket?.close(); } catch { /* ignore */ }
-    await killPackagedProcesses().catch(() => undefined);
+    // Shut down only the process tree this run started.
+    await terminateOwnedChild(child);
   }
 
   process.stdout.write('[PASS] DESKTOP TIMELINE EXPORT PACKAGED E2E\n');

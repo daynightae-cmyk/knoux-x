@@ -100,6 +100,7 @@ import {
   type ImportMediaKind,
   type ImportRequest,
 } from './videoStudioEntry';
+import { probeDurationSeconds, readMediaMetadataDuration } from './importMetadata';
 
 interface ProjectHistory {
   past: MultitrackProject[];
@@ -165,28 +166,6 @@ function signedDelta(value: number): string {
   return `${rounded > 0 ? '+' : ''}${rounded}`;
 }
 
-function readMediaMetadata(mediaUrl: string, kind: 'video' | 'audio'): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const media = document.createElement(kind);
-    media.preload = 'metadata';
-    media.src = mediaUrl;
-    const cleanup = (): void => {
-      media.removeAttribute('src');
-      media.load();
-    };
-    media.addEventListener('loadedmetadata', () => {
-      const duration = media.duration;
-      cleanup();
-      if (Number.isFinite(duration) && duration > 0) resolve(duration);
-      else reject(new Error('The selected media has no finite duration.'));
-    }, { once: true });
-    media.addEventListener('error', () => {
-      cleanup();
-      reject(new Error('The selected media metadata could not be decoded.'));
-    }, { once: true });
-  });
-}
-
 function trackIcon(kind: TrackKind): React.ReactNode {
   if (kind === 'video') return <Video size={15} />;
   if (kind === 'audio') return <Music size={15} />;
@@ -248,6 +227,7 @@ export const MultitrackEditorView: React.FC = () => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -551,15 +531,19 @@ export const MultitrackEditorView: React.FC = () => {
     options: { fresh?: boolean; preferredTrackId?: string } = {},
   ): Promise<MultitrackProject> => {
     const classified = classifyMediaExtension(selected.filePath);
-    let probe: { hasVideo: boolean; hasAudio: boolean } | null = null;
-    if (classified !== 'image') {
-      const raw = await window.knouxCreativeAPI.export.probe(selected.filePath);
-      const streams = raw.streams ?? [];
-      probe = {
+    /* FFprobe owns the real duration. The browser element is a bounded
+     * fallback only, so a preview codec Chromium cannot decode never blocks
+     * a valid import. */
+    const rawProbe = classified === 'image'
+      ? null
+      : await window.knouxCreativeAPI.export.probe(selected.filePath);
+    const streams = rawProbe?.streams ?? [];
+    const probe = rawProbe
+      ? {
         hasVideo: streams.some((stream) => stream.codec_type === 'video'),
         hasAudio: streams.some((stream) => stream.codec_type === 'audio'),
-      };
-    }
+      }
+      : null;
     let kind: ImportMediaKind;
     try {
       kind = resolveImportKind(selected.filePath, probe, requested);
@@ -571,9 +555,24 @@ export const MultitrackEditorView: React.FC = () => {
       if (code === 'IMPORT_NOT_VIDEO') throw new Error(t('multitrack.selectVideoFile'));
       throw new Error(t('multitrack.addMediaFailed'));
     }
-    const itemDuration = kind === 'image'
-      ? 5
-      : await readMediaMetadata(selected.mediaUrl, kind);
+    let itemDuration: number;
+    if (kind === 'image') {
+      itemDuration = 5;
+    } else {
+      const nativeDuration = probeDurationSeconds(rawProbe);
+      if (nativeDuration !== null) {
+        itemDuration = nativeDuration;
+      } else {
+        try {
+          itemDuration = await readMediaMetadataDuration(selected.mediaUrl, kind);
+        } catch (error) {
+          const code = error instanceof Error ? error.message : '';
+          throw new Error(code === 'IMPORT_METADATA_TIMEOUT'
+            ? t('multitrack.metadataTimeout')
+            : t('multitrack.metadataUndecodable'));
+        }
+      }
+    }
     const preferred = options.preferredTrackId
       ? base.tracks.find((track) => track.id === options.preferredTrackId && track.kind === kind)
       : undefined;
@@ -942,6 +941,7 @@ export const MultitrackEditorView: React.FC = () => {
   // Reset the fitted frame whenever a different item is previewed.
   useEffect(() => {
     setMonitorNatural(null);
+    setPreviewError(null);
   }, [selectedItemId, previewUrl]);
 
   const beginTimelineResize = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
@@ -1141,13 +1141,14 @@ export const MultitrackEditorView: React.FC = () => {
           <div ref={monitorFit.stageRef} className={`multitrack-preview-stage knoux-media-stage${monitorFit.overflows ? ' knoux-media-stage--overflow' : ''}`}>
             {selectedItem?.sourcePath && previewUrl ? (
               selectedItem.kind === 'audio' ? (
-                <div className="multitrack-audio-preview"><AudioLines size={58} /><strong>{selectedItem.name}</strong><audio ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} /></div>
+                <div className="multitrack-audio-preview"><AudioLines size={58} /><strong>{selectedItem.name}</strong><audio ref={(node) => { previewRef.current = node; }} src={previewUrl} onEnded={() => setPreviewPlaying(false)} onError={() => setPreviewError(t('multitrack.previewUnsupported'))} /></div>
               ) : selectedItem.kind === 'image' ? (
                 <div className="knoux-media-frame" style={{ width: monitorFit.frame.width || undefined, height: monitorFit.frame.height || undefined }}>
                   <img
                     src={previewUrl}
                     alt={selectedItem.name}
                     style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
+                    onError={() => setPreviewError(t('multitrack.previewUnsupported'))}
                     onLoad={(event) => {
                       const target = event.currentTarget;
                       if (target.naturalWidth > 0 && target.naturalHeight > 0) {
@@ -1163,6 +1164,7 @@ export const MultitrackEditorView: React.FC = () => {
                     src={previewUrl}
                     style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
                     onEnded={() => setPreviewPlaying(false)}
+                    onError={() => setPreviewError(t('multitrack.previewUnsupported'))}
                     onLoadedMetadata={(event) => {
                       const target = event.currentTarget;
                       if (target.videoWidth > 0 && target.videoHeight > 0) {
@@ -1185,6 +1187,9 @@ export const MultitrackEditorView: React.FC = () => {
               }}>{selectedItem.text.text}</div>
             ) : (
               <div className="creative-empty">{t('multitrack.selectItem')}</div>
+            )}
+            {previewError && (
+              <div className="multitrack-preview-warning" role="status">{previewError}</div>
             )}
             {selectedItem?.sourcePath && selectedItem.kind !== 'image' && (
               <button type="button" className="multitrack-preview-play" onClick={() => void togglePreview()}>{previewPlaying ? <Pause size={22} /> : <Play size={22} />}</button>

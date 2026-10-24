@@ -134,6 +134,24 @@
   background: #000;
 }
 
+.multitrack-preview-warning {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 32px));
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 176, 72, 0.45);
+  border-radius: 10px;
+  background: rgba(24, 16, 8, 0.92);
+  color: #ffce8a;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .knoux-inspector-hidden .knoux-inspector-collapsible {
   display: none;
 }

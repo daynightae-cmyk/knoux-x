@@ -1,10 +1,10 @@
 {
   "schema": "knoux-multitrack",
   "version": 1,
-  "id": "29ac5807-59a0-4f56-b052-d3513e5027e2",
+  "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646",
   "name": "Packaged Timeline Export E2E",
-  "createdAt": "2026-10-18T05:28:04.625Z",
-  "updatedAt": "2026-10-18T05:28:07.504Z",
+  "createdAt": "2026-10-24T04:28:57.052Z",
+  "updatedAt": "2026-10-24T04:29:00.164Z",
   "settings": {
     "width": 1920,
     "height": 1080,
@@ -18,7 +18,7 @@
   },
   "tracks": [
     {
-      "id": "29ac5807-59a0-4f56-b052-d3513e5027e2-video-1",
+      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-video-1",
       "kind": "video",
       "name": "Video 1",
       "order": 0,
@@ -31,11 +31,11 @@
       "pan": 0,
       "items": [
         {
-          "id": "e75e313c-a630-4e27-8bf1-767515fe1182",
-          "trackId": "29ac5807-59a0-4f56-b052-d3513e5027e2-video-1",
+          "id": "0bf5fbdd-f86c-4436-afc8-464363a0cc71",
+          "trackId": "ea495f48-39b5-4504-ae7a-9b13e7a20646-video-1",
           "kind": "video",
           "name": "Real packaged MP4 source",
-          "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
+          "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
           "timelineStart": 0,
           "duration": 1.5,
           "sourceIn": 0,
@@ -73,7 +73,7 @@
       ]
     },
     {
-      "id": "29ac5807-59a0-4f56-b052-d3513e5027e2-audio-1",
+      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-audio-1",
       "kind": "audio",
       "name": "Audio 1",
       "order": 1,
@@ -87,7 +87,7 @@
       "items": []
     },
     {
-      "id": "29ac5807-59a0-4f56-b052-d3513e5027e2-title-1",
+      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-title-1",
       "kind": "text",
       "name": "Titles",
       "order": 2,
@@ -100,8 +100,8 @@
       "pan": 0,
       "items": [
         {
-          "id": "4adb9c99-d561-4542-9b4d-994659182e40",
-          "trackId": "29ac5807-59a0-4f56-b052-d3513e5027e2-title-1",
+          "id": "158ba608-f694-4154-8c10-ef808384c479",
+          "trackId": "ea495f48-39b5-4504-ae7a-9b13e7a20646-title-1",
           "kind": "text",
           "name": "KNOUX TIMELINE E2E BAKED",
           "sourcePath": null,

@@ -332,6 +332,14 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync android
+          # Production packaging contract, enforced before Gradle sees the tree:
+          # no WebView debugging, no cloud backup of private data, no source maps.
+          node tools/configure-android-webview-debugging.cjs android production
+          node tools/harden-android-manifest.cjs android
+          if find android/app/src/main/assets/public -name '*.map' -print -quit | grep -q .; then
+            echo 'Published release assets contain source maps; refusing to package readable sources.' >&2
+            exit 1
+          fi
 
       - name: Install native foundations, permissions, branding
         shell: bash
@@ -384,6 +392,9 @@ jobs:
 
       - name: Verify packaged identity
         shell: bash
+        env:
+          # A published production APK must not expose WebView debugging.
+          KNOUX_ANDROID_EXPECT_WEBVIEW_DEBUG: 'off'
         run: |
           cp android/knoux-branding-report.json release-android/android-branding-report.json
           node tools/verify-android-apk.cjs "release-android/${{ needs.preflight.outputs.android_apk }}" release-android

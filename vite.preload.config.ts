@@ -1,2 +1,2 @@
 import { defineConfig } from 'vite';
-export default defineConfig({build:{sourcemap:true,rollupOptions:{external:['electron']}}});
+export default defineConfig({build:{sourcemap:process.env.KNOUX_SOURCEMAPS === '1',rollupOptions:{external:['electron']}}});

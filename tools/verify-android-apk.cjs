@@ -125,16 +125,46 @@ async function main() {
   save('android-apk-signing.txt', signing);
   assert.match(signing.toString(), /Verified using v2 scheme \(APK Signature Scheme v2\): true/);
 
+  /* Hardened packaging invariants. These are release hygiene, not cosmetics:
+   * a shipped .map hands readable sources to anyone with the APK, a backup flag
+   * copies private projects off the device, and a production build that keeps
+   * WebView debugging open is debuggable by whoever holds the device. */
+  const sourceMaps = files.filter((file) => /\.map$/i.test(file));
+  save('android-apk-source-maps.txt', `${sourceMaps.length}\n${sourceMaps.slice(0, 20).join('\n')}\n`);
+  assert.equal(sourceMaps.length, 0, `Release APK must ship no source maps; found ${sourceMaps.length}`);
+
+  const allowBackupLine = manifest.split('\n').find((line) => line.includes('android:allowBackup'));
+  assert(allowBackupLine, 'android:allowBackup is missing from the compiled manifest');
+  assert(
+    /\(type 0x12\)0x0\b/.test(allowBackupLine),
+    `android:allowBackup must be false in the compiled manifest (${allowBackupLine.trim()})`,
+  );
+
+  const configEntry = files.find((file) => file === 'assets/capacitor.config.json');
+  assert(configEntry, 'Packaged Capacitor config is missing from the APK');
+  const packagedConfig = JSON.parse(run('unzip', ['-p', apk, configEntry]).toString('utf8'));
+  const webViewDebugging = packagedConfig?.android?.webContentsDebuggingEnabled === true;
+  const expectedDebugging = String(process.env.KNOUX_ANDROID_EXPECT_WEBVIEW_DEBUG || 'on').toLowerCase();
+  if (expectedDebugging === 'off') {
+    assert.equal(webViewDebugging, false, 'Production APK must not enable WebView debugging');
+  } else {
+    assert.equal(webViewDebugging, true, 'Acceptance/debug APK needs WebView debugging for its installed attach step');
+  }
+
   save('android-apk-verification.json', JSON.stringify({
     status: 'PASS',
     package: 'dev.knoux.playerx',
     label: 'KNOUX X',
     resourceOptimizationSafe: true,
+    sourceMaps: sourceMaps.length,
+    allowBackup: false,
+    webContentsDebuggingEnabled: webViewDebugging,
+    webViewDebuggingExpectation: expectedDebugging,
     verifiedLauncherPngs: verified,
     adaptiveIcons,
     uniquePackagedLauncherEntries: [...new Set(usedEntries.values())],
   }, null, 2));
-  console.log('PASS: KNOUX X packaged identity, all 20 launcher images, adaptive layers, and APK signature.');
+  console.log('PASS: KNOUX X packaged identity, all 20 launcher images, adaptive layers, APK signature, and hardening invariants (no source maps, allowBackup=false, WebView debugging matches the build mode).');
 }
 
 main().catch((error) => {

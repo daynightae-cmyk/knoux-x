@@ -95,6 +95,9 @@ const fileAPI = {
   writeFile: (filePath: string, data: Buffer | string, options?: { exclusive?: boolean }): Promise<void> =>
     invokeDesktop(IPC_INVOKE.FILE_WRITE, filePath, data, options),
 
+  appendFile: (filePath: string, data: Uint8Array, offset: number): Promise<void> =>
+    invokeDesktop(IPC_INVOKE.FILE_APPEND, filePath, data, offset),
+
   deleteFile: (filePath: string): Promise<boolean> =>
     invokeDesktop(IPC_INVOKE.FILE_DELETE, filePath),
 

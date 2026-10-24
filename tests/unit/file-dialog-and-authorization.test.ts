@@ -75,4 +75,10 @@ describe('file dialog cancellation and authorization policy', () => {
     expect(source).toContain('dialog.showSaveDialog(dialogOwner(event)');
     expect(source).not.toMatch(/rawOptions.*ipc-smoke-test/);
   });
+
+  test('the dropped-file gate uses the shared media contract, never an inline allowlist', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../../electron/ipc/setup.ts'), 'utf8');
+    expect(source).toContain('isDroppedMediaExtension');
+    expect(source).not.toContain("new Set(['.mp4'");
+  });
 });

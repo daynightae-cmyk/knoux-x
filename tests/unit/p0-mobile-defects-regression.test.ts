@@ -5,6 +5,25 @@ function read(relativePath: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
 }
 
+/**
+ * Reads one custom-property declaration, including the multi-line `calc()`
+ * form, so the bottom-geometry tokens can be asserted as a chain instead of as
+ * a magic padding number that silently drifts from the navigation bar.
+ */
+function tokenValue(css: string, name: string): string {
+  const start = css.indexOf(`${name}:`);
+  if (start === -1) return '';
+  const value = css.slice(start + name.length + 1);
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === '(') depth += 1;
+    else if (char === ')' && depth > 0) depth -= 1;
+    else if (char === ';' && depth === 0) return value.slice(0, index);
+  }
+  return value;
+}
+
 describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
   const app = read('src/App.tsx');
   const splashOverlay = read('src/components/mobile/MobileSplashOverlay.tsx');
@@ -74,7 +93,22 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(premiumCss).toContain('touch-action: pan-y;');
       expect(premiumCss).toContain('overscroll-behavior-y: contain;');
       expect(premiumCss).toContain('-webkit-overflow-scrolling: touch;');
-      expect(premiumCss).toContain('padding: max(18px, env(safe-area-inset-top, 0px)) 16px calc(112px + env(safe-area-inset-bottom, 0px));');
+      // The reservation is a token now. It must still cover the whole nav band
+      // plus the system inset, and the token chain has to resolve to the same
+      // geometry the literal `calc(112px + env(safe-area-inset-bottom, 0px))`
+      // produced (76px bar + 10px offset + 26px scroll buffer + safe area).
+      expect(premiumCss).toMatch(/\.knoux-mobile-home \{[^}]*padding: max\(18px, env\(safe-area-inset-top, 0px\)\) 16px var\(--kx-screen-bottom-clearance\)/);
+      expect(premiumCss).toMatch(/--kx-bottom-nav-height: 76px/);
+      expect(premiumCss).toMatch(/--kx-bottom-nav-offset: 10px/);
+      expect(premiumCss).toMatch(/--kx-screen-scroll-buffer: 26px/);
+      expect(premiumCss).toMatch(/--kx-system-inset-bottom: env\(safe-area-inset-bottom, 0px\)/);
+      const inset = tokenValue(premiumCss, '--kx-screen-bottom-inset');
+      expect(inset).toContain('var(--kx-screen-scroll-buffer)');
+      expect(inset).toContain('var(--kx-system-inset-bottom)');
+      const clearance = tokenValue(premiumCss, '--kx-screen-bottom-clearance');
+      expect(clearance).toContain('var(--kx-bottom-nav-height)');
+      expect(clearance).toContain('var(--kx-bottom-nav-offset)');
+      expect(clearance).toContain('var(--kx-screen-bottom-inset)');
     });
   });
 

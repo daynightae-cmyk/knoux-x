@@ -51,9 +51,30 @@ export interface VaultMethods {
   vaultDelete(options: { token: string; id: string }): Promise<{ items: VaultItem[]; filesRemoved: number; filesRetained: number; indexRecovered: boolean; recoveredMetadataLimited: boolean }>;
 }
 
-export function androidVault(): VaultMethods | null {
+export type VaultAvailability = 'available' | 'non-android' | 'plugin-missing';
+
+function readVaultPlugin(): VaultMethods | null {
   if (window.knouxRuntime?.edition !== 'android') return null;
-  return window.Capacitor?.Plugins?.KnouxVault ?? null;
+  const plugin = window.Capacitor?.Plugins?.KnouxVault ?? null;
+  if (!plugin) return null;
+  /* A plugin object that exists but never registered its methods is not a
+   * usable vault either; treating it as available would let a broken native
+   * build reach the UI and fail on the first call. */
+  return typeof plugin.vaultStatus === 'function' ? plugin : null;
+}
+
+export function androidVault(): VaultMethods | null {
+  return readVaultPlugin();
+}
+
+/* `androidVault()` returns null for two very different devices: a desktop build,
+ * where "the vault is an Android feature" is the truth, and an Android build
+ * whose native vault plugin never started, where it is not. The screen has to be
+ * able to tell them apart instead of reporting a missing plugin as a platform
+ * limitation. */
+export function describeVaultAvailability(): VaultAvailability {
+  if (window.knouxRuntime?.edition !== 'android') return 'non-android';
+  return readVaultPlugin() ? 'available' : 'plugin-missing';
 }
 
 /* The session token is the only thing the renderer ever holds. The PIN itself

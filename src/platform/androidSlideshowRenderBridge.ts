@@ -285,10 +285,15 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
     results.set(snapshot.id, { blob, fileName });
     snapshot.status = 'completed';
     snapshot.percentage = 100;
-    snapshot.outputPath = `knoux-android-render://${snapshot.id}/${fileName}`;
+    /* The encoder produced bytes, not a file. Advertising a synthetic
+     * knoux-android-render:// path made an in-memory blob look like media the
+     * device already held; outputPath only names a real file once saveResult
+     * has read that file back. */
+    snapshot.outputPath = null;
     snapshot.completedAt = new Date().toISOString();
     snapshot.progress = { jobId: snapshot.id, timeSeconds: duration };
-    snapshot.outputExists = true;
+    snapshot.outputExists = false;
+    snapshot.warning = "The rendered slideshow is held in this session's memory. Save a copy before leaving KNOUX; there is no file on the device yet.";
     snapshot.executionStrategy = 'android-canvas-mediarecorder';
     publish(snapshot);
   } finally {
@@ -305,19 +310,52 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
 
 async function saveResult(jobId: string): Promise<void> {
   const result = results.get(jobId);
-  if (!result) throw new Error('The rendered slideshow output is not available.');
+  if (!result) throw new Error('The rendered slideshow output is no longer in this session. Render it again before saving.');
+  const snapshot = jobs.get(jobId);
   const extension = result.fileName.split('.').pop() ?? 'mp4';
   const destination = await window.knouxAPI.file.saveFile({
     title: 'Save KNOUX slideshow',
     defaultPath: result.fileName,
     filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
   });
+  // A dismissed picker claims nothing: the job stays an unsaved render.
   if (!destination) return;
   const bytes = new Uint8Array(await result.blob.arrayBuffer());
   await window.knouxAPI.file.writeFile(
     destination,
     bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
   );
+  /* A slideshow is only "saved" once the device shows the same number of
+   * bytes back; a truncated MediaStore write must not read as success. */
+  const readable = await window.knouxAPI.file.exists(destination).catch(() => false);
+  const stats = readable
+    ? await window.knouxAPI.file.getStats(destination).catch(() => null)
+    : null;
+  const saved = stats && Number.isFinite(stats.size) ? stats.size : null;
+  if (!readable || saved === null) {
+    if (snapshot) {
+      snapshot.outputExists = false;
+      snapshot.outputPath = null;
+      snapshot.warning = 'The slideshow was written but the device cannot read it back. Nothing is saved yet.';
+      publish(snapshot);
+    }
+    throw new Error('The saved slideshow could not be read back from the device.');
+  }
+  if (saved !== bytes.length) {
+    if (snapshot) {
+      snapshot.outputExists = false;
+      snapshot.outputPath = null;
+      snapshot.warning = `The saved slideshow holds ${saved} of the ${bytes.length} rendered bytes.`;
+      publish(snapshot);
+    }
+    throw new Error(`The saved slideshow is ${saved} bytes but the render was ${bytes.length} bytes.`);
+  }
+  if (snapshot) {
+    snapshot.outputPath = destination;
+    snapshot.outputExists = true;
+    snapshot.warning = null;
+    publish(snapshot);
+  }
 }
 
 export function installAndroidSlideshowRenderBridge(): void {

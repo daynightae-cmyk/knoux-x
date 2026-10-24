@@ -1327,11 +1327,24 @@ function readRecordingBytes(uri) {
     results.deviceState.focus = currentFocus();
     results.deviceState.foregroundAtStart = foregroundSurface();
 
-    await runCase('onboarding-skip', () => withSession('onboarding-skip', async () => {
-      const skip = page.getByRole('button', { name: 'Skip', exact: true });
-      await trustedTapUntil(skip, async () => (await skip.count()) === 0, { note: 'onboarding:skip', timeout: 15000, checkTimeout: 8000 });
+    await runCase('startup-home-without-forced-onboarding', () => withSession('startup-home-without-forced-onboarding', async () => {
+      /* §4.4 of the repair directive: the branded splash hands off to the
+       * Dashboard and never to the welcome tour. The tour is opt-in from
+       * Settings, so a clean install must reach an interactive Home with no
+       * Skip tap and no full-screen modal left over the Dashboard. */
       await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
-      return 'First-run welcome dismissed with a trusted tap and Home is available';
+      if (await page.locator('[data-component="MobileHomeDashboard"]').count() === 0) throw new Error('The Dashboard did not mount on normal startup');
+      if (await page.locator('.km-welcome').count() > 0) throw new Error('A welcome modal is blocking the Dashboard on normal startup');
+      await ensureHome(page);
+      /* The tour stays reachable from Settings, and dismissing it must return a
+       * usable app rather than the fixed inset:0 layer that used to swallow
+       * touch and scroll. */
+      await trustedTapUntil(page.locator('.kmh-bottom-nav button[aria-label="Settings"]'), () => page.locator('[data-component="MobileSettingsView"]').isVisible(), { note: 'startup:open-settings' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Replay welcome tour', exact: true }), async () => (await page.locator('.km-welcome').count()) > 0, { note: 'startup:replay-tour' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Skip', exact: true }), async () => (await page.locator('.km-welcome').count()) === 0, { note: 'startup:dismiss-tour' });
+      await trustedTapUntil(page.getByRole('button', { name: 'Back', exact: true }), () => page.locator('[data-component="MobileHomeDashboard"]').isVisible(), { note: 'startup:return-home' });
+      await page.getByRole('button', { name: 'Open Video', exact: false }).first().waitFor();
+      return { forcedOnboarding: false, tourReachableFromSettings: true, tourDismissed: true, homeInteractive: true };
     }));
 
     await runCase('mediastore-library-organization', () => withSession('mediastore-library-organization', async () => {

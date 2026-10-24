@@ -1,5 +1,7 @@
 import type { DialogOptions, MediaInfo } from '../../electron/preload';
 
+import { markAndroidBridgeAbsent } from './androidBridgeHealth';
+
 type SafItem = {
   uri: string;
   name: string;
@@ -129,7 +131,13 @@ export async function readAndroidPersistentAsset(uri: string): Promise<{ bytes: 
 
 export function installAndroidSafBridge(): void {
   const saf = plugin();
-  if (!saf) return;
+  if (!saf) {
+    markAndroidBridgeAbsent(
+      'saf',
+      'The KnouxSaf native plugin is not in this build, so documents picked here are not persisted through SAF.',
+    );
+    return;
+  }
 
   const base = window.knouxAPI;
   const file = {

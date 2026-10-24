@@ -17,6 +17,7 @@ import { BrandMark } from '../../components/brand/BrandMark';
 import { androidDocumentTitle } from '../../platform/androidSafBridge';
 import {
   androidVault,
+  describeVaultAvailability,
   forgetVaultSession,
   holdVaultSession,
   releaseVaultSession,
@@ -27,10 +28,16 @@ import {
   type VaultItem,
   type VaultStatus,
 } from '../../platform/androidVault';
+import { withDeadline } from '../../platform/withDeadline';
 import { useAppStore } from '../../store/appStore';
 import { usePlayerStore } from '../../store/playerStore';
 
 type VaultStage = 'checking' | 'create' | 'unlock' | 'open';
+
+/* How long the screen waits for the native vault before saying so. Long enough
+ * for a cold Keystore read on a low-end phone, short enough that a hung plugin
+ * cannot strand the stage. */
+const VAULT_STATUS_DEADLINE_MS = 8_000;
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '—';
@@ -60,9 +67,11 @@ export const MobileVaultView: React.FC = () => {
   const setCurrentMedia = usePlayerStore((state) => state.setCurrentMedia);
   const setMediaTitle = usePlayerStore((state) => state.setMediaTitle);
   const ar = locale === 'ar';
+  const availability = describeVaultAvailability();
   const native = androidVault();
 
   const [stage, setStage] = useState<VaultStage>('checking');
+  const [checking, setChecking] = useState(true);
   const [status, setStatus] = useState<VaultStatus | null>(null);
   const [items, setItems] = useState<VaultItem[]>([]);
   const [pin, setPin] = useState('');
@@ -76,8 +85,14 @@ export const MobileVaultView: React.FC = () => {
 
   const refreshStatus = useCallback(async (): Promise<void> => {
     if (!native) return;
+    setChecking(true);
     try {
-      const next = await native.vaultStatus();
+      /* A native call that never answers must not leave a security screen stuck
+       * on a blank stage, so the read is bounded and the timeout is reported as
+       * the failure it is. */
+      const next = await withDeadline(native.vaultStatus(), VAULT_STATUS_DEADLINE_MS, ar
+        ? 'لم يرد مكوّن الخزنة الأصلي خلال الوقت المحدد. الخزنة لم تُفتح ولم يُغيَّر أي ملف.'
+        : 'The vault native component did not answer in time. The vault was not opened and no file was changed.');
       setStatus(next);
       if (!next.created) { setItems([]); setStage('create'); }
       else if (next.locked) { setItems([]); setStage('unlock'); }
@@ -85,8 +100,10 @@ export const MobileVaultView: React.FC = () => {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
       setStage('unlock');
+    } finally {
+      setChecking(false);
     }
-  }, [native]);
+  }, [ar, native]);
 
   useEffect(() => {
     void refreshStatus();
@@ -201,7 +218,16 @@ export const MobileVaultView: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      await native.vaultChangePin({ token, newPin });
+      const result = await native.vaultChangePin({ token, newPin });
+      /* The native layer answers with the outcome. A `false` there means the
+       * key was re-wrapped by the old PIN, so the screen must not announce a
+       * change the device refused. */
+      if (result?.changed !== true) {
+        setError(ar
+          ? 'رفض الجهاز تغيير الرمز. الخزنة ما زالت مفتوحة بالرمز القديم.'
+          : 'The device refused the PIN change. The vault still opens with the old PIN.');
+        return;
+      }
       setNewPin('');
       addNotification({ type: 'success', title: ar ? 'تم تغيير الرمز' : 'PIN changed', message: ar ? 'استخدم الرمز الجديد لفتح الخزنة.' : 'Use the new PIN to open the vault.', duration: 3000 });
     } catch (reason) {
@@ -237,7 +263,16 @@ export const MobileVaultView: React.FC = () => {
         ? `audio/${extension === 'm4a' ? 'mp4' : extension}`
         : `video/${extension === 'mkv' ? 'x-matroska' : extension || 'mp4'}`;
       const result = await native.vaultImport({ token, uri: picked, name, mime });
-      setItems(result.items ?? []);
+      const listed = result.items ?? [];
+      setItems(listed);
+      /* Success means the encrypted item is actually in the index the device
+       * just returned, not that the call resolved. */
+      if (!result.id || !listed.some((entry) => entry.id === result.id)) {
+        setError(ar
+          ? 'لم يُدرج الجهاز الملف المشفر الجديد في فهرس الخزنة. الأصل لم يُحذف.'
+          : 'The device did not list the new encrypted file in the vault index. The original was not deleted.');
+        return;
+      }
       setPendingOriginal({ uri: picked, name });
       addNotification({
         type: 'success',
@@ -245,6 +280,16 @@ export const MobileVaultView: React.FC = () => {
         message: ar ? 'النسخة الأصلية لم تُمس.' : 'The original file was left untouched.',
         duration: 3500,
       });
+      if (result.indexBackupHealthy === false) {
+        addNotification({
+          type: 'error',
+          title: ar ? 'النسخة الاحتياطية للفهرس غير سليمة' : 'The index backup is not healthy',
+          message: ar
+            ? 'العنصر محفوظ ومشفّر، لكن نسخة الفهرس الاحتياطية لم تُكتب بشكل مُتحقق منه. تجنّب حذف وسائط الخزنة قبل إصلاحها.'
+            : 'The item is stored and encrypted, but its verified index backup was not written. Avoid deleting vault media until it recovers.',
+          duration: 5000,
+        });
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -291,6 +336,12 @@ export const MobileVaultView: React.FC = () => {
       }
       if (!target) { setBusy(false); return; }
       const result = await native.vaultExport({ token, id: item.id, targetUri: target });
+      if (result?.exported !== true) {
+        setError(ar
+          ? 'لم يؤكد الجهاز كتابة نسخة مفككة التشفير في الوجهة المختارة. العنصر المشفر لم يتغير.'
+          : 'The device did not confirm a decrypted write at the chosen destination. The encrypted item is unchanged.');
+        return;
+      }
       addNotification({
         type: 'success',
         title: ar ? 'تم التصدير' : 'Exported',
@@ -371,6 +422,9 @@ export const MobileVaultView: React.FC = () => {
     if (status.indexState === 'corrupted') return ar ? 'فهرس الخزنة تالف ولا توجد نسخة احتياطية صالحة. الوسائط المشفرة ما زالت على الجهاز.' : 'The vault index is corrupt and no verified backup can restore it. The encrypted media is still on the device.';
     if (status.indexState === 'recovered' && status.indexRecoverySource === 'media') return ar ? 'أُعيد بناء فهرس الخزنة من الوسائط المشفرة التي بقيت على الجهاز. قد تكون الأسماء أو أنواع الوسائط أو التواريخ غير مكتملة.' : 'The vault index was rebuilt from the encrypted media that survived on the device. Names, media types and dates may be incomplete.';
     if (status.indexState === 'recovered') return ar ? 'أُعيد فهرس الخزنة من نسخته الاحتياطية المتحقق منها.' : 'The vault index was restored from its verified backup.';
+    /* A working index with no verified backup is one bad write away from the
+     * corruption cases above, so it is reported while the vault still opens. */
+    if (status.created && status.indexBackupHealthy === false) return ar ? 'فهرس الخزنة يعمل لكن نسخته الاحتياطية غير متحققة. تجنّب حذف وسائط الخزنة حتى تُصلح النسخة.' : 'The vault index works, but its backup is not verified. Avoid deleting vault media until the backup is healthy again.';
     if (status.created && status.keySecurityLevel === 'software') return ar ? 'يحمي الجهاز مفتاح الخزنة برمجيًا، لا بعتاد أمان مخصص.' : 'This device protects the vault key in software, not in dedicated security hardware.';
     if (status.created && status.keySecurityLevel === 'unknown') return ar ? 'تعذر التحقق من مستوى حماية مفتاح الخزنة على هذا الجهاز.' : 'The protection level of the vault key could not be verified on this device.';
     if (status.plaintextCacheFailures > 0) return ar ? `تعذر حذف ${status.plaintextCacheFiles} ملف مؤقت غير مشفر. أغلق التطبيق لحذفها.` : `${status.plaintextCacheFiles} temporary decrypted file(s) could not be removed. Close the app to force the cleanup.`;
@@ -391,10 +445,31 @@ export const MobileVaultView: React.FC = () => {
     return `${ar ? 'مفتاح الجهاز: ' : 'Device key: '}${ar ? label.ar : label.en}`;
   }, [ar, status]);
 
-  if (!native) {
+  if (availability !== 'available' || !native) {
+    const pluginMissing = availability === 'plugin-missing';
     return (
-      <section className="knoux-mobile-vault" data-component="MobileVaultView">
-        <p className="kvv-empty">{ar ? 'الخزنة متاحة على أندرويد فقط.' : 'The private vault is available on Android.'}</p>
+      <section className="knoux-mobile-vault" data-component="MobileVaultView" data-vault-availability={availability}>
+        <header className="kml-header">
+          <button type="button" className="kml-round kx-back" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'} onClick={() => setView('home')}><ArrowLeft size={21} /></button>
+          <div className="kml-brand"><BrandMark size={50} /><div><strong>KNOUX <span>X</span></strong><small>{ar ? 'خزنة مشفّرة' : 'ENCRYPTED VAULT'}</small></div></div>
+          <span className="kml-round" aria-hidden="true" />
+        </header>
+        <div className="kvv-stage">
+          <p className="kvv-empty" role={pluginMissing ? 'alert' : undefined}>
+            {pluginMissing
+              ? (ar
+                ? 'هذا بناء أندرويد لكن مكوّن الخزنة الأصلي لم يبدأ، لذلك التخزين المشفّر غير متاح. لم تُفتح الخزنة ولم يُقرأ أو يُغيَّر أي ملف.'
+                : 'This is an Android build, but the KNOUX vault plugin did not start, so encrypted storage is unavailable. The vault was not opened and no file was read or changed.')
+              : (ar ? 'الخزنة متاحة على أندرويد فقط.' : 'The private vault is available on Android.')}
+          </p>
+          {pluginMissing && (
+            <p className="kvv-empty">
+              {ar
+                ? 'أعد تشغيل التطبيق، وأرفق هذه الشاشة في البلاغ إن استمر الأمر.'
+                : 'Restart the app, and include this screen in a report if it keeps happening.'}
+            </p>
+          )}
+        </div>
       </section>
     );
   }
@@ -402,7 +477,7 @@ export const MobileVaultView: React.FC = () => {
   return (
     <section className="knoux-mobile-vault" data-component="MobileVaultView" dir={ar ? 'rtl' : 'ltr'}>
       <header className="kml-header">
-        <button type="button" className="kml-round" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'} onClick={() => setView('home')}><ArrowLeft size={21} /></button>
+        <button type="button" className="kml-round kx-back" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'} onClick={() => setView('home')}><ArrowLeft size={21} /></button>
         <div className="kml-brand"><BrandMark size={50} /><div><strong>KNOUX <span>X</span></strong><small>{ar ? 'خزنة مشفّرة' : 'ENCRYPTED VAULT'}</small></div></div>
         <button type="button" className="kml-round" aria-label={ar ? 'الإعدادات' : 'Settings'} onClick={() => setView('settings')}><Settings size={20} /></button>
       </header>
@@ -485,6 +560,11 @@ export const MobileVaultView: React.FC = () => {
         {securityLabel && <p className="kvv-security" data-key-security={status?.keySecurityLevel}>{securityLabel}</p>}
         {statusLine && <p className="kvv-warning" role="alert">{statusLine}</p>}
         {error && <p className="kvv-error" role="alert">{error}</p>}
+        {/* The stage owns the screen while the native status read is in flight;
+            without this the vault renders an empty body on a slow device. */}
+        {(checking || stage === 'checking') && !error && (
+          <p className="kvv-busy" role="status">{ar ? 'جارٍ التحقق من حالة الخزنة…' : 'Checking the vault…'}</p>
+        )}
         {busy && <p className="kvv-busy" role="status">{ar ? 'جارٍ العمل…' : 'Working…'}</p>}
       </div>
 

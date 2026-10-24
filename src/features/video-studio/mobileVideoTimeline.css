@@ -209,7 +209,13 @@ html[data-platform='android'] .kmc-mobile-timeline-scroll {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  touch-action: pan-x;
+  /* The strip only ever scrolls sideways itself; clip dragging is handled by
+     `.kmc-mobile-clip`, which keeps `touch-action: none`. Restricting the
+     container to `pan-x` turned this 170px+ full-width block into a dead band
+     where a vertical swipe could never reach the screen scroller. Allowing both
+     axes lets the browser route a vertical gesture to the surface and a
+     horizontal one to the timeline. */
+  touch-action: pan-x pan-y;
 }
 
 html[data-platform='android'] .kmc-mobile-timeline-scroll::-webkit-scrollbar {

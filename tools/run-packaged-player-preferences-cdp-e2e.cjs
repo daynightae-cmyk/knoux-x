@@ -33,6 +33,12 @@ const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
+
+const {
+  createIsolatedProfile,
+  removeIsolatedProfile,
+  terminateOwnedChild,
+} = require('./lib/packaged-process-lifecycle.cjs');
 const path = require('node:path');
 
 const { chromium } = require('playwright');
@@ -60,6 +66,7 @@ const steps = [];
 let page = null;
 let child = null;
 let browser = null;
+let profileDir = null;
 
 function log(message) {
   const line = `${new Date().toISOString()} ${message}`;
@@ -181,10 +188,10 @@ async function waitForVideoReady(target) {
 }
 
 async function launchApp(mediaPath) {
-  killLeftoverProcesses();
   const port = await reservePort();
+  profileDir = createIsolatedProfile(evidenceDir, 'profile');
   const logFd = fs.openSync(logPath, 'a');
-  child = childProcess.spawn(executablePath, [`--remote-debugging-port=${port}`, mediaPath], {
+  child = childProcess.spawn(executablePath, [`--remote-debugging-port=${port}`, `--user-data-dir=${profileDir}`, mediaPath], {
     cwd: packageRoot,
     detached: false,
     windowsHide: false,
@@ -199,10 +206,6 @@ async function launchApp(mediaPath) {
   fs.closeSync(logFd);
 }
 
-function killLeftoverProcesses() {
-  childProcess.spawnSync('taskkill', ['/IM', 'knoux-player-x.exe', '/T', '/F'], { encoding: 'utf8', windowsHide: true });
-}
-
 async function closeApp() {
   try {
     await page.evaluate(() => window.knouxAPI?.window?.close?.());
@@ -213,7 +216,7 @@ async function closeApp() {
     new Promise((resolve) => child.once('exit', () => resolve(true))),
     new Promise((resolve) => setTimeout(() => resolve(false), 8000)),
   ]);
-  if (!exited) killLeftoverProcesses();
+  if (!exited) await terminateOwnedChild(child);
   if (browser) {
     try { await browser.close(); } catch { /* best effort */ }
   }
@@ -647,6 +650,7 @@ async function main() {
     steps,
   };
   fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+  if (profileDir) removeIsolatedProfile(profileDir, evidenceDir);
   console.log(`PLAYER PREFERENCES PACKAGED E2E = PASS (${steps.length} steps). Evidence: ${evidencePath}`);
 }
 
@@ -668,6 +672,7 @@ main().catch(async (error) => {
   try {
     if (child || browser) await closeApp();
   } catch { /* best-effort teardown */ }
+  if (profileDir) removeIsolatedProfile(profileDir, evidenceDir);
   console.error(error && error.stack ? error.stack : error);
   process.exitCode = 1;
 });

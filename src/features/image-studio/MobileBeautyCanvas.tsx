@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAppStore } from '../../store/appStore';
 import { useImageEditorStore } from '../../store/imageEditorStore';
 import {
   blemishRemoval,
@@ -25,6 +26,15 @@ import type {
 import { LatestRenderScheduler } from './retouch/latestRenderScheduler';
 
 type RenderState = 'idle' | 'loading' | 'ready' | 'error';
+
+const COPY_AR: Record<string, string> = {
+  'Knoux X Beauty preview canvas': 'لوحة معاينة الجمال في KNOUX X',
+  'Rendering beauty preview…': 'جارٍ عرض معاينة الجمال…',
+  'Beauty preview image could not be decoded.': 'تعذّر فك ترميز صورة معاينة الجمال.',
+  'Beauty mask canvas is unavailable.': 'لوحة قناع الجمال غير متاحة.',
+  'Beauty preview canvas is unavailable.': 'لوحة معاينة الجمال غير متاحة.',
+  'Beauty preview could not be rendered.': 'تعذّر عرض معاينة الجمال.',
+};
 
 function imageFromUrl(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -132,6 +142,8 @@ async function renderProject(
 }
 
 export const MobileBeautyCanvas: React.FC = () => {
+  const ar = useAppStore((state) => state.locale) === 'ar';
+  const t = (text: string): string => (ar ? COPY_AR[text] ?? text : text);
   const source = useImageEditorStore((state) => state.source);
   const retouchProject = useImageEditorStore((state) => state.retouchProject);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -195,10 +207,10 @@ export const MobileBeautyCanvas: React.FC = () => {
           className="image-editor-canvas kmc-beauty-canvas"
           width={1}
           height={1}
-          aria-label="Knoux X Beauty preview canvas"
+          aria-label={t('Knoux X Beauty preview canvas')}
         />
-        {renderState === 'loading' && <span className="kmc-beauty-render-status">Rendering beauty preview…</span>}
-        {renderState === 'error' && <span className="kmc-beauty-render-error" role="alert">{error}</span>}
+        {renderState === 'loading' && <span className="kmc-beauty-render-status">{t('Rendering beauty preview…')}</span>}
+        {renderState === 'error' && <span className="kmc-beauty-render-error" role="alert">{t(error ?? t('Beauty preview could not be rendered.'))}</span>}
       </div>
     </div>
   );

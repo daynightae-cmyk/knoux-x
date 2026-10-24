@@ -168,6 +168,9 @@ const squirrel = {
 if (fs.existsSync(`${icon}.ico`)) squirrel.setupIcon = `${icon}.ico`;
 
 module.exports = {
+  // Opt-in alternate output root for isolated verification builds, so a
+  // locked/stale default out/ directory never blocks packaging evidence.
+  ...(process.env.KNOUX_FORGE_OUT_DIR ? { outDir: process.env.KNOUX_FORGE_OUT_DIR } : {}),
   packagerConfig: {
     asar: {
       unpack: '**/*.{node,dll}',

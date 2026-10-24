@@ -56,13 +56,23 @@
 }
 
 .knoux-desktop-export-success,
-.knoux-desktop-export-error {
+.knoux-desktop-export-error,
+.knoux-desktop-export-retry {
   display: flex;
   align-items: center;
   gap: 7px;
   min-width: 0;
   margin-top: 7px;
   font-size: 11px;
+}
+
+.knoux-desktop-export-retry {
+  color: var(--knoux-accent);
+}
+
+.knoux-desktop-export-attempts {
+  color: var(--knoux-accent);
+  white-space: nowrap;
 }
 
 .knoux-desktop-export-success {

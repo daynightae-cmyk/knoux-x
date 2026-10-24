@@ -53,13 +53,33 @@
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
   cursor: crosshair;
-  touch-action: none;
+  /* The waveform only ever reads `event.clientX` on pointerdown to seek. A full
+     `touch-action: none` strip this wide swallowed every vertical swipe that
+     started on it, which is what made Audio Tools feel unscrollable on a phone.
+     `pan-y` keeps the browser panning vertically while the horizontal tap-seek
+     gesture still reaches the pointer handler. */
+  touch-action: pan-y;
 }
 
 .audio-inline-notice {
   margin-top: 8px;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+/* Engine-availability alert: icon and copy stay on one line and the raw
+   bridge message wraps inside the panel instead of widening the surface. */
+.audio-engine-notice {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.audio-engine-notice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #ff98ad;
 }
 
 .audio-playback-row {

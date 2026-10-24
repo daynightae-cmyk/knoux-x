@@ -78,3 +78,7 @@ release/
 # Local verification artifacts
 _temp/
 *.pid
+
+# Isolated verification build outputs and harness-run profiles (never evidence to commit)
+out-*/
+reports/.*-profile-*/

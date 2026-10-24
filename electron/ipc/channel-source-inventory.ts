@@ -79,6 +79,7 @@ export const IPC_SOURCE_INVENTORY = {
   'file:scan': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'file:stats': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'file:write': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
+  'file:append': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'library:add-history': { sourceRoots: ['electron/ipc/setup.ts', 'electron/preload.ts'], lifecycle: 'active' },
   'library:cancel-scan': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },
   'library:choose-folder': { sourceRoots: ['electron/ipc/creative-suite.ts', 'electron/preload-creative.ts'], lifecycle: 'active' },

@@ -17,6 +17,7 @@ import { BrowserWindow, dialog, shell, type IpcMainInvokeEvent } from 'electron'
 
 import type { SystemOrchestrator } from '../../src/core/orchestrator/SystemOrchestrator';
 import { getBuildIdentity } from '../build-identity';
+import { isDroppedMediaExtension } from '../security/media-file-types';
 import { authorizedMediaPaths } from '../security/path-registry';
 import { validateExternalUrl } from '../security/validation';
 import { getPhase3bAcceptanceSavePath, takePhase3bAcceptanceOpenPath } from '../retouch/phase3b-acceptance-runtime';
@@ -50,8 +51,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
       throw new TypeError('Dropped media path is invalid.');
     }
     const resolved = path.resolve(filePath);
-    const allowed = new Set(['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.opus']);
-    if (!allowed.has(path.extname(resolved).toLowerCase())) throw new TypeError('Dropped file type is unsupported.');
+    if (!isDroppedMediaExtension(resolved)) throw new TypeError('Dropped file type is unsupported.');
     const stats = await fs.stat(resolved);
     if (!stats.isFile() || stats.size <= 0) throw new TypeError('Dropped media must be a non-empty file.');
     return authorizedPaths.authorizeFile(resolved);
@@ -126,6 +126,19 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
     await fs.writeFile(authorizedPaths.requireAuthorized(filePath), data, {
       flag: options?.exclusive === true ? 'wx' : 'w',
     });
+  });
+
+  ipc.handle(IPC_INVOKE.FILE_APPEND, async (_, filePath: string, data: Uint8Array, offset: number) => {
+    // Chunked export writes: a multi-gigabyte render must never need a second
+    // full-size copy in the main process, and the offset check refuses any
+    // silent gap/overlap if the renderer loses track of the destination.
+    const authorized = authorizedPaths.requireAuthorized(filePath);
+    if (!Number.isInteger(offset) || offset < 0) throw new RangeError('Append offset is invalid.');
+    const bytes = Buffer.from(data);
+    if (bytes.byteLength === 0 || bytes.byteLength > 64 * 1024 * 1024) throw new RangeError('Append chunk size is invalid.');
+    const stats = await fs.stat(authorized);
+    if (stats.size !== offset) throw new Error('Append offset does not match the destination size.');
+    await fs.appendFile(authorized, bytes);
   });
 
   ipc.handle(IPC_INVOKE.FILE_DELETE, async (_, filePath: string) => {

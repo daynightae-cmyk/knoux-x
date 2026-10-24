@@ -37,6 +37,14 @@ export interface LibraryMediaItem {
   updatedAt: string;
 }
 
+export interface LibrarySummary {
+  total: number;
+  video: number;
+  audio: number;
+  favorites: number;
+  missing: number;
+}
+
 export interface LibraryQuery {
   search?: string;
   type?: 'all' | 'video' | 'audio';
@@ -135,7 +143,7 @@ export class LibraryService {
     transaction();
   }
 
-  query(request: LibraryQuery = {}): { items: LibraryMediaItem[]; total: number } {
+  query(request: LibraryQuery = {}): { items: LibraryMediaItem[]; total: number; summary: LibrarySummary } {
     const clauses: string[] = [];
     const parameters: Array<string | number> = [];
     const search = request.search?.normalize('NFC').trim();
@@ -161,7 +169,29 @@ export class LibraryService {
     `).all(...parameters, limit, offset) as Record<string, unknown>[];
     const totalRow = this.database.prepare(`SELECT COUNT(*) AS count FROM media_items ${where}`)
       .get(...parameters) as { count: number };
-    return { items: rows.map(mapMedia), total: Number(totalRow.count) };
+    return { items: rows.map(mapMedia), total: Number(totalRow.count), summary: this.summarize() };
+  }
+
+  /**
+   * Library-wide counts for the header statistics. Deriving these from a
+   * single 500-item page silently under-reported large libraries.
+   */
+  summarize(): LibrarySummary {
+    const row = this.database.prepare(`
+      SELECT COUNT(*) AS total,
+        SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) AS video,
+        SUM(CASE WHEN media_type = 'audio' THEN 1 ELSE 0 END) AS audio,
+        SUM(CASE WHEN favorite = 1 THEN 1 ELSE 0 END) AS favorites,
+        SUM(CASE WHEN missing = 1 THEN 1 ELSE 0 END) AS missing
+      FROM media_items
+    `).get() as Record<string, unknown> | undefined;
+    return {
+      total: Number(row?.total ?? 0),
+      video: Number(row?.video ?? 0),
+      audio: Number(row?.audio ?? 0),
+      favorites: Number(row?.favorites ?? 0),
+      missing: Number(row?.missing ?? 0),
+    };
   }
 
   getMedia(filePath: string): LibraryMediaItem | null {

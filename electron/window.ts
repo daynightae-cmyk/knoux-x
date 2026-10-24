@@ -6,7 +6,9 @@ import { join } from 'node:path';
 
 import { BrowserWindow } from 'electron';
 
+import { applyNavigationPolicy, rendererNavigationContext } from './navigation-policy';
 import { resolveTrustedPreloadPath, SECURE_RENDERER_PREFERENCES } from './window-security';
+import { loadWindowState, trackWindowState } from './window-state';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -16,9 +18,12 @@ export async function createWindow(): Promise<BrowserWindow> {
     return mainWindow;
   }
 
+  const restored = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    x: restored.bounds.x,
+    y: restored.bounds.y,
+    width: restored.bounds.width,
+    height: restored.bounds.height,
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
@@ -27,6 +32,11 @@ export async function createWindow(): Promise<BrowserWindow> {
       backgroundThrottling: false,
     },
   });
+
+  if (restored.maximized) mainWindow.maximize();
+  trackWindowState(mainWindow);
+
+  applyNavigationPolicy(mainWindow.webContents, rendererNavigationContext(MAIN_WINDOW_VITE_DEV_SERVER_URL || undefined));
 
   if (process.env.KNOUX_VIEWPORT_SMOKE === '1') {
     mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {

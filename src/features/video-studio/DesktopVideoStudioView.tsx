@@ -7,6 +7,16 @@ import { useTranslation } from '../../i18n';
 import { renderMultitrackProject } from '../export/mobileTimelineRenderer';
 import { measureTimelineOutputCoverage, timelineOutputCoversDuration } from '../export/timelineOutputCoverage';
 
+import { writeBlobInChunks } from './chunkedBlobWriter';
+import {
+  MAX_RENDER_ATTEMPTS,
+  attemptCountSuffix,
+  isTransientEncoderFailure,
+  numberedSibling,
+  renderRetryDelayMs,
+  retryAttemptLabel,
+  shouldRetryRender,
+} from './exportAttemptPolicy';
 import { VideoStudioView } from './VideoStudioView';
 
 import '../../styles/desktop-timeline-export.css';
@@ -102,6 +112,8 @@ export const DesktopVideoStudioView: React.FC = () => {
   const [phase, setPhase] = useState<ExportPhase | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [retryNote, setRetryNote] = useState<string | null>(null);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [verifiedOutput, setVerifiedOutput] = useState<VerifiedOutput | null>(null);
   const cancelRequestedRef = useRef(false);
   const progressReporterRef = useRef({ lastUpdateAt: 0, value: -1 });
@@ -157,60 +169,116 @@ export const DesktopVideoStudioView: React.FC = () => {
   const renderAndSave = useCallback(async (project: MultitrackProject): Promise<void> => {
     cancelRequestedRef.current = false;
     setError(null);
+    setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
     setProgress(0);
+    let destination: string | null = null;
+    let destinationWritten = false;
 
     try {
-      setPhase('rendering');
-      const rendered = await renderMultitrackProject(structuredClone(project), {
-        width: project.settings.width,
-        height: project.settings.height,
-        fps: project.settings.fps,
-        videoBitsPerSecond: timelineBitrate(project),
-        preferredMimeTypes: DESKTOP_TIMELINE_PREFERRED_MIME_TYPES,
-        onProgress: reportProgress,
-        cancelled: () => cancelRequestedRef.current,
-      });
-      if (cancelRequestedRef.current) return;
+      let destinationChosen = false;
+      let attempt = 0;
+      for (;;) {
+        attempt += 1;
+        let wroteFileThisAttempt = false;
+        try {
+          setPhase('rendering');
+          const rendered = await renderMultitrackProject(structuredClone(project), {
+            width: project.settings.width,
+            height: project.settings.height,
+            fps: project.settings.fps,
+            videoBitsPerSecond: timelineBitrate(project),
+            preferredMimeTypes: DESKTOP_TIMELINE_PREFERRED_MIME_TYPES,
+            onProgress: reportProgress,
+            cancelled: () => cancelRequestedRef.current,
+          });
+          if (cancelRequestedRef.current) return;
 
-      const extension = outputExtension(rendered.mimeType);
-      setPhase('choosing-output');
-      const destination = await window.knouxAPI.file.saveFile({
-        title: ar ? 'حفظ تصدير KNOUX X' : 'Save KNOUX X timeline export',
-        defaultPath: `${safeOutputName(project)}-timeline.${extension}`,
-        filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
-      });
-      if (!destination || cancelRequestedRef.current) return;
+          const extension = outputExtension(rendered.mimeType);
+          if (!destinationChosen) {
+            setPhase('choosing-output');
+            destination = await window.knouxAPI.file.saveFile({
+              title: ar ? 'حفظ تصدير KNOUX X' : 'Save KNOUX X timeline export',
+              defaultPath: `${safeOutputName(project)}-timeline.${extension}`,
+              filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
+            });
+            destinationChosen = Boolean(destination);
+          }
+          if (!destination || cancelRequestedRef.current) return;
 
-      setPhase('writing');
-      // Never overwrite a pre-existing file, even when the save dialog allows it.
-      // The IPC handler enforces this atomically with O_EXCL as well.
-      if (await window.knouxAPI.file.exists(destination)) throw new Error(labels.existingOutput);
-      const bytes = new Uint8Array(await rendered.blob.arrayBuffer());
-      await window.knouxAPI.file.writeFile(
-        destination,
-        bytes as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
-        { exclusive: true },
-      );
+          setPhase('writing');
+          // Never overwrite a pre-existing file, even when the save dialog allows it.
+          // The IPC handler enforces this atomically with O_EXCL as well.
+          if (await window.knouxAPI.file.exists(destination)) throw new Error(labels.existingOutput);
+          // Stream bounded chunks instead of materialising the whole render in
+          // memory. The first chunk creates the file exclusively; every later
+          // chunk is offset-checked against the destination size in the main
+          // process, so a lost or duplicated chunk can never pass silently.
+          const writtenBytes = await writeBlobInChunks(rendered.blob, {
+            writeFirst: (data) => window.knouxAPI.file.writeFile(
+              destination as string,
+              data as unknown as Parameters<typeof window.knouxAPI.file.writeFile>[1],
+              { exclusive: true },
+            ),
+            append: (data, offset) => window.knouxAPI.file.appendFile(destination as string, data, offset),
+          });
+          wroteFileThisAttempt = true;
+          destinationWritten = true;
+          if (writtenBytes !== rendered.blob.size) throw new Error(labels.truncatedOutput);
 
-      setPhase('verifying');
-      const probe = await window.knouxCreativeAPI.export.probe(destination, { verifyVideoPacketExtent: true });
-      const video = probe.streams?.find((stream) => stream.codec_type === 'video');
-      if (!video?.codec_name) throw new Error(labels.noVideo);
-      const coverage = measureTimelineOutputCoverage(probe);
-      if (!timelineOutputCoversDuration(coverage, rendered.duration)) {
-        await window.knouxAPI.file.deleteFile(destination).catch(() => undefined);
-        throw new Error(labels.truncatedOutput);
+          setPhase('verifying');
+          const probe = await window.knouxCreativeAPI.export.probe(destination, { verifyVideoPacketExtent: true });
+          const video = probe.streams?.find((stream) => stream.codec_type === 'video');
+          if (!video?.codec_name) throw new Error(labels.noVideo);
+          const coverage = measureTimelineOutputCoverage(probe);
+          if (!timelineOutputCoversDuration(coverage, rendered.duration)) throw new Error(labels.truncatedOutput);
+          const audio = probe.streams?.find((stream) => stream.codec_type === 'audio');
+          setRetryNote(null);
+          setAttemptsUsed(attempt);
+          setVerifiedOutput({
+            path: destination,
+            videoCodec: video.codec_name,
+            audioCodec: audio?.codec_name ?? null,
+          });
+          setProgress(100);
+          break;
+        } catch (failure) {
+          // A starved realtime encoder is transient: drop whatever it produced —
+          // always, so a short or empty file never survives as a fake export — and
+          // re-encode the identical timeline a bounded number of times.
+          if (wroteFileThisAttempt && destination) {
+            await window.knouxAPI.file.deleteFile(destination).catch(() => undefined);
+            destinationWritten = false;
+          }
+          const message = failure instanceof Error ? failure.message : String(failure);
+          if (cancelRequestedRef.current) throw failure;
+          if (!shouldRetryRender({ message, attempt })) {
+            // Say how many automatic attempts the machine already got, so the user
+            // can tell "the encoder is saturated here" from "this project cannot export".
+            if (isTransientEncoderFailure(message) && attempt >= MAX_RENDER_ATTEMPTS) {
+              throw new Error(ar
+                ? `${message} — بعد ${attempt} محاولات تلقائية`
+                : `${message} — after ${attempt} automatic attempts`);
+            }
+            throw failure;
+          }
+          // If the rejected file could not be removed, the retry moves to a numbered
+          // sibling instead of touching a path that still holds the rejected bytes.
+          if (destination && await window.knouxAPI.file.exists(destination)) destination = numberedSibling(destination, attempt + 1);
+          setRetryNote(retryAttemptLabel(attempt + 1, MAX_RENDER_ATTEMPTS, ar));
+          progressReporterRef.current = { lastUpdateAt: performance.now(), value: 0 };
+          setProgress(0);
+          await new Promise((resolve) => setTimeout(resolve, renderRetryDelayMs(attempt)));
+        }
       }
-      const audio = probe.streams?.find((stream) => stream.codec_type === 'audio');
-      setVerifiedOutput({
-        path: destination,
-        videoCodec: video.codec_name,
-        audioCodec: audio?.codec_name ?? null,
-      });
-      setProgress(100);
     } catch (reason) {
+      // A failed or cancelled write must not leave a half-file that looks
+      // like a real export. Only the destination this run created is removed.
+      if (destinationWritten && destination) {
+        await window.knouxAPI.file.deleteFile(destination).catch(() => undefined);
+      }
       if ((reason as DOMException)?.name !== 'AbortError' && !cancelRequestedRef.current) {
         setError(reason instanceof Error ? reason.message : labels.exportFailed);
       }
@@ -223,6 +291,8 @@ export const DesktopVideoStudioView: React.FC = () => {
   const exportCurrent = useCallback(async (): Promise<void> => {
     if (phase) return;
     setError(null);
+    setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     setPhase('saving');
     try {
@@ -248,6 +318,8 @@ export const DesktopVideoStudioView: React.FC = () => {
   const exportSaved = useCallback(async (): Promise<void> => {
     if (phase) return;
     setError(null);
+    setRetryNote(null);
+    setAttemptsUsed(0);
     setVerifiedOutput(null);
     try {
       const opened = await window.knouxMultitrackAPI.open();
@@ -278,12 +350,21 @@ export const DesktopVideoStudioView: React.FC = () => {
           <span>{labels.eyebrow}</span>
           <p>{phaseLabel || labels.description}</p>
           {phase === 'rendering' && <progress max="100" value={progress} aria-label={phaseLabel ?? labels.rendering} />}
+          {retryNote && (
+            <div className="knoux-desktop-export-retry" role="status">
+              <LoaderCircle className="spin" size={14} />
+              <span>{retryNote}</span>
+            </div>
+          )}
           {verifiedOutput && (
             <div className="knoux-desktop-export-success" role="status">
               <CheckCircle2 size={16} />
               <strong>{labels.complete}</strong>
               <span dir="auto">{verifiedOutput.path}</span>
               <small>{verifiedOutput.videoCodec}{verifiedOutput.audioCodec ? ` + ${verifiedOutput.audioCodec}` : ''}</small>
+              {attemptsUsed > 1 && (
+                <span className="knoux-desktop-export-attempts">{attemptCountSuffix(attemptsUsed, ar)}</span>
+              )}
             </div>
           )}
           {error && <div className="knoux-desktop-export-error" role="alert"><XCircle size={16} /> {error}</div>}

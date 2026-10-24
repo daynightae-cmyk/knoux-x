@@ -193,12 +193,6 @@ async function stubSaveDialogQueue(app, projectTarget, exportTargetBase) {
   }, { projectTarget, exportTargetBase });
 }
 
-async function killPackagedProcesses() {
-  if (process.platform !== 'win32') return;
-  childProcess.spawnSync('taskkill', ['/F', '/IM', 'knoux-player-x.exe'], { windowsHide: true, encoding: 'utf8' });
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-}
-
 (async () => {
   prepareWorkspace();
   const ffmpegPath = requireRuntimeBinary(require('ffmpeg-static'), 'ffmpeg-static');
@@ -229,7 +223,9 @@ async function killPackagedProcesses() {
   let app = null;
   let page = null;
   try {
-    await killPackagedProcesses();
+    // Playwright owns this process; the run-unique evidence workspace above
+    // guarantees no stale profile lock, so no process-name-wide cleanup is
+    // needed (and none is allowed: the workstation is shared).
     app = await electron.launch({
       executablePath,
       args: [`--user-data-dir=${profileDir}`],
@@ -369,7 +365,6 @@ async function killPackagedProcesses() {
   } finally {
     fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     if (app) await app.close().catch(() => undefined);
-    await killPackagedProcesses().catch(() => undefined);
   }
 
   process.stdout.write(`[PASS] DESKTOP TIMELINE EXPORT PACKAGED E2E\n`);

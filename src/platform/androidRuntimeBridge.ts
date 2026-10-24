@@ -19,6 +19,7 @@ import { getReleaseInfo } from '../releaseInfo';
 
 import { installBrowserPreviewBridge } from './browserPreviewBridge';
 import { registerAndroidFile } from './androidVirtualFiles';
+import { buildUnavailableAudioBridge } from './audioEngineStatus';
 
 const ANDROID_PREFIX = 'knoux-android:';
 const activeRecordings = new Map<string, { snapshot: RecordingSessionSnapshot; chunks: Uint8Array[] }>();
@@ -50,11 +51,16 @@ function readStored<T>(name: string, fallback: T): T {
   }
 }
 
-function writeStored(name: string, value: unknown): void {
+/* WebView storage can refuse a write (quota, private mode, a killed cache).
+ * A payload is only stored once the same bytes come back out of it, so callers
+ * can tell a real save from one that quietly never happened. */
+function writeStored(name: string, value: unknown): boolean {
   try {
-    window.localStorage.setItem(key(name), JSON.stringify(value));
+    const payload = JSON.stringify(value);
+    window.localStorage.setItem(key(name), payload);
+    return window.localStorage.getItem(key(name)) === payload;
   } catch {
-    // Keep the in-memory runtime usable even if WebView persistence is restricted.
+    return false;
   }
 }
 
@@ -289,7 +295,9 @@ function installCoreOverrides(): void {
 
 function persistMultitrack(project: MultitrackProject, filePath?: string): string {
   const target = filePath || `knoux-android://multitrack/${project.id}.knouxmultitrack`;
-  writeStored(`multitrack:${target}`, project);
+  if (!writeStored(`multitrack:${target}`, project)) {
+    throw new Error('The Android storage layer refused this project, so it is not saved on the device.');
+  }
   const recents = readStored<string[]>('multitrack:recents', []).filter((entry) => entry !== target);
   writeStored('multitrack:recents', [target, ...recents].slice(0, 30));
   return target;
@@ -320,7 +328,9 @@ function installMultitrackBridge(): void {
 
 function persistSlideshow(project: SlideshowProject, filePath?: string): string {
   const target = filePath || `knoux-android://slideshow/${project.id}.knouxslideshow`;
-  writeStored(`slideshow:${target}`, project);
+  if (!writeStored(`slideshow:${target}`, project)) {
+    throw new Error('The Android storage layer refused this slideshow project, so it is not saved on the device.');
+  }
   const recents = readStored<string[]>('slideshow:recents', []).filter((entry) => entry !== target);
   writeStored('slideshow:recents', [target, ...recents].slice(0, 30));
   return target;
@@ -454,11 +464,18 @@ function installImageStudioBridge(): void {
     save: async (filePath?: string) => {
       const document = requireImage();
       const target = filePath || `knoux-android://image/${document.documentId}.knouximage`;
-      writeStored(`image:${target}`, document);
+      if (!writeStored(`image:${target}`, document)) {
+        throw new Error('The Android storage layer refused this image project, so it is not saved on the device.');
+      }
       downloadBlob(new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' }), `${document.title || 'KNOUX-image'}.knouximage`);
       return target;
     },
-    saveAs: async (filePath: string) => { writeStored(`image:${filePath}`, requireImage()); return filePath; },
+    saveAs: async (filePath: string) => {
+      if (!writeStored(`image:${filePath}`, requireImage())) {
+        throw new Error('The Android storage layer refused this image project, so it is not saved on the device.');
+      }
+      return filePath;
+    },
     close: async () => { currentImageDocument = null; },
     getCurrent: async () => currentImageDocument ? clone(currentImageDocument) : null,
     syncRetouch: async (updates: Array<{ layerId: string; retouche: RetouchDocumentState | null }>) => {
@@ -510,14 +527,23 @@ function installImageStudioBridge(): void {
     listModels: async () => [],
     refreshModels: async () => [],
     validateCredential: async () => ({ valid: false, reason: 'No Android provider is configured.' }),
-    setCredential: async () => ({}),
-    removeCredential: async () => true,
-    createJob: async () => randomId('image-job'),
-    cancelJob: async () => true,
-    retryJob: async (jobId: string) => jobId,
+    /* Directive §17: this bridge must not answer as though a provider existed.
+     * Android stores no API key, so saving one reports the truth instead of
+     * an empty object the desktop panel would render as a configured provider. */
+    setCredential: async () => ({
+      configured: false,
+      healthy: false,
+      storageMode: 'unavailable',
+      keyMasked: null,
+      reason: 'This Android build stores no provider credentials. No API key was saved.',
+    }),
+    removeCredential: async () => false,
+    createJob: async () => { throw new Error('No Android image provider is configured, so this job was not created.'); },
+    cancelJob: async () => false,
+    retryJob: async (_jobId: string) => { throw new Error('No Android image provider is configured, so this job cannot be retried.'); },
     getJob: async () => null,
     listJobs: async () => [],
-    removeJob: async () => true,
+    removeJob: async () => false,
     importResult: async () => requireImage(),
     getVerifiedFaceModel: async () => ({ status: 'unavailable', modelId: 'android-local', reason: 'No local face model is installed.' }),
     getVerifiedPoseModel: async () => ({ status: 'unavailable', modelId: 'android-local', reason: 'No local pose model is installed.' }),
@@ -541,22 +567,23 @@ function installOtherFeatureBridges(): void {
     cancelRegionSelection: async () => false,
   } as unknown as Window['knouxRecordingAPI'];
 
-  window.knouxAudioToolsAPI = {
-    analyze: async () => null,
-    process: async () => null,
-    jobs: async () => [],
-    cancel: async () => false,
-    onProgress: noopSubscription,
-  } as unknown as Window['knouxAudioToolsAPI'];
+  // Compatibility slot only. `installAndroidAudioToolsBridge()` replaces this
+  // object with the branded local engine; until it does, every method rejects
+  // with the real reason. Silently resolving `null` here made a device with a
+  // missing audio bridge look operational: the caller dereferenced a null probe
+  // and a null job, so the failure surfaced as a type error or a fake cancel.
+  window.knouxAudioToolsAPI = buildUnavailableAudioBridge() as unknown as Window['knouxAudioToolsAPI'];
 
   const plans: Array<Record<string, unknown>> = readStored<Array<Record<string, unknown>>>('video-studio:plans', []);
   const branches: Array<Record<string, unknown>> = readStored<Array<Record<string, unknown>>>('video-studio:branches', []);
   window.knouxVideoStudioAPI = {
     listProviders: async () => [], providerStatus: async () => [], listModels: async () => [],
-    createJob: async () => ({ id: randomId('video-job'), status: 'queued', phase: 'local' }), cancelJob: async () => true, retryJob: async (id: string) => ({ id, status: 'queued', phase: 'local' }), getJob: async () => null, listJobs: async () => [], removeJob: async () => true,
+    /* Directive §17: a queued job that no Android provider will ever run is a
+     * fabricated success, so job control reports the missing capability. */
+    createJob: async () => { throw new Error('No Android video provider is configured, so this job was not created.'); }, cancelJob: async () => false, retryJob: async (_id: string) => { throw new Error('No Android video provider is configured, so this job cannot be retried.'); }, getJob: async () => null, listJobs: async () => [], removeJob: async () => false,
     aiHealth: async () => ({ available: false, providers: [] }), aiEntitlement: async () => ({ entitled: false }), aiPlan: async () => null,
-    aiSettingsGet: async () => readStored('video-studio:ai-settings', {}), aiSettingsSet: async (settings: unknown) => { writeStored('video-studio:ai-settings', settings); return true; },
-    gatewayConfigGet: async () => readStored('video-studio:gateway', {}), gatewayConfigSet: async (config: unknown) => { writeStored('video-studio:gateway', config); return true; }, setCredential: async () => true, offlineJobs: async () => [],
+    aiSettingsGet: async () => readStored('video-studio:ai-settings', {}), aiSettingsSet: async (settings: unknown) => writeStored('video-studio:ai-settings', settings),
+    gatewayConfigGet: async () => readStored('video-studio:gateway', {}), gatewayConfigSet: async (config: unknown) => writeStored('video-studio:gateway', config), setCredential: async () => false, offlineJobs: async () => [],
     analyzeEditImpact: async () => ({ affectedOperations: [], warnings: [] }), replayEditPlan: async (project: unknown) => ({ project: clone(project) }),
     recordPlan: async (_project: unknown, plan: unknown) => { const record = { id: randomId('plan'), plan: clone(plan), createdAt: new Date().toISOString() }; plans.unshift(record); writeStored('video-studio:plans', plans); return record; },
     listPlans: async () => clone(plans), getPlan: async (id: string) => clone(plans.find((entry) => entry.id === id) ?? null), removePlan: async (id: string) => { const index = plans.findIndex((entry) => entry.id === id); if (index < 0) return false; plans.splice(index, 1); writeStored('video-studio:plans', plans); return true; },

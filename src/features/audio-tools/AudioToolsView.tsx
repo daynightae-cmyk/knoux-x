@@ -37,8 +37,11 @@ import { NeonSelect } from '../../components/neon/NeonSelect';
 import { RuntimeModeNotice } from '../../components/system/RuntimeModeNotice';
 import { StudioPresetBar } from '../../components/settings/StudioPresetBar';
 import { useTranslation } from '../../i18n';
+import { readAudioEngineStatus } from '../../platform/audioEngineStatus';
 import { supportedAudioOutputFormats } from '../../platform/platformCapabilities';
+import { scrollToTopWithin, scrollTargetToTop } from '../../utils/scrollOwner';
 
+import { AudioEngineNotice } from './AudioEngineNotice';
 import { AudioBatchWorkspace } from './AudioBatchWorkspace';
 import { AudioLabDashboard } from './AudioLabDashboard';
 import { AudioMergeWorkspace } from './AudioMergeWorkspace';
@@ -162,9 +165,11 @@ export const AudioToolsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const viewRootRef = useRef<HTMLElement | null>(null);
   const { locale, t } = useTranslation();
 
-  const engineAvailable = typeof window.knouxAudioToolsAPI?.analyze === 'function';
+  const engine = readAudioEngineStatus();
+  const engineAvailable = engine.available;
   const selectionDuration = Math.max(0, end - start);
   const outputDuration = selectionDuration / Math.max(0.5, tempo);
   const lossless = format === 'wav' || format === 'flac';
@@ -433,7 +438,10 @@ export const AudioToolsView: React.FC = () => {
     setActiveSection(section);
     setError(null);
     if (section !== 'studio') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // The merge and batch workspaces mount fresh at this point, and a newly
+      // attached scroll container already starts at the top. Calling
+      // `window.scrollTo` here was a silent no-op: on the Android shell the
+      // document never scrolls.
       return;
     }
     const preset = service.preset;
@@ -451,13 +459,13 @@ export const AudioToolsView: React.FC = () => {
         : focus === 'speed'
           ? 'audio-processing-panel'
           : 'audio-tags-panel';
-    window.setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+    window.setTimeout(() => scrollTargetToTop(document.getElementById(targetId)), 120);
   }, [formats, source]);
 
   const backToCatalog = useCallback((): void => {
     setActiveService(null);
     setActiveSection('studio');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTopWithin(viewRootRef.current);
   }, []);
 
   const statusText = useMemo(() => {
@@ -477,7 +485,7 @@ export const AudioToolsView: React.FC = () => {
   }
 
   return (
-    <section className="creative-view audio-tools-view" aria-labelledby="audio-tools-title">
+    <section ref={viewRootRef} className="creative-view audio-tools-view" aria-labelledby="audio-tools-title">
       <header className="creative-header">
         <div>
           <span className="creative-eyebrow">{t('audioTools.eyebrow')}</span>
@@ -492,6 +500,8 @@ export const AudioToolsView: React.FC = () => {
           {t('audioTools.openSource')}
         </NeonButton>
       </header>
+
+      <AudioEngineNotice />
 
       <AudioLabDashboard
         services={AUDIO_LAB_SERVICES}

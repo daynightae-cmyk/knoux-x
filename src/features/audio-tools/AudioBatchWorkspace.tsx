@@ -19,6 +19,9 @@ import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSelect } from '../../components/neon/NeonSelect';
 import { useTranslation } from '../../i18n';
+import { readAudioEngineStatus } from '../../platform/audioEngineStatus';
+
+import { AudioEngineNotice } from './AudioEngineNotice';
 
 type BatchJob = AudioToolJobSnapshot & AudioLabJobExtras;
 type BatchStatus = 'ready' | 'processing' | 'completed' | 'failed' | 'canceled';
@@ -70,7 +73,7 @@ export function AudioBatchWorkspace({
   const [latestJobId, setLatestJobId] = useState<string | null>(null);
   const cancelRef = useRef(false);
   const busyRef = useRef(false);
-  const engineAvailable = typeof window.knouxAudioToolsAPI?.process === 'function';
+  const engineAvailable = readAudioEngineStatus().available;
   const completed = items.filter((item) => item.status === 'completed').length;
   const failed = items.filter((item) => item.status === 'failed').length;
   const ready = items.filter((item) => item.status === 'ready').length;
@@ -207,6 +210,8 @@ export function AudioBatchWorkspace({
           <p>{arabic ? service.descriptionAr : service.descriptionEn}</p>
         </div>
       </header>
+
+      <AudioEngineNotice />
 
       {error && <div className="creative-error" role="alert">{error}</div>}
       <div className="audio-inline-notice">

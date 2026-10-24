@@ -34,8 +34,18 @@ describe('Android media addition and slideshow output closure', () => {
     expect(slideshowEditor).toContain('unsubscribe?.()');
     expect(slideshowEditor).toContain('window.knouxSlideshowAPI.renderJobs?.()');
     expect(slideshowEditor).toContain('window.knouxSlideshowAPI.cancelRender?.(job.id)');
-    expect(slideshowEditor).toContain('window.knouxSlideshowAPI.openOutput?.(job.id)');
-    expect(slideshowEditor).toContain('window.knouxSlideshowAPI.revealOutput?.(job.id)');
+    /* Superseded expectation: this test used to require the editor to call
+     * openOutput/revealOutput directly and swallow failures with
+     * `.catch(() => undefined)`. A finished render is now only ever claimed as
+     * a file after the bridge writes and reads it back, so the editor routes
+     * the action through saveOutput() and surfaces the reason on failure. */
+    expect(slideshowEditor).toContain('const saveOutput = useCallback(async (jobId: string)');
+    expect(slideshowEditor).toContain("if (typeof window.knouxSlideshowAPI.openOutput !== 'function')");
+    expect(slideshowEditor).toContain('await window.knouxSlideshowAPI.openOutput(jobId)');
+    expect(slideshowEditor).not.toMatch(/knouxSlideshowAPI\.openOutput\?\.\(/);
+    expect(slideshowEditor).toContain('void saveOutput(job.id)');
+    expect(slideshowEditor).toContain("job.outputExists ? t('Saved on this device') : t('Rendered in memory — not a file yet')");
+    expect(slideshowEditor).not.toMatch(/openOutput\?\.\(job\.id\)\.catch\(\(\) => undefined\)/);
     expect(slideshowEditor).toContain('MP4 slideshow rendering is not implemented on this Android runtime yet.');
     expect(slideshowEditor).toContain('Your project remains saved and editable.');
   });

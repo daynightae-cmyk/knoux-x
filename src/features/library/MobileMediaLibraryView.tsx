@@ -113,11 +113,23 @@ function inferKind(name: string, mime: string): MediaKind | null {
   return null;
 }
 
-function friendlyStorageError(reason: unknown): string {
+/**
+ * Storage failures reach the screen as a banner, a notification and an empty
+ * state, so they are localized here rather than at each call site. Arabic is the
+ * product's primary market; an English-only error under an Arabic UI is a defect,
+ * not a fallback.
+ */
+function friendlyStorageError(reason: unknown, ar: boolean): string {
   const raw = reason instanceof Error ? reason.message : String(reason ?? '');
-  if (/permission|denied|security|persist/i.test(raw)) return 'Storage permission expired. Choose the media folder again.';
-  if (/not found|missing|unavailable/i.test(raw)) return 'The saved media folder is no longer available. Choose it again.';
-  return 'The media folder could not be read. Choose the folder again or refresh.';
+  if (/permission|denied|security|persist/i.test(raw)) {
+    return ar ? 'انتهت صلاحية الوصول إلى التخزين. اختر مجلد الوسائط مرة أخرى.' : 'Storage permission expired. Choose the media folder again.';
+  }
+  if (/not found|missing|unavailable/i.test(raw)) {
+    return ar ? 'مجلد الوسائط المحفوظ لم يعد متاحًا. اختره مرة أخرى.' : 'The saved media folder is no longer available. Choose it again.';
+  }
+  return ar
+    ? 'تعذّر قراءة مجلد الوسائط. اختره مرة أخرى أو حدّث القائمة.'
+    : 'The media folder could not be read. Choose the folder again or refresh.';
 }
 
 export const MobileMediaLibraryView: React.FC = () => {
@@ -231,7 +243,7 @@ export const MobileMediaLibraryView: React.FC = () => {
     } catch (reason) {
       if (token !== generation.current) return;
       setEntries([]);
-      setLibraryError(normalizedPath ? friendlyStorageError(reason) : (ar ? 'تعذر قراءة وسائط الجهاز. راجع الصلاحيات وأعد المحاولة.' : 'Device media could not be read. Check access and retry.'));
+      setLibraryError(normalizedPath ? friendlyStorageError(reason, ar) : (ar ? 'تعذر قراءة وسائط الجهاز. راجع الصلاحيات وأعد المحاولة.' : 'Device media could not be read. Check access and retry.'));
     } finally {
       if (token === generation.current) { setBusy(false); pendingRequest.current = null; }
     }
@@ -369,7 +381,7 @@ export const MobileMediaLibraryView: React.FC = () => {
       setSavedLibraryPath(directory);
       setLibraryPath(directory);
     } catch (reason) {
-      setLibraryError(friendlyStorageError(reason));
+      setLibraryError(friendlyStorageError(reason, ar));
     } finally {
       setBusy(false);
     }
@@ -385,7 +397,13 @@ export const MobileMediaLibraryView: React.FC = () => {
       const filters = kind === 'video'
         ? [{ name: 'Videos', extensions: ['mp4', 'webm', 'm4v', 'mov', 'mkv'] }]
         : [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'opus'] }];
-      const filePath = existingUri ?? await window.knouxAPI.file.openFile({ title: kind === 'video' ? 'Open video' : 'Open audio', filters, properties: ['openFile'] });
+      const filePath = existingUri ?? await window.knouxAPI.file.openFile({
+        title: kind === 'video'
+          ? (ar ? 'فتح فيديو' : 'Open video')
+          : (ar ? 'فتح ملف صوت' : 'Open audio'),
+        filters,
+        properties: ['openFile'],
+      });
       if (!filePath) return;
       if (!(await window.knouxAPI.file.exists(filePath))) throw new Error('The selected media is no longer accessible.');
       const title = existingName ?? await androidDocumentTitle(filePath);
@@ -395,15 +413,17 @@ export const MobileMediaLibraryView: React.FC = () => {
     } catch (reason) {
       addNotification({
         type: 'error',
-        title: kind === 'video' ? 'Could not open video' : 'Could not open audio',
-        message: friendlyStorageError(reason),
+        title: kind === 'video'
+          ? (ar ? 'تعذّر فتح الفيديو' : 'Could not open video')
+          : (ar ? 'تعذّر فتح الصوت' : 'Could not open audio'),
+        message: friendlyStorageError(reason, ar),
         duration: 4000,
       });
     } finally {
       setBusy(false);
       opening.current = false;
     }
-  }, [addNotification, setCurrentMedia, setMediaTitle, setView]);
+  }, [addNotification, ar, setCurrentMedia, setMediaTitle, setView]);
 
   const openPhoto = useCallback(async (existingUri?: string): Promise<void> => {
     if (opening.current) return;
@@ -411,7 +431,7 @@ export const MobileMediaLibraryView: React.FC = () => {
     setBusy(true);
     try {
       const filePath = existingUri ?? await window.knouxAPI.file.openFile({
-        title: 'Open photo',
+        title: ar ? 'فتح صورة' : 'Open photo',
         filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }],
         properties: ['openFile'],
       });
@@ -436,14 +456,14 @@ export const MobileMediaLibraryView: React.FC = () => {
       addNotification({
         type: 'error',
         title: 'Could not open photo',
-        message: friendlyStorageError(reason),
+        message: friendlyStorageError(reason, ar),
         duration: 4000,
       });
     } finally {
       setBusy(false);
       opening.current = false;
     }
-  }, [addNotification, setImageSource, setView]);
+  }, [addNotification, ar, setImageSource, setView]);
 
   const importForTab = useCallback(async (): Promise<void> => {
     if (tab === 'photos') await openPhoto();
@@ -585,7 +605,7 @@ export const MobileMediaLibraryView: React.FC = () => {
   return (
     <section className="knoux-mobile-library" data-component="MobileMediaLibraryView" dir={ar ? 'rtl' : 'ltr'}>
       <header className="kml-header">
-        <button type="button" className="kml-round" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'} onClick={() => setView('home')}><ArrowLeft size={21} /></button>
+        <button type="button" className="kml-round kx-back" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'} onClick={() => setView('home')}><ArrowLeft size={21} /></button>
         <div className="kml-brand"><BrandMark size={50} /><div><strong>KNOUX <span>X</span></strong><small>{ar ? 'استيراد · تنظيم · إنشاء' : 'IMPORT · ORGANIZE · CREATE'}</small></div></div>
         <button type="button" className="kml-round" aria-label={ar ? 'الإعدادات' : 'Settings'} onClick={() => setView('settings')}><Settings size={20} /></button>
       </header>

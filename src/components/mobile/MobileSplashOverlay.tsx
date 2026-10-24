@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { BrandMark } from '../brand/BrandMark';
+import { BrandMark, OFFICIAL_LOGO_URL } from '../brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
-
-import { MobileOnboarding } from './MobileOnboarding';
 
 interface MobileSplashOverlayProps {
   onComplete?: () => void;
@@ -12,8 +10,6 @@ interface MobileSplashOverlayProps {
 const MIN_SPLASH_HOLD_MS = 750;
 const MAX_SPLASH_SAFETY_MS = 1800;
 const LOGO_PRELOAD_TIMEOUT_MS = 3000;
-
-const officialLogoUrl = new URL('../../../assets/branding/knoux-logo-master.png', import.meta.url).href;
 
 function readDeviceMemory(): number | undefined {
   const nav = navigator as Navigator & { deviceMemory?: number };
@@ -32,7 +28,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
   useEffect(() => {
     activeRef.current = true;
     const img = new Image();
-    img.src = officialLogoUrl;
+    img.src = OFFICIAL_LOGO_URL;
     const settle = () => {
       if (activeRef.current) setLogoLoaded(true);
       if (logoPreloadTimerRef.current !== null) window.clearTimeout(logoPreloadTimerRef.current);
@@ -92,7 +88,11 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
 
   useEffect(() => {
     if (phase !== 'exiting') return;
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Reading the media query must never throw: this effect is the only path that
+    // takes the splash out of the tree, and an exception here would leave the
+    // branded overlay (or the error boundary) covering the Dashboard forever.
+    const prefersReducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const deviceMemory = readDeviceMemory();
     const isLowMemory = deviceMemory !== undefined && deviceMemory < 4;
     const exitDelay = (prefersReducedMotion || isLowMemory) ? 0 : 300;
@@ -112,7 +112,15 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
     console.info(`KNOUX_ANDROID_UI_READY screen=${isHomeReady ? 'home' : 'app'} primaryAction=true`);
   }, [isHomeReady, phase]);
 
-  if (phase === 'hidden') return <MobileOnboarding />;
+  // Once the splash has exited it must leave the tree completely. This overlay
+  // stays mounted for the whole app lifetime (App.tsx renders it unconditionally
+  // on Android), so anything returned here would sit permanently on top of the
+  // Dashboard. Handing off to MobileOnboarding from this position turned the
+  // approved Splash -> Dashboard flow into Splash -> Welcome modal, and the
+  // modal's `position: fixed; inset: 0` layer also blocked touch and scroll.
+  // The welcome tour is opt-in and lives in Settings (MobileSettingsView), which
+  // mounts its own replay instance of the tour.
+  if (phase === 'hidden') return null;
 
   return (
     <div

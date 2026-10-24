@@ -1,5 +1,7 @@
 import { useAppStore, type ViewType } from '../store/appStore';
 
+import { markAndroidBridgeAbsent } from './androidBridgeHealth';
+
 /**
  * Android hardware/system back-button policy for KNOUX X.
  *
@@ -49,6 +51,13 @@ export const EXIT_CONFIRMATION_WINDOW_MS = 2_000;
 export const VIEW_HISTORY_LIMIT = 25;
 /** The Android root view. Reaching it starts a fresh back stack. */
 export const ROOT_VIEW: ViewType = 'home';
+/**
+ * The controller speaks one language so its decisions stay greppable in the
+ * device log; the native install layer is the only place that localizes it for
+ * the user.
+ */
+export const BACK_TO_EXIT_MESSAGE = 'Press back again to exit KNOUX X';
+const BACK_TO_EXIT_MESSAGE_AR = 'اضغط زر الرجوع مرة أخرى للخروج من KNOUX X';
 
 interface InterceptorEntry {
   id: number;
@@ -158,7 +167,7 @@ export function createAndroidBackButtonController(
         }
 
         exitArmedUntil = now + EXIT_CONFIRMATION_WINDOW_MS;
-        context.notify('Press back again to exit KNOUX X');
+        context.notify(BACK_TO_EXIT_MESSAGE);
         context.log('exit-armed');
       } finally {
         handling = false;
@@ -222,6 +231,10 @@ export function installAndroidBackButton(): () => void {
     console.warn(
       '[KNOUX] @capacitor/app backButton runtime is unavailable; hardware back keeps the platform default.',
     );
+    markAndroidBridgeAbsent(
+      'back-button',
+      'The Capacitor App plugin is not in this build, so hardware back keeps the platform default.',
+    );
     return () => undefined;
   }
 
@@ -247,10 +260,13 @@ export function installAndroidBackButton(): () => void {
       }
     },
     notify: (message) => {
-      useAppStore.getState().addNotification({
+      const state = useAppStore.getState();
+      state.addNotification({
         type: 'info',
         title: 'KNOUX X',
-        message,
+        message: state.locale === 'ar' && message === BACK_TO_EXIT_MESSAGE
+          ? BACK_TO_EXIT_MESSAGE_AR
+          : message,
         duration: EXIT_CONFIRMATION_WINDOW_MS,
       });
     },

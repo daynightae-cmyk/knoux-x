@@ -17,6 +17,7 @@ import App from './App';
 import { ErrorBoundary } from './components/system/ErrorBoundary';
 import { AndroidOptionalRuntime } from './platform/AndroidOptionalRuntime';
 import { installAndroidBackButton } from './platform/androidBackButton';
+import { markAndroidBridgeFailed, markAndroidBridgeReady } from './platform/androidBridgeHealth';
 import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
 import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
 import { installAndroidFileBridge } from './platform/androidFileBridge';
@@ -26,6 +27,8 @@ import { installAndroidRetouchModels } from './platform/androidRetouchModels';
 import { installAndroidRuntimeBridge } from './platform/androidRuntimeBridge';
 import { installAndroidSafBridge } from './platform/androidSafBridge';
 import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
+import { recordAudioBridgeFailure } from './platform/audioEngineStatus';
+import { recordSlideshowBridgeFailure } from './platform/slideshowRenderStatus';
 import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
 import './styles/premium-daylight-rebrand.css';
 import './styles/android-visual-system.css';
@@ -62,15 +65,31 @@ if (androidRuntimeInstalled) {
   // Keep the virtual bridge as a compatibility fallback for transient browser
   // assets, then let SAF own user-selected documents so content:// permissions
   // survive activity/process restarts.
-  installAndroidFileBridge();
-  installAndroidSafBridge();
-  installAndroidCaptureBridge();
-  installAndroidAudioToolsBridge();
-  installAndroidImageEditorBridge();
-  installAndroidRetouchModels();
-  installAndroidMultitrackExportBridge();
-  installAndroidSlideshowRenderBridge();
-  installAndroidBackButton();
+  //
+  // Each adapter is installed on its own. A single throwing bridge must not
+  // blank the WebView, and the failure must never disappear: it is logged and
+  // recorded against the capability it belongs to, so the screen that depends
+  // on it reports the real reason instead of an unexplained dead control.
+  const install = (name: string, apply: () => void, onError?: (message: string) => void): void => {
+    try {
+      apply();
+      markAndroidBridgeReady(name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`KNOUX_ANDROID_BRIDGE_FAILED bridge=${name} message=${message}`);
+      markAndroidBridgeFailed(name, message);
+      onError?.(message);
+    }
+  };
+  install('file', installAndroidFileBridge);
+  install('saf', installAndroidSafBridge);
+  install('capture', installAndroidCaptureBridge);
+  install('audio-tools', installAndroidAudioToolsBridge, recordAudioBridgeFailure);
+  install('image-editor', installAndroidImageEditorBridge);
+  install('retouch-models', installAndroidRetouchModels);
+  install('multitrack-export', installAndroidMultitrackExportBridge);
+  install('slideshow-render', installAndroidSlideshowRenderBridge, recordSlideshowBridgeFailure);
+  install('back-button', installAndroidBackButton);
 } else {
   document.documentElement.dataset.runtime = 'desktop';
   installBrowserPreviewBridge();

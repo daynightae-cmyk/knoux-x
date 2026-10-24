@@ -25,6 +25,8 @@ import {
   type AudioLabMergeRequest,
 } from '../core/creative/audioLab';
 
+import { ANDROID_AUDIO_ENGINE_BRAND } from './audioEngineStatus';
+
 type AudioLabJobSnapshot = AudioToolJobSnapshot & AudioLabJobExtras;
 
 interface DecodedSource {
@@ -192,11 +194,31 @@ function copySelection(input: AudioBuffer, start: number, end: number, reverse: 
   return output;
 }
 
+/**
+ * The decoded source and the `OfflineAudioContext` render target are both Float32
+ * PCM in the same WebView heap. A long video extract pushes the Android renderer
+ * past its memory ceiling and the tab is killed mid-export, which the user only
+ * experiences as a crash. Refusing before allocating, and naming the real limit,
+ * keeps the failure honest and actionable.
+ */
+const MAX_RENDER_BYTES = 200 * 1024 * 1024;
+
+function guardRenderBudget(frames: number, channels: number, sampleRate: number): void {
+  const bytes = frames * Math.max(1, channels) * 4;
+  if (bytes <= MAX_RENDER_BYTES) return;
+  const seconds = frames / sampleRate;
+  const limit = Math.floor(MAX_RENDER_BYTES / (Math.max(1, channels) * 4 * sampleRate));
+  throw new Error(
+    `This selection renders ${Math.round(seconds)} seconds of ${channels}-channel audio, which is more than the phone renderer can hold at once (about ${limit} seconds). Trim it into shorter parts and export each part.`,
+  );
+}
+
 async function renderAudio(input: AudioBuffer, request: AudioProcessRequest): Promise<AudioBuffer> {
   const normalized = normalizeAudioProcessRequest(request);
   const rate = normalized.format === 'mp3' ? mp3SampleRateFor(normalized.sampleRate) : normalized.sampleRate;
   const duration = (normalized.end - normalized.start) / normalized.tempo;
   const length = Math.max(1, Math.ceil(duration * rate));
+  guardRenderBudget(length, normalized.channels, rate);
   const context = new OfflineAudioContext(normalized.channels, length, rate);
   const source = context.createBufferSource();
   const reversed = normalized.reverse === true;
@@ -445,6 +467,7 @@ async function runMerge(rawRequest: AudioLabMergeRequest): Promise<AudioLabJobSn
   );
   const rate = rawRequest.format === 'mp3' ? mp3SampleRateFor(rawRequest.sampleRate) : rawRequest.sampleRate;
   const length = Math.max(1, Math.ceil(layout.totalDuration * rate));
+  guardRenderBudget(length, rawRequest.channels, rate);
   const context = new OfflineAudioContext(rawRequest.channels, length, rate);
   layout.placements.forEach((placement, index) => {
     const source = context.createBufferSource();
@@ -532,6 +555,9 @@ export function installAndroidAudioToolsBridge(): void {
   if (window.knouxRuntime?.edition !== 'android') return;
 
   window.knouxAudioToolsAPI = {
+    // Brand read by `readAudioEngineStatus()`. Without it the renderer cannot
+    // tell the local engine apart from the runtime compatibility stub.
+    engine: ANDROID_AUDIO_ENGINE_BRAND,
     analyze: async (sourcePath: string) => {
       const source = await decodeSource(sourcePath);
       return probeFor(source.buffer, source.bytes, source.mime, source.name);

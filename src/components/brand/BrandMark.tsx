@@ -1,6 +1,12 @@
 import React from 'react';
 
-const officialLogo = new URL('../../../assets/branding/knoux-logo-master.png', import.meta.url).href;
+/**
+ * Canonical official logo URL, resolved once by Vite. Any surface that has to
+ * preload the brand mark must import this instead of re-resolving the asset:
+ * a second resolution can produce a different hashed filename, which makes the
+ * preload warm a URL the rendered `<img>` never requests.
+ */
+export const OFFICIAL_LOGO_URL = new URL('../../../assets/branding/knoux-logo-master.png', import.meta.url).href;
 
 interface BrandMarkProps {
   className?: string;
@@ -16,7 +22,7 @@ export const BrandMark: React.FC<BrandMarkProps> = ({
 }) => (
   <span className={`brand-mark ${className}`.trim()}>
     <img
-      src={officialLogo}
+      src={OFFICIAL_LOGO_URL}
       width={size}
       height={size}
       alt=""

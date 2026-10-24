@@ -19,6 +19,7 @@ import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSelect } from '../../components/neon/NeonSelect';
 import { useTranslation } from '../../i18n';
+import { readAudioEngineStatus } from '../../platform/audioEngineStatus';
 
 type MergeJob = AudioToolJobSnapshot & AudioLabJobExtras;
 
@@ -73,7 +74,10 @@ export function AudioMergeWorkspace({
   const busyRef = useRef(false);
 
   const mergeApi = window.knouxAudioLabAPI;
-  const engineReady = typeof mergeApi?.merge === 'function';
+  // `knouxAudioLabAPI` is only ever installed by the real Android engine, but a
+  // merge still analyzes every clip through `knouxAudioToolsAPI`, so both have
+  // to be true before the surface claims it can work.
+  const engineReady = readAudioEngineStatus().available && typeof mergeApi?.merge === 'function';
   const totalDuration = clips.reduce((sum, clip) => sum + clip.duration, 0) - crossfade * Math.max(0, clips.length - 1);
 
   useEffect(() => window.knouxAudioToolsAPI?.onProgress((snapshot) => {

@@ -291,13 +291,20 @@ New/changed tooling: `tools/lib/packaged-process-lifecycle.cjs` (new), `tools/ve
 Regenerated evidence: `reports/windows-video-import-e2e/*`, `reports/packaged-timeline-export-e2e/*`, `_temp/live-evidence/windows-performance-eaeb83a-*.json`.
 Build output kept out of the source tree: `out-verify/` (isolated, created only because `out/...app.asar` is held by an external lock — see Blockers).
 
-**Round 2 (second local commit, still not pushed)**
+**Round 2 (commits `23f9e77`, `7c6922e`, `8a0d2d3`)**
 - New source: `src/features/video-studio/exportAttemptPolicy.ts` (bounded retry classification, backoff, attempt label, numbered-sibling relocation).
 - Modified source: `src/features/video-studio/DesktopVideoStudioView.tsx` (retry loop around render→write→verify, partial-file hygiene, attempt-count reporting, retry note), `src/styles/desktop-timeline-export.css` (note style).
 - New tests: `tests/unit/export-attempt-policy.test.ts` (9), `tests/unit/desktop-timeline-export-retry.test.tsx` (7 — real component, real coverage guard, parked-render cancellation).
 - Modified tooling: `tools/verify-packaged-import-matrix.cjs` (subset mode `KNOUX_MATRIX_ONLY` + evidence merge, fixture reuse, case-insensitive save resolution, `openRecent()` read-back, new `near-max-path` row, corrected over-`MAX_PATH` reason, short wait after an OS refusal, three-round modal clearing before judging recovery), `tools/dismiss-native-dialog.ps1` (filename read-back, four accept rounds, "Confirm Save As", dismiss-and-exit-`4`).
 - Regenerated evidence: `reports/windows-import-matrix/evidence.json` (27 rows with `subsetRuns`), `reports/export-e2e-*.log`, `reports/out-export*-package.log`, `reports/jest-full-round2.log`.
-- Verification binaries: `out-export/` (truncation-only retry; 5/5 export PASS while quiet), `out-export2/` (broadened retry), `out-export3/` (attempt-count reporting; matrix + under-load runs). Each is a separate isolated build directory because `out/` remains lock-blocked.
+- Verification binaries: `out-export/` (truncation-only retry; 5/5 export PASS while quiet), `out-export2/` (broadened retry), `out-export3/` (attempt-count reporting; matrix + under-load runs), `out-export4/` (CI-gate-compatible import path; six import rows re-measured), `out-export5/` (attempt-count on success; three quiet export runs PASS + one transient startup-IPC failure + import journey PASS). Each is a separate isolated build directory because `out/` remains lock-blocked.
+
+**Rounds 3 and 4 (commits `534f3f5`, `0bd3b65`, `fe6d172`, `f2dde54`)**
+- `src/features/editor/MultitrackEditorView.tsx` — restored the pinned `const raw = …` probe shape (images ignore the summary), keeping the native-duration-first ladder.
+- `tests/unit/library-summary-pagination.test.ts` — real-SQLite suite gated on `better-sqlite3` binding availability, with the reason documented in the file.
+- `src/features/video-studio/exportAttemptPolicy.ts` — added `attemptCountSuffix()`; `DesktopVideoStudioView.tsx` + `desktop-timeline-export.css` — verified exports now state how many automatic attempts they used; two more component/policy cases pin that (presence after a retry, absence on a first-try success).
+- `reports/windows-import-matrix/evidence.json`, `reports/windows-video-import-e2e/*`, `reports/packaged-timeline-export-e2e/*` regenerated on the rebuilt packages; CI artefact hashes kept in `_temp/ci-evidence*/artifact-hashes.txt` (local, git-ignored) and transcribed into §10 above.
+
 
 
 ---

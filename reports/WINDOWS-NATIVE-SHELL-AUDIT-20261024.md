@@ -354,6 +354,8 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 
 ## Final Git status
 
+**Update after the audit (2026-10-24, later same day):** the owner authorized pushing a branch and opening a PR, and then authorized merging unique work. PR #82 (this branch's 12 commits) merged into `main` as `1f19b4b6f376d01a026b5987ac5bfcd28cb4aab9` on 2026-10-24T20:33:15Z, and PR #80 followed as `d2a60c5a`. So everything described below as "local, unpushed" is now **on `origin/main`**. `main` was never force-pushed or rewritten. Full inventory, including every other branch and worktree: `reports/BRANCH-AND-WORKTREE-AUDIT-20261024.md`.
+
 Round 1: `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191). Round 2: `23f9e774d70079c44d593e3f3ccb3b827cbd2e9d` (14 paths, +921/−155) plus `7c6922e` (report) and `8a0d2d3` (re-verified import evidence). Round 3 carries the two CI-caught repairs below.
 
 The four commits are published on the branch `fix/windows-native-shell-20261024` and reviewed in **PR #82** against `main`. **`main` itself has not been pushed to, nothing has been merged, tagged, released or published.** Remote `main` remains `eaeb83a`.

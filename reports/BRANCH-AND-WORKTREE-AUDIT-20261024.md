@@ -83,17 +83,20 @@ What PR #80 contributes, and why it was worth landing: `electron/ipc/file-dialog
 | Signer identity | — | `CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, L=Abu Dhabi, ST=Abu Dhabi, C=AE`, RSA 3072, certificate SHA-256 `f0ede6c760517640d58d65dda966203888d8745c0df723d332cc175170859759` |
 | Reading | installable debug APK proven on an API-35 KVM emulator | a **CI verification key**, proving the release build signs, installs and launches — **not** a Play/production upload key |
 
-## Final status after the merge train
+## Final status after the merge train — every lane settled
 
-| Ref | Debug APK lane | Release acceptance lane | Full Rebuild Windows | Timeline export E2E | Packaged creative + recording |
-| --- | --- | --- | --- | --- | --- |
-| `12b808f` (PR #82 head) | **success** 40127644578 | **success** 40127644571 | **success** 40125372890 | **success** | **success** |
-| `1f19b4b6` (main after PR #82) | **success** 40130301864 | **success** 40130301859 | **success** 40130301896 | **success** | — (PR-only workflow) |
-| `0183ee9d` (PR #80 vs new main) | **pass** | **pass** | **pass** (`validate-package`) | **pass** | **pass** (both jobs) |
-| `d2a60c5a` (main after PR #80, merged 2026-10-24T21:09:12Z) | running at the time of writing | running at the time of writing | cancelled — my docs push superseded it under `cancel-in-progress` | cancelled — same reason | — |
-| `4c34671` (main + the audit doc) | — (docs-only, outside the lane's `paths:` filter) | — | **success** | **success** | — |
+| Ref | Debug APK lane | Release acceptance lane | Full Rebuild Windows | Timeline export E2E |
+| --- | --- | --- | --- | --- |
+| `12b808f` (PR #82 head) | **success** 40127644578 | **success** 40127644571 | **success** 40125372890 | **success** |
+| `1f19b4b6` (main after PR #82) | **success** 40130301864 | **success** 40130301859 | **success** 40130301896 | **success** |
+| `0183ee9d` (PR #80 vs new main) | **pass** | **pass** | **pass** (`validate-package`) | **pass** |
+| `d2a60c5a` (main after PR #80) | **success** 40132952587 → `KNOUX-X-Android-debug-d2a60c5…`, **129,302,973 B** | **success** 40132952566 → `KNOUX-X-Android-release-acceptance-d2a60c5…`, **122,465,773 B** | cancelled — my own docs push superseded it under `cancel-in-progress` | cancelled — same reason |
+| `d68d6e5` (today's `main`) | — (docs-only, outside the lane's `paths:` filter) | — | **success** 40134171646 → `Knoux X-2.1.0 Setup.exe` SHA-256 `E0D6E0FD964D493CF534B6B800DF46D3F3F1071E7326B2BB9981604951FACE05`, `knoux-player-x.exe` `FBB1D6141576AFAE8566724A769032169A75A538A044439DA793F5D4E07C22A3`, install `installed-before=False`/`setup-exit=0`, repair `installed-before=True`, uninstall `removed=True` | **success** 40134171443 |
 
-Two honest notes on this table. First, the Windows lanes for `d2a60c5a` were **cancelled by my own next push**, not by a failure — `full-rebuild-windows.yml` and the export lane use `cancel-in-progress: true`, so pushing the audit commit killed the in-flight runs of the merge commit. The same code (plus a markdown file) is then green on `4c34671`, and the Android lanes for the merge commit are the ones still resolving. Second, the Android lanes only fire on paths that matter (`src/**`, `tests/**`, `tools/android-*`, …), which is why a docs-only main push shows dashes instead of runs.
+Today's `main` therefore has, each backed by a run rather than an inference: a **green debug APK** lane (installable + launched on an API-35 KVM emulator), a **green CI-signed release APK** lane (v2+v3 signature verified, installed and launched), a **green Windows installer** lane with the `Setup.exe` artefact contract and install/repair/uninstall acceptance, and a **green packaged timeline-export** lane.
+
+Two honest notes. First, the Windows lanes for `d2a60c5a` were **cancelled by my own next push**, not by a failure — `full-rebuild-windows.yml` and the export lane carry `cancel-in-progress: true`. The same merged code, plus markdown, is green on `d68d6e5`, so the Windows verdict for the merged tree stands on its own run rather than being inherited. Second, the Android lanes declare `paths:` filters (`src/**`, `tests/**`, `tools/android-*`, …), which is why a docs-only push shows dashes instead of runs — that is the workflow's own scoping, not a skipped or weakened test.
+
 
 Local certification of the merged tree (PR #82 + PR #80 together): `npx node@20 jest` → **194 suites / 1,662 tests, 0 failed** (PR #80 added 3 suites and 23 tests); `npm run typecheck` exit 0; `node tools/fix-final-quality-gates.cjs` exit 0 (all historical repairs still `[PASS]`).
 

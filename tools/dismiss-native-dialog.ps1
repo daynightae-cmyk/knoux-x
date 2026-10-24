@@ -148,36 +148,66 @@ if ($SelectPath -ne '') {
   }
   [void][KnouxDlgWin]::SetForegroundWindow($dialog.Handle)
   Start-Sleep -Milliseconds 300
-  $edit = [KnouxDlgWin]::GetDlgItem($dialog.Handle, 1148)
-  if ($edit -ne [IntPtr]::Zero) {
-    [void][KnouxDlgWin]::SendMessage($edit, 0x000C, [IntPtr]::Zero, $SelectPath)
-    Write-Output 'FILENAME_SET method=WM_SETTEXT'
-  } else {
+
+  function Set-FileNameField([IntPtr]$Handle, [string]$Value, [string]$Escaped) {
+    $edit = [KnouxDlgWin]::GetDlgItem($Handle, 1148)
+    if ($edit -ne [IntPtr]::Zero) {
+      [void][KnouxDlgWin]::SendMessage($edit, 0x000C, [IntPtr]::Zero, $Value)
+      $readback = Get-WindowTitle $edit
+      if ($readback -eq $Value) { return 'WM_SETTEXT' }
+    }
     [System.Windows.Forms.SendKeys]::SendWait('%n')
     Start-Sleep -Milliseconds 200
-    [System.Windows.Forms.SendKeys]::SendWait($escaped)
-    Write-Output 'FILENAME_SET method=SENDKEYS'
+    [System.Windows.Forms.SendKeys]::SendWait($Escaped)
+    return 'SENDKEYS'
   }
+
+  $method = Set-FileNameField $dialog.Handle $SelectPath $escaped
+  Write-Output "FILENAME_SET method=$method"
   Start-Sleep -Milliseconds 300
-  $confirm = [KnouxDlgWin]::GetDlgItem($dialog.Handle, 1)
-  if ($confirm -ne [IntPtr]::Zero) {
-    [void][KnouxDlgWin]::PostMessage($confirm, $BM_CLICK, [IntPtr]::Zero, [IntPtr]::Zero)
-    Write-Output 'CONFIRM method=IDOK_CLICK'
-  } else {
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Write-Output 'CONFIRM method=SENDKEYS_ENTER'
-  }
-  $selectDeadline = (Get-Date).AddSeconds(20)
-  while ((Get-Date) -lt $selectDeadline) {
-    if (-not (Find-TargetDialog)) {
+
+  # A single IDOK click is not enough: the classic dialog can still be applying
+  # its own filter/validation, and a dialog left open here blocks the app's
+  # window (script evaluation on the page stalls behind the modal). Confirm,
+  # verify closure, retry, and cancel deliberately if Windows refuses.
+  $confirmMethod = ''
+  for ($round = 0; $round -lt 4; $round++) {
+    $confirm = [KnouxDlgWin]::GetDlgItem($dialog.Handle, 1)
+    if ($confirm -ne [IntPtr]::Zero) {
+      [void][KnouxDlgWin]::PostMessage($confirm, $BM_CLICK, [IntPtr]::Zero, [IntPtr]::Zero)
+      $confirmMethod = 'IDOK_CLICK'
+    } else {
+      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+      $confirmMethod = 'SENDKEYS_ENTER'
+    }
+    $closed = $true
+    for ($tick = 0; $tick -lt 5; $tick++) {
+      Start-Sleep -Milliseconds 400
+      if (Find-TargetDialog) { $closed = $false; continue }
+      # "Confirm Save As" is a separate dialog owned by the same process: answer
+      # it, then keep watching, otherwise the target dialog never closes.
+      if (Find-AnyProcessDialog) {
+        [void](Confirm-MessageBox)
+        $closed = $false
+        continue
+      }
+      break
+    }
+    if ($closed) {
+      Write-Output "CONFIRM method=$confirmMethod rounds=$($round + 1)"
       Write-Output "DIALOG_SELECTED path=`"$SelectPath`""
       exit 0
     }
-    [void](Confirm-MessageBox)
-    Start-Sleep -Milliseconds 400
+    # Still open: Windows may have bounced a validation balloon. Re-fill and retry.
+    $again = Set-FileNameField $dialog.Handle $SelectPath $escaped
+    Write-Output "RETRY_FILL round=$($round + 1) method=$again"
   }
-  Write-Output "DIALOG_SELECT_TIMEOUT path=`"$SelectPath`""
-  exit 3
+
+  # Give up honestly and dismiss, so no modal is left blocking the application.
+  [void][KnouxDlgWin]::PostMessage($dialog.Handle, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero)
+  Start-Sleep -Milliseconds 600
+  Write-Output "DIALOG_REFUSED_AND_DISMISSED path=`"$SelectPath`" (the OS dialog rejected this selection; nothing was left open)"
+  exit 4
 }
 
 $method = ''

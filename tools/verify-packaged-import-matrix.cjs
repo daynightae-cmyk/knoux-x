@@ -99,6 +99,7 @@ function buildVideoArgs(source) {
 function makeFixture(name, args, writeRaw) {
   const target = path.join(fixtureRoot, name);
   fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (!writeRaw && args && fs.existsSync(target) && fs.statSync(target).size > 0) return target;
   if (writeRaw) {
     fs.writeFileSync(target, writeRaw);
     return target;
@@ -158,7 +159,23 @@ function buildCases() {
   fs.mkdirSync(deepPath, { recursive: true });
   const deepFixture = path.join(deepPath, 'deeply-nested-clip-file.mp4');
   fs.copyFileSync(h264, deepFixture);
-  cases.push({ id: 'very-long-path', kind: 'video', expect: 'any', fixture: deepFixture, pathLength: deepFixture.length });
+  cases.push({ id: 'very-long-path', kind: 'video', expect: 'any', fixture: deepFixture, pathLength: deepFixture.length, layeredCheck: deepFixture });
+
+  // A legal-but-long path: pad nested folders up to just under MAX_PATH so the
+  // classic dialog still accepts the selection, and require a real import. This
+  // is the row that proves long-path handling inside the app; the over-MAX_PATH
+  // row above can only prove that nothing partial or unsafe slips through.
+  const nearFile = 'long-but-legal-clip-file.mp4';
+  let nearPath = fixtureRoot;
+  for (let level = 0; level < 8; level += 1) {
+    const candidate = path.join(nearPath, `long-path-padding-level-${level}`);
+    if (candidate.length + 1 + nearFile.length > 255) break;
+    nearPath = candidate;
+  }
+  fs.mkdirSync(nearPath, { recursive: true });
+  const nearFixture = path.join(nearPath, nearFile);
+  fs.copyFileSync(h264, nearFixture);
+  cases.push({ id: 'near-max-path', kind: 'video', expect: 'item', fixture: nearFixture, pathLength: nearFixture.length });
 
   if (hasEncoder('libx265')) {
     cases.push({ id: 'hevc-h265', kind: 'video', expect: 'item', hevc: true, fixture: makeFixture('hevc.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24:duration=2', '-c:v', 'libx265', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p']) });
@@ -423,16 +440,21 @@ async function shutdown(app) {
 }
 
 async function main() {
-  fs.rmSync(evidenceDir, { recursive: true, force: true });
+  const only = process.env.KNOUX_MATRIX_ONLY
+    ? process.env.KNOUX_MATRIX_ONLY.split(',').map((entry) => entry.trim()).filter(Boolean)
+    : null;
   fs.mkdirSync(evidenceDir, { recursive: true });
-  removeTreeFixingPermissions(fixtureRoot);
+  if (!only) fs.rmSync(evidenceDir, { recursive: true, force: true });
+  if (!only) removeTreeFixingPermissions(fixtureRoot);
   fs.writeFileSync(logPath, '', 'utf8');
   for (const file of [executablePath, ffmpegPath, ffprobePath]) {
     if (!fs.existsSync(file)) throw new Error(`MATRIX_MISSING ${file}`);
   }
   if (process.platform !== 'win32') throw new Error('MATRIX_WINDOWS_ONLY');
 
-  const cases = buildCases();
+  const allCases = buildCases();
+  const cases = only ? allCases.filter((entry) => only.includes(entry.id)) : allCases;
+  if (only) logLine(`subset mode: ${cases.map((entry) => entry.id).join(', ')}`);
   logLine(`fixtures ready: ${cases.filter((entry) => !entry.skipped).length} cases`);
 
   const evidence = {
@@ -503,10 +525,20 @@ async function main() {
 
         const dialog = await automation;
         app.dialogChild = null;
-        const settled = await settle(app.session, before, path.basename(selectedPath), testCase.mode === 'cancel' ? 15000 : CASE_TIMEOUT_MS);
+        // Exit 4 means the OS dialog rejected the path and the automation closed it,
+        // so no import can arrive; keep a short grace window instead of burning the
+        // whole per-case timeout waiting for something that cannot happen.
+        const refusedBeforeWaiting = dialog.code === 4;
+        const settled = await settle(
+          app.session,
+          before,
+          path.basename(selectedPath),
+          testCase.mode === 'cancel' ? 15000 : refusedBeforeWaiting ? 6000 : CASE_TIMEOUT_MS,
+        );
 
         let verdict = 'FAIL';
         let note = '';
+        let layeredResult = null;
         const probed = ffprobeDurationSeconds(testCase.fixture);
         const codec = probeVideoCodec(testCase.fixture);
 
@@ -515,8 +547,42 @@ async function main() {
           verdict = clean && settled.state.items.length === 0 && !settled.state.error ? 'PASS' : `FAIL(cancel left ${settled.outcome}, items=${settled.state.items.length}, error=${settled.state.error || 'none'})`;
           note = 'native dialog cancelled through the OS UI';
         } else if (dialog.code !== 0 && settled.outcome === 'timeout') {
-          verdict = testCase.expect === 'any' ? 'PASS' : 'BLOCKED';
+          // The OS dialog itself refused the path. Verify what the application
+          // layer can still prove about that path, and that nothing partial was
+          // imported, instead of leaving the row unexplained.
+          verdict = 'BLOCKED';
           note = `OS dialog refused the selection (exit=${dialog.code}); app kept no partial item and stayed interactive`;
+          if (testCase.layeredCheck) {
+            try {
+              const probePath = testCase.layeredCheck;
+              const layered = await evaluate(app.session, `(async () => {
+                const target = ${JSON.stringify(probePath)};
+                const out = { probe: null, url: null, error: null };
+                try {
+                  const result = await window.knouxCreativeAPI.export.probe(target);
+                  out.probe = {
+                    streams: (result.streams || []).map((s) => s.codec_type),
+                    videoCodec: (result.streams || []).find((s) => s.codec_type === 'video')?.codec_name || null,
+                    duration: Number(result.format?.duration ?? 0) || null,
+                  };
+                } catch (error) { out.error = String(error && error.message ? error.message : error).slice(0, 160); }
+                try { out.url = (await window.knouxCreativeAPI.media.toUrl(target)).slice(0, 24); } catch (error) { out.urlError = String(error && error.message ? error.message : error).slice(0, 120); }
+                return out;
+              })()`);
+              layeredResult = layered;
+              // The dialog never handed the path to the app, so the app cannot have
+              // authorized it. A refusal here is the allowlist working, not a
+              // long-path defect: claiming PASS would misstate what was proven.
+              const gateRefused = Boolean(layered && (layered.error || layered.urlError));
+              const gateReason = String((layered && (layered.error || layered.urlError)) || 'authorized path accepted').slice(0, 90);
+              verdict = 'BLOCKED';
+              note = gateRefused
+                ? `Windows' classic dialog refuses a ${testCase.pathLength}-char path (over MAX_PATH), so the app never receives it; the authorization gate also refuses to probe or serve a path it never authorized ("${gateReason}") and no partial item was imported`
+                : `Windows' classic dialog refuses a ${testCase.pathLength}-char path (over MAX_PATH) while the app layer accepted the same path (FFprobe streams=${JSON.stringify(layered.probe && layered.probe.streams)}); no partial item was imported`;
+            } catch (layeredError) {
+              note += `; layered check failed: ${String(layeredError.message || layeredError).slice(0, 120)}`;
+            }
+          }
         } else if (testCase.expect === 'error') {
           verdict = settled.outcome === 'error' ? 'PASS' : `FAIL(expected error, got ${settled.outcome})`;
         } else if (testCase.expect === 'any') {
@@ -556,6 +622,7 @@ async function main() {
           preview: settled.state?.preview ?? null,
           previewWarning: settled.state?.warning ?? null,
           pathLength: testCase.pathLength ?? path.resolve(testCase.fixture).length,
+          layered: layeredResult,
           verdict,
           note,
         };
@@ -576,33 +643,73 @@ async function main() {
 
         if (testCase.mode === 'save' && settled.outcome === 'item') {
           const projectPath = path.join(evidenceDir, 'matrix-project.knouxedit');
+          // The dialog can hand back a different letter case than it was given,
+          // and a stale file from an earlier run would trigger an overwrite
+          // prompt, so clear this run's own artifact and resolve it case-insensitively.
+          const resolveSaved = () => {
+            const wanted = path.basename(projectPath).toLowerCase();
+            try {
+              const hit = fs.readdirSync(evidenceDir).find((name) => name.toLowerCase() === wanted);
+              return hit && fs.statSync(path.join(evidenceDir, hit)).size > 0 ? path.join(evidenceDir, hit) : null;
+            } catch { return null; }
+          };
+          try { fs.rmSync(projectPath, { force: true }); } catch { /* stale artifact removal is best effort */ }
           const saveAutomation = startDialogAutomation('Save KNOUX multitrack project', projectPath);
           app.dialogChild = saveAutomation.child;
           await app.session.send('Input.dispatchKeyEvent', { type: 'keyDown', modifiers: 2, key: 's', code: 'KeyS', windowsVirtualKeyCode: 83, nativeVirtualKeyCode: 83 });
           await app.session.send('Input.dispatchKeyEvent', { type: 'keyUp', modifiers: 2, key: 's', code: 'KeyS', windowsVirtualKeyCode: 83, nativeVirtualKeyCode: 83 });
           const saveResult = await saveAutomation;
           app.dialogChild = null;
-          const exists = await new Promise((resolve) => {
+          const savedPath = await new Promise((resolve) => {
             const deadline = Date.now() + 20000;
-            const poll = () => resolve(fs.existsSync(projectPath) && fs.statSync(projectPath).size > 0 || Date.now() > deadline);
-            const timer = setInterval(() => { if (fs.existsSync(projectPath) && fs.statSync(projectPath).size > 0) { clearInterval(timer); resolve(true); } }, 500);
-            setTimeout(() => { clearInterval(timer); resolve(fs.existsSync(projectPath)); }, 20000);
+            const tick = () => {
+              const found = resolveSaved();
+              if (found || Date.now() > deadline) { clearInterval(timer); resolve(found); }
+            };
+            const timer = setInterval(tick, 500);
+            tick();
           });
+          const exists = Boolean(savedPath);
           let persisted = null;
-          if (exists) {
+          if (savedPath) {
             try {
-              const parsed = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
+              const parsed = JSON.parse(fs.readFileSync(savedPath, 'utf8'));
               const saved = (parsed.tracks || []).flatMap((track) => track.items || []);
               persisted = saved.find((entry) => path.resolve(entry.sourcePath || '') === path.resolve(testCase.fixture)) ?? null;
             } catch { persisted = 'unparseable'; }
           }
-          record.save = { dialogExit: saveResult.code, fileWritten: exists, persistedDuration: (persisted && persisted.duration) ?? null };
-          if (saveResult.code === 0 && exists && persisted && Math.abs(persisted.duration - probed) <= 0.3) {
+          // Reopen is only real if the app can read the file back from disk into
+          // a project, so the saved bytes alone are not enough evidence.
+          let reopened = null;
+          if (exists && persisted) {
+            try {
+              reopened = await evaluate(app.session, `(async () => {
+                try {
+                  const result = await window.knouxMultitrackAPI.openRecent(${JSON.stringify(savedPath)});
+                  const items = (result.project.tracks || []).flatMap((track) => track.items || []);
+                  return { ok: true, items: items.length, filePath: result.filePath, duration: items[0] ? items[0].duration : null };
+                } catch (error) {
+                  return { ok: false, error: String(error && error.message ? error.message : error).slice(0, 140) };
+                }
+              })()`);
+            } catch (reopenError) {
+              reopened = { ok: false, error: String(reopenError.message || reopenError).slice(0, 140) };
+            }
+          }
+          record.save = {
+            dialogExit: saveResult.code,
+            fileWritten: exists,
+            savedPath: savedPath || null,
+            persistedDuration: (persisted && persisted.duration) ?? null,
+            reopened,
+          };
+          if (saveResult.code === 0 && exists && persisted && Math.abs(persisted.duration - probed) <= 0.3
+            && reopened && reopened.ok && reopened.items >= 1) {
             verdict = 'PASS';
-            note = 'real Ctrl+S + native Save dialog persisted the item with its source path and FFprobe duration';
+            note = 'real Ctrl+S + native Save dialog persisted the item with its source path and FFprobe duration, and openRecent read it back from disk';
           } else {
             verdict = 'FAIL';
-            note = `save stage: dialog=${saveResult.code} written=${exists} persisted=${JSON.stringify(persisted)}`;
+            note = `save stage: dialog=${saveResult.code} written=${exists} persisted=${JSON.stringify(persisted)} reopened=${JSON.stringify(reopened)}`;
           }
           record.verdict = verdict;
           record.note = note;
@@ -617,10 +724,17 @@ async function main() {
         // invalid characters), that is an environment refusal, not an app defect
         // and not a pass either: record it as BLOCKED once the app is responsive.
         if (testCase.expect === 'any' && /CDP_TIMEOUT|MATRIX_BRIDGE_TIMEOUT/.test(message)) {
+          // Windows can raise its own "path too long" notice *after* the automation
+          // closed the dialog, and it blocks script evaluation until it is gone.
+          // Clear every remaining modal (test-owned dialogs only) before judging.
+          for (let round = 0; round < 3; round += 1) {
+            await cancelAnyDialog();
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
           await cancelAnyDialog();
           let responsive = false;
           try {
-            await waitBridge(app.session, 30000);
+            await waitBridge(app.session, 90000);
             const state = await evaluate(app.session, UI_READ);
             responsive = true;
             evidence.cases.push({
@@ -650,6 +764,7 @@ async function main() {
       }
     }
 
+    if (!only) {
     const importedKinds = [...new Set(evidence.cases.filter((entry) => entry.outcome === 'item').map((entry) => entry.item?.kind))];
     const succeeded = evidence.cases.filter((entry) => entry.outcome === 'item').length;
     evidence.cases.push({
@@ -659,7 +774,18 @@ async function main() {
       kinds: importedKinds,
       verdict: succeeded >= 3 && importedKinds.includes('video') && importedKinds.includes('audio') && importedKinds.includes('image') ? 'PASS' : 'FAIL',
     });
+    }
 
+    if (only) {
+      // Merge this subset back into the authoritative evidence file.
+      try {
+        const previous = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+        const replaced = new Set(evidence.cases.map((entry) => entry.id));
+        const carried = Array.isArray(previous.cases) ? previous.cases.filter((entry) => !replaced.has(entry.id)) : [];
+        evidence.cases = [...carried, ...evidence.cases];
+        evidence.subsetRuns = [...(previous.subsetRuns || []), { ranAt: new Date().toISOString(), ids: only }];
+      } catch { /* first run in subset mode keeps its own file */ }
+    }
     const failures = evidence.cases.filter((entry) => entry.verdict === 'FAIL');
     const blocked = evidence.cases.filter((entry) => entry.verdict === 'BLOCKED');
     evidence.verdict = failures.length === 0 ? (blocked.length ? `PASS_WITH_BLOCKED(${blocked.length})` : 'PASS') : `FAIL(${failures.length})`;

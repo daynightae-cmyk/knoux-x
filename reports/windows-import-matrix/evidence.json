@@ -2,7 +2,7 @@
   "product": "Knoux X",
   "mode": "packaged-import-matrix",
   "executable": {
-    "path": "out-import\\Knoux X-win32-x64\\knoux-player-x.exe",
+    "path": "out-export3\\Knoux X-win32-x64\\knoux-player-x.exe",
     "bytes": 186361344
   },
   "expectationLegend": {
@@ -549,25 +549,6 @@
       "note": "OS dialog refused the selection (exit=3); app kept no partial item and stayed interactive"
     },
     {
-      "id": "project-persist-and-reopen",
-      "fixture": "_temp\\import-matrix-fixtures\\base\\h264-aac.mp4",
-      "card": "Import video",
-      "expect": "item",
-      "dialog": {
-        "exitCode": 3,
-        "tail": "CONFIRM method=IDOK_CLICK\r | DIALOG_SELECT_TIMEOUT path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\base\\h264-aac.mp4\""
-      },
-      "outcome": "timeout",
-      "item": null,
-      "ffprobeDurationSeconds": 3,
-      "videoCodec": "h264",
-      "preview": null,
-      "previewWarning": null,
-      "pathLength": 118,
-      "verdict": "BLOCKED",
-      "note": "OS dialog refused the selection (exit=3); app kept no partial item and stayed interactive"
-    },
-    {
       "id": "synthetic-drop-cannot-authorize",
       "expect": "error",
       "status": "rejected",
@@ -580,12 +561,6 @@
       "status": "rejected",
       "message": "The desktop request was invalid.",
       "verdict": "PASS"
-    },
-    {
-      "id": "very-long-path",
-      "expect": "any",
-      "verdict": "BLOCKED",
-      "note": "OS refused the path; app recovery unconfirmed (CDP_TIMEOUT Runtime.evaluate)"
     },
     {
       "id": "hevc-h265",
@@ -626,23 +601,155 @@
         "image"
       ],
       "verdict": "PASS"
+    },
+    {
+      "id": "project-persist-and-reopen",
+      "fixture": "_temp\\import-matrix-fixtures\\base\\h264-aac.mp4",
+      "card": "Import video",
+      "expect": "item",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\base\\h264-aac.mp4\""
+      },
+      "outcome": "item",
+      "item": {
+        "name": "h264-aac.mp4",
+        "clock": "00:00:03.000",
+        "kind": "video"
+      },
+      "ffprobeDurationSeconds": 3,
+      "videoCodec": "h264",
+      "preview": {
+        "kind": "video",
+        "readyState": 4,
+        "width": 640,
+        "height": 360,
+        "error": null
+      },
+      "previewWarning": null,
+      "pathLength": 118,
+      "layered": null,
+      "verdict": "PASS",
+      "note": "real Ctrl+S + native Save dialog persisted the item with its source path and FFprobe duration, and openRecent read it back from disk",
+      "save": {
+        "dialogExit": 0,
+        "fileWritten": true,
+        "savedPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\windows-import-matrix\\MATRIX-PROJECT.KNOUXEDIT",
+        "persistedDuration": 3,
+        "reopened": {
+          "ok": true,
+          "items": 1,
+          "filePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\windows-import-matrix\\MATRIX-PROJECT.KNOUXEDIT",
+          "duration": 3
+        }
+      }
+    },
+    {
+      "id": "near-max-path",
+      "fixture": "_temp\\import-matrix-fixtures\\long-path-padding-level-0\\long-path-padding-level-1\\long-path-padding-level-2\\long-path-padding-level-3\\long-but-legal-clip-file.mp4",
+      "card": "Import video",
+      "expect": "item",
+      "dialog": {
+        "exitCode": 0,
+        "tail": "CONFIRM method=IDOK_CLICK rounds=1\r | DIALOG_SELECTED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\long-path-padding-level-0\\long-path-padding-level-1\\long-path-padding-level-2\\long-path-padding-level-3\\long-but-legal-clip-file.mp4\""
+      },
+      "outcome": "item",
+      "item": {
+        "name": "long-but-legal-clip-file.mp4",
+        "clock": "00:00:03.000",
+        "kind": "video"
+      },
+      "ffprobeDurationSeconds": 3,
+      "videoCodec": "h264",
+      "preview": {
+        "kind": "video",
+        "readyState": 4,
+        "width": 640,
+        "height": 360,
+        "error": null
+      },
+      "previewWarning": null,
+      "pathLength": 233,
+      "layered": null,
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "id": "very-long-path",
+      "fixture": "_temp\\import-matrix-fixtures\\nested-directory-level-0-with-padding-text\\nested-directory-level-1-with-padding-text\\nested-directory-level-2-with-padding-text\\nested-directory-level-3-with-padding-text\\nested-directory-level-4-with-padding-text\\nested-directory-level-5-with-padding-text\\deeply-nested-clip-file.mp4",
+      "card": "Import video",
+      "expect": "any",
+      "dialog": {
+        "exitCode": 4,
+        "tail": "RETRY_FILL round=4 method=SENDKEYS\r | DIALOG_REFUSED_AND_DISMISSED path=\"K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\_temp\\import-matrix-fixtures\\nested-directory-level-0-with-padding-text\\nested-directory-level-1-with-padding-text\\nested-directory-level-2-with-padding-text\\nested-directory-level-3-with-padding-text\\nested-directory-level-4-with-padding-text\\nested-directory-level-5-with-padding-text\\deeply-nested-clip-file.mp4\" (the OS dialog rejected this selection; nothing was left open)"
+      },
+      "outcome": "timeout",
+      "item": null,
+      "ffprobeDurationSeconds": 3,
+      "videoCodec": "h264",
+      "preview": null,
+      "previewWarning": null,
+      "pathLength": 386,
+      "layered": {
+        "probe": null,
+        "url": null,
+        "error": "The desktop service could not complete the request.",
+        "urlError": "The desktop service could not complete the request."
+      },
+      "verdict": "BLOCKED",
+      "note": "Windows' classic dialog refuses a 386-char path (over MAX_PATH), so the app never receives it; the authorization gate also refuses to probe or serve a path it never authorized (\"The desktop service could not complete the request.\") and no partial item was imported"
     }
   ],
-  "verdict": "PASS_WITH_BLOCKED(2)",
-  "startedAt": "2026-10-24T07:10:58.407Z",
+  "verdict": "PASS_WITH_BLOCKED(1)",
+  "startedAt": "2026-10-24T17:31:46.455Z",
   "build": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "eaeb83ae8b6d368ffe8bace29821c5917cbf2006",
+    "sha": "28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5",
     "branch": "main",
-    "builtAt": "2026-10-24T05:46:38.024Z",
+    "builtAt": "2026-10-24T17:07:48.997Z",
     "packaged": true,
     "electronVersion": "32.3.3"
   },
+  "subsetRuns": [
+    {
+      "ranAt": "2026-10-24T16:43:44.213Z",
+      "ids": [
+        "very-long-path",
+        "project-persist-and-reopen"
+      ]
+    },
+    {
+      "ranAt": "2026-10-24T17:19:46.150Z",
+      "ids": [
+        "very-long-path",
+        "near-max-path"
+      ]
+    },
+    {
+      "ranAt": "2026-10-24T17:21:15.592Z",
+      "ids": [
+        "near-max-path"
+      ]
+    },
+    {
+      "ranAt": "2026-10-24T17:30:56.742Z",
+      "ids": [
+        "near-max-path",
+        "very-long-path",
+        "project-persist-and-reopen"
+      ]
+    },
+    {
+      "ranAt": "2026-10-24T17:33:24.354Z",
+      "ids": [
+        "very-long-path"
+      ]
+    }
+  ],
   "failedIds": [],
   "blockedIds": [
-    "project-persist-and-reopen",
     "very-long-path"
   ],
-  "completedAt": "2026-10-24T07:23:23.230Z"
+  "completedAt": "2026-10-24T17:33:40.546Z"
 }

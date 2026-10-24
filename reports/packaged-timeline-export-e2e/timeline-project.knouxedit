@@ -1,10 +1,10 @@
 {
   "schema": "knoux-multitrack",
   "version": 1,
-  "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646",
+  "id": "c7294887-af54-485f-9ee7-4aafe32e35ed",
   "name": "Packaged Timeline Export E2E",
-  "createdAt": "2026-10-24T04:28:57.052Z",
-  "updatedAt": "2026-10-24T04:29:00.164Z",
+  "createdAt": "2026-10-24T17:26:14.278Z",
+  "updatedAt": "2026-10-24T17:26:17.199Z",
   "settings": {
     "width": 1920,
     "height": 1080,
@@ -18,7 +18,7 @@
   },
   "tracks": [
     {
-      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-video-1",
+      "id": "c7294887-af54-485f-9ee7-4aafe32e35ed-video-1",
       "kind": "video",
       "name": "Video 1",
       "order": 0,
@@ -31,8 +31,8 @@
       "pan": 0,
       "items": [
         {
-          "id": "0bf5fbdd-f86c-4436-afc8-464363a0cc71",
-          "trackId": "ea495f48-39b5-4504-ae7a-9b13e7a20646-video-1",
+          "id": "881dbe07-950a-4815-a41a-e48c852222d4",
+          "trackId": "c7294887-af54-485f-9ee7-4aafe32e35ed-video-1",
           "kind": "video",
           "name": "Real packaged MP4 source",
           "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-retouch-r1-handoff-20261022\\reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
@@ -73,7 +73,7 @@
       ]
     },
     {
-      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-audio-1",
+      "id": "c7294887-af54-485f-9ee7-4aafe32e35ed-audio-1",
       "kind": "audio",
       "name": "Audio 1",
       "order": 1,
@@ -87,7 +87,7 @@
       "items": []
     },
     {
-      "id": "ea495f48-39b5-4504-ae7a-9b13e7a20646-title-1",
+      "id": "c7294887-af54-485f-9ee7-4aafe32e35ed-title-1",
       "kind": "text",
       "name": "Titles",
       "order": 2,
@@ -100,8 +100,8 @@
       "pan": 0,
       "items": [
         {
-          "id": "158ba608-f694-4154-8c10-ef808384c479",
-          "trackId": "ea495f48-39b5-4504-ae7a-9b13e7a20646-title-1",
+          "id": "81b0bb94-e2b5-4b46-93fe-1e9bad978213",
+          "trackId": "c7294887-af54-485f-9ee7-4aafe32e35ed-title-1",
           "kind": "text",
           "name": "KNOUX TIMELINE E2E BAKED",
           "sourcePath": null,

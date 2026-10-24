@@ -2,7 +2,7 @@
   "product": "Knoux X",
   "mode": "packaged-desktop-timeline-export-e2e",
   "commit": null,
-  "executable": "out-verify\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "executable": "out-export3\\Knoux X-win32-x64\\knoux-player-x.exe",
   "fixture": {
     "path": "reports\\packaged-timeline-export-e2e\\timeline-source.mp4",
     "formatName": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -17,7 +17,7 @@
   "packagedIdentity": {
     "product": "Knoux X",
     "version": "2.1.0",
-    "sha": "eaeb83ae8b6d368ffe8bace29821c5917cbf2006",
+    "sha": "28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5",
     "packaged": true
   },
   "project": {
@@ -37,18 +37,18 @@
   },
   "output": {
     "path": "reports\\packaged-timeline-export-e2e\\timeline-export.webm",
-    "bytes": 508003,
+    "bytes": 1079782,
     "formatName": "matroska,webm",
     "duration": 0,
-    "size": 508003,
+    "size": 1079782,
     "videoCodec": "vp8",
     "audioCodec": "opus",
     "width": 1920,
     "height": 1080,
     "avgFrameRate": "0/0",
-    "measuredDuration": 3.235,
+    "measuredDuration": 3.299,
     "durationMeasurement": "packet-pts",
-    "durationPacketCount": 70
+    "durationPacketCount": 97
   },
   "pixelProof": {
     "sourceEarly": {
@@ -63,24 +63,24 @@
     "outputEarly": {
       "width": 320,
       "height": 180,
-      "sha256": "d3c12c87da4066b8b07a0592d6bef049e88ac2aa93de1f434659ad1a9d74d56a",
-      "meanChannel": 126.11870949074074,
+      "sha256": "835815fa46bb2a10f84b8e12e7cf0eb93971a59af0ba8641e098a3e6ff405bf2",
+      "meanChannel": 126.24263888888889,
       "nonBlackPixelRatio": 1,
-      "brightPixelRatio": 0.9825694444444445,
+      "brightPixelRatio": 0.9790798611111111,
       "maxChannel": 255
     },
     "outputLate": {
       "width": 320,
       "height": 180,
-      "sha256": "38d7ed871f4c85e2216e83d954a91e29a7b404b4968c48dcae1d74cb3852fbc6",
-      "meanChannel": 2.476747685185185,
+      "sha256": "f5f5403c922ef881788555005f9ed2a69cbd98f637d2f4169862fb2368f11d41",
+      "meanChannel": 2.4768287037037036,
       "nonBlackPixelRatio": 0.014427083333333333,
       "brightPixelRatio": 0.007795138888888889,
       "maxChannel": 255
     },
     "earlyDifference": {
-      "meanAbsoluteChannelDifference": 17.16705439814815,
-      "materiallyDifferentPixelRatio": 0.14024305555555555
+      "meanAbsoluteChannelDifference": 16.659027777777776,
+      "materiallyDifferentPixelRatio": 0.13663194444444443
     },
     "lateSampleSeconds": 2.5,
     "sourceEndsBeforeLateSample": true,

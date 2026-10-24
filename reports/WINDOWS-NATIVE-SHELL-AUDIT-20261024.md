@@ -106,7 +106,11 @@ New tests: `tests/unit/navigation-policy.test.ts` — 5 cases: packaged renderer
 | Desktop timeline export materialised the **entire** rendered Blob in memory: `const bytes = new Uint8Array(await rendered.blob.arrayBuffer())` then one IPC write (`DesktopVideoStudioView.tsx:190`), i.e. renderer Blob + renderer ArrayBuffer + main-process copy. At the capped 45 Mbit/s bitrate (`timelineBitrate()`) that is ~5.6 MB/s of timeline — a 10-minute 1080p project needs several GB and can fail with an OOM or a truncated file | FIXED | New `src/features/video-studio/chunkedBlobWriter.ts` streams 32 MB slices (hard clamp 64 MB) with exact-offset accounting; new IPC channel `file:append` requires the destination to be authorized, chunk size in range, and `fs.stat().size === offset`, so a lost/duplicated chunk can never pass silently; the writer verifies `writtenBytes === blob.size`. Peak memory is now bounded by one chunk instead of the whole render |
 | A failed/cancelled write left a half-file that looked like an export | FIXED | `DesktopVideoStudioView` tracks `destinationWritten` and deletes only the file this run created on any failure; the pre-existing O_EXCL exclusive-create and "never overwrite an existing file" rules are kept, as is the existing packet-extent coverage guard that already deletes a truncated accepted output |
 | Export correctness proof | PARTIAL | Packaged timeline-export E2E against the new build: **attempt 1 failed honestly** — the app's own guard reported `The exported file ended before the timeline finished and was not accepted` (MediaRecorder under load produced a short render; nothing was accepted); **attempt 2 PASSED** — `Export verified`, output `vp8 + opus`, `1920x1080`, 508,003 bytes, packet-measured content extent `3.235 s` from 70 video packets, strict decode of early/late frames with pixel proof (`earlyDifference.materiallyDifferentPixelRatio 0.140`, `nonBlackPixelRatio` 1 early / 0.014 late, `sourceEndsBeforeLateSample true`) |
-| Remaining root cause | OPEN | The desktop render is still Chromium `MediaRecorder` (`DESKTOP_TIMELINE_PREFERRED_MIME_TYPES`, VP8-first for determinism) rather than a native FFmpeg render pipeline. The rejection guard makes failure truthful, but intermittency under machine load is not eliminated. A native FFmpeg-backed renderer is the recommended next slice; it was **not** attempted here because replacing a working renderer without its own compatibility gate would risk the successful workflows the directive protects |
+| **Realtime encoder intermittency (round 2)** | FIXED (bounded retry) / OPEN (root cause) | New `src/features/video-studio/exportAttemptPolicy.ts` + a retry loop in `DesktopVideoStudioView.renderAndSave()`: a transient encoder failure re-encodes the **identical** timeline (same width/height/fps/bitrate/mimeType order — asserted in the unit test) up to `MAX_RENDER_ATTEMPTS = 3`, with a `400 ms × attempt` backoff. Every rejected output is deleted before the next attempt, and if Windows still holds the rejected file the attempt moves to a numbered sibling (`film-timeline (2).webm`) instead of overwriting anything. A cancelled run is never retried, and an "output already exists" conflict is never retried either. When all attempts stall, the message states it: `… — after 3 automatic attempts` |
+| Retry classification proven against the real failure modes | VERIFIED (unit + packaged) | Two starvation shapes were reproduced on the packaged EXE and are now both retryable: a short file (`ended before the timeline`) and **zero bytes** (`The project encoder produced an empty file.`), plus `encoder stopped unexpectedly` / `no valid video stream`. `tests/unit/export-attempt-policy.test.ts` (9 cases) and `tests/unit/desktop-timeline-export-retry.test.tsx` (7 cases, real component with the real coverage guard) cover retry-then-success, attempt-count reporting, the bounded cap, numbered-sibling relocation, no-bytes retry with no cleanup needed, and cancellation |
+| Does the retry rescue a saturated machine? | PARTIAL — measured honestly | With three test-owned CPU loops running, the packaged export failed on **all three** attempts and reported `… after 3 automatic attempts`; the same load previously produced a single silent failure. An A/B against the *older* binary (which had passed 5/5 minutes earlier on a quiet machine) failed identically under the same load, so the cause is machine saturation, not the retry change. Five consecutive packaged E2E runs on the retry build passed while the machine was quieter (`3.282 s` / `3.415 s` measured content extent vs a 3.5 s timeline, `vp8 + opus`, 1920×1080) |
+| Remaining root cause | OPEN | The desktop render is still Chromium `MediaRecorder` (`DESKTOP_TIMELINE_PREFERRED_MIME_TYPES`, VP8-first for determinism) driven by wall-clock `requestAnimationFrame`, so the encoder competes with every other process for the frames it needs. The rejection guard makes failure truthful and the retry recovers the common case, but only a **non-realtime** pipeline (native FFmpeg fed frame-by-frame, or explicit `captureStream` frame ticking) removes the intermittency. That layer lives in `src/features/export/manualFrameCapture.ts`, which a concurrent agent is actively modifying in `Worktrees/knoux-x-r3-acceptance-20261023` — deliberately **not** touched here to avoid overwriting in-flight work |
+
 
 New tests: `tests/unit/chunked-blob-writer.test.ts` — 5 cases including byte-exact multi-chunk output with real files, exact offset sequence `[128,256,…]`, single-chunk create-only, empty render rejected **before** touching the destination, mid-write failure surfaced with a short file left (so cleanup runs), and chunk-size clamping.
 
@@ -153,10 +157,15 @@ a clean error surface and the right request kind). Evidence:
 `reports/windows-import-matrix/evidence.json` + `final.png` + `run.log`, against
 `out-import/Knoux X-win32-x64/knoux-player-x.exe` built from `eaeb83a`.
 
-**verdict = `PASS_WITH_BLOCKED(2)` — 24 PASS, 0 FAIL, 2 BLOCKED**
+**verdict = `PASS_WITH_BLOCKED(1)` — 26 PASS, 0 FAIL, 1 BLOCKED** (27 rows; round 2 merged subset runs against `out-export3/Knoux X-win32-x64`, `app.asar` SHA-256 `59358dea…97063`, build sha reported by the app itself `28e1d25b`)
+
+The first pass of this table recorded **2 BLOCKED** rows. Both are now closed: `project-persist-and-reopen` is a PASS, and `very-long-path` is a single BLOCKED whose reason is measured rather than assumed. `tools/dismiss-native-dialog.ps1` was hardened (read-back of the typed filename, up to four accept rounds with closure checks, "Confirm Save As" handling, and — on refusal — dismissing the dialog and exiting `4` so no window-modal can wedge CDP), and the matrix harness gained subset mode (`KNOUX_MATRIX_ONLY`) plus evidence merging.
 
 | Row | Result | Real evidence |
 | --- | --- | --- |
+| `project-persist-and-reopen` | **PASS** (was BLOCKED) | real `Ctrl+S` → native Save dialog → `.knouxedit` written → item stored with its source path and FFprobe-matching duration → **`openRecent()` reads the project back from disk in the packaged app**. The Windows dialog can hand back a different letter case, so the row resolves the actual file case-insensitively and clears its own stale artifact before saving |
+| `near-max-path` | **PASS** (new row) | a legal-but-long path padded to just under `MAX_PATH` (adaptive to this machine's own repo path) imports through the real dialog as a `video` item with the expected clock — this is the row that actually proves long-path handling inside the app |
+| `very-long-path` (386 chars > `MAX_PATH`) | **BLOCKED** | measured, not assumed: Windows' classic `GetOpenFileName` dialog refuses the typed path (automation exits `4` after closing it), so the app never receives it; the harness then asks the app to probe/serve that same path and the **authorization gate refuses** it (`The desktop service could not complete the request.`) — correct security behaviour, since a path no user selected was never authorized. No partial item was imported and the app stayed interactive. An earlier run's claim that the app layer "could not read it either" was wrong and is corrected here: it was the allowlist, not a long-path defect |
 | `h264-aac-mp4` | PASS | item `video`, clock matches packaged FFprobe |
 | `mp4-without-audio` | PASS | item added; `hasAudio false` handled |
 | `mov` / `webm` / `mkv` / `m4v` | PASS | items with FFprobe-matching durations |
@@ -178,8 +187,8 @@ a clean error surface and the right request kind). Evidence:
 | `synthetic-drop-cannot-authorize` | PASS | rejected: `The desktop request was invalid.` — a fabricated drag cannot bypass path authorization |
 | `unsupported-extension-drop-rejected` | PASS | `payload.exe` rejected by the shared drop contract |
 | `repeated-imports-across-kinds` | PASS | video + audio + image all imported across the run |
-| `project-persist-and-reopen` | **BLOCKED** | this run's Save dialog refused the typed path (`exit=3`), so the row recorded no partial import. The same journey **is** verified: the dedicated `verify-packaged-video-import-e2e.cjs` run passed real Ctrl+S → native Save dialog → `.knouxedit` (2,775 B, source path + duration) → relaunch → reopen from Recent |
-| `very-long-path` (~300 chars > `MAX_PATH`) | **BLOCKED** | the classic Windows dialog itself rejects the path; while that window-modal dialog is up, script evaluation on the page is blocked, so the harness could not confirm the app-side recovery. No partial import was recorded. OS-level limit, not an app defect — needs a long-path-aware dialog invocation |
+
+Run history, kept because the machine was busy: `project-persist-and-reopen` passed on its first subset attempt; `near-max-path` first reported a harness `MATRIX_BRIDGE_TIMEOUT` (the desktop was at 80–85 % load, with other agents' Electron and Vite processes running) and passed cleanly on re-run; `very-long-path` was BLOCKED in every run, and one run additionally recorded "recovery unconfirmed" — after which the harness was hardened to clear lingering modals in three rounds before judging, which produced the measured note now stored. All five subset runs are listed in `evidence.json → subsetRuns`, and the merged file always reflects the latest run per row id.
 
 ## [TEST] Final gate re-run after the matrix work
 
@@ -189,6 +198,23 @@ a clean error surface and the right request kind). Evidence:
 | `npx eslint <27 changed files> --max-warnings=0` | 0 | clean (one `no-var-requires` in the library test fixed with `jest.requireActual`) |
 | `node --check` on 10 touched tools + `forge.config.js` | 0 | clean |
 | image-name kill scan (`'/IM'` in `tools`/`scripts`) | — | **0 matches** |
+
+## [TEST] Round 2 gates (export retry + blocked-row closure)
+
+| Gate | Command | Exit | Result |
+| --- | --- | --- | --- |
+| TypeScript | `npm run typecheck` | 0 | clean |
+| ESLint | `npx eslint` on the 4 changed/created app+test files | 0 | clean |
+| Tool syntax | `node --check tools/verify-packaged-import-matrix.cjs`, PowerShell AST parse of `dismiss-native-dialog.ps1` | 0 | clean |
+| New suites | `export-attempt-policy` (9) + `desktop-timeline-export-retry` (7, real component, real coverage guard) | 0 | all pass |
+| Full unit suite | `npx node@20 node_modules/jest/bin/jest.js` | 0 | **191 suites / 1,637 tests passed, 0 failed** (see note below on contention) |
+| Package | `KNOUX_FORGE_OUT_DIR=out-export3 npx electron-forge package` | 0 | `out-export3/Knoux X-win32-x64/knoux-player-x.exe` 186,361,344 B; `resources/app.asar` SHA-256 `59358dea…97063`; app-reported build sha `28e1d25b` (= HEAD + the uncommitted export-retry edits) |
+| Packaged matrix subset | `KNOUX_MATRIX_ONLY=project-persist-and-reopen,very-long-path` then `…=very-long-path,near-max-path` then `near-max-path` | 0 | `project-persist-and-reopen` **PASS**, `near-max-path` **PASS**, `very-long-path` **BLOCKED** with the measured reason |
+| Packaged export, quiet machine | `KNOUX_EXPORT_PACKAGE_ROOT=out-export/Knoux X-win32-x64 node tools/run-packaged-timeline-export-cdp-e2e.cjs` ×5 | 0 ×5 | **5/5 PASS** (`3.282 s` / `3.415 s` measured content extent against a 3.5 s timeline, `vp8 + opus`, 1920×1080) |
+| Packaged export, saturated machine | same E2E with 3 test-owned CPU loops, then re-run against the *older* binary | 1 | both binaries fail on all attempts; the retry build reports `… after 3 automatic attempts`. The A/B proves saturation, not a regression from the retry. Load loops were terminated by their own PIDs (`taskkill /PID <pid> /F` matched on their exact command line), never by image name |
+
+Contention note: the first full-suite pass in round 1 ran while a package build was active and one real-FFmpeg timing test (`slideshow-execution-planner` › "100 slides stay below the safe max-line ceiling") exceeded its 5 s default; re-run alone it passes in ~4 s (9/9). No test timeout, skip, or assertion was weakened.
+
 
 ## [TEST] Commands, exit codes, results (earlier gate sweep)
 
@@ -211,7 +237,7 @@ a clean error surface and the right request kind). Evidence:
 
 ---
 
-## Files changed (working tree, uncommitted)
+## Files changed (round 1 = commit `28e1d25b`, local and not pushed)
 
 Modified source: `src/features/editor/MultitrackEditorView.tsx`, `src/features/library/LibraryView.tsx`, `src/features/video-studio/DesktopVideoStudioView.tsx`, `src/locales/multitrackEditor.ts`, `src/styles/multitrack-editor.css`, `electron/ipc/setup.ts`, `electron/ipc/contract.ts`, `electron/ipc/channel-types.ts`, `electron/ipc/channel-source-inventory.ts`, `electron/preload.ts`, `electron/preload-creative.ts`, `electron/library/library-service.ts`, `electron/window.ts`, `electron/creative/recording-region-service.ts`, `electron/creative/region-capture-service.ts`, `forge.config.js` (opt-in `KNOUX_FORGE_OUT_DIR` only).
 New source: `src/features/editor/importMetadata.ts`, `src/features/video-studio/chunkedBlobWriter.ts`, `electron/security/media-file-types.ts`, `electron/security/navigation-target.ts`, `electron/navigation-policy.ts`, `electron/window-state.ts`.
@@ -219,6 +245,15 @@ New tests: `tests/unit/import-metadata.test.ts`, `dropped-media-contract.test.ts
 New/changed tooling: `tools/lib/packaged-process-lifecycle.cjs` (new), `tools/verify-packaged-video-import-e2e.cjs` (new), `tools/verify-packaged-import-matrix.cjs` (new), `tools/dismiss-native-dialog.ps1` (real `-SelectPath` selection), `tools/knoux-performance-probe.cjs`, `tools/verify-packaged-video-studio-entry.cjs`, `tools/run-packaged-retouch-e2e.cjs`, `tools/run-packaged-timeline-export-e2e.cjs`, `tools/run-packaged-timeline-export-cdp-e2e.cjs`, `tools/run-packaged-player-preferences-cdp-e2e.cjs`, `.gitignore` (ignore isolated `out-*/` verification builds and harness-run profiles so build output can never be committed by accident).
 Regenerated evidence: `reports/windows-video-import-e2e/*`, `reports/packaged-timeline-export-e2e/*`, `_temp/live-evidence/windows-performance-eaeb83a-*.json`.
 Build output kept out of the source tree: `out-verify/` (isolated, created only because `out/...app.asar` is held by an external lock — see Blockers).
+
+**Round 2 (second local commit, still not pushed)**
+- New source: `src/features/video-studio/exportAttemptPolicy.ts` (bounded retry classification, backoff, attempt label, numbered-sibling relocation).
+- Modified source: `src/features/video-studio/DesktopVideoStudioView.tsx` (retry loop around render→write→verify, partial-file hygiene, attempt-count reporting, retry note), `src/styles/desktop-timeline-export.css` (note style).
+- New tests: `tests/unit/export-attempt-policy.test.ts` (9), `tests/unit/desktop-timeline-export-retry.test.tsx` (7 — real component, real coverage guard, parked-render cancellation).
+- Modified tooling: `tools/verify-packaged-import-matrix.cjs` (subset mode `KNOUX_MATRIX_ONLY` + evidence merge, fixture reuse, case-insensitive save resolution, `openRecent()` read-back, new `near-max-path` row, corrected over-`MAX_PATH` reason, short wait after an OS refusal, three-round modal clearing before judging recovery), `tools/dismiss-native-dialog.ps1` (filename read-back, four accept rounds, "Confirm Save As", dismiss-and-exit-`4`).
+- Regenerated evidence: `reports/windows-import-matrix/evidence.json` (27 rows with `subsetRuns`), `reports/export-e2e-*.log`, `reports/out-export*-package.log`, `reports/jest-full-round2.log`.
+- Verification binaries: `out-export/` (truncation-only retry; 5/5 export PASS while quiet), `out-export2/` (broadened retry), `out-export3/` (attempt-count reporting; matrix + under-load runs). Each is a separate isolated build directory because `out/` remains lock-blocked.
+
 
 ---
 
@@ -235,8 +270,8 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 | --- | --- |
 | Video Studio import through the real native picker: metadata → timeline → preview → save → reopen (H.264/AAC MP4) | **VERIFIED** |
 | Explorer drag/drop extension contract | **PARTIAL** — unified, unit- and source-guard tested; the literal Explorer drag gesture is not automated in packaged mode |
-| Full directive §3 matrix (MOV, WEBM, MKV, AVI, M4V, HEVC, audio-only, image, invalid, truncated, zero-byte, Arabic name, spaces, read-only source, deleted-after-selection, rapid double-click, navigate away/back, repeated import, large file, synthetic/unsupported drops) | **VERIFIED on the packaged EXE** — 24 PASS / 0 FAIL; two environment-level rows BLOCKED (`>MAX_PATH` dialog refusal, this run's Save-dialog refusal, whose journey is separately VERIFIED) — see the matrix section above |
-| Timeline export | **PARTIAL** — correct, pixel- and FFprobe-verified, truncation-honest; intermittently truncated by MediaRecorder under load (1 of 2 runs). Native FFmpeg-backed render pipeline: **NOT-IMPLEMENTED** (recommended) |
+| Full directive §3 matrix (MOV, WEBM, MKV, AVI, M4V, HEVC, audio-only, image, invalid, truncated, zero-byte, Arabic name, spaces, read-only source, deleted-after-selection, rapid double-click, navigate away/back, repeated import, large file, synthetic/unsupported drops, near-`MAX_PATH` path, project persist + reopen) | **VERIFIED on the packaged EXE** — 26 PASS / 0 FAIL / 1 BLOCKED. Both rows that were BLOCKED in the first pass are closed: `project-persist-and-reopen` now passes with a real `openRecent()` read-back, and `very-long-path` is a single measured environment limit (over-`MAX_PATH` dialog refusal + the authorization gate doing its job) |
+| Timeline export | **PARTIAL** — correct, pixel- and FFprobe-verified; a starved realtime encoder is now retried up to 3 times with no partial file ever kept, and the app says so (`… after 3 automatic attempts`). 5/5 packaged runs pass on a quiet machine; under an 80 %-saturated desktop all attempts fail truthfully (A/B against the older binary proves it is the machine, not the code). Native FFmpeg-backed / non-realtime render pipeline: **NOT-IMPLEMENTED** (the remaining root cause; `manualFrameCapture.ts` is being edited by a concurrent agent and was deliberately left alone) |
 | Library-wide counts and access to all indexed files | **VERIFIED** at unit level (real SQLite); UI wiring type-checked; not re-measured in packaged mode |
 | Navigation/new-window policy, window-state persistence | **IMPLEMENTED-NOT-VERIFIED** at runtime — unit-tested predicate, applied to all three app windows; runtime restore/deny not yet exercised on a desktop |
 | Windows shell integration (file associations, taskbar progress, media keys, notifications, tighter fuses) | **UNKNOWN / unchanged** — reviewed, no confirmed defect, no change made without evidence |
@@ -246,4 +281,14 @@ Build output kept out of the source tree: `out-verify/` (isolated, created only 
 
 ## Final Git status
 
-Branch `main` at `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, identical to remote `main`. The working tree contains only the uncommitted repairs listed above plus regenerated evidence and the isolated `out-verify/` build. No commit, push, PR, merge, tag, release or publication performed; no branch or worktree created; no reset/clean/force operation; the three other worktrees and all their uncommitted and untracked artifacts are untouched; the preservation archive was not modified.
+Round 1 was committed locally as `28e1d25b2b003bb0e6b8a3832a00a1cfbbdb79d5` (parent `eaeb83ae8b6d368ffe8bace29821c5917cbf2006`, 54 paths, +3,583/−191) and round 2 as the commit recorded in `[NEXT]` below; both sit on the local `main` of this worktree and **neither is pushed**. Remote `main` remains `eaeb83a`.
+
+No push, PR, merge, tag, release or publication was performed; no branch or worktree was created or deleted; no `reset`/`clean`/force operation was run; the three other worktrees and all of their uncommitted and untracked artifacts (`manualFrameCapture.ts`, `file-dialog-policy.ts`, `electron/ipc/setup.ts` edits in `knoux-x-r3-acceptance-20261023`, the 31 evidence files in `knoux-x-authority`) were left untouched and were explicitly checked before each commit; the preservation archives under `Backups\` were extended, never trimmed. Isolated verification builds (`out-export*`, `out-verify`, `out-import`) and harness profiles are git-ignored by `out-*/` and `reports/.*-profile-*/`, so they cannot be committed by accident.
+
+## [NEXT] Steps for a future GitHub PR (not executed)
+
+1. `git log --oneline eaeb83a..HEAD` and review both commits; run `npm run typecheck && npm run lint && npm test` on a quiet machine.
+2. `git push -u origin main` (or fast-forward a fresh branch) requires explicit authorization — it has not been done.
+3. Open the PR and let `full-rebuild-windows.yml` / `knoux-live-release.yml` produce `Setup.exe` on a Windows runner (this workstation cannot: `7z` not on PATH and the external `app.asar` lock), then verify exactly one `*Setup.exe` over 1 MB, record its SHA-256 and signing state, and run clean-install + upgrade tests against isolated user data.
+4. Keep the two export follow-ups as their own slices: non-realtime rendering (`manualFrameCapture.ts`, owned by the concurrent agent) and the native FFmpeg pipeline.
+

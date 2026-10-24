@@ -53,7 +53,12 @@ One file is genuinely absent from main: `tests/unit/atomic-write-transient-renam
 ## [FIXED] Actions taken under authorization
 
 1. **PR #82 `fix/windows-native-shell-20261024` merged** → main `1f19b4b6f376d01a026b5987ac5bfcd28cb4aab9` at 2026-10-24T20:33:15Z. Merged on evidence, not on hope: every executed lane green on the exact head `12b808f` — `KNOUX Full Rebuild Windows`, `Player Viewport Windows`, `Windows Timeline Export E2E`, `Windows Packaged Creative + Recording Real E2E`, `Android APK (Capacitor)`, `Android Release Acceptance` (6 success, 2 workflow-level skips by design). Local branch fast-forwarded to the new main; no force, no rewrite.
-2. **PR #80 `fix/save-dialog-properties-20261023`** — genuinely unique work that was sitting as a draft with **all** checks passing (debug APK, CI-signed release APK, `validate-package`, timeline export, packaged creative + recording). Verified it is conflict-free against the *new* main with `git merge-tree` (read-only, exit 0, no conflict paths). Marked ready (`gh pr ready`), then GitHub refused the merge with "the head branch is not up to date with the base branch" — a real branch-protection rule, not a formality. Solved it properly with `gh pr update-branch` (GitHub merges main into the PR head; head became `0183ee9d`), which re-triggered its full check suite. **Merge waits for that suite to go green** — merging a stale-base head whose CI never ran against the new main is precisely the kind of unverified claim the audit rules forbid.
+2. **PR #80 `fix/save-dialog-properties-20261023` merged** at 2026-10-24T21:09:12Z → main `d2a60c5a`. Sequence, because the shortcut was available and deliberately not taken: it was a **draft** whose own checks all passed → verified conflict-free against the new main with read-only `git merge-tree` → `gh pr ready` → GitHub then refused the merge ("the head branch is not up to date with the base branch", a real branch-protection rule) → `gh pr update-branch` merged main into the PR head (`0183ee9d`) and re-ran the *entire* suite against the combined code → all lanes passed (debug APK, CI-signed release APK, `validate-package`, timeline export, packaged creative + recording) → only then merged. `--admin` to skip the base-up-to-date rule was **not** used, because that rule exists exactly to stop merging code whose CI ran against a different base.
+
+What PR #80 contributes, and why it was worth landing: `electron/ipc/file-dialog-policy.ts` (+23) and `electron/ipc/setup.ts` (+11) preserve validated native save-dialog properties that were being dropped, plus `tests/unit/file-save-dialog-options.test.ts`, a media-discovery fixture restore test, a pre-install ANR status test, and line-ending normalisation before Bash execution in the Android acceptance. This is the same defect family as directive §3 (the native dialog must hand back exactly what the user chose), and it had already been green on its own head for a day without anyone landing it.
+
+3. **Nothing else was pushed**, because nothing else needed pushing: `git log --branches --tags --not --remotes=origin` is empty, so every local commit already exists on the remote. The 29 merged branches, the 2 already-upstream-patch branches and the 6 stale/regressive branches were left exactly as they are; no branch was deleted, no worktree was removed, no force-push, no history rewrite.
+
 
 ## Debug and release APK — the definitive position
 
@@ -66,12 +71,29 @@ One file is genuinely absent from main: `tests/unit/atomic-write-transient-renam
 | Is Windows signed? | **No.** No `signtool`/certificate/Authenticode step exists in `full-rebuild-windows.yml` or `forge.config.js`; `knoux-live-release.yml` would report `not-configured` because its own signing check reads the real signature status. `Setup.exe` from CI is unsigned and must never be labelled a verified signed production release |
 | Can I just run the release lane for you? | Not as a side effect: `mode: draft` still **creates a tag and a draft GitHub Release** (`gh release create --draft` plus `gh release upload`), so it changes the repository's published surface. That needs a specific go-ahead — say `draft` or `publish` and it is one command |
 
-## Final status after the merge train
+### Measured APK facts (from the last green runs, not from workflow text)
 
-_(filled from `reports/…` CI records; see the summary delivered with this file.)_
+| Fact | Debug lane | Release acceptance lane |
+| --- | --- | --- |
+| Run used | 40127644578 (head `12b808f`) | 40127644571 (head `12b808f`) |
+| Build | `./gradlew assembleDebug --no-daemon --stacktrace` → `BUILD SUCCESSFUL in 1m 29s` | `bash tools/android-ci-release.sh android-ci-release-output android` |
+| Staged artefact | `android-ci-output/KNOUX-X-Android-debug.apk` with `.sha256` and `.size` sidecars, `test -s` enforced | `android-ci-release-output/KNOUX-X-Android-release-ci-signed.apk`, verified by `node tools/verify-android-apk.cjs` |
+| Uploaded artefact size | **129,127,249 bytes** | **122,601,749 bytes** |
+| Signature | Android debug keystore — a debug build is never a release candidate | `apksigner`: **v2 scheme true, v3 scheme true**, v1 (JAR) false, v3.1 false, v4 false |
+| Signer identity | — | `CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, L=Abu Dhabi, ST=Abu Dhabi, C=AE`, RSA 3072, certificate SHA-256 `f0ede6c760517640d58d65dda966203888d8745c0df723d332cc175170859759` |
+| Reading | installable debug APK proven on an API-35 KVM emulator | a **CI verification key**, proving the release build signs, installs and launches — **not** a Play/production upload key |
+
+## Final status after the merge train
 
 | Ref | Debug APK lane | Release acceptance lane | Full Rebuild Windows | Timeline export E2E | Packaged creative + recording |
 | --- | --- | --- | --- | --- | --- |
-| `12b808f` (PR #82 head) | success | success | success | success | success |
-| `1f19b4b6` (main after merge #82) | result below | result below | result below | **success** | result below |
-| `0183ee9d` (PR #80 against new main) | result below | result below | result below | result below | result below |
+| `12b808f` (PR #82 head) | **success** 40127644578 | **success** 40127644571 | **success** 40125372890 | **success** | **success** |
+| `1f19b4b6` (main after PR #82) | **success** 40130301864 | **success** 40130301859 | **success** 40130301896 | **success** | — (PR-only workflow) |
+| `0183ee9d` (PR #80 vs new main) | **pass** | **pass** | **pass** (`validate-package`) | **pass** | **pass** (both jobs) |
+| `d2a60c5a` (main after PR #80, merged 2026-10-24T21:09:12Z) | running at the time of writing | running at the time of writing | cancelled — my docs push superseded it under `cancel-in-progress` | cancelled — same reason | — |
+| `4c34671` (main + the audit doc) | — (docs-only, outside the lane's `paths:` filter) | — | **success** | **success** | — |
+
+Two honest notes on this table. First, the Windows lanes for `d2a60c5a` were **cancelled by my own next push**, not by a failure — `full-rebuild-windows.yml` and the export lane use `cancel-in-progress: true`, so pushing the audit commit killed the in-flight runs of the merge commit. The same code (plus a markdown file) is then green on `4c34671`, and the Android lanes for the merge commit are the ones still resolving. Second, the Android lanes only fire on paths that matter (`src/**`, `tests/**`, `tools/android-*`, …), which is why a docs-only main push shows dashes instead of runs.
+
+Local certification of the merged tree (PR #82 + PR #80 together): `npx node@20 jest` → **194 suites / 1,662 tests, 0 failed** (PR #80 added 3 suites and 23 tests); `npm run typecheck` exit 0; `node tools/fix-final-quality-gates.cjs` exit 0 (all historical repairs still `[PASS]`).
+

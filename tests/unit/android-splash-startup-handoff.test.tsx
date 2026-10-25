@@ -31,6 +31,15 @@ const StubImage = class {
  * transition. Each step needs its own act() so React commits and mounts the next
  * phase effect before the clock moves again, exactly like a real frame loop.
  */
+/**
+ * The cinematic splash holds longer than the old 750ms: derive the full exit
+ * budget from the component itself so the test cannot drift from the design.
+ */
+const SPLASH_SOURCE = fs.readFileSync(path.resolve(__dirname, '../../src/components/mobile/MobileSplashOverlay.tsx'), 'utf8');
+const MIN_HOLD_MS = Number(/MIN_SPLASH_HOLD_MS\s*=\s*(\d+)/.exec(SPLASH_SOURCE)?.[1] ?? 750);
+const EXIT_DELAY_MS = Number(/isLowMemory\)\s*\?\s*0\s*:\s*(\d+)/.exec(SPLASH_SOURCE)?.[1] ?? 300);
+const FULL_EXIT_MS = MIN_HOLD_MS + EXIT_DELAY_MS + 250;
+
 function advanceTimers(ms: number, step = 50): void {
   for (let elapsed = 0; elapsed < ms; elapsed += step) {
     act(() => {
@@ -70,7 +79,7 @@ describe('Android splash hand-off (P0 startup regression)', () => {
     });
     expect(host.querySelector('.knoux-mobile-splash-overlay')).not.toBeNull();
 
-    advanceTimers(2_000);
+    advanceTimers(FULL_EXIT_MS);
 
     expect(host.querySelector('.knoux-mobile-splash-overlay')).toBeNull();
     expect(host.querySelector('.km-welcome')).toBeNull();
@@ -99,7 +108,7 @@ describe('Android splash hand-off (P0 startup regression)', () => {
     advanceTimers(100);
     expect(host.querySelector('.knoux-mobile-splash-overlay')).not.toBeNull();
 
-    advanceTimers(2_000);
+    advanceTimers(FULL_EXIT_MS);
     expect(host.querySelector('.knoux-mobile-splash-overlay')).toBeNull();
 
     // Later timers from the safety fallback must not resurrect a second splash layer.
@@ -123,7 +132,7 @@ describe('Android splash hand-off (P0 startup regression)', () => {
     act(() => {
       root.render(<MobileSplashOverlay />);
     });
-    advanceTimers(2_000);
+    advanceTimers(FULL_EXIT_MS);
 
     expect(host.querySelector('.knoux-mobile-splash-overlay')).toBeNull();
     act(() => root.unmount());

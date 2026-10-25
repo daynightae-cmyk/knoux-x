@@ -148,6 +148,8 @@ jobs:
           npx cap add android
           npx cap sync android
           node tools/verify-android-app-plugin.cjs
+          # Capacitor defaults allowBackup to true; pin the privacy contract.
+          node tools/harden-android-manifest.cjs android
 
       - name: Install native media foundations
         shell: bash

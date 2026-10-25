@@ -86,6 +86,24 @@ fi
 # production build removes it and is verified after signing.
 node tools/configure-android-webview-debugging.cjs "$ANDROID_DIR" "$SIGNING_MODE"
 
+# Privacy: the generated Capacitor manifest defaults to android:allowBackup="true",
+# which would copy projects/settings off the device into cloud backup. Pin it false
+# (and drop dead backup-rule references) before Gradle sees the manifest.
+node tools/harden-android-manifest.cjs "$ANDROID_DIR"
+if ! grep -q 'android:allowBackup="false"' "$ANDROID_DIR/app/src/main/AndroidManifest.xml"; then
+  echo 'AndroidManifest.xml is not hardened: allowBackup must be false.' >&2
+  exit 1
+fi
+
+# A release artifact must not carry readable sources. The web build defaults to
+# sourcemap=false now; this stops a regression before the APK is signed.
+if find "$ANDROID_DIR/app/src/main/assets/public" -name '*.map' -print -quit | grep -q .; then
+  echo 'Release assets contain JavaScript source maps; refusing to package readable sources.' >&2
+  find "$ANDROID_DIR/app/src/main/assets/public" -name '*.map' | head -20 >&2
+  exit 1
+fi
+SOURCE_MAPS_IN_ASSETS="$(find "$ANDROID_DIR/app/src/main/assets/public" -name '*.map' | wc -l | tr -d ' ')"
+
 (
   cd "$ANDROID_DIR"
   chmod +x ./gradlew
@@ -141,6 +159,8 @@ cat > "$OUTPUT_DIR/android-release-acceptance.json" <<JSON
   "signingLabel": "$SIGNING_LABEL",
   "productionSigned": $PRODUCTION_SIGNED,
   "webContentsDebuggingEnabled": $PACKAGED_WEBVIEW_DEBUGGING,
+  "allowBackup": false,
+  "sourceMapsInAssets": $SOURCE_MAPS_IN_ASSETS,
   "purpose": "installable release acceptance only"
 }
 JSON

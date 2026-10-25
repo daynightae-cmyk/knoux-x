@@ -8,10 +8,22 @@
   <title>Knoux X</title>
   <meta name="description" content="Knoux X premium local-first media player and creative studio" />
 
-  <!-- Fonts -->
+  <!-- Fonts. This stylesheet must never gate first paint: a <link rel=stylesheet>
+       blocks the module script that follows it, and a stalled fonts.googleapis.com
+       therefore keeps the pre-React loader spinning forever on a device whose
+       network cannot reach it. Loading it as print-then-all keeps the typography
+       when the network cooperates and costs nothing when it does not. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" />
+  </noscript>
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/assets/icons/favicon.png" />
@@ -84,6 +96,54 @@
       animation: spin 760ms linear infinite;
     }
 
+    .boot-failure {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 28px;
+      background: #08060d;
+      color: #fbfaff;
+      z-index: 10000;
+      text-align: center;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .boot-failure.visible {
+      display: grid;
+    }
+
+    .boot-failure h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .boot-failure p {
+      margin: 0 0 6px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #b9b3c9;
+    }
+
+    .boot-failure code {
+      display: block;
+      margin: 10px 0 18px;
+      font-size: 11px;
+      color: #8b3dff;
+      word-break: break-word;
+    }
+
+    .boot-failure button {
+      border: 1px solid rgba(139, 61, 255, 0.5);
+      background: rgba(139, 61, 255, 0.16);
+      color: #fbfaff;
+      border-radius: 10px;
+      padding: 11px 22px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .loading-spinner {
         animation-duration: 1800ms;
@@ -114,17 +174,97 @@
     <div class="loading-spinner"></div>
   </div>
 
+  <div id="boot-failure" class="boot-failure" role="alert" aria-live="assertive">
+    <div>
+      <h1>The app could not start / تعذّر تشغيل التطبيق</h1>
+      <p>Something blocked startup before the interface could load. Retrying is safe — your files were not touched.</p>
+      <p dir="rtl">حدث عائق قبل تحميل الواجهة. إعادة المحاولة آمنة ولم تُمسّ ملفاتك.</p>
+      <code id="boot-failure-code">BOOT_UNKNOWN</code>
+      <button type="button" id="boot-failure-retry">Retry / إعادة المحاولة</button>
+    </div>
+  </div>
+
   <div id="root"></div>
 
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      const loading = document.getElementById('initial-loading');
-      if (loading) {
-        loading.classList.add('hidden');
+    /* Boot supervisor. Two jobs only:
+       1) hide the pre-React loader once React has actually mounted (not merely
+          when the document finished parsing — those differ when a script stalls);
+       2) never leave a silent spinner. If the interface has not mounted within
+          BOOT_TIMEOUT_MS, or the page raises an error first, show a readable
+          failure panel with a retry and a short code instead of spinning forever. */
+    (function () {
+      var BOOT_TIMEOUT_MS = 12000;
+      var root = document.getElementById('root');
+      var loading = document.getElementById('initial-loading');
+      var failure = document.getElementById('boot-failure');
+      var failureCode = document.getElementById('boot-failure-code');
+      var retry = document.getElementById('boot-failure-retry');
+      var firstError = '';
+      var finished = false;
+      window.__KNOUX_BOOT__ = { stage: 'parsing', startedAt: Date.now(), errors: [] };
+
+      function mounted() {
+        return Boolean(root && root.childElementCount > 0);
       }
-    });
+      function hideLoader() {
+        if (loading) loading.classList.add('hidden');
+      }
+      function report(code, detail) {
+        if (finished) return;
+        finished = true;
+        window.__KNOUX_BOOT__.stage = 'failed';
+        window.__KNOUX_BOOT__.code = code;
+        hideLoader();
+        if (failureCode) failureCode.textContent = code + (detail ? ' — ' + String(detail).slice(0, 160) : '');
+        if (failure) failure.classList.add('visible');
+        try { console.error('KNOUX_BOOT_FAILURE ' + code + ' ' + String(detail || '').slice(0, 300)); } catch (error) {}
+      }
+      function settle() {
+        if (finished || !mounted()) return;
+        finished = true;
+        window.__KNOUX_BOOT__.stage = 'mounted';
+        hideLoader();
+      }
+
+      window.addEventListener('error', function (event) {
+        firstError = firstError || (event && event.message) || '';
+        window.__KNOUX_BOOT__.errors.push(String(firstError).slice(0, 200));
+      }, true);
+      window.addEventListener('unhandledrejection', function (event) {
+        var reason = event && event.reason;
+        firstError = firstError || (reason && reason.message ? reason.message : String(reason || ''));
+        window.__KNOUX_BOOT__.errors.push(String(firstError).slice(0, 200));
+      });
+
+      window.addEventListener('DOMContentLoaded', function () {
+        window.__KNOUX_BOOT__.stage = 'dom-ready';
+        // Fast path kept from the previous loader; the poll below covers a mount
+        // that happens later, and the timeout covers one that never happens.
+        hideLoader();
+      }, { once: true });
+
+      var poll = window.setInterval(function () {
+        if (mounted()) {
+          window.clearInterval(poll);
+          settle();
+        }
+      }, 100);
+
+      window.setTimeout(function () {
+        window.clearInterval(poll);
+        if (mounted()) { settle(); return; }
+        report(firstError ? 'BOOT_SCRIPT_ERROR' : 'BOOT_TIMEOUT', firstError);
+      }, BOOT_TIMEOUT_MS);
+
+      if (retry) {
+        retry.addEventListener('click', function () {
+          try { window.location.reload(); } catch (error) { window.location.href = window.location.href; }
+        });
+      }
+    })();
   </script>
 
-  <script type="module" src="/src/main.tsx"></script>
+  <script type="module" crossorigin src="/src/main.tsx"></script>
 </body>
 </html>

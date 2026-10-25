@@ -146,6 +146,9 @@ jobs:
           npx cap add android
           npx cap sync android
           node tools/verify-android-app-plugin.cjs
+          # The Capacitor template ships allowBackup="true"; pin the privacy
+          # contract before anything is compiled.
+          node tools/harden-android-manifest.cjs android
 
       - name: Install KNOUX native media foundations
         shell: bash

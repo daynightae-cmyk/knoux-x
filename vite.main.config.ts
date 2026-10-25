@@ -34,7 +34,8 @@ export default defineConfig({
     __KNOUX_BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),
   },
   build: {
-    sourcemap: true,
+    // Release artifacts must not carry readable sources; opt in locally with KNOUX_SOURCEMAPS=1.
+    sourcemap: process.env.KNOUX_SOURCEMAPS === '1',
     rollupOptions: {
       external: [
         'electron',

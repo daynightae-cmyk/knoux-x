@@ -1,0 +1,798 @@
+{
+  "schemaVersion": 3,
+  "settings": {
+    "language": "en",
+    "theme": "system-light",
+    "accentColor": "#7828e8",
+    "motionEnabled": true,
+    "autoPlay": true,
+    "resumePlayback": true,
+    "defaultVolume": 0.8,
+    "muted": false,
+    "playbackRate": 1,
+    "audioDevice": "default",
+    "equalizer": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "enableDSP": true,
+    "hardwareAcceleration": true,
+    "deinterlace": false,
+    "aspectRatio": "auto",
+    "brightness": 100,
+    "contrast": 100,
+    "subtitleEnabled": true,
+    "subtitleLanguage": "auto",
+    "subtitleSize": 24,
+    "subtitleColor": "#ffffff",
+    "subtitleBackground": "#000000cc",
+    "subtitlePosition": "bottom",
+    "libraryPaths": [],
+    "autoScan": false,
+    "minimizeToTray": false,
+    "showNotifications": true,
+    "rememberWindowState": true,
+    "cacheSizeMB": 512,
+    "logLevel": "info",
+    "recordingToolbar": {
+      "order": [
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "cancel",
+        "screenshot",
+        "select-region",
+        "microphone",
+        "system-audio",
+        "camera-overlay",
+        "countdown",
+        "marker",
+        "open-output"
+      ],
+      "hidden": [],
+      "visible": true,
+      "mode": "full",
+      "size": "medium",
+      "location": "top",
+      "position": {
+        "x": 24,
+        "y": 72
+      },
+      "alwaysOnTop": true,
+      "hideFromCapture": false
+    },
+    "quickAccessToolbar": {
+      "visible": true,
+      "order": [
+        "open-file",
+        "open-library-folder",
+        "play-pause",
+        "screenshot",
+        "region-capture",
+        "record-start-stop",
+        "export"
+      ],
+      "hidden": [],
+      "mode": "full",
+      "size": "medium",
+      "location": "top",
+      "position": {
+        "x": 300,
+        "y": 44
+      },
+      "workspaceCommands": {}
+    },
+    "shortcuts": [
+      {
+        "command": "open-file",
+        "accelerator": "Ctrl+KeyO",
+        "enabled": true,
+        "category": "file",
+        "context": "global"
+      },
+      {
+        "command": "open-library-folder",
+        "accelerator": "Ctrl+Shift+KeyO",
+        "enabled": true,
+        "category": "file",
+        "context": "global"
+      },
+      {
+        "command": "play-pause",
+        "accelerator": "Space",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "stop",
+        "accelerator": "KeyS",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "seek-backward",
+        "accelerator": "ArrowLeft",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "seek-forward",
+        "accelerator": "ArrowRight",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "frame-step-backward",
+        "accelerator": "Shift+ArrowLeft",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "frame-step-forward",
+        "accelerator": "Shift+ArrowRight",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "screenshot",
+        "accelerator": "Ctrl+Shift+KeyS",
+        "enabled": true,
+        "category": "capture",
+        "context": "player"
+      },
+      {
+        "command": "copy",
+        "accelerator": "Ctrl+Shift+KeyC",
+        "enabled": true,
+        "category": "capture",
+        "context": "capture"
+      },
+      {
+        "command": "record-start-stop",
+        "accelerator": "Ctrl+Shift+KeyR",
+        "enabled": true,
+        "category": "recording",
+        "context": "global"
+      },
+      {
+        "command": "record-pause-resume",
+        "accelerator": "Ctrl+Shift+KeyP",
+        "enabled": true,
+        "category": "recording",
+        "context": "recording"
+      },
+      {
+        "command": "region-capture",
+        "accelerator": "Ctrl+Shift+KeyS",
+        "enabled": true,
+        "category": "capture",
+        "context": "capture"
+      },
+      {
+        "command": "split-clip",
+        "accelerator": "KeyS",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "trim-in",
+        "accelerator": "KeyI",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "trim-out",
+        "accelerator": "KeyO",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "undo",
+        "accelerator": "Ctrl+KeyZ",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "redo",
+        "accelerator": "Ctrl+KeyY",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "save",
+        "accelerator": "Ctrl+KeyS",
+        "enabled": true,
+        "category": "file",
+        "context": "editor"
+      },
+      {
+        "command": "save-as",
+        "accelerator": "Ctrl+Shift+KeyS",
+        "enabled": true,
+        "category": "file",
+        "context": "editor"
+      },
+      {
+        "command": "export",
+        "accelerator": "Ctrl+KeyE",
+        "enabled": true,
+        "category": "file",
+        "context": "editor"
+      },
+      {
+        "command": "fullscreen",
+        "accelerator": "KeyF",
+        "enabled": true,
+        "category": "workspace",
+        "context": "player"
+      },
+      {
+        "command": "theater-mode",
+        "accelerator": "KeyT",
+        "enabled": true,
+        "category": "workspace",
+        "context": "player"
+      },
+      {
+        "command": "mute",
+        "accelerator": "KeyM",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "volume-up",
+        "accelerator": "ArrowUp",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "volume-down",
+        "accelerator": "ArrowDown",
+        "enabled": true,
+        "category": "playback",
+        "context": "player"
+      },
+      {
+        "command": "delete",
+        "accelerator": "Delete",
+        "enabled": true,
+        "category": "editing",
+        "context": "editor"
+      },
+      {
+        "command": "cancel",
+        "accelerator": "Escape",
+        "enabled": true,
+        "category": "workspace",
+        "context": "global"
+      },
+      {
+        "command": "confirm",
+        "accelerator": "Enter",
+        "enabled": true,
+        "category": "workspace",
+        "context": "global"
+      }
+    ],
+    "studioPresets": [],
+    "lastSelectedPresets": {
+      "capture": null,
+      "recording": null,
+      "export": null,
+      "slideshow": null,
+      "audio-tools": null,
+      "image-export": null,
+      "video-editing": null
+    },
+    "workspace": {
+      "moduleOrder": [
+        "player",
+        "library",
+        "queue",
+        "capture",
+        "recording",
+        "editor",
+        "image-editor",
+        "image-studio",
+        "slideshow",
+        "audio-tools",
+        "export",
+        "settings"
+      ],
+      "hiddenModules": [],
+      "sidebarWidth": 252,
+      "timelineHeight": 280,
+      "panelSizes": {
+        "inspector": 320,
+        "mediaBin": 280,
+        "preview": 520
+      },
+      "collapsedSections": [],
+      "selectedWorkspace": "player",
+      "lastOpenedSection": "editor",
+      "presets": [
+        {
+          "id": "player",
+          "name": "Player",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:play-pause",
+            "quick:fullscreen",
+            "quick:mute"
+          ]
+        },
+        {
+          "id": "library",
+          "name": "Library",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-library-folder",
+            "quick:open-file",
+            "quick:play-pause"
+          ]
+        },
+        {
+          "id": "recording",
+          "name": "Recording",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "library",
+            "queue",
+            "capture",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:record-start-stop",
+            "quick:record-pause-resume",
+            "quick:screenshot"
+          ]
+        },
+        {
+          "id": "screenshot",
+          "name": "Screenshot",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "player",
+            "library",
+            "queue",
+            "recording",
+            "editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:screenshot",
+            "quick:region-capture",
+            "quick:copy"
+          ]
+        },
+        {
+          "id": "image",
+          "name": "Image",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "player",
+            "library",
+            "queue",
+            "recording",
+            "editor",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:save",
+            "quick:save-as",
+            "quick:export"
+          ]
+        },
+        {
+          "id": "video",
+          "name": "Video",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 360,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:split-clip",
+            "quick:save",
+            "quick:undo",
+            "quick:redo",
+            "quick:export"
+          ]
+        },
+        {
+          "id": "slideshow",
+          "name": "Slideshow",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "player",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "audio-tools"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:save",
+            "quick:export"
+          ]
+        },
+        {
+          "id": "audio",
+          "name": "Audio",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "player",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:save",
+            "quick:export"
+          ]
+        },
+        {
+          "id": "developer",
+          "name": "Developer",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:copy",
+            "quick:cancel",
+            "quick:confirm"
+          ]
+        },
+        {
+          "id": "minimal",
+          "name": "Minimal",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export"
+          ],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:play-pause"
+          ]
+        },
+        {
+          "id": "custom",
+          "name": "Custom",
+          "moduleOrder": [
+            "player",
+            "library",
+            "queue",
+            "capture",
+            "recording",
+            "editor",
+            "image-editor",
+            "image-studio",
+            "slideshow",
+            "audio-tools",
+            "export",
+            "settings"
+          ],
+          "hiddenModules": [],
+          "sidebarWidth": 252,
+          "timelineHeight": 280,
+          "panelSizes": {
+            "inspector": 320,
+            "mediaBin": 280,
+            "preview": 520
+          },
+          "collapsedSections": [
+            "quick:open-file",
+            "quick:open-library-folder",
+            "quick:play-pause",
+            "quick:screenshot",
+            "quick:region-capture",
+            "quick:record-start-stop",
+            "quick:export"
+          ]
+        }
+      ]
+    },
+    "recordingConfiguration": {
+      "sourceId": "",
+      "captureMode": "source",
+      "resolution": "source",
+      "frameRate": 30,
+      "videoBitrate": "balanced",
+      "audioBitrate": 192,
+      "microphone": false,
+      "systemAudio": true,
+      "cameraOverlay": false,
+      "countdown": 3,
+      "outputFolder": "",
+      "filenameTemplate": "KNOUX-{source}-{date}-{time}",
+      "webmCodec": "vp9"
+    }
+  }
+}

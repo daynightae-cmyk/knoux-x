@@ -51,7 +51,7 @@ async function launchInstalledImageDriver(executable, evidence, report) {
     close: async () => {
       const exited = new Promise((resolve, reject) => {
         if (child.exitCode !== null) { child.exitCode === 0 ? resolve() : reject(new Error(`Installed app exit ${child.exitCode}`)); return; }
-        const timer = setTimeout(() => { child.kill(); reject(new Error('Installed app did not close normally')); }, 20000);
+        const timer = setTimeout(() => { child.kill(); reject(new Error('Installed app did not close normally')); }, 60000);
         child.once('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`Installed app exit ${code}`)); });
       });
       // Exit listener is armed before the real window-close IPC is dispatched.

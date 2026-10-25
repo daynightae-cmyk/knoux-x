@@ -1,0 +1,129 @@
+{
+  "product": "Knoux X",
+  "mode": "packaged-desktop-player-preferences-e2e",
+  "status": "FAIL",
+  "generatedAt": "2026-10-23T04:46:19.690Z",
+  "failedStep": "sequential-partial-update",
+  "message": "Error: UI seek did not land near the target. {\"seconds\":15,\"after\":{\"playbackRate\":1.5,\"currentTime\":18.889045,\"duration\":60.008,\"paused\":false,\"readyState\":4}}\n    at assert (K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tools\\run-packaged-player-preferences-cdp-e2e.cjs:77:19)\n    at seekViaProgressSlider (K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tools\\run-packaged-player-preferences-cdp-e2e.cjs:445:3)\n    at async main (K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tools\\run-packaged-player-preferences-cdp-e2e.cjs:616:5)",
+  "steps": [
+    {
+      "name": "fixtures-generated",
+      "at": "2026-10-23T04:45:32.594Z",
+      "ok": true,
+      "details": {
+        "fixtureA": {
+          "bytes": 5550494,
+          "sha256": "cf745be05d590b2c3e205e3d9271417963c2fbd0bc96a5f177dec4021b0c5996",
+          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261023044434.webm"
+        },
+        "fixtureB": {
+          "bytes": 1831324,
+          "sha256": "2d4605d4411daab79c46fdaec967aad5e4c2e6baefe2b6bb218bde2273b2fa18",
+          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-b-20261023044434.webm"
+        }
+      }
+    },
+    {
+      "name": "library-folder-pick-attempt-1",
+      "at": "2026-10-23T04:45:52.887Z",
+      "ok": true,
+      "details": {
+        "pickerExit": 0,
+        "pickerOut": "DIALOG_FOUND handle=4196134 title=[Add a folder to KNOUX Library] rect=328,156,1288,696\r\nCHILD cls=Edit visible=True rect=507,622,1263,645 text=[]\r\nCHILD cls=Button visible=True rect=1056,650,1163,676 text=[Select Folder]\r\nCHILD cls=Button visible=True rect=1175,650,1263,676 text=[Cancel]\r\nCHILD cls=Button visible=False rect=796,620,884,646 text=[&Help]\r\nCHILD cls=SearchEditBoxWrapperClass visible=True rect=1070,192,1264,216 text=[]\r\nNAME_EDIT_VERIFIED\r\nCLICKING_BUTTON text=[Select Folder]\r\nCLOS",
+        "picked": {
+          "id": "6131c0f6cb93b0d89b7fd49f6a103b8df1655a0906c4f44a8b462f99c1a36e5b",
+          "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e",
+          "name": "knoux-player-prefs-e2e",
+          "createdAt": "2026-10-23T04:45:51.275Z",
+          "lastScannedAt": null
+        }
+      }
+    },
+    {
+      "name": "library-folder-registered",
+      "at": "2026-10-23T04:45:52.893Z",
+      "ok": true,
+      "details": {
+        "path": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e",
+        "attempt": 1,
+        "pickerMode": "DIALOG_FOUND handle=4196134 title=[Add a folder to KNOUX Library] rect=328,156,1288,696\r\nCHILD cls=Edit visible=True rect=507,622,1263,645 text=[]\r\nCHILD cls=Button visible=True rect=1056,650,1163,676 text=[Select Folder]\r\nCHILD cls=Button visible=True rect=1175,650,1263,676 text=[Cancel]\r\nCHILD cls=Button visible=False rect=796,620,884,646 text=[&Help]\r\nCHILD cls=SearchEditBoxWrapperClass visible=True rect=1070,192,1264,216 text=[]\r\nNAME_EDIT_VERIFIED\r\nCLICKING_BUTTON text=[Select Folder]\r\nCLOSED_AFTER_BUTTON_CLICK"
+      }
+    },
+    {
+      "name": "library-scan-complete",
+      "at": "2026-10-23T04:45:52.920Z",
+      "ok": true,
+      "details": {
+        "scan": {
+          "jobId": "5b78b217-3b81-4acf-bd2a-e1eec3d38c79",
+          "folderPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e",
+          "discovered": 2,
+          "processed": 2,
+          "currentPath": null,
+          "done": true,
+          "canceled": false
+        }
+      }
+    },
+    {
+      "name": "media-a-open",
+      "at": "2026-10-23T04:45:53.053Z",
+      "ok": true,
+      "details": {
+        "fixture": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-player-prefs-e2e\\prefs-a-20261023044434.webm"
+      }
+    },
+    {
+      "name": "media-a-configured",
+      "at": "2026-10-23T04:45:58.618Z",
+      "ok": true,
+      "details": {
+        "prefs": {
+          "speed": 2.5,
+          "preservesPitch": false,
+          "boost": 1.6,
+          "delayMs": 350
+        },
+        "playbackRate": 2.5
+      }
+    },
+    {
+      "name": "playback-started-via-ui",
+      "at": "2026-10-23T04:46:05.658Z",
+      "ok": true,
+      "details": {
+        "playbackRate": 2.5,
+        "advancedSeconds": 2.952
+      }
+    },
+    {
+      "name": "live-speed-change-during-playback",
+      "at": "2026-10-23T04:46:09.456Z",
+      "ok": true,
+      "details": {
+        "playbackRate": 0.5,
+        "advancedSeconds": 0.568,
+        "prefs": {
+          "speed": 0.5,
+          "preservesPitch": false,
+          "boost": 1.6,
+          "delayMs": 350
+        }
+      }
+    },
+    {
+      "name": "sequential-partial-update",
+      "at": "2026-10-23T04:46:09.918Z",
+      "ok": true,
+      "details": {
+        "prefs": {
+          "speed": 1.5,
+          "preservesPitch": false,
+          "boost": 1.6,
+          "delayMs": 350
+        },
+        "playbackRate": 1.5
+      }
+    }
+  ]
+}

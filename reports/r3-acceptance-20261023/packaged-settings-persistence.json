@@ -1,0 +1,23 @@
+{
+  "product": "Knoux X",
+  "success": true,
+  "mode": "settings-persistence",
+  "packaged": true,
+  "applicationVersion": "2.1.0",
+  "executable": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "schemaVersion": 3,
+  "settingsHash": "07fd599d2a7ba9fa96e388b554f3447fd3dd21b354655a4bbaadb0b5a7a3f817",
+  "exportHash": "921407ad0cd0685eb0551fcdb146a54f8c36680a88375d23c6dcc35e6d06069b",
+  "checks": [
+    "atomic-save",
+    "restart-restore",
+    "reset-defaults",
+    "import-export-round-trip",
+    "corrupt-settings-backup-recovery",
+    "no-temporary-files"
+  ],
+  "corruptBackups": 1,
+  "temporaryRoot": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-settings-persistence-gtCfNT",
+  "temporaryRootRemoved": true,
+  "completedAt": "2026-10-23T03:37:46.649Z"
+}

@@ -1,0 +1,20 @@
+{
+  "realId": "683a50b6-28f1-448e-b636-f5f1eb152b2e",
+  "rejected": [
+    "openNonMember",
+    "thumbnailNonMember",
+    "exportNonMember",
+    "deleteNonMember",
+    "containerNonMember",
+    "openTraversal",
+    "openSuffixed",
+    "openUppercase"
+  ],
+  "member": {
+    "header": "KNVX..T^",
+    "headerHex": "4b4e5658010c545e",
+    "bytes": 6180888,
+    "version": 1,
+    "member": true
+  }
+}

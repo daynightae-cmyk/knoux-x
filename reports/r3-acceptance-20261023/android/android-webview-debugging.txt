@@ -1,0 +1,2 @@
+signingMode=acceptance
+packagedWebContentsDebuggingEnabled=true

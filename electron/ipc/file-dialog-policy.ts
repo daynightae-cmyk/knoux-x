@@ -3,9 +3,51 @@ export interface DialogOptions {
   defaultPath?: string;
   buttonLabel?: string;
   filters?: Array<{ name: string; extensions: string[] }>;
+  properties?: string[];
 }
 
 export type DialogKind = 'open' | 'open-multiple' | 'open-directory' | 'save';
+
+export type OpenDialogProperty = 'openFile' | 'openDirectory' | 'multiSelections' | 'createDirectory';
+export type SaveDialogProperty = 'createDirectory' | 'showOverwriteConfirmation';
+export type FileDialogProperty = OpenDialogProperty | SaveDialogProperty;
+
+const DIALOG_BASE_PROPERTIES: Record<DialogKind, readonly FileDialogProperty[]> = {
+  open: ['openFile'],
+  'open-multiple': ['openFile', 'multiSelections'],
+  'open-directory': ['openDirectory'],
+  save: [],
+};
+
+const DIALOG_ALLOWED_PROPERTIES: Record<DialogKind, readonly FileDialogProperty[]> = {
+  open: ['openFile'],
+  'open-multiple': ['openFile', 'multiSelections'],
+  'open-directory': ['openDirectory', 'createDirectory'],
+  save: ['createDirectory', 'showOverwriteConfirmation'],
+};
+
+const KNOWN_DIALOG_PROPERTIES = new Set<string>([
+  'openFile', 'openDirectory', 'multiSelections', 'createDirectory', 'showOverwriteConfirmation',
+]);
+
+function requireDialogProperties(value: unknown): FileDialogProperty[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 8) throw new TypeError('File dialog properties are invalid.');
+  for (const property of value) {
+    if (typeof property !== 'string' || !KNOWN_DIALOG_PROPERTIES.has(property)) throw new TypeError('File dialog property is invalid.');
+  }
+  return [...new Set(value as FileDialogProperty[])];
+}
+
+export function dialogProperties(kind: 'save', value: unknown): SaveDialogProperty[];
+export function dialogProperties(kind: Exclude<DialogKind, 'save'>, value: unknown): OpenDialogProperty[];
+export function dialogProperties(kind: DialogKind, value: unknown): OpenDialogProperty[] | SaveDialogProperty[] {
+  const allowed = new Set<FileDialogProperty>(DIALOG_ALLOWED_PROPERTIES[kind]);
+  return [...new Set([
+    ...DIALOG_BASE_PROPERTIES[kind],
+    ...requireDialogProperties(value).filter((property) => allowed.has(property)),
+  ])] as OpenDialogProperty[] | SaveDialogProperty[];
+}
 
 export function validateFileDialogOptions(value: unknown): DialogOptions {
   if (value === undefined) return {};
@@ -25,6 +67,7 @@ export function validateFileDialogOptions(value: unknown): DialogOptions {
       ))) throw new TypeError('File dialog extension is invalid.');
     }
   }
+  requireDialogProperties(options.properties);
   return structuredClone(options);
 }
 

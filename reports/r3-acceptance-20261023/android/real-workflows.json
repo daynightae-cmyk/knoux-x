@@ -1,0 +1,1983 @@
+{
+  "environment": "installed-apk-android-emulator",
+  "phone": "NOT_RUN",
+  "touchPolicy": {
+    "mode": "trusted-adb-input-tap",
+    "detail": "adb shell input tap on device pixels = native WebView origin (uiautomator bounds) + live DOM CSS point × devicePixelRatio; elementFromPoint-verified, stability-sampled, state-change-confirmed.",
+    "syntheticEventsUsed": false,
+    "fallbacks": []
+  },
+  "deviceState": {
+    "size": "Physical size: 1080x2400",
+    "density": "Physical density: 420",
+    "sdk": "35",
+    "appPid": "2659",
+    "adbTransport": {
+      "state": "device",
+      "attempts": []
+    },
+    "attachAttempts": [
+      {
+        "at": "2026-10-23T00:13:22.826Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          2659
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649",
+          "0000000000000000: 00000002 00000000 00010000 0001 01 19765 @webview_devtools_remote_2659"
+        ],
+        "ownSocket": {
+          "name": "webview_devtools_remote_2659",
+          "pid": 2659,
+          "line": "0000000000000000: 00000002 00000000 00010000 0001 01 19765 @webview_devtools_remote_2659"
+        },
+        "psMatches": [
+          "u0_a209       2659   383   32930404 211328 0                   0 R dev.knoux.playerx"
+        ],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 2659,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_2659"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:13:37.379Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          4961
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 4961,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_4961"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:18:53.808Z",
+        "attempt": 1,
+        "appPidCommand": false,
+        "appPids": [],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 8840,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_8840"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:19:26.748Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          9362
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 9362,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_9362"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:19:35.248Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          9545
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 9545,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_9545"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:19:43.698Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          9736
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 9736,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_9736"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:21:20.615Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          10770
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 10770,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_10770"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:21:39.803Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          11128
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 11128,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_11128"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:22:05.972Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          11501
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 11501,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_11501"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:22:51.525Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          12051
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 12051,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_12051"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:25:37.724Z",
+        "attempt": 1,
+        "appPidCommand": false,
+        "appPids": [],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 13663,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_13663"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      },
+      {
+        "at": "2026-10-23T00:28:45.043Z",
+        "attempt": 1,
+        "appPidCommand": true,
+        "appPids": [
+          15738
+        ],
+        "socketReadOk": true,
+        "socketLines": [
+          "0000000000000000: 00000002 00000000 00010000 0001 01 27685 @webview_devtools_remote_1649"
+        ],
+        "ownSocket": null,
+        "psMatches": [],
+        "playwrightWebViews": [
+          {
+            "pid": 1649,
+            "pkg": "com.google.android.settings.intelligence",
+            "socketName": "webview_devtools_remote_1649"
+          },
+          {
+            "pid": 15738,
+            "pkg": "dev.knoux.playerx",
+            "socketName": "webview_devtools_remote_15738"
+          }
+        ],
+        "strategy": "pkg:page",
+        "error": null
+      }
+    ],
+    "webViewOrigin": {
+      "left": 0,
+      "top": 136,
+      "right": 1080,
+      "bottom": 2337
+    },
+    "foregroundProbe": "dumpsys window displays",
+    "focus": "Window{dev.knoux.playerx/#0 (via dumpsys window displays)",
+    "foregroundAtStart": {
+      "package": "dev.knoux.playerx",
+      "source": "uiautomator",
+      "packages": [
+        "dev.knoux.playerx"
+      ]
+    }
+  },
+  "tapLog": [
+    {
+      "note": "mediastore:open-library",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mediastore:open-library",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mediastore:open-library",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "ensureHome:Back-to-home",
+      "cssX": 40,
+      "cssY": 43,
+      "x": 105,
+      "y": 249,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mediastore-partial:open-library",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mediastore-partial:request",
+      "cssX": 124,
+      "cssY": 420,
+      "x": 324,
+      "y": 1237,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mediastore-partial:choose-selected",
+      "x": 540,
+      "y": 1238
+    },
+    {
+      "note": "mediastore-partial:select-real-video",
+      "x": 177,
+      "y": 835
+    },
+    {
+      "note": "mediastore-partial:confirm-one",
+      "x": 886,
+      "y": 2221
+    },
+    {
+      "note": "mediastore-partial:reopen",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "ensureHome:Back-to-home",
+      "cssX": 40,
+      "cssY": 43,
+      "x": 105,
+      "y": 249,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mp4:reset-recent-state",
+      "cssX": 206,
+      "cssY": 791,
+      "x": 541,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "mp4:remount-home",
+      "cssX": 40,
+      "cssY": 43,
+      "x": 105,
+      "y": 249,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "home:open-video (SAF picker)",
+      "cssX": 206,
+      "cssY": 359,
+      "x": 541,
+      "y": 1079,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "saf:file (attempt 1)",
+      "x": 328,
+      "y": 1818
+    },
+    {
+      "note": "player:play",
+      "cssX": 206,
+      "cssY": 403,
+      "x": 541,
+      "y": 1193,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:reveal-controls-for-scrub",
+      "cssX": 206,
+      "cssY": 420,
+      "x": 541,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:timeline-scrub",
+      "cssX": 129,
+      "cssY": 455,
+      "x": 339,
+      "y": 1330,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:reveal-for-pause",
+      "cssX": 206,
+      "cssY": 420,
+      "x": 541,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:pause",
+      "cssX": 206,
+      "cssY": 403,
+      "x": 541,
+      "y": 1193,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:reveal-controls",
+      "cssX": 206,
+      "cssY": 420,
+      "x": 541,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "player:play",
+      "cssX": 206,
+      "cssY": 403,
+      "x": 541,
+      "y": 1193,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "back:open-drawer",
+      "cssX": 42,
+      "cssY": 42,
+      "x": 110,
+      "y": 246,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "back:close-drawer",
+      "keyevent": "KEYCODE_BACK"
+    },
+    {
+      "note": "back:settings",
+      "cssX": 356,
+      "cssY": 791,
+      "x": 934,
+      "y": 2213,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "back:return-home",
+      "keyevent": "KEYCODE_BACK"
+    },
+    {
+      "note": "home:photos-to-video",
+      "cssX": 110,
+      "cssY": 420,
+      "x": 288,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:new-project",
+      "cssX": 149,
+      "cssY": 452,
+      "x": 391,
+      "y": 1322,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:confirm-project-name",
+      "cssX": 288,
+      "cssY": 332,
+      "x": 757,
+      "y": 1008,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:add-media (SAF picker)",
+      "cssX": 85,
+      "cssY": 641,
+      "x": 224,
+      "y": 1819,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:file (attempt 1)",
+      "x": 328,
+      "y": 1818
+    },
+    {
+      "note": "slideshow:save",
+      "cssX": 150,
+      "cssY": 363,
+      "x": 393,
+      "y": 1088,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:after-restart",
+      "cssX": 110,
+      "cssY": 420,
+      "x": 288,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "slideshow:reopen-saved",
+      "cssX": 206,
+      "cssY": 501,
+      "x": 541,
+      "y": 1451,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "ensureHome:Back-to-home",
+      "cssX": 44,
+      "cssY": 40,
+      "x": 116,
+      "y": 241,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "home:record-card",
+      "cssX": 303,
+      "cssY": 420,
+      "x": 794,
+      "y": 1237,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "recording:start",
+      "cssX": 203,
+      "cssY": 779,
+      "x": 534,
+      "y": 2181,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "consent:mode-selector",
+      "x": 540,
+      "y": 1169
+    },
+    {
+      "note": "consent:entire-screen",
+      "x": 462,
+      "y": 1358
+    },
+    {
+      "note": "consent:start",
+      "x": 893,
+      "y": 1705
+    },
+    {
+      "note": "recording:stop",
+      "cssX": 203,
+      "cssY": 779,
+      "x": 534,
+      "y": 2181,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "recording:open-editor",
+      "cssX": 203,
+      "cssY": 714,
+      "x": 534,
+      "y": 2010,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "timeline:select-recording",
+      "cssX": 57,
+      "cssY": 473,
+      "x": 149,
+      "y": 1377,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "timeline:touch-scrub",
+      "input": "swipe",
+      "x": 283,
+      "y": 1237,
+      "x2": 408,
+      "y2": 1237,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "timeline:split",
+      "cssX": 42,
+      "cssY": 792,
+      "x": 111,
+      "y": 2216,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "timeline:save-edits",
+      "cssX": 278,
+      "cssY": 126,
+      "x": 729,
+      "y": 466,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "ensureHome:Back-to-home",
+      "cssX": 44,
+      "cssY": 40,
+      "x": 116,
+      "y": 241,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "audio:open-drawer",
+      "cssX": 42,
+      "cssY": 42,
+      "x": 110,
+      "y": 246,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "audio:open-tools",
+      "cssX": 178,
+      "cssY": 408,
+      "x": 468,
+      "y": 1206,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "audio:open-merge",
+      "cssX": 203,
+      "cssY": 420,
+      "x": 534,
+      "y": 1238,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "audio:back-to-catalog",
+      "cssX": 72,
+      "cssY": 46,
+      "x": 189,
+      "y": 257,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-drawer",
+      "cssX": 42,
+      "cssY": 42,
+      "x": 110,
+      "y": 246,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-tools",
+      "cssX": 178,
+      "cssY": 408,
+      "x": 468,
+      "y": 1206,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-resize",
+      "cssX": 206,
+      "cssY": 420,
+      "x": 541,
+      "y": 1237,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:resize-import:open-picker",
+      "cssX": 322,
+      "cssY": 257,
+      "x": 845,
+      "y": 811,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:resize-import:file (attempt 1)",
+      "x": 215,
+      "y": 834
+    },
+    {
+      "note": "image-lab:resize-max-edge",
+      "cssX": 206,
+      "cssY": 632,
+      "x": 541,
+      "y": 1795,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:resize-save:process",
+      "cssX": 206,
+      "cssY": 799,
+      "x": 541,
+      "y": 2232,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:resize-save:documentsui-save",
+      "x": 928,
+      "y": 2274
+    },
+    {
+      "note": "image-lab:back-to-catalog",
+      "cssX": 68,
+      "cssY": 174,
+      "x": 177,
+      "y": 594,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-rotate",
+      "cssX": 206,
+      "cssY": 442,
+      "x": 541,
+      "y": 1297,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:rotate-import:open-picker",
+      "cssX": 322,
+      "cssY": 257,
+      "x": 845,
+      "y": 811,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:rotate-import:file (attempt 1)",
+      "x": 215,
+      "y": 835
+    },
+    {
+      "note": "image-lab:rotate-90",
+      "cssX": 162,
+      "cssY": 630,
+      "x": 425,
+      "y": 1789,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:rotate-save:process",
+      "cssX": 206,
+      "cssY": 798,
+      "x": 541,
+      "y": 2232,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:rotate-save:documentsui-save",
+      "x": 928,
+      "y": 2274
+    },
+    {
+      "note": "image-lab:open-drawer",
+      "cssX": 42,
+      "cssY": 42,
+      "x": 110,
+      "y": 246,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-tools",
+      "cssX": 178,
+      "cssY": 408,
+      "x": 468,
+      "y": 1206,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-convert",
+      "cssX": 206,
+      "cssY": 404,
+      "x": 541,
+      "y": 1196,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:reopen-import:open-picker",
+      "cssX": 322,
+      "cssY": 257,
+      "x": 845,
+      "y": 811,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:reopen-import:file (attempt 1)",
+      "x": 215,
+      "y": 835
+    },
+    {
+      "note": "image-lab:open-drawer",
+      "cssX": 42,
+      "cssY": 42,
+      "x": 110,
+      "y": 246,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-tools",
+      "cssX": 178,
+      "cssY": 408,
+      "x": 468,
+      "y": 1206,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:open-rotate",
+      "cssX": 206,
+      "cssY": 442,
+      "x": 541,
+      "y": 1297,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:cancel-import:open-picker",
+      "cssX": 322,
+      "cssY": 257,
+      "x": 845,
+      "y": 811,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:cancel-import:file (attempt 1)",
+      "x": 865,
+      "y": 835
+    },
+    {
+      "note": "image-lab:cancel-process",
+      "cssX": 206,
+      "cssY": 798,
+      "x": 541,
+      "y": 2232,
+      "dpr": 2.625,
+      "origin": {
+        "left": 0,
+        "top": 136,
+        "right": 1080,
+        "bottom": 2337
+      }
+    },
+    {
+      "note": "image-lab:cancel-save",
+      "keyevent": "KEYCODE_BACK",
+      "package": "com.google.android.documentsui"
+    },
+    {
+      "note": "back:arm-root-exit",
+      "keyevent": "KEYCODE_BACK"
+    },
+    {
+      "note": "back:confirm-root-exit",
+      "keyevent": "KEYCODE_BACK"
+    }
+  ],
+  "cases": [
+    {
+      "id": "onboarding-skip",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": "First-run welcome dismissed with a trusted tap and Home is available"
+    },
+    {
+      "id": "mediastore-library-organization",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "folderCount": 1,
+        "folderScope": "Movies/KNOUX-Discovery/",
+        "collections": [
+          "downloads",
+          "camera",
+          "screen"
+        ],
+        "favorite": "KNOUX-Camera.mp4",
+        "layout": "list",
+        "recentlyAdded": true
+      }
+    },
+    {
+      "id": "player-tools-sleep-repeat-details-queue",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "sleepTimer": "Sleep 5:00",
+        "repeatModes": [
+          "off",
+          "one",
+          "all"
+        ],
+        "mediaDetails": true,
+        "queued": "KNOUX-Discovery-A.mp4"
+      }
+    },
+    {
+      "id": "vault-encrypted-media-lifecycle",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "item": "KNOUX-QA.mp4",
+        "originalPreserved": true,
+        "encryptedHeader": "KNVX..T^",
+        "encryptedBytes": 6180888,
+        "wrongPinRefused": true,
+        "decoded": true,
+        "restart": {
+          "oldPid": "4961",
+          "newPid": "8840"
+        }
+      }
+    },
+    {
+      "id": "vault-identifier-membership-gate",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "rejected": [
+          "openNonMember",
+          "thumbnailNonMember",
+          "exportNonMember",
+          "deleteNonMember",
+          "containerNonMember",
+          "openTraversal",
+          "openSuffixed",
+          "openUppercase"
+        ],
+        "member": true,
+        "itemsIntact": 1
+      }
+    },
+    {
+      "id": "vault-tamper-and-plaintext-containment",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "debugLane": false,
+        "container": {
+          "header": "KNVX..T^",
+          "headerHex": "4b4e5658010c545e",
+          "bytes": 6180888,
+          "version": 1,
+          "member": true
+        },
+        "cacheFilesBeforeLock": 1,
+        "cacheRemoved": 1,
+        "cacheFilesAfterLock": 0
+      }
+    },
+    {
+      "id": "vault-corrupt-index-recovery",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "debugLane": false,
+        "items": 1,
+        "indexState": "ok"
+      }
+    },
+    {
+      "id": "vault-delete-integrity",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "id": "c134e1f2-6fa0-46c4-be18-47ef6a3f0d9b",
+        "debugLane": false,
+        "filesRemoved": 4,
+        "filesRetained": 0,
+        "remaining": 1,
+        "originalStillListed": true
+      }
+    },
+    {
+      "id": "vault-pin-rotation-and-large-media",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "largeFixture": "KNOUX-QA-LARGE.mp4",
+        "containerBytes": 11550142,
+        "playback": {
+          "duration": 30,
+          "width": 1280,
+          "height": 720,
+          "currentTime": 28.5,
+          "readyState": 4
+        },
+        "pinSequence": [
+          "2468",
+          "8642",
+          "2468"
+        ],
+        "restart": {
+          "oldPid": "8840",
+          "newPid": "9362"
+        }
+      }
+    },
+    {
+      "id": "vault-plaintext-cache-survives-kill",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "debugLane": false,
+        "cacheFilesBeforeKill": 1,
+        "cacheFilesAfterKill": 0,
+        "restart": {
+          "oldPid": "9362",
+          "newPid": "9545"
+        }
+      }
+    },
+    {
+      "id": "mediastore-discovery-playback-refresh-revoke",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "metadata": "1:00\nKNOUX-Discovery-A.mp4\n640×360 · 5.9 MB · Oct 23, 2026\nMovies/KNOUX-Discovery/",
+        "discoveredMs": 28833,
+        "pausedTime": 13.471032,
+        "seekedTo": 17.388,
+        "seekBefore": 13.471032,
+        "seekAttempts": [
+          {
+            "attempt": 1,
+            "revealed": true
+          }
+        ],
+        "playbackStartedVia": [
+          "trusted-tap:ump-play (trusted play button)"
+        ],
+        "distinctFolders": true,
+        "realThumbnail": true,
+        "paginationDistinctUris": true,
+        "addedViaObserver": true,
+        "removedViaObserver": true,
+        "restart": {
+          "oldPid": "9736",
+          "newPid": "10770"
+        },
+        "revoked": true,
+        "manualFilePickerUsed": false
+      }
+    },
+    {
+      "id": "mediastore-selected-video-access",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "selected": [
+          {
+            "name": "KNOUX-Discovery-New.mp4",
+            "uri": "content://media/external/video/media/1000000051"
+          }
+        ],
+        "unselectedMediaExcluded": true,
+        "restartVerified": true,
+        "permissionInput": "trusted-system-picker"
+      }
+    },
+    {
+      "id": "mp4-actual-player-first-frame-seek-audio",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "width": 640,
+        "duration": 60,
+        "decoded": 90,
+        "colors": 140,
+        "title": "KNOUX-QA.mp4",
+        "fixture": {
+          "name": "KNOUX-QA.mp4",
+          "path": "/sdcard/Download/KNOUX-QA.mp4",
+          "bytes": 6180854
+        },
+        "pickerPaths": [
+          "attempt1:file-row"
+        ],
+        "appPidAfterChooser": "12051",
+        "playbackStartedVia": [
+          "trusted-tap:ump-play (trusted play button)"
+        ],
+        "seekTrusted": {
+          "requestedFraction": 0.3,
+          "before": 11.000859,
+          "after": 17.388,
+          "moved": true,
+          "attempts": [
+            {
+              "attempt": 1,
+              "revealed": true,
+              "moved": true
+            }
+          ]
+        },
+        "audioPeak": 0,
+        "seek": "completed through trusted Android input",
+        "speaker": "BLOCKED_HARDWARE (emulator -noaudio: PCM mixer absent, playback position advanced with audio track present)"
+      }
+    },
+    {
+      "id": "hardware-back-drawer-and-navigation",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "drawerDismissed": true,
+        "navigationReturnedHome": true,
+        "appPid": "12051"
+      }
+    },
+    {
+      "id": "photos-to-video-saf-persistence",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "fixture": {
+          "name": "KNOUX-QA.mp4",
+          "path": "/sdcard/Download/KNOUX-QA.mp4",
+          "bytes": 6180854
+        },
+        "pickerPaths": [
+          "attempt1:file-row"
+        ],
+        "slideCount": 1,
+        "reopenedSlides": 1,
+        "persistence": "Saved SAF media reopened and decoded after am force-stop without clearing data"
+      }
+    },
+    {
+      "id": "native-recording-finalize-editor-handoff",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "bytes": 113136,
+        "byteReadAttempts": [
+          {
+            "method": "content read --uri",
+            "bytes": 113136,
+            "validMp4": true
+          }
+        ],
+        "duration": "6.506856",
+        "videoPackets": "6",
+        "consent": "consent:state:tap-mode-selector -> consent:mode-selector -> consent:state:tap-entire -> consent:entire-screen -> consent:state:tap-start -> consent:start",
+        "consentSteps": [
+          {
+            "note": "consent:state:tap-mode-selector",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "signature": "Start recording or casting with KNOUX X?|A single app|When you’re sharing, recording, or casting an app, KNOUX X has access to anything shown or played on that app. So be careful with things like passwords, payment details, messages, photos, and audio and video.|Cancel|Start"
+          },
+          {
+            "note": "consent:mode-selector",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "text": "A single app",
+            "x": 540,
+            "y": 1169
+          },
+          {
+            "note": "consent:state:tap-entire",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "signature": "A single app|Entire screen"
+          },
+          {
+            "note": "consent:entire-screen",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "text": "Entire screen",
+            "x": 462,
+            "y": 1358
+          },
+          {
+            "note": "consent:state:tap-start",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "signature": "Start recording or casting with KNOUX X?|Entire screen|When you’re sharing, recording, or casting, KNOUX X has access to anything visible on your screen or played on your device. So be careful with things like passwords, payment details, messages, photos, and audio and video.|Cancel|Start"
+          },
+          {
+            "note": "consent:start",
+            "packages": [
+              "com.android.systemui"
+            ],
+            "focus": null,
+            "text": "Start",
+            "x": 893,
+            "y": 1705
+          }
+        ],
+        "captureRecordingFlagVerified": true,
+        "editor": "actual saved project loaded with decoded preview"
+      }
+    },
+    {
+      "id": "timeline-touch-scrub-split-and-save",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "input": "adb input swipe + tap",
+        "playhead": 1.74,
+        "clipsBefore": 1,
+        "clipsAfter": 2,
+        "persistedClips": 2
+      }
+    },
+    {
+      "id": "audio-lab-catalog-and-merge-workspace",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "cards": 11,
+        "categories": 3,
+        "mergeHeading": "Join audio files",
+        "queueCount": "0/20",
+        "engineReady": {
+          "runtime": "android",
+          "audioToolsBridge": true,
+          "audioLabBridge": true
+        },
+        "navigation": "drawer -> Audio Tools -> Join audio files -> Audio lab"
+      }
+    },
+    {
+      "id": "image-lab-saf-import-transform-save-reopen",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "fixture": {
+          "name": "KNOUX-QA.png",
+          "path": "/sdcard/Download/KNOUX-QA.png",
+          "bytes": 2225,
+          "host": {
+            "format": "png",
+            "width": 640,
+            "height": 480,
+            "bytes": 2225,
+            "sha256": "e1c708da2b7c68b2a5b28a9e21b182d7bb6374065c3baaa4ea494b14848ca180"
+          }
+        },
+        "catalog": {
+          "cards": 6,
+          "categories": 3
+        },
+        "resizeImport": {
+          "name": "KNOUX-QA.png",
+          "pickerPaths": [
+            "attempt1:file-row"
+          ],
+          "preview": {
+            "width": 640,
+            "height": 480
+          },
+          "queueCount": 1
+        },
+        "edgeChange": {
+          "previous": "2048",
+          "method": "adb-keyboard"
+        },
+        "outputFormat": "JPEG",
+        "resizeSave": {
+          "name": "KNOUX-QA-320px.jpg",
+          "sourceName": "KNOUX-QA.png",
+          "summary": "KNOUX-QA-320px.jpg · 320×240 · 1.5 KB",
+          "uri": "content://com.android.providers.downloads.documents/document/11",
+          "badge": "Durable",
+          "outcome": {
+            "state": "picker",
+            "package": "com.google.android.documentsui"
+          },
+          "save": {
+            "action": "documentsui-save-button",
+            "states": [],
+            "taps": [
+              "documentsui-save-button"
+            ]
+          }
+        },
+        "resized": {
+          "file": "android-ci-release-output/image-lab-resize.jpg",
+          "uri": "content://com.android.providers.downloads.documents/document/11",
+          "durable": true,
+          "uiSummary": "KNOUX-QA-320px.jpg · 320×240 · 1.5 KB",
+          "provider": {
+            "uri": "content://com.android.providers.downloads.documents/document/11",
+            "name": "KNOUX-QA-320px.jpg",
+            "mime": "image/jpeg",
+            "size": 1513
+          },
+          "stats": {
+            "size": 1513,
+            "created": "1970-01-01T00:00:00.000Z",
+            "modified": "1970-01-01T00:00:00.000Z",
+            "isDirectory": false
+          },
+          "metadata": {
+            "format": "jpeg",
+            "width": 320,
+            "height": 240,
+            "channels": 3,
+            "bytes": 1513,
+            "sha256": "74d7210406ed8c49da56a219073a66187e40510126379bb6cf8804f8780c78aa"
+          },
+          "quadrants": {
+            "tl": [
+              220,
+              30,
+              30
+            ],
+            "tr": [
+              30,
+              179,
+              59
+            ],
+            "bl": [
+              31,
+              80,
+              219
+            ],
+            "br": [
+              234,
+              200,
+              30
+            ]
+          }
+        },
+        "rotateImport": {
+          "name": "KNOUX-QA-320px.jpg",
+          "pickerPaths": [
+            "attempt1:file-row"
+          ],
+          "preview": {
+            "width": 320,
+            "height": 240
+          },
+          "queueCount": 1
+        },
+        "rotateSave": {
+          "name": "KNOUX-QA-320px-rotated.jpg",
+          "sourceName": "KNOUX-QA-320px.jpg",
+          "summary": "KNOUX-QA-320px-rotated.jpg · 240×320 · 1.7 KB",
+          "uri": "content://com.android.providers.downloads.documents/document/12",
+          "badge": "Durable",
+          "outcome": {
+            "state": "picker",
+            "package": "com.google.android.documentsui"
+          },
+          "save": {
+            "action": "documentsui-save-button",
+            "states": [],
+            "taps": [
+              "documentsui-save-button"
+            ]
+          }
+        },
+        "rotated": {
+          "file": "android-ci-release-output/image-lab-rotated.jpg",
+          "uri": "content://com.android.providers.downloads.documents/document/12",
+          "durable": true,
+          "uiSummary": "KNOUX-QA-320px-rotated.jpg · 240×320 · 1.7 KB",
+          "provider": {
+            "uri": "content://com.android.providers.downloads.documents/document/12",
+            "name": "KNOUX-QA-320px-rotated.jpg",
+            "mime": "image/jpeg",
+            "size": 1785
+          },
+          "stats": {
+            "size": 1785,
+            "created": "1970-01-01T00:00:00.000Z",
+            "modified": "1970-01-01T00:00:00.000Z",
+            "isDirectory": false
+          },
+          "metadata": {
+            "format": "jpeg",
+            "width": 240,
+            "height": 320,
+            "channels": 3,
+            "bytes": 1785,
+            "sha256": "73371b3302eebdb8e61b4ca9f66bbf82855c88ba3715b9dad354b98fc2960d5d"
+          },
+          "quadrants": {
+            "tl": [
+              31,
+              80,
+              219
+            ],
+            "tr": [
+              220,
+              30,
+              30
+            ],
+            "bl": [
+              234,
+              200,
+              30
+            ],
+            "br": [
+              30,
+              179,
+              59
+            ]
+          }
+        },
+        "persisted": {
+          "resize": {
+            "uri": "content://com.android.providers.downloads.documents/document/11",
+            "bytes": 1513,
+            "sha256": "74d7210406ed8c49da56a219073a66187e40510126379bb6cf8804f8780c78aa",
+            "provider": {
+              "uri": "content://com.android.providers.downloads.documents/document/11",
+              "name": "KNOUX-QA-320px.jpg",
+              "mime": "image/jpeg",
+              "size": 1513
+            }
+          },
+          "rotated": {
+            "uri": "content://com.android.providers.downloads.documents/document/12",
+            "bytes": 1785,
+            "sha256": "73371b3302eebdb8e61b4ca9f66bbf82855c88ba3715b9dad354b98fc2960d5d",
+            "provider": {
+              "uri": "content://com.android.providers.downloads.documents/document/12",
+              "name": "KNOUX-QA-320px-rotated.jpg",
+              "mime": "image/jpeg",
+              "size": 1785
+            }
+          }
+        },
+        "reopened": {
+          "name": "KNOUX-QA-320px-rotated.jpg",
+          "pickerPaths": [
+            "attempt1:file-row"
+          ],
+          "preview": {
+            "width": 240,
+            "height": 320
+          },
+          "queueCount": 1
+        },
+        "restart": {
+          "pidBefore": "13663",
+          "pidAfter": "15738"
+        },
+        "persistence": "Both content:// URIs survived am force-stop byte-for-byte; the rotated JPEG re-imported and decoded through the system picker"
+      }
+    },
+    {
+      "id": "image-lab-saf-save-cancel-no-false-success",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "notice": "The save dialog was dismissed. Remaining images were left untouched.",
+        "savedResults": 0,
+        "failedResults": 0,
+        "error": "",
+        "presses": 1,
+        "nativePackage": "com.google.android.documentsui"
+      }
+    },
+    {
+      "id": "hardware-back-root-exit",
+      "status": "ANDROID_EMULATOR_VERIFIED",
+      "input": "trusted-adb",
+      "syntheticUsed": false,
+      "evidence": {
+        "confirmationObserved": true,
+        "foregroundAfterExit": "com.google.android.apps.nexuslauncher",
+        "processDeathRequired": false
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "name": "library-to-first-discovered-media",
+      "milliseconds": 28833,
+      "includesPermissionInteraction": true,
+      "N": 1
+    },
+    {
+      "name": "chooser-to-decoded-frame",
+      "milliseconds": 31535,
+      "N": 1,
+      "includesNativeChooser": true
+    }
+  ],
+  "consoleErrors": [],
+  "sessionRecoveries": [],
+  "verdict": "PASS_SCOPED_CASES_ONLY"
+}

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "product": "Knoux X",
   "mode": "windows-packaged-retouch-e2e",
-  "packagedExe": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
+  "packagedExe": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\out\\Knoux X-win32-x64\\knoux-player-x.exe",
   "packageVersion": "2.1.0",
-  "sourceVideo": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+  "sourceVideo": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
   "sourceSha256": "35416523A9019421906862C1AF44BB14B96F1F1DDE99CF7D9FB19FF59C41055D",
   "rendererReady": true,
   "mediaOpened": true,
@@ -15,7 +15,7 @@
   "strokeCount": 4,
   "previewPixelDelta": 439127,
   "exportCompleted": true,
-  "exportPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
+  "exportPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\retouch-packaged-e2e-output.mp4",
   "outputExists": true,
   "outputFfprobe": {
     "streams": [
@@ -136,7 +136,7 @@
       }
     ],
     "format": {
-      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
+      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\retouch-packaged-e2e-output.mp4",
       "nb_streams": 2,
       "nb_programs": 0,
       "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -169,10 +169,10 @@
     "retouchReady": true,
     "product": "Knoux X",
     "packageVersion": "2.1.0",
-    "buildSha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+    "buildSha": "e29c81857994fc9768d622410be3e483fd027ecb",
     "packaged": true,
-    "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
-    "mediaUrl": "file:///K:/Knoux%20Projects/knoux-x/Worktrees/Knoux-X-Final-Release-Closure/tests/fixtures/retouch-real/army-exercise.mp4",
+    "sourcePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+    "mediaUrl": "file:///K:/Knoux%20Projects/knoux-x/Worktrees/knoux-x-r3-acceptance-20261023/tests/fixtures/retouch-real/army-exercise.mp4",
     "videoWidth": 640,
     "videoHeight": 360,
     "videoDuration": 3,
@@ -187,10 +187,10 @@
     "freezeCoverageMax": 0.9628255208333333,
     "videoStudioProviders": 5
   },
-  "runtimeEvidencePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\windows-packaged-retouch-e2e-runtime.json",
+  "runtimeEvidencePath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\windows-packaged-retouch-e2e-runtime.json",
   "sourceProbe": {
     "format": {
-      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
+      "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tests\\fixtures\\retouch-real\\army-exercise.mp4",
       "nb_streams": 2,
       "nb_programs": 0,
       "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -325,21 +325,21 @@
   "outputDuration": "3.000000",
   "outputResolution": "640x360",
   "exportJob": {
-    "id": "2ffd44a2-de13-455e-8545-604f8ecfe31b",
+    "id": "d673df12-bc04-48db-8b7d-543a6af55763",
     "status": "completed",
-    "inputPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-4016\\retouch-intermediate.mp4",
-    "outputPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4",
+    "inputPath": "C:\\Users\\day night\\AppData\\Local\\Temp\\knoux-packaged-retouch-e2e-10328\\retouch-intermediate.mp4",
+    "outputPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\retouch-packaged-e2e-output.mp4",
     "presetId": "high-quality",
     "progress": {
-      "jobId": "c07e905c-e56f-4ac6-98c0-7b96e0a38873",
+      "jobId": "d677f1d4-14bc-44ef-a42e-d8de85c67178",
       "frame": 45,
       "fps": 0,
       "timeSeconds": 2.96,
-      "speed": 2.98
+      "speed": 3.52
     },
     "error": null,
-    "createdAt": "2026-10-18T06:30:01.722Z",
-    "completedAt": "2026-10-18T06:30:03.182Z",
+    "createdAt": "2026-10-23T04:37:33.664Z",
+    "completedAt": "2026-10-23T04:37:35.310Z",
     "probe": {
       "streams": [
         {
@@ -463,7 +463,7 @@
         }
       ],
       "format": {
-        "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\retouch-packaged-e2e-output.mp4.2ffd44a2-de13-455e-8545-604f8ecfe31b.partial.mp4",
+        "filename": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\retouch-packaged-e2e-output.mp4.d673df12-bc04-48db-8b7d-543a6af55763.partial.mp4",
         "nb_streams": 2,
         "nb_programs": 0,
         "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
@@ -483,24 +483,24 @@
     }
   },
   "relaunch": {
-    "pid": 12604,
-    "pageUrl": "file:///D:/KnouxX-Builds/Knoux-X-Final-Release-Closure/Knoux%20X-win32-x64/resources/app.asar/.vite/renderer/main_window/index.html",
+    "pid": 17440,
+    "pageUrl": "file:///K:/Knoux%20Projects/knoux-x/Worktrees/knoux-x-r3-acceptance-20261023/out/Knoux%20X-win32-x64/resources/app.asar/.vite/renderer/main_window/index.html",
     "identity": {
       "build": {
         "product": "Knoux X",
         "version": "2.1.0",
-        "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
-        "branch": "feat/knoux-x-final-release-closure",
-        "builtAt": "2026-10-18T05:20:49.565Z",
+        "sha": "e29c81857994fc9768d622410be3e483fd027ecb",
+        "branch": "fix/r3-acceptance-20261023",
+        "builtAt": "2026-10-23T04:20:41.807Z",
         "packaged": true,
         "electronVersion": "32.3.3"
       },
       "system": {
         "product": "Knoux X",
         "version": "2.1.0",
-        "sha": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
-        "branch": "feat/knoux-x-final-release-closure",
-        "builtAt": "2026-10-18T05:20:49.565Z",
+        "sha": "e29c81857994fc9768d622410be3e483fd027ecb",
+        "branch": "fix/r3-acceptance-20261023",
+        "builtAt": "2026-10-23T04:20:41.807Z",
         "packaged": true,
         "electronVersion": "32.3.3",
         "platform": "win32",
@@ -511,13 +511,13 @@
     },
     "secondInstanceStatus": 0,
     "argvSeen": [
-      "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\tests\\fixtures\\retouch-real\\army-exercise.mp4"
+      "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\tests\\fixtures\\retouch-real\\army-exercise.mp4"
     ],
-    "orphans": 0
+    "orphans": 5
   },
-  "testedHead": "8cad214799d9597ca7ed9cbe9d74b01624668b55",
-  "testedBranch": "feat/knoux-x-final-release-closure",
-  "logPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\Knoux-X-Final-Release-Closure\\reports\\windows-packaged-retouch-e2e-run.log",
-  "startedAt": "2026-10-18T06:29:42.603Z",
-  "completedAt": "2026-10-18T06:30:12.596Z"
+  "testedHead": "e29c81857994fc9768d622410be3e483fd027ecb",
+  "testedBranch": "fix/r3-acceptance-20261023",
+  "logPath": "K:\\Knoux Projects\\knoux-x\\Worktrees\\knoux-x-r3-acceptance-20261023\\reports\\windows-packaged-retouch-e2e-run.log",
+  "startedAt": "2026-10-23T04:36:46.701Z",
+  "completedAt": "2026-10-23T04:38:13.486Z"
 }

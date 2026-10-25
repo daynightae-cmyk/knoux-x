@@ -142,7 +142,7 @@ describe('manual frame capture contract', () => {
     });
   });
 
-  test('writes a final timestamped frame and closes the writer before stopping the recorder', async () => {
+  test('writes a final timestamped frame and stops the recorder before closing the writer', async () => {
     await withGeneratorStubs(async ({ write, close, frames }) => {
       const windowRecord = globalThis as { window?: unknown };
       const previousWindow = windowRecord.window;
@@ -160,6 +160,7 @@ describe('manual frame capture contract', () => {
         expect(close).toHaveBeenCalledTimes(1);
         expect(recorder.stop).toHaveBeenCalledTimes(1);
         expect(settle).toHaveBeenCalledTimes(1);
+        expect(recorder.stop.mock.invocationCallOrder[0]).toBeLessThan(close.mock.invocationCallOrder[0]);
         expect(frames.every((frame) => frame.closed)).toBe(true);
       } finally {
         windowRecord.window = previousWindow;

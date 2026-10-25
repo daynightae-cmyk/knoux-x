@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "feature": "desktop-timeline-export",
+  "verdict": "FAIL",
+  "severity": "P1",
+  "environment": {
+    "platform": "win32-x64",
+    "logicalProcessors": 4,
+    "sustainedCpuLoadPercent": 100,
+    "topConsumers": ["traycer-host", "opencode", "Traycer", "chrome"],
+    "note": "Load sampled repeatedly over 30s; the agent host itself saturates all four logical CPUs."
+  },
+  "build": {
+    "commit": "e29c81857994fc9768d622410be3e483fd027ecb",
+    "exeSha256BeforeFix": "6c5423ecb0017f12225d7e3683e1c4be2643af7daa15df829bd91c5c99d60596",
+    "exeSha256AfterFix": "91e4a7bcc04c7ac77123f354d47ca65dcb8f774662f88faea0b704d3c2b597b1",
+    "asarSha256AfterFix": "b33aaba3dc0970b0bf5475f98caf32c1989d95a40d226ac720495018b75295d3"
+  },
+  "observations": [
+    {
+      "at": "2026-10-23T03:42:16Z",
+      "build": "before-finalize-fix",
+      "result": "APP_REJECTED_TRUNCATED",
+      "appError": "The exported file ended before the timeline finished and was not accepted. Export again to retry.",
+      "log": "timeline-export.log"
+    },
+    {
+      "at": "2026-10-23T03:48:55Z",
+      "build": "before-finalize-fix",
+      "result": "APP_REJECTED_TRUNCATED",
+      "appError": "The exported file ended before the timeline finished and was not accepted. Export again to retry.",
+      "log": "timeline-export-rerun1.log"
+    },
+    {
+      "at": "2026-10-23T03:53:36Z",
+      "build": "before-finalize-fix",
+      "result": "PASS",
+      "measuredVideoExtentSeconds": 3.352,
+      "videoPacketCount": 82,
+      "authoredDurationSeconds": 3.5,
+      "earlyFrameMeanChannel": 126.12,
+      "log": "timeline-export-diag.log",
+      "note": "Passed only because the tail tolerance is 0.35s; the final timestamped frame at 3.5s was never muxed."
+    },
+    {
+      "at": "2026-10-23T04:09:14Z",
+      "build": "after-finalize-fix",
+      "result": "PASS",
+      "measuredVideoExtentSeconds": 3.472,
+      "videoPacketCount": 28,
+      "firstVideoPtsSeconds": 2.139,
+      "earlyFrameMeanChannel": 2.47,
+      "earlyFrameNonBlackPixelRatio": 0.0144,
+      "log": "timeline-export-tailfix-1.log",
+      "note": "First 2.139s of the timeline were dropped by the realtime encoder. The harness at that time did not assert a non-black early frame, so it falsely passed. The output is preserved at reports/packaged-timeline-export-e2e/timeline-export.webm until the next run."
+    },
+    {
+      "at": "2026-10-23T04:12:20Z",
+      "build": "after-finalize-fix-strict-harness",
+      "result": "APP_REJECTED_EMPTY",
+      "appError": "The project encoder produced an empty file.",
+      "log": "timeline-export-strict.log"
+    },
+    {
+      "at": "2026-10-23T04:13:13Z",
+      "build": "after-finalize-fix-strict-harness-high-priority",
+      "result": "APP_REJECTED_TRUNCATED",
+      "appError": "The exported file ended before the timeline finished and was not accepted. Export again to retry.",
+      "log": "timeline-export-boosted.log",
+      "note": "Setting knoux-player-x.exe to High priority every 200ms did not prevent the failure."
+    }
+  ],
+  "fixes": [
+    {
+      "file": "src/features/export/manualFrameCapture.ts",
+      "change": "Stop the MediaRecorder while the generator track is still live, drain the encoder tail, then close the writer. Previously the writer closed first, ending the track before the final timestamped frame was muxed.",
+      "observedEffect": "Last video packet moved from 3.352s to 3.472s in the first post-fix run, but the fix does not address encoder starvation."
+    },
+    {
+      "file": "tools/run-packaged-timeline-export-cdp-e2e.cjs",
+      "change": "Require the early exported frame to be bright, non-black, and materially similar to the source frame. The previous assertion only required it to differ from the source, so a black frame passed.",
+      "observedEffect": "Now fails honestly when leading frames are dropped."
+    },
+    {
+      "file": "tests/unit/manual-frame-capture.test.ts",
+      "change": "Assert recorder.stop() happens before writer.close()."
+    }
+  ],
+  "rootCause": "The desktop export uses a realtime MediaRecorder + MediaStreamTrackGenerator pipeline at 1920x1080. When the host has no spare CPU, the VP8 encoder either emits no data or drops the leading seconds while initializing. The app's coverage check only validates the end of the output, so leading loss was not detected by the product or the old harness.",
+  "requiredFollowUp": [
+    "Replace realtime MediaRecorder export with a deterministic offline encoder (WebCodecs + muxer, or canvas frames piped to the bundled ffmpeg) so export duration does not depend on wall-clock CPU availability.",
+    "Add leading-edge coverage validation (first video PTS near zero) to the product's own export verification, not only the harness.",
+    "Add an encoder warm-up or automatic retry only as a mitigation; do not treat it as the fix.",
+    "Re-run the strict 1080p timeline export acceptance under controlled load and preserve the output artifact."
+  ]
+}

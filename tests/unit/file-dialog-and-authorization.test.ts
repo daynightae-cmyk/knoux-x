@@ -3,7 +3,7 @@ import fsPromises from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { cancelledDialogResult, validateFileDialogOptions } from '../../electron/ipc/file-dialog-policy';
+import { cancelledDialogResult, dialogProperties, validateFileDialogOptions } from '../../electron/ipc/file-dialog-policy';
 import { IPC_INVOKE } from '../../electron/ipc/contract';
 import { AuthoritativeIpcRegistry } from '../../electron/ipc/registry';
 import { AuthorizedPathRegistry } from '../../electron/security/validation';
@@ -22,6 +22,18 @@ describe('file dialog cancellation and authorization policy', () => {
     expect(() => validateFileDialogOptions({ title: '\u0000' })).toThrow('text');
     expect(() => validateFileDialogOptions({ filters: [{ name: '', extensions: [] }] })).toThrow('filter');
     expect(() => validateFileDialogOptions({ filters: [{ name: 'Bad', extensions: ['../exe'] }] })).toThrow('extension');
+  });
+
+  test('validates and forwards only dialog properties allowed for the dialog kind', () => {
+    expect(dialogProperties('save', undefined)).toEqual([]);
+    expect(dialogProperties('save', ['createDirectory', 'showOverwriteConfirmation'])).toEqual(['createDirectory', 'showOverwriteConfirmation']);
+    expect(dialogProperties('open', ['openFile', 'createDirectory', 'showOverwriteConfirmation'])).toEqual(['openFile']);
+    expect(dialogProperties('open-multiple', ['openFile', 'multiSelections'])).toEqual(['openFile', 'multiSelections']);
+    expect(dialogProperties('open-directory', ['createDirectory'])).toEqual(['openDirectory', 'createDirectory']);
+    expect(validateFileDialogOptions({ properties: ['createDirectory'] }).properties).toEqual(['createDirectory']);
+    expect(() => validateFileDialogOptions({ properties: 'createDirectory' })).toThrow('properties');
+    expect(() => validateFileDialogOptions({ properties: ['openFile', 'runExecutable'] })).toThrow('property');
+    expect(() => validateFileDialogOptions({ properties: Array.from({ length: 9 }, () => 'createDirectory') })).toThrow('properties');
   });
 
   test('returns calm channel-specific cancellation values without authorizing or writing', () => {

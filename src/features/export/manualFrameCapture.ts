@@ -157,12 +157,16 @@ function createGeneratorCapture(
     void Promise.race([
       Promise.all([...pending, tail]).catch(() => undefined),
       delay(5000),
-    ]).then(() => Promise.race([
+    ]).then(() => delay(RENDER_FINAL_FRAME_DRAIN_MS)).then(() => {
+      // Stop the recorder while the generator track is still live. Closing the
+      // writer first ends the track and can discard the final timestamped frame
+      // before the encoder muxes it, truncating the export tail.
+      stopWhenIdle(recorder, settle);
+      return delay(RENDER_ENCODER_TAIL_DRAIN_MS);
+    }).then(() => Promise.race([
       writer.close().catch(() => undefined),
       delay(3000),
-    ])).then(() => delay(RENDER_ENCODER_TAIL_DRAIN_MS)).then(() => {
-      stopWhenIdle(recorder, settle);
-    });
+    ]));
   };
 
   return { stream, captureFrame, finalize };

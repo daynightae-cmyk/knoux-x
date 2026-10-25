@@ -25,7 +25,7 @@ import { registerUpdateHandlers } from '../startup/app-updater';
 import { IPC_INVOKE, IPC_OUTBOUND } from './contract';
 import type { StructuredValue } from './channel-types';
 import type { AuthoritativeIpcRegistry, IpcRegistrar } from './registry';
-import { cancelledDialogResult, validateFileDialogOptions } from './file-dialog-policy';
+import { cancelledDialogResult, dialogProperties, validateFileDialogOptions } from './file-dialog-policy';
 
 const authorizedPaths = authorizedMediaPaths;
 const deterministicDialogCancellation = process.argv.includes('--ipc-smoke-test') || process.argv.includes('--sprint-02-smoke');
@@ -73,7 +73,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
             { name: 'Subtitle Files', extensions: ['srt', 'vtt', 'ass', 'ssa'] },
             { name: 'All Files', extensions: ['*'] },
           ],
-          properties: ['openFile'],
+          properties: dialogProperties('open', options.properties),
         });
     return result.canceled ? cancelledDialogResult('open') : authorizedPaths.authorizeFile(result.filePaths[0]);
   });
@@ -87,7 +87,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
       filters: options.filters || [
         { name: 'Media Files', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
       ],
-      properties: ['openFile', 'multiSelections'],
+      properties: dialogProperties('open-multiple', options.properties),
     });
     return result.canceled ? cancelledDialogResult('open-multiple') : result.filePaths.map((filePath) => authorizedPaths.authorizeFile(filePath));
   });
@@ -97,7 +97,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
     const result = deterministicDialogCancellation ? { canceled: true, filePaths: [] } : await dialog.showOpenDialog(dialogOwner(event), {
       title: options.title || 'Select Folder',
       defaultPath: options.defaultPath,
-      properties: ['openDirectory'],
+      properties: dialogProperties('open-directory', options.properties),
     });
     return result.canceled ? cancelledDialogResult('open-directory') : authorizedPaths.authorizeRoot(result.filePaths[0]);
   });
@@ -112,6 +112,7 @@ function setupFileHandlers(ipc: IpcRegistrar, _orchestrator: SystemOrchestrator)
           defaultPath: options.defaultPath,
           buttonLabel: options.buttonLabel,
           filters: options.filters,
+          properties: dialogProperties('save', options.properties),
         });
     return result.canceled || !result.filePath ? cancelledDialogResult('save') : authorizedPaths.authorizeFile(result.filePath);
   });

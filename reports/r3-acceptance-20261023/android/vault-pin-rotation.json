@@ -1,0 +1,20 @@
+{
+  "largeFixture": "KNOUX-QA-LARGE.mp4",
+  "containerBytes": 11550142,
+  "playback": {
+    "duration": 30,
+    "width": 1280,
+    "height": 720,
+    "currentTime": 28.5,
+    "readyState": 4
+  },
+  "pinSequence": [
+    "2468",
+    "8642",
+    "2468"
+  ],
+  "restart": {
+    "oldPid": "8840",
+    "newPid": "9362"
+  }
+}

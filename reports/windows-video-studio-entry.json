@@ -14,7 +14,7 @@
   "probeVideoCodec": "h264",
   "openVideoRoundTripNull": true,
   "screenshotTaken": true,
-  "orphans": 0,
+  "orphans": 2,
   "verdict": "PASS",
   "openVideoError": null,
   "openVideoDialogDismissExitCode": 0,
@@ -35,8 +35,8 @@
     "videoFilterExcludesMp3": true,
     "videoFilterExcludesPng": true
   },
-  "testedHead": "8cad214799d9597ca7ed9cbe9d74b01624668b55",
-  "testedBranch": "feat/knoux-x-final-release-closure",
-  "startedAt": "2026-10-18T06:36:57.771Z",
-  "completedAt": "2026-10-18T06:37:16.012Z"
+  "testedHead": "e29c81857994fc9768d622410be3e483fd027ecb",
+  "testedBranch": "fix/r3-acceptance-20261023",
+  "startedAt": "2026-10-23T04:43:05.841Z",
+  "completedAt": "2026-10-23T04:43:49.409Z"
 }

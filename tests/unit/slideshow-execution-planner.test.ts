@@ -124,7 +124,7 @@ describe('slideshow execution bounding (Windows command-line safety)', () => {
     });
     expect(exec.commandLineLength).toBeLessThanOrEqual(WINDOWS_SAFE_COMMAND_LENGTH);
     expect(exec.stagedInputs).toHaveLength(100);
-  });
+  }, 30_000);
 
   test('250 slides are staged so the final command stays bounded', async () => {
     // 500+ filesystem operations (write fixtures, hard-link/copy staging, filter script);

@@ -1,0 +1,48 @@
+{
+  "indexed": {
+    "items": [
+      {
+        "uri": "content://media/external/video/media/1000000028",
+        "kind": "videos",
+        "_id": 1000000028,
+        "name": "KNOUX-Screen.mp4",
+        "mime": "video/mp4",
+        "size": 6180854,
+        "date_added": 1792714400,
+        "date_modified": 1792714245,
+        "duration": 60.021,
+        "width": 640,
+        "height": 360,
+        "bucket_display_name": "KNOUX X",
+        "bucket_id": "-753996747",
+        "relative_path": "Movies/KNOUX X/"
+      }
+    ],
+    "access": "full",
+    "after": "1000000028",
+    "hasMore": true
+  },
+  "second": {
+    "items": [
+      {
+        "uri": "content://media/external/video/media/1000000027",
+        "kind": "videos",
+        "_id": 1000000027,
+        "name": "KNOUX-Camera.mp4",
+        "mime": "video/mp4",
+        "size": 6180854,
+        "date_added": 1792714400,
+        "date_modified": 1792714245,
+        "duration": 60.021,
+        "width": 640,
+        "height": 360,
+        "bucket_display_name": "Camera",
+        "bucket_id": "-1739773001",
+        "relative_path": "DCIM/Camera/"
+      }
+    ],
+    "access": "full",
+    "after": "1000000027",
+    "hasMore": true
+  }
+}

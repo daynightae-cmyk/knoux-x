@@ -669,10 +669,14 @@ function prepare() {
       outputLateDecodeMode: outputLateMode,
     };
     assert(sourceProbe.duration < 2.5, 'Late proof sample is not actually after the source clip ends.');
+    assert(outputEarly.maxChannel > 160, `Early exported frame has no bright source pixels (max=${outputEarly.maxChannel}).`);
+    assert(outputEarly.meanChannel > 40, `Early exported frame is black (mean=${outputEarly.meanChannel}).`);
+    assert(outputEarly.nonBlackPixelRatio > 0.5, `Early exported frame is mostly black (${outputEarly.nonBlackPixelRatio}).`);
     assert(outputLate.maxChannel > 160, `Late exported frame has no bright title pixels (max=${outputLate.maxChannel}).`);
     assert(outputLate.brightPixelRatio > 0.0005, `Late exported frame bright-pixel ratio is too low (${outputLate.brightPixelRatio}).`);
     assert(outputLate.nonBlackPixelRatio > 0.001, `Late exported frame is effectively black (${outputLate.nonBlackPixelRatio}).`);
     assert(earlyDifference.materiallyDifferentPixelRatio > 0.001, `Early exported frame is too similar to the raw source (${earlyDifference.materiallyDifferentPixelRatio}).`);
+    assert(earlyDifference.materiallyDifferentPixelRatio < 0.5, `Early exported frame does not match the source (${earlyDifference.materiallyDifferentPixelRatio}).`);
 
     if (fs.existsSync(networkLogPath)) {
       evidence.network = JSON.parse(fs.readFileSync(networkLogPath, 'utf8'));

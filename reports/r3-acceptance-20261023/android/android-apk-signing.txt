@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, L=Abu Dhabi, ST=Abu Dhabi, C=AE
+Signer #1 certificate SHA-256 digest: fa3d352f475c095a3f58d391386df9f98c8ac07c1180125658f1e21df37ca55f
+Signer #1 certificate SHA-1 digest: 84f82f3d5e95012d9b87eae99d678b4667f8f132
+Signer #1 certificate MD5 digest: 21b2288114a692a0e3c08e0c48b60315
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 2170ef51e05f00915cb9d7b6d09a67ec9331f6e7fca5d8cf0b600b10f52c497e
+Signer #1 public key SHA-1 digest: c316ec177aa3b97685ce7284e480c3432fdcc4f9
+Signer #1 public key MD5 digest: 1252352d794f29dbcdbd3fb1b5e25766

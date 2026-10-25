@@ -1,0 +1,13 @@
+{
+  "debugLane": false,
+  "container": {
+    "header": "KNVX..T^",
+    "headerHex": "4b4e5658010c545e",
+    "bytes": 6180888,
+    "version": 1,
+    "member": true
+  },
+  "cacheFilesBeforeLock": 1,
+  "cacheRemoved": 1,
+  "cacheFilesAfterLock": 0
+}

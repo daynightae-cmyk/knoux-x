@@ -31,7 +31,7 @@ const report = {
   commit: cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
   runtime: `Electron source checkout on ${process.platform} (not packaged or installed acceptance)`,
   fixture: { path: fixture, provenance: 'repository-authored synthetic SVG raster; no inference claimed', sha256: hash(fixture) },
-  evidence, outputs: [], success: false,
+  evidence, outputs: [], success: false, pageErrors: [],
 };
 
 async function launch() {
@@ -59,7 +59,10 @@ async function launch() {
     for (const window of BrowserWindow.getAllWindows()) window.setSize(1440, 1000);
   });
   const page = await app.firstWindow();
-  page.on('pageerror', error => console.log(`IMAGE_LIFECYCLE page-error ${error.message}`));
+  page.on('pageerror', error => {
+    report.pageErrors.push({ message: error.message, stack: error.stack || null });
+    console.log(`IMAGE_LIFECYCLE page-error ${error.stack || error.message}`);
+  });
   page.setDefaultTimeout(30000);
   await page.waitForFunction(() => typeof window.knouxImageStudioAPI?.create === 'function');
   if (installedExecutable) {

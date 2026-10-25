@@ -1,0 +1,5 @@
+{
+	"provider": "disabled",
+	"model": "gemini-3.6-flash",
+	"encryptedKey": null
+}

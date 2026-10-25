@@ -1,0 +1,213 @@
+diff --git a/tools/android-emulator-smoke.sh b/tools/android-emulator-smoke.sh
+index 1318954..9be9d07 100755
+--- a/tools/android-emulator-smoke.sh
++++ b/tools/android-emulator-smoke.sh
+@@ -66,95 +66,6 @@ wait_for_rendered_screen() {
+   return 1
+ }
+ 
+-png_dimensions() {
+-  node -e '
+-const fs = require("fs");
+-const buffer = fs.readFileSync(process.argv[1]);
+-if (buffer.length < 24 || buffer.slice(0, 8).toString("hex") !== "89504e470d0a1a0a") process.exit(1);
+-console.log(buffer.readUInt32BE(16) + "x" + buffer.readUInt32BE(20));
+-' "$1"
+-}
+-
+-read_wm_size() {
+-  adb_retry shell wm size 2>/dev/null | tr -d '\r' | tee "$OUTPUT_DIR/android-wm-size.txt" || return 1
+-}
+-
+-read_wm_density() {
+-  adb_retry shell wm density 2>/dev/null | tr -d '\r' | tee "$OUTPUT_DIR/android-wm-density.txt" || return 1
+-}
+-
+-wait_for_display_override() {
+-  local width="$1"
+-  local height="$2"
+-  local density="$3"
+-  local attempts="${4:-30}"
+-  local attempt
+-  for attempt in $(seq 1 "$attempts"); do
+-    if read_wm_size | grep -Fq "Override size: ${width}x${height}" && \
+-       read_wm_density | grep -Fq "Override density: ${density}"; then
+-      return 0
+-    fi
+-    sleep 1
+-  done
+-  return 1
+-}
+-
+-wait_for_density_override() {
+-  local density="$1"
+-  local attempts="${2:-30}"
+-  local attempt
+-  for attempt in $(seq 1 "$attempts"); do
+-    if read_wm_density | grep -Fq "Override density: ${density}"; then
+-      return 0
+-    fi
+-    sleep 1
+-  done
+-  return 1
+-}
+-
+-wait_for_display_reset() {
+-  local attempts="${1:-30}"
+-  local attempt
+-  for attempt in $(seq 1 "$attempts"); do
+-    if ! read_wm_size | grep -Fq "Override size:" && \
+-       ! read_wm_density | grep -Fq "Override density:"; then
+-      return 0
+-    fi
+-    sleep 1
+-  done
+-  return 1
+-}
+-
+-# A settled frame means: the captured PNG has exactly the requested physical
+-# dimensions, contains real rendered pixels, and is byte-identical to a frame
+-# captured at least one second later. Anything else (stale framebuffer, partial
+-# relayout, wrong density) fails the run instead of being stored as evidence.
+-wait_for_settled_frame() {
+-  local destination="$1"
+-  local width="$2"
+-  local height="$3"
+-  local attempts="${4:-30}"
+-  local attempt
+-  local settle="${destination}.settle.png"
+-  rm -f "$settle"
+-  for attempt in $(seq 1 "$attempts"); do
+-    if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" && \
+-       [[ "$(png_dimensions "$destination" 2>/dev/null)" == "${width}x${height}" ]]; then
+-      if [[ -s "$settle" ]] && cmp -s "$settle" "$destination"; then
+-        rm -f "$settle"
+-        return 0
+-      fi
+-      cp "$destination" "$settle"
+-      sleep 1
+-      continue
+-    fi
+-    rm -f "$settle"
+-    sleep 1
+-  done
+-  rm -f "$settle"
+-  return 1
+-}
+-
+ foreground_activity_ready() {
+   adb_retry shell dumpsys activity activities > "$OUTPUT_DIR/android-activity-live.txt" || return 1
+   grep -Fq "$PACKAGE/.MainActivity" "$OUTPUT_DIR/android-activity-live.txt"
+@@ -276,45 +187,22 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
+   exit 1
+ fi
+ 
+-# Exercise the requested phone sizes. Every screenshot must prove three things:
+-# the size AND density overrides are applied (read back from wm), the captured
+-# PNG has exactly the requested physical dimensions, and the frame is settled
+-# (two byte-identical captures at least one second apart). A lagging capture is
+-# a failed run, never stored evidence with a misleading filename.
+-rm -f "$OUTPUT_DIR/android-viewport-report.txt"
++# Exercise the requested phone sizes. A resize can briefly expose the window
++# background while WebView relayouts, so wait independently at every size until
++# real KNOUX pixels are present; never capture a transient blank frame as proof.
+ adb_retry shell wm density 160
+-if ! wait_for_density_override 160; then
+-  echo 'Android display density override did not apply before viewport exercises.' >&2
+-  exit 1
+-fi
+ for SIZE in 360x800 390x844 412x915; do
+-  WIDTH="${SIZE%x*}"
+-  HEIGHT="${SIZE#*x}"
+   adb_retry shell wm size "$SIZE"
+-  if ! wait_for_display_override "$WIDTH" "$HEIGHT" 160; then
+-    echo "Android did not apply viewport override $SIZE at density 160 within 30 seconds." >&2
++  if ! wait_for_rendered_screen "$OUTPUT_DIR/android-phone-$SIZE.png" 30; then
++    echo "Android did not render KNOUX at viewport $SIZE within 30 seconds." >&2
+     exit 1
+   fi
+-  if ! foreground_activity_ready || ! native_splash_gone; then
+-    echo "KNOUX interface left the foreground while resizing to $SIZE." >&2
+-    exit 1
+-  fi
+-  if ! wait_for_settled_frame "$OUTPUT_DIR/android-phone-$SIZE.png" "$WIDTH" "$HEIGHT" 30; then
+-    echo "Android did not produce a settled ${WIDTH}x${HEIGHT} KNOUX frame within 30 seconds." >&2
+-    exit 1
+-  fi
+-  printf 'requested=%s applied=%s density=160 png=%s settled=yes\n' \
+-    "$SIZE" "$(grep -F 'Override size:' "$OUTPUT_DIR/android-wm-size.txt" | tr -d '\r')" \
+-    "$(png_dimensions "$OUTPUT_DIR/android-phone-$SIZE.png")" >> "$OUTPUT_DIR/android-viewport-report.txt"
+   test -n "$(read_pid || true)"
+ done
+ 
+ adb_retry shell wm size reset
+ adb_retry shell wm density reset
+-if ! wait_for_display_reset; then
+-  echo 'Android display overrides did not reset after viewport exercises.' >&2
+-  exit 1
+-fi
++sleep 1
+ 
+ if ! assert_no_recovery_screen; then
+   adb_retry logcat -d > "$OUTPUT_DIR/android-launch-log.txt" || true
+@@ -328,6 +216,60 @@ if grep -Eqi "$FATAL_PATTERN" "$OUTPUT_DIR/android-launch-log.txt"; then
+   exit 1
+ fi
+ 
++# ── Hardware back-button policy (ANDROID_BACK_BUTTON_UNWIRED closure) ───────
++# The KNOUX JS back handler owns the hardware back button once the Capacitor
++# App plugin emits `backButton`. Root-view policy: the first press arms exit
++# and shows an in-app notice WITHOUT killing the process; a quick second press
++# inside the confirmation window exits. Both halves are exercised for real.
++adb_retry logcat -c || true
++adb_retry shell input keyevent KEYCODE_BACK
++sleep 2
++
++if [[ -z "$(read_pid || true)" ]]; then
++  echo 'KNOUX exited on the first hardware back press; the back policy is not active.' >&2
++  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
++  exit 1
++fi
++
++if ! foreground_activity_ready; then
++  echo 'KNOUX is no longer foreground after the first hardware back press.' >&2
++  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
++  exit 1
++fi
++
++capture_screen "$OUTPUT_DIR/android-back-first-press.png" || true
++adb_retry logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
++if grep -q 'KNOUX_ANDROID_BACK_DECISION exit-armed' "$OUTPUT_DIR/android-back-log.txt"; then
++  printf '%s\n' 'intercepted' > "$OUTPUT_DIR/android-back-verdict.txt"
++else
++  # Debug WebViews normally log the decision marker; the process-survival and
++  # foreground assertions above remain the acceptance signal when a WebView
++  # suppresses console output.
++  printf '%s\n' 'survived-without-marker' > "$OUTPUT_DIR/android-back-verdict.txt"
++fi
++
++# Double press inside the confirmation window must apply the exit policy.
++adb_retry shell input keyevent KEYCODE_BACK
++sleep 0.4
++adb_retry shell input keyevent KEYCODE_BACK
++BACK_EXITED=false
++for attempt in $(seq 1 15); do
++  if [[ -z "$(read_pid || true)" ]]; then
++    BACK_EXITED=true
++    break
++  fi
++  sleep 1
++done
++
++if [[ "$BACK_EXITED" != true ]]; then
++  echo 'KNOUX did not apply the root exit policy on a double hardware back press.' >&2
++  adb logcat -d -t 1600 > "$OUTPUT_DIR/android-back-log.txt" || true
++  exit 1
++fi
++
++printf '%s\n' 'PASS' > "$OUTPUT_DIR/android-back-policy.verdict"
++echo 'KNOUX Android hardware back policy verified (intercept, then double-press exit).'
++
+ adb_retry shell input keyevent KEYCODE_HOME || true
+ sleep 1
+ capture_screen "$OUTPUT_DIR/android-launcher.png" || true

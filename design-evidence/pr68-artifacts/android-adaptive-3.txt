@@ -1,0 +1,6 @@
+N: android=http://schemas.android.com/apk/res/android
+  E: adaptive-icon (line=2)
+    E: background (line=3)
+      A: android:drawable(0x01010199)=@0x7f050038
+    E: foreground (line=4)
+      A: android:drawable(0x01010199)=@0x7f0c0001

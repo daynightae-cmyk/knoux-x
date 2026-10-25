@@ -1,0 +1,11 @@
+{
+  "status": "BUILT",
+  "artifact": "KNOUX-X-Android-release-ci-signed.apk",
+  "package": "dev.knoux.playerx",
+  "buildVariant": "release",
+  "signing": "acceptance",
+  "signingLabel": "TEST_SIGNED",
+  "productionSigned": false,
+  "webContentsDebuggingEnabled": true,
+  "purpose": "installable release acceptance only"
+}

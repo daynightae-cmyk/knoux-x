@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KNOUX X</string>
+    <string name="title_activity_main">KNOUX X</string>
+    <string name="package_name">dev.knoux.playerx</string>
+    <string name="custom_url_scheme">dev.knoux.playerx</string>
+</resources>

@@ -1,0 +1,285 @@
+2026-10-20T18:04:02Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5381         497         155       10606       10602
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4579836 238
+   4820 adb              7480  0.0
+   4879 adb              5640  0.0
+   4880 adb              5624  0.0
+2026-10-20T18:04:04Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5480         404         155       10601       10503
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4634884 248
+   4820 adb              7708  0.3
+   4879 adb              5700  0.9
+   4880 adb              5624  0.0
+2026-10-20T18:04:06Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5496         373         158       10619       10487
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4637944 256
+   4820 adb              7708  0.5
+   4879 adb              5700  1.2
+   4880 adb              5624  0.0
+   4926 adb              5812 14.2
+   4929 adb              5792 20.0
+   4933 adb              5648 25.0
+2026-10-20T18:04:08Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5532         317         158       10638       10451
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4647736 263
+   4820 adb              8964  0.8
+   4879 adb              5700  1.1
+   4880 adb              5624  0.0
+   4987 adb              5896  0.0
+   4988 adb              5992  1.0
+2026-10-20T18:04:10Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5558         463         197       10506       10425
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4720912 270
+   4820 adb              9172  1.0
+   4879 adb              5700  0.9
+   4880 adb              5624  0.0
+   5001 adb              5820  0.0
+2026-10-20T18:04:12Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5603         408         237       10556       10380
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4751936 276
+   4820 adb              9300  1.0
+   4879 adb              5700  0.9
+   4880 adb              5624  0.0
+   5031 adb              5752  0.0
+2026-10-20T18:04:14Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5667         339         239       10563       10316
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4791692 281
+   4820 adb              9304  1.1
+   4879 adb              5700  0.9
+   4880 adb              5624  0.0
+2026-10-20T18:04:16Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5734         266         289       10618       10248
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4903972 286
+   4820 adb              9312  1.2
+   4879 adb              5700  0.9
+   4880 adb              5624  0.0
+   5075 adb              5728  0.0
+2026-10-20T18:04:19Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5820         285         329       10553       10163
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4975436 290
+   4820 adb              9332  1.1
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:21Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5883         206         366       10607       10100
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5007264 294
+   4820 adb              9344  1.1
+   4879 adb              5700  0.8
+   4880 adb              5624  0.0
+   5122 node            76656 71.4
+2026-10-20T18:04:23Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5888         288         393       10546       10095
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5011500 296
+   4820 adb              9344  1.2
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+   5148 adb              5752  0.0
+2026-10-20T18:04:25Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5927         238         393       10558       10056
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4925852 298
+   4820 adb              9412  1.2
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:27Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5968         194         393       10562       10015
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4906504 301
+   4820 adb              9416  1.2
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:29Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5992         279         393       10452        9991
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4895832 303
+   4820 adb              9416  1.2
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:31Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        5999         260         393       10464        9984
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4898232 305
+   4820 adb              9416  1.3
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:33Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6012         212         393       10499        9971
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4921876 306
+   4820 adb              9416  1.3
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+   5479 node            40180 50.0
+2026-10-20T18:04:35Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6027         180         393       10516        9956
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4922356 307
+   4820 adb              9420  1.3
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+   5573 adb              5780  0.0
+2026-10-20T18:04:37Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6006         302         393       10415        9977
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4927424 308
+   4820 adb              9420  1.4
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+   5611 node            69540  100
+2026-10-20T18:04:39Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6031         272         393       10420        9952
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 4967284 308
+   4820 adb              9420  1.3
+   4879 adb              5700  0.7
+   4880 adb              5624  0.0
+2026-10-20T18:04:41Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6038         264         393       10421        9945
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5031716 310
+   4820 adb              9420  1.3
+   4879 adb              5700  0.6
+   4880 adb              5624  0.0
+   5715 adb              5836  0.0
+2026-10-20T18:04:43Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6069         207         395       10448        9914
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5141864 311
+   4820 adb              9448  1.3
+   4879 adb              5700  0.6
+   4880 adb              5624  0.0
+2026-10-20T18:04:45Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6031         243         395       10449        9951
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5121976 310
+   4820 adb              9448  1.3
+   4879 adb              5700  0.6
+   4880 adb              5624  0.0
+2026-10-20T18:04:47Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6107         273         457       10406        9875
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5096956 310
+   4820 adb              9448  1.3
+   4879 adb              5700  0.6
+   4880 adb              5624  0.0
+2026-10-20T18:04:49Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6111         227         457       10449        9872
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5098536 307
+   4820 adb              9448  1.2
+   4879 adb              5700  0.6
+   4880 adb              5624  0.0
+2026-10-20T18:04:51Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6111         226         457       10449        9872
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5099716 304
+   4820 adb              9448  1.2
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+2026-10-20T18:04:53Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6111         226         457       10450        9872
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5100724 302
+   4820 adb              9448  1.2
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+2026-10-20T18:04:55Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6112         225         457       10450        9871
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5101524 299
+   4820 adb              9448  1.2
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+2026-10-20T18:04:57Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6115         221         457       10451        9868
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5100192 297
+   4820 adb              9448  1.2
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+2026-10-20T18:04:59Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6116         219         457       10452        9867
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5101440 296
+   4820 adb              9448  1.2
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+2026-10-20T18:05:01Z
+               total        used        free      shared  buff/cache   available
+Mem:           15983        6119         215         457       10452        9864
+Swap:           3071           0        3071
+    PID COMMAND           RSS %CPU
+   4699 qemu-system-x86 5101748 295
+   4820 adb              9448  1.1
+   4879 adb              5700  0.5
+   4880 adb              5624  0.0
+   5927 adb                 0  0.0

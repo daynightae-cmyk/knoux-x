@@ -1,0 +1,9 @@
+Large binaries are NOT committed to keep the repository usable.
+They are preserved outside git in:
+  C:\Users\day night\Backups\knoux-x-worktree-snapshot-20261024\
+Skipped (bytes, path):
+6180854 design-evidence/pr68-artifacts/KNOUX-QA.mp4
+43980166 design-evidence/pr68-artifacts/KNOUX-X-Android-release-ci-signed.apk
+4263984 design-evidence/pr68-artifacts/android-app-startup-log.txt
+4263984 design-evidence/pr68-artifacts/android-launch-log.txt
+10134182 design-evidence/pr68-artifacts/diagnostics/logcat-live.txt

@@ -1,0 +1,7 @@
+Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] cmp=dev.knoux.playerx/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: dev.knoux.playerx/.MainActivity
+TotalTime: 3255
+WaitTime: 3270
+Complete

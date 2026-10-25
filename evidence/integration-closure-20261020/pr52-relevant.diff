@@ -1,0 +1,437 @@
+diff --git a/.github/workflows/android-apk.yml b/.github/workflows/android-apk.yml
+index 1e0612d..c4d31d6 100644
+--- a/.github/workflows/android-apk.yml
++++ b/.github/workflows/android-apk.yml
+@@ -16,8 +16,6 @@ on:
+       - 'tools/prepare-android-functional-closure.cjs'
+       - 'tools/verify-android-apk.cjs'
+       - 'tools/verify-android-screen.cjs'
+-      - 'tools/android-real-workflows.cjs'
+-      - 'tools/android-native-core.cjs'
+       - 'electron/**'
+       - 'index.html'
+       - 'vite.renderer.config.ts'
+@@ -39,8 +37,6 @@ on:
+       - 'tools/prepare-android-functional-closure.cjs'
+       - 'tools/verify-android-apk.cjs'
+       - 'tools/verify-android-screen.cjs'
+-      - 'tools/android-real-workflows.cjs'
+-      - 'tools/android-native-core.cjs'
+       - 'electron/**'
+       - 'index.html'
+       - 'vite.renderer.config.ts'
+@@ -58,7 +54,6 @@ concurrency:
+ 
+ env:
+   CAPACITOR_VERSION: '8.5.0'
+-  CAPACITOR_APP_VERSION: '8.1.2'
+ 
+ jobs:
+   build-debug-apk:
+@@ -116,11 +111,8 @@ jobs:
+           @capacitor/core@${CAPACITOR_VERSION}
+           @capacitor/cli@${CAPACITOR_VERSION}
+           @capacitor/android@${CAPACITOR_VERSION}
+-          @capacitor/app@${CAPACITOR_APP_VERSION}
+ 
+       - name: Build KNOUX Android renderer
+-        env:
+-          KNOUX_RELEASE_SHA: ${{ github.sha }}
+         run: npx vite build --config vite.renderer.config.ts --outDir dist
+ 
+       - name: Generate and synchronize Android project
+@@ -231,14 +223,6 @@ jobs:
+           sudo udevadm control --reload-rules
+           sudo udevadm trigger --name-match=kvm
+ 
+-      - name: Generate legal encoded QA fixture
+-        run: |
+-          node - <<'JS'
+-          const ffmpeg = require('ffmpeg-static');
+-          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','12','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-output/KNOUX-QA.mp4']);
+-          JS
+-          sha256sum android-ci-output/KNOUX-QA.mp4 > android-ci-output/fixture.sha256
+-
+       - name: Install and launch APK on Android emulator
+         uses: reactivecircus/android-emulator-runner@v2
+         with:
+@@ -246,25 +230,14 @@ jobs:
+           target: google_apis
+           arch: x86_64
+           profile: pixel_7
+-          # CI evidence (runs 39188659686, 39196654875, 39200840085, 39203107074):
+-          # the WebView renderer died during media interaction and the emulator
+-          # then left adb entirely, consistently after playback started. The
+-          # emulator ran on 2 cores / 2048M while the same job also decoded
+-          # video and ran ffprobe. No OOM or crash evidence was captured, so
+-          # this is a resource-margin change, not a fix for a proven cause.
+-          # No acceptance assertion is affected by this envelope.
+-          cores: 4
+-          ram-size: 4096M
++          cores: 2
++          ram-size: 2048M
+           heap-size: 512M
+           force-avd-creation: true
+-          emulator-boot-timeout: 420
++          emulator-boot-timeout: 300
+           disable-animations: true
+           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+-          script: |
+-            bash tools/android-emulator-smoke.sh
+-            adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
+-            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
+-            node tools/android-real-workflows.cjs
++          script: bash tools/android-emulator-smoke.sh
+ 
+       - name: Upload installable APK and launch evidence
+         if: always()
+diff --git a/src/main.tsx b/src/main.tsx
+index 3a9433c..769f1b5 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -10,13 +10,12 @@
+  * @version 1.1.0
+  */
+ 
+-import React, { lazy } from 'react';
++import { lazy, StrictMode, Suspense } from 'react';
+ import { createRoot } from 'react-dom/client';
+ 
+ import App from './App';
+ import { ErrorBoundary } from './components/system/ErrorBoundary';
+ import { AndroidOptionalRuntime } from './platform/AndroidOptionalRuntime';
+-import { installAndroidBackButton } from './platform/androidBackButton';
+ import { installAndroidAudioToolsBridge } from './platform/androidAudioToolsBridge';
+ import { installAndroidCaptureBridge } from './platform/androidCaptureBridge';
+ import { installAndroidFileBridge } from './platform/androidFileBridge';
+@@ -28,7 +27,6 @@ import { installAndroidSafBridge } from './platform/androidSafBridge';
+ import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
+ import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
+ import './styles/premium-daylight-rebrand.css';
+-import './styles/android-visual-system.css';
+ 
+ const SystemOverlay = lazy(async () => {
+   const module = await import('./components/system/SystemOverlay');
+@@ -70,7 +68,6 @@ if (androidRuntimeInstalled) {
+   installAndroidRetouchModels();
+   installAndroidMultitrackExportBridge();
+   installAndroidSlideshowRenderBridge();
+-  installAndroidBackButton();
+ } else {
+   document.documentElement.dataset.runtime = 'desktop';
+   installBrowserPreviewBridge();
+@@ -92,13 +89,13 @@ const productTree = (
+     <App />
+     {androidRuntimeInstalled && <AndroidOptionalRuntime />}
+     {(!androidRuntimeInstalled || androidDiagnosticsEnabled) && (
+-      <React.Suspense fallback={null}>
++      <Suspense fallback={null}>
+         <SystemOverlay />
+-      </React.Suspense>
++      </Suspense>
+     )}
+   </ErrorBoundary>
+ );
+ 
+ // StrictMode is valuable for desktop development, but its duplicate development
+ // effects are needless work in the Android WebView debug build used on devices.
+-root.render(androidRuntimeInstalled ? productTree : <React.StrictMode>{productTree}</React.StrictMode>);
++root.render(androidRuntimeInstalled ? productTree : <StrictMode>{productTree}</StrictMode>);
+diff --git a/src/platform/androidBackButton.ts b/src/platform/androidBackButton.ts
+deleted file mode 100644
+index 9f9dba3..0000000
+--- a/src/platform/androidBackButton.ts
++++ /dev/null
+@@ -1,292 +0,0 @@
+-import { useAppStore, type ViewType } from '../store/appStore';
+-
+-/**
+- * Android hardware/system back-button policy for KNOUX X.
+- *
+- * The Capacitor `App` plugin disables the platform default (finish activity) as
+- * soon as a `backButton` listener is registered. This controller therefore owns
+- * the complete policy:
+- *
+- *   1. Close the floating AI assistant.
+- *   2. Close the mobile navigation drawer.
+- *   3. Leave document fullscreen.
+- *   4. Let the top-most screen interceptor consume the press (modals, guards).
+- *   5. Navigate to the previously visited view.
+- *   6. At the root view, require a second press within 2s before exiting.
+- *
+- * The controller is deliberately framework-agnostic and receives its platform
+- * effects through a context so that it can be verified without a device.
+- */
+-
+-export type AndroidBackInterceptor = () => boolean | Promise<boolean>;
+-
+-export interface AndroidBackButtonContext {
+-  getCurrentView(): ViewType;
+-  setView(view: ViewType): void;
+-  isAIAssistantOpen(): boolean;
+-  closeAIAssistant(): void;
+-  isDrawerOpen(): boolean;
+-  closeDrawer(): void;
+-  isFullscreen(): boolean;
+-  exitFullscreen(): Promise<void>;
+-  notify(message: string): void;
+-  exitApp(): Promise<void>;
+-  now(): number;
+-  log(decision: string): void;
+-}
+-
+-export interface AndroidBackButtonController {
+-  handleBackPress(): Promise<void>;
+-  recordViewChange(previous: ViewType, next: ViewType): void;
+-  registerInterceptor(handler: AndroidBackInterceptor): () => void;
+-  resetState(): void;
+-}
+-
+-export const EXIT_CONFIRMATION_WINDOW_MS = 2_000;
+-export const VIEW_HISTORY_LIMIT = 25;
+-
+-interface InterceptorEntry {
+-  id: number;
+-  handler: AndroidBackInterceptor;
+-}
+-
+-export function createAndroidBackButtonController(
+-  context: AndroidBackButtonContext,
+-): AndroidBackButtonController {
+-  const interceptors: InterceptorEntry[] = [];
+-  const viewHistory: ViewType[] = [];
+-  let nextInterceptorId = 1;
+-  let exitArmedUntil = 0;
+-  let handling = false;
+-  let suppressHistoryPush = false;
+-
+-  return {
+-    recordViewChange(previous: ViewType, next: ViewType): void {
+-      if (previous === next) return;
+-      if (suppressHistoryPush) {
+-        suppressHistoryPush = false;
+-        return;
+-      }
+-      viewHistory.push(previous);
+-      if (viewHistory.length > VIEW_HISTORY_LIMIT) {
+-        viewHistory.splice(0, viewHistory.length - VIEW_HISTORY_LIMIT);
+-      }
+-    },
+-
+-    registerInterceptor(handler: AndroidBackInterceptor): () => void {
+-      const entry: InterceptorEntry = { id: nextInterceptorId, handler };
+-      nextInterceptorId += 1;
+-      interceptors.push(entry);
+-      return () => {
+-        const index = interceptors.findIndex((item) => item.id === entry.id);
+-        if (index >= 0) interceptors.splice(index, 1);
+-      };
+-    },
+-
+-    async handleBackPress(): Promise<void> {
+-      // Rapid repeat presses must never re-enter the policy while a
+-      // save/guard interceptor is still resolving.
+-      if (handling) {
+-        context.log('ignored-reentrant');
+-        return;
+-      }
+-      handling = true;
+-      try {
+-        if (context.isAIAssistantOpen()) {
+-          context.closeAIAssistant();
+-          context.log('ai-assistant-closed');
+-          return;
+-        }
+-
+-        if (context.isDrawerOpen()) {
+-          context.closeDrawer();
+-          context.log('drawer-closed');
+-          return;
+-        }
+-
+-        if (context.isFullscreen()) {
+-          try {
+-            await context.exitFullscreen();
+-          } catch (error) {
+-            console.warn('[KNOUX] Fullscreen exit failed during back navigation.', error);
+-          }
+-          context.log('fullscreen-exited');
+-          return;
+-        }
+-
+-        for (let index = interceptors.length - 1; index >= 0; index -= 1) {
+-          const entry = interceptors[index];
+-          try {
+-            if (await entry.handler()) {
+-              context.log('interceptor-consumed');
+-              return;
+-            }
+-          } catch (error) {
+-            console.warn('[KNOUX] Android back interceptor failed; continuing policy.', error);
+-          }
+-        }
+-
+-        const previous = viewHistory.pop();
+-        const current = context.getCurrentView();
+-        if (previous && previous !== current) {
+-          suppressHistoryPush = true;
+-          context.setView(previous);
+-          context.log(`navigated-back:${previous}`);
+-          return;
+-        }
+-
+-        const now = context.now();
+-        if (now < exitArmedUntil) {
+-          exitArmedUntil = 0;
+-          context.log('exit-app');
+-          await context.exitApp();
+-          return;
+-        }
+-
+-        exitArmedUntil = now + EXIT_CONFIRMATION_WINDOW_MS;
+-        context.notify('Press back again to exit KNOUX X');
+-        context.log('exit-armed');
+-      } finally {
+-        handling = false;
+-      }
+-    },
+-
+-    resetState(): void {
+-      interceptors.length = 0;
+-      viewHistory.length = 0;
+-      nextInterceptorId = 1;
+-      exitArmedUntil = 0;
+-      handling = false;
+-      suppressHistoryPush = false;
+-    },
+-  };
+-}
+-
+-let installedController: AndroidBackButtonController | null = null;
+-let installedDispose: (() => void) | null = null;
+-
+-/**
+- * Components with an open modal/dialog or an unsaved-work guard register here.
+- * The most recently registered interceptor is asked first. Returning `true`
+- * consumes the press; returning `false` lets the global policy continue.
+- *
+- * Outside the Android native runtime this is a no-op so that desktop code can
+- * register unconditionally.
+- */
+-export function registerAndroidBackInterceptor(handler: AndroidBackInterceptor): () => void {
+-  if (!installedController) return () => undefined;
+-  return installedController.registerInterceptor(handler);
+-}
+-
+-export interface AndroidBackButtonRuntime {
+-  addListener(
+-    eventName: 'backButton',
+-    listenerFunc: (event: { canGoBack?: boolean }) => void,
+-  ): Promise<{ remove(): Promise<void> }> | { remove(): Promise<void> };
+-  exitApp?(): Promise<void>;
+-  minimizeApp?(): Promise<void>;
+-}
+-
+-function resolveBridgePlugin(): AndroidBackButtonRuntime | null {
+-  if (typeof window === 'undefined') return null;
+-  const bridge = window.Capacitor;
+-  if (!bridge || bridge.getPlatform?.() !== 'android') return null;
+-  if (bridge.isNativePlatform && bridge.isNativePlatform() === false) return null;
+-  return (bridge.Plugins?.App as AndroidBackButtonRuntime | undefined) ?? null;
+-}
+-
+-/**
+- * Installs the single native listener (idempotent) and keeps the controller
+- * synchronized with the zustand view store. No listener is ever registered
+- * for desktop/web-preview runtimes.
+- */
+-export function installAndroidBackButton(): () => void {
+-  if (installedDispose) return installedDispose;
+-
+-  const plugin = resolveBridgePlugin();
+-  if (!plugin || typeof plugin.addListener !== 'function') {
+-    console.warn(
+-      '[KNOUX] @capacitor/app backButton runtime is unavailable; hardware back keeps the platform default.',
+-    );
+-    return () => undefined;
+-  }
+-
+-  const controller = createAndroidBackButtonController({
+-    getCurrentView: () => useAppStore.getState().currentView,
+-    setView: (view) => useAppStore.getState().setView(view),
+-    isAIAssistantOpen: () => useAppStore.getState().isAIAssistantOpen,
+-    closeAIAssistant: () => {
+-      const state = useAppStore.getState();
+-      if (state.isAIAssistantOpen) state.toggleAIAssistant();
+-    },
+-    isDrawerOpen: () => useAppStore.getState().isMobileMenuOpen,
+-    closeDrawer: () => useAppStore.getState().setMobileMenuOpen(false),
+-    isFullscreen: () =>
+-      typeof document !== 'undefined' && document.fullscreenElement != null,
+-    exitFullscreen: async () => {
+-      if (
+-        typeof document !== 'undefined' &&
+-        typeof document.exitFullscreen === 'function' &&
+-        document.fullscreenElement != null
+-      ) {
+-        await document.exitFullscreen();
+-      }
+-    },
+-    notify: (message) => {
+-      useAppStore.getState().addNotification({
+-        type: 'info',
+-        title: 'KNOUX X',
+-        message,
+-        duration: EXIT_CONFIRMATION_WINDOW_MS,
+-      });
+-    },
+-    exitApp: async () => {
+-      if (typeof plugin.exitApp === 'function') {
+-        try {
+-          await plugin.exitApp();
+-          return;
+-        } catch (error) {
+-          console.warn('[KNOUX] App.exitApp failed; trying minimizeApp.', error);
+-        }
+-      }
+-      if (typeof plugin.minimizeApp === 'function') await plugin.minimizeApp();
+-    },
+-    now: () => Date.now(),
+-    log: (decision) => console.info('KNOUX_ANDROID_BACK_DECISION', decision),
+-  });
+-
+-  installedController = controller;
+-  const unsubscribeStore = useAppStore.subscribe((state, previous) => {
+-    controller.recordViewChange(previous.currentView, state.currentView);
+-  });
+-
+-  let listenerHandle: { remove(): Promise<void> } | null = null;
+-  let disposed = false;
+-  const registration = plugin.addListener('backButton', () => {
+-    void controller.handleBackPress();
+-  });
+-  void Promise.resolve(registration)
+-    .then((handle) => {
+-      if (disposed) {
+-        void handle.remove().catch(() => undefined);
+-        return;
+-      }
+-      listenerHandle = handle;
+-    })
+-    .catch((error: unknown) => {
+-      console.warn('[KNOUX] Failed to register the Android back-button listener.', error);
+-    });
+-
+-  const dispose = (): void => {
+-    if (disposed) return;
+-    disposed = true;
+-    unsubscribeStore();
+-    if (listenerHandle) void listenerHandle.remove().catch(() => undefined);
+-    if (installedController === controller) installedController = null;
+-    if (installedDispose === dispose) installedDispose = null;
+-  };
+-
+-  installedDispose = dispose;
+-  console.info('KNOUX_ANDROID_BACK_LISTENER_READY');
+-  return dispose;
+-}

@@ -1,0 +1,18 @@
+# KNOUX Player Viewport Windows — run 39319496539 (integrated head 124a023)
+
+Workflow: KNOUX Player Viewport Windows (job: Packaged viewport and video bounds) — conclusion: success, 7m24s.
+Artifact: knoux-player-viewport-124a023ab1ccda8dc1861046a8370cc5978f9d8d (576,271,627 bytes; artifact zip SHA-256 91770c915cbcf6ef630b3a84b5cc4723ae4ddbd4090ba0f044feae233121fe56).
+The artifact is intentionally NOT committed here: it bundles the Windows installer (576 MB).
+
+## Verbatim CI log lines
+
+`
+Packaged viewport and video bounds	Measure landscape and portrait video bounds in packaged EXE	﻿2026-10-19T20:34:08.9335455Z ##[group]Run npm run test:player-viewport
+Packaged viewport and video bounds	Measure landscape and portrait video bounds in packaged EXE	2026-10-19T20:34:08.9336078Z ^[[36;1mnpm run test:player-viewport^[[0m
+Packaged viewport and video bounds	Measure landscape and portrait video bounds in packaged EXE	2026-10-19T20:34:09.4586408Z > knoux-player-x@2.1.0 test:player-viewport
+Packaged viewport and video bounds	Measure landscape and portrait video bounds in packaged EXE	2026-10-19T20:34:36.0693174Z Player viewport packaged-app smoke PASS: 10 measured scenarios.
+Packaged viewport and video bounds	Upload player viewport evidence	2026-10-19T20:35:01.6732203Z SHA256 digest of uploaded artifact zip is 91770c915cbcf6ef630b3a84b5cc4723ae4ddbd4090ba0f044feae233121fe56
+Packaged viewport and video bounds	Upload player viewport evidence	2026-10-19T20:35:02.0994291Z Artifact knoux-player-viewport-124a023ab1ccda8dc1861046a8370cc5978f9d8d has been successfully uploaded! Final size is 576271627 bytes. Artifact ID is 12219224807
+`
+
+Scope of this lane: npm ci -> electron-rebuild (better-sqlite3, sharp) -> doctor -> typecheck -> eslint --max-warnings=0 -> unit tests (npm test --runInBand) -> npm run package -> npm run make (installer) -> npm run test:player-viewport.

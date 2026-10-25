@@ -1,0 +1,273 @@
+diff --git a/.github/workflows/android-apk.yml b/.github/workflows/android-apk.yml
+index 1e0612d..2abf2a2 100644
+--- a/.github/workflows/android-apk.yml
++++ b/.github/workflows/android-apk.yml
+@@ -16,8 +16,6 @@ on:
+       - 'tools/prepare-android-functional-closure.cjs'
+       - 'tools/verify-android-apk.cjs'
+       - 'tools/verify-android-screen.cjs'
+-      - 'tools/android-real-workflows.cjs'
+-      - 'tools/android-native-core.cjs'
+       - 'electron/**'
+       - 'index.html'
+       - 'vite.renderer.config.ts'
+@@ -39,8 +37,6 @@ on:
+       - 'tools/prepare-android-functional-closure.cjs'
+       - 'tools/verify-android-apk.cjs'
+       - 'tools/verify-android-screen.cjs'
+-      - 'tools/android-real-workflows.cjs'
+-      - 'tools/android-native-core.cjs'
+       - 'electron/**'
+       - 'index.html'
+       - 'vite.renderer.config.ts'
+@@ -119,8 +115,6 @@ jobs:
+           @capacitor/app@${CAPACITOR_APP_VERSION}
+ 
+       - name: Build KNOUX Android renderer
+-        env:
+-          KNOUX_RELEASE_SHA: ${{ github.sha }}
+         run: npx vite build --config vite.renderer.config.ts --outDir dist
+ 
+       - name: Generate and synchronize Android project
+@@ -135,6 +129,7 @@ jobs:
+         run: |
+           node tools/prepare-android-native-media.cjs
+           node tools/prepare-android-functional-closure.cjs
++          grep -F '"@capacitor/app"' android/app/src/main/assets/capacitor.plugins.json
+           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
+           grep -F 'android:foregroundServiceType="mediaPlayback"' android/app/src/main/AndroidManifest.xml
+           grep -F 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' android/app/src/main/AndroidManifest.xml
+@@ -231,14 +226,6 @@ jobs:
+           sudo udevadm control --reload-rules
+           sudo udevadm trigger --name-match=kvm
+ 
+-      - name: Generate legal encoded QA fixture
+-        run: |
+-          node - <<'JS'
+-          const ffmpeg = require('ffmpeg-static');
+-          require('child_process').execFileSync(ffmpeg, ['-y','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','12','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','android-ci-output/KNOUX-QA.mp4']);
+-          JS
+-          sha256sum android-ci-output/KNOUX-QA.mp4 > android-ci-output/fixture.sha256
+-
+       - name: Install and launch APK on Android emulator
+         uses: reactivecircus/android-emulator-runner@v2
+         with:
+@@ -246,25 +233,14 @@ jobs:
+           target: google_apis
+           arch: x86_64
+           profile: pixel_7
+-          # CI evidence (runs 39188659686, 39196654875, 39200840085, 39203107074):
+-          # the WebView renderer died during media interaction and the emulator
+-          # then left adb entirely, consistently after playback started. The
+-          # emulator ran on 2 cores / 2048M while the same job also decoded
+-          # video and ran ffprobe. No OOM or crash evidence was captured, so
+-          # this is a resource-margin change, not a fix for a proven cause.
+-          # No acceptance assertion is affected by this envelope.
+-          cores: 4
+-          ram-size: 4096M
++          cores: 2
++          ram-size: 2048M
+           heap-size: 512M
+           force-avd-creation: true
+-          emulator-boot-timeout: 420
++          emulator-boot-timeout: 300
+           disable-animations: true
+           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
+-          script: |
+-            bash tools/android-emulator-smoke.sh
+-            adb push android-ci-output/KNOUX-QA.mp4 /sdcard/Download/KNOUX-QA.mp4
+-            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/KNOUX-QA.mp4
+-            node tools/android-real-workflows.cjs
++          script: bash tools/android-emulator-smoke.sh
+ 
+       - name: Upload installable APK and launch evidence
+         if: always()
+diff --git a/.github/workflows/android-release-acceptance.yml b/.github/workflows/android-release-acceptance.yml
+index 7d73ddd..20b209a 100644
+--- a/.github/workflows/android-release-acceptance.yml
++++ b/.github/workflows/android-release-acceptance.yml
+@@ -56,6 +56,7 @@ concurrency:
+ 
+ env:
+   CAPACITOR_VERSION: '8.5.0'
++  CAPACITOR_APP_VERSION: '8.1.2'
+ 
+ jobs:
+   release-acceptance:
+@@ -113,6 +114,7 @@ jobs:
+           @capacitor/core@${CAPACITOR_VERSION}
+           @capacitor/cli@${CAPACITOR_VERSION}
+           @capacitor/android@${CAPACITOR_VERSION}
++          @capacitor/app@${CAPACITOR_APP_VERSION}
+ 
+       - name: Build Knoux X Android renderer
+         run: npx vite build --config vite.renderer.config.ts --outDir dist
+@@ -129,6 +131,7 @@ jobs:
+         run: |
+           node tools/prepare-android-native-media.cjs
+           node tools/prepare-android-functional-closure.cjs
++          grep -F '"@capacitor/app"' android/app/src/main/assets/capacitor.plugins.json
+           grep -F 'android:supportsPictureInPicture="true"' android/app/src/main/AndroidManifest.xml
+           grep -F '@CapacitorPlugin(name = "KnouxSaf")' android/app/src/main/java/dev/knoux/playerx/KnouxSafPlugin.java
+           grep -F '@CapacitorPlugin(name = "KnouxScreenCapture")' android/app/src/main/java/dev/knoux/playerx/KnouxScreenCapturePlugin.java
+@@ -216,6 +219,7 @@ jobs:
+           path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+           PY
+           grep -F 'PASS' android-ci-release-output/android-launch.verdict
++          grep -F 'PASS' android-ci-release-output/android-back-policy.verdict
+           grep -F '"status": "PASS"' android-ci-release-output/android-release-acceptance.json
+ 
+       - name: Upload CI-signed release APK and evidence
+diff --git a/electron/fs/atomic-write.ts b/electron/fs/atomic-write.ts
+index 646f75d..fbe25d9 100644
+--- a/electron/fs/atomic-write.ts
++++ b/electron/fs/atomic-write.ts
+@@ -23,27 +23,30 @@ export interface AtomicWriteResult {
+   bytesWritten: number;
+ }
+ 
+-// Windows can hold a transient lock on the destination (antivirus, search
+-// indexer, a reader that has not closed yet). These codes are retried with a
+-// short bounded backoff; every other rename error fails fast.
+-const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+-const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 200, 400];
++/** Win32 rename replacement is atomic but can transiently fail while another
++ *  process (antivirus, indexer, a competing atomic export) holds a handle on
++ *  the destination. Retrying just the rename keeps the atomic contract: the
++ *  destination only ever changes by a complete rename. */
++const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 200, 400] as const;
+ 
+-function sleep(milliseconds: number): Promise<void> {
+-  return new Promise((resolve) => { setTimeout(resolve, milliseconds); });
++function isTransientRenameError(error: unknown): boolean {
++  const code = (error as NodeJS.ErrnoException | null)?.code;
++  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+ }
+ 
+-async function renameWithRetry(source: string, destination: string): Promise<void> {
+-  for (let attempt = 0; ; attempt += 1) {
++async function renameWithTransientRetry(temporary: string, destination: string): Promise<void> {
++  let lastError: unknown;
++  for (let attempt = 0; attempt <= RENAME_RETRY_DELAYS_MS.length; attempt += 1) {
+     try {
+-      await rename(source, destination);
++      await rename(temporary, destination);
+       return;
+     } catch (error) {
+-      const code = (error as NodeJS.ErrnoException | undefined)?.code;
+-      if (attempt >= RENAME_RETRY_DELAYS_MS.length || !code || !RENAME_RETRY_CODES.has(code)) throw error;
+-      await sleep(RENAME_RETRY_DELAYS_MS[attempt]);
++      lastError = error;
++      if (!isTransientRenameError(error) || attempt === RENAME_RETRY_DELAYS_MS.length) throw error;
++      await new Promise((resolve) => setTimeout(resolve, RENAME_RETRY_DELAYS_MS[attempt]));
+     }
+   }
++  throw lastError;
+ }
+ 
+ /**
+@@ -61,7 +64,7 @@ export async function writeFileAtomic(destination: string, bytes: Uint8Array): P
+     await file.sync();
+     await file.close();
+     file = undefined;
+-    await renameWithRetry(temporary, destination);
++    await renameWithTransientRetry(temporary, destination);
+     return { destination, bytesWritten: bytes.byteLength };
+   } catch (error) {
+     if (file) await file.close().catch(() => undefined);
+diff --git a/src/main.tsx b/src/main.tsx
+index 3a9433c..726df3e 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -28,7 +28,6 @@ import { installAndroidSafBridge } from './platform/androidSafBridge';
+ import { installAndroidSlideshowRenderBridge } from './platform/androidSlideshowRenderBridge';
+ import { installBrowserPreviewBridge } from './platform/browserPreviewBridge';
+ import './styles/premium-daylight-rebrand.css';
+-import './styles/android-visual-system.css';
+ 
+ const SystemOverlay = lazy(async () => {
+   const module = await import('./components/system/SystemOverlay');
+diff --git a/tests/unit/atomic-file-write.test.ts b/tests/unit/atomic-file-write.test.ts
+index ea6750c..35951f1 100644
+--- a/tests/unit/atomic-file-write.test.ts
++++ b/tests/unit/atomic-file-write.test.ts
+@@ -5,15 +5,6 @@ import path from 'node:path';
+ import { writeFileAtomic } from '../../electron/fs/atomic-write';
+ import { CaptureService } from '../../electron/creative/capture-service';
+ 
+-jest.mock('node:fs/promises', () => {
+-  const actual = jest.requireActual('node:fs/promises');
+-  return {
+-    __esModule: true,
+-    ...actual,
+-    rename: jest.fn((from: string, to: string) => actual.rename(from, to)),
+-  };
+-});
+-
+ let mockSavePath: string | null = null;
+ let mockDialogCanceled = false;
+ 
+@@ -113,63 +104,6 @@ describe('writeFileAtomic (export hardening)', () => {
+   });
+ });
+ 
+-describe('writeFileAtomic (bounded rename retry for transient Windows locks)', () => {
+-  let directory: string;
+-  const mockedFs = jest.requireMock('node:fs/promises') as { rename: jest.Mock };
+-  const actualFs = jest.requireActual('node:fs/promises') as typeof import('node:fs/promises');
+-
+-  beforeEach(async () => {
+-    directory = await mkdtemp(path.join(os.tmpdir(), 'knoux-atomic-retry-'));
+-    mockedFs.rename.mockReset();
+-    mockedFs.rename.mockImplementation((from: string, to: string) => actualFs.rename(from, to));
+-  });
+-
+-  afterEach(async () => {
+-    mockedFs.rename.mockReset();
+-    mockedFs.rename.mockImplementation((from: string, to: string) => actualFs.rename(from, to));
+-    await rm(directory, { recursive: true, force: true });
+-  });
+-
+-  function lockError(code: string): NodeJS.ErrnoException {
+-    return Object.assign(new Error(`${code}: transient rename rejection`), { code });
+-  }
+-
+-  it('retries transient EPERM/EACCES/EBUSY renames and still lands the bytes', async () => {
+-    const destination = path.join(directory, 'locked.png');
+-    const bytes = Buffer.from('locked-export-bytes');
+-    const failures = ['EPERM', 'EBUSY'];
+-    mockedFs.rename.mockImplementation(async (from: string, to: string) => {
+-      const code = failures.shift();
+-      if (code) throw lockError(code);
+-      return actualFs.rename(from, to);
+-    });
+-
+-    const result = await writeFileAtomic(destination, bytes);
+-
+-    expect(result.bytesWritten).toBe(bytes.byteLength);
+-    expect(await readFile(destination)).toEqual(bytes);
+-    expect(mockedFs.rename).toHaveBeenCalledTimes(3);
+-  });
+-
+-  it('fails fast on permanent rename errors without burning retries', async () => {
+-    const destination = path.join(directory, 'permanent.png');
+-    mockedFs.rename.mockImplementation(async () => { throw lockError('ENOENT'); });
+-
+-    await expect(writeFileAtomic(destination, Buffer.from('x'))).rejects.toMatchObject({ code: 'ENOENT' });
+-    expect(mockedFs.rename).toHaveBeenCalledTimes(1);
+-  });
+-
+-  it('gives up after the bounded attempts and leaves no temp file behind', async () => {
+-    const destination = path.join(directory, 'stuck.png');
+-    mockedFs.rename.mockImplementation(async () => { throw lockError('EPERM'); });
+-
+-    await expect(writeFileAtomic(destination, Buffer.from('x'))).rejects.toMatchObject({ code: 'EPERM' });
+-    expect(mockedFs.rename).toHaveBeenCalledTimes(6);
+-    const entries = await readdir(directory);
+-    expect(entries.filter((entry) => entry.endsWith('.tmp'))).toHaveLength(0);
+-  });
+-});
+-
+ describe('CaptureService.saveFrame (export path hardening)', () => {
+   let directory: string;
+   let service: CaptureService;

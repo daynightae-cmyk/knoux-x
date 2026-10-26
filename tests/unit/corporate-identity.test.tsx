@@ -33,12 +33,6 @@ function render(ar = false): void {
   });
 }
 
-function click(selector: string): void {
-  const target = host.querySelector<HTMLElement>(selector);
-  if (!target) throw new Error(`missing control: ${selector}`);
-  act(() => target.click());
-}
-
 /** Async handlers settle on a microtask, so click through act's async scope. */
 async function clickAsync(selector: string): Promise<void> {
   const target = host.querySelector<HTMLElement>(selector);

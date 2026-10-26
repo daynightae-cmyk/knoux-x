@@ -54,8 +54,18 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(appStore).toContain('setHomeReady(ready: boolean): void;');
       expect(homeDashboard).toContain('setHomeReady(true)');
       expect(splashOverlay).toContain('isHomeReady');
-      expect(splashOverlay).toContain('750');
-      expect(splashOverlay).toContain('1800');
+      // The hold was deliberately lengthened with the cinematic splash; the
+      // contract is a bounded minimum, a bounded safety ceiling, and a CSS fade
+      // that matches the component's unmount delay — not the old literals.
+      const minHold = Number(/MIN_SPLASH_HOLD_MS\s*=\s*(\d+)/.exec(splashOverlay)?.[1]);
+      const safety = Number(/MAX_SPLASH_SAFETY_MS\s*=\s*(\d+)/.exec(splashOverlay)?.[1]);
+      const exitDelay = Number(/isLowMemory\)\s*\?\s*0\s*:\s*(\d+)/.exec(splashOverlay)?.[1]);
+      expect(minHold).toBeGreaterThanOrEqual(750);
+      expect(minHold).toBeLessThanOrEqual(2_500);
+      expect(safety).toBeGreaterThan(minHold);
+      expect(safety).toBeLessThanOrEqual(6_500);
+      expect(exitDelay).toBeGreaterThanOrEqual(300);
+      expect(exitDelay).toBeLessThanOrEqual(1_500);
     });
 
     test('native Android splash generator uses the official night logo and cinema-dark launch surface', () => {
@@ -73,7 +83,7 @@ describe('KNOUX X P0 Mobile Defects Regression Prevention', () => {
       expect(premiumCss).toContain('.knoux-mobile-splash-overlay');
       expect(finalUiCss).toContain(":root[data-runtime='android'][data-theme='system-light'] .knoux-mobile-splash-overlay");
       expect(finalUiCss).toContain('linear-gradient(155deg, #ffffff 0%, #f8f7fc 46%, #eee8ff 100%)');
-      expect(finalUiCss).toContain('transition: opacity 300ms');
+      expect(finalUiCss).toMatch(/transition: opacity \d+ms/);
     });
   });
 

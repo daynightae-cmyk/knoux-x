@@ -80,6 +80,64 @@
         linear-gradient(155deg, #08060d 0%, #0e1015 48%, #151023 100%);
     }
 
+
+    /* Android first paint is the SAME branded journey as the React splash.
+       A bare ring-spinner between the OS logo and Dashboard is never shown. */
+    .android-initial-brand { display: none; }
+
+    html[data-runtime='android'] .loading-spinner { display: none; }
+
+    html[data-runtime='android'] .android-initial-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: #fbfaff;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .android-initial-brand__glass {
+      display: grid;
+      place-items: center;
+      width: 144px;
+      height: 144px;
+      margin-bottom: 16px;
+      border: 1.5px solid rgba(168, 115, 255, 0.4);
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 25%, rgba(247, 230, 255, 0.2), rgba(69, 36, 112, 0.36) 62%, rgba(31, 18, 45, 0.52));
+      box-shadow: 0 0 0 14px rgba(139, 61, 255, 0.05), 0 28px 80px rgba(139, 61, 255, 0.26), inset 0 1px rgba(255, 255, 255, 0.3);
+      -webkit-backdrop-filter: blur(12px) saturate(135%);
+      backdrop-filter: blur(12px) saturate(135%);
+    }
+    .android-initial-brand__glass img {
+      display: block;
+      width: 112px;
+      height: 112px;
+      object-fit: contain;
+    }
+    .android-initial-brand__name {
+      font-size: clamp(2.1rem, 9.5vw, 2.9rem);
+      font-weight: 850;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .android-initial-brand__name span { color: #9d5cff; }
+    .android-initial-brand__tagline {
+      margin-top: 6px;
+      color: #d8cff5;
+      font-size: 0.7rem;
+      font-weight: 760;
+      letter-spacing: 0.24em;
+    }
+    .android-initial-brand__signature {
+      margin-top: 10px;
+      color: #bfb3d9;
+      font-size: 0.72rem;
+      font-style: italic;
+    }
+
     .initial-loading.hidden {
       opacity: 0;
       visibility: hidden;
@@ -172,6 +230,14 @@
 <body>
   <div id="initial-loading" class="initial-loading" aria-hidden="true">
     <div class="loading-spinner"></div>
+    <div class="android-initial-brand">
+      <div class="android-initial-brand__glass">
+        <img src="/assets/branding/knoux-logo-master.png" width="112" height="112" alt="" />
+      </div>
+      <div class="android-initial-brand__name">KNOuX <span>X</span></div>
+      <div class="android-initial-brand__tagline">CREATE · PLAY · ENHANCE</div>
+      <div class="android-initial-brand__signature">Eng. Sadek Elgazar</div>
+    </div>
   </div>
 
   <div id="boot-failure" class="boot-failure" role="alert" aria-live="assertive">
@@ -241,7 +307,10 @@
         window.__KNOUX_BOOT__.stage = 'dom-ready';
         // Fast path kept from the previous loader; the poll below covers a mount
         // that happens later, and the timeout covers one that never happens.
-        hideLoader();
+        // Android keeps the branded first-paint surface until React mounts.
+        // Clearing it on DOMContentLoaded exposed an empty/spinner interstitial
+        // on slower WebViews, especially if a resource blocked module startup.
+        if (document.documentElement.dataset.runtime !== 'android') hideLoader();
       }, { once: true });
 
       var poll = window.setInterval(function () {

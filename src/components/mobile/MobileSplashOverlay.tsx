@@ -7,8 +7,8 @@ interface MobileSplashOverlayProps {
   onComplete?: () => void;
 }
 
-const MIN_SPLASH_HOLD_MS = 750;
-const MAX_SPLASH_SAFETY_MS = 1800;
+const MIN_SPLASH_HOLD_MS = 1650;
+const MAX_SPLASH_SAFETY_MS = 4800;
 const LOGO_PRELOAD_TIMEOUT_MS = 3000;
 
 function readDeviceMemory(): number | undefined {
@@ -95,7 +95,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const deviceMemory = readDeviceMemory();
     const isLowMemory = deviceMemory !== undefined && deviceMemory < 4;
-    const exitDelay = (prefersReducedMotion || isLowMemory) ? 0 : 300;
+    const exitDelay = (prefersReducedMotion || isLowMemory) ? 0 : 1050;
     const exitTimer = setTimeout(() => {
       setPhase('hidden');
       onComplete?.();
@@ -128,6 +128,7 @@ export const MobileSplashOverlay: React.FC<MobileSplashOverlayProps> = ({ onComp
       data-component="MobileSplashOverlay"
       data-home-ready={isHomeReady ? 'true' : 'false'}
       data-logo-loaded={logoLoaded ? 'true' : 'false'}
+      data-low-memory={(readDeviceMemory() ?? Number.POSITIVE_INFINITY) < 4 ? 'true' : 'false'}
       role="presentation"
     >
       <div className="km-splash-ambient-glow" />

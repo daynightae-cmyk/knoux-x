@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="328" viewBox="0 0 1380 328" role="img" aria-labelledby="title desc">
+<title id="title">KNOUX X: an evidence-first creative pipeline</title><desc id="desc">From import and secure file access through playback, editing and previews to save, reopen, render, export and verification. Desktop and Android use separate platform adapters.</desc>
+<defs>
+ <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#10101e"/><stop offset="1" stop-color="#090913"/></linearGradient>
+ <linearGradient id="brand"><stop stop-color="#BA8AFF"/><stop offset="1" stop-color="#70DBF0"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="7"/></filter>
+</defs>
+<rect width="1380" height="328" rx="24" fill="url(#bg)"/>
+<g opacity=".2" stroke="#896EBE" stroke-width="1"><path d="M35 68 H1345 M35 254 H1345" stroke-dasharray="3 6"/><path d="M0 164H1380" stroke-dasharray="4 8"/></g>
+<text x="50" y="50" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" fill="#EEE5FD" letter-spacing="2">THE KNOUX X WORKFLOW</text>
+<text x="1330" y="50" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="13" fill="#9E8CB8" letter-spacing="1">CAPABILITY ≠ VERIFIED OUTPUT</text>
+<g font-family="Arial,Helvetica,sans-serif" text-anchor="middle">
+ <rect x="45" y="98" width="231" height="135" rx="18" fill="#221537" stroke="#AD78F4" stroke-opacity=".75"/>
+ <text x="160" y="135" fill="#C8A6FF" font-size="17" font-weight="700">01 · IMPORT</text><text x="160" y="166" fill="#F0EAF9" font-size="22" font-weight="700">Media in</text><text x="160" y="195" fill="#AD9CBF" font-size="13">select · authorize · inspect</text>
+ <rect x="312" y="98" width="231" height="135" rx="18" fill="#20172E" stroke="#B08BF1" stroke-opacity=".58"/>
+ <text x="427" y="135" fill="#C8A6FF" font-size="17" font-weight="700">02 · CREATE</text><text x="427" y="166" fill="#F0EAF9" font-size="22" font-weight="700">Edit &amp; preview</text><text x="427" y="195" fill="#AD9CBF" font-size="13">timeline · image · audio</text>
+ <rect x="579" y="98" width="231" height="135" rx="18" fill="#172337" stroke="#73D6E8" stroke-opacity=".65"/>
+ <text x="694" y="135" fill="#91E7ED" font-size="17" font-weight="700">03 · PRESERVE</text><text x="694" y="166" fill="#F0EAF9" font-size="22" font-weight="700">Save &amp; reopen</text><text x="694" y="195" fill="#A2B4C7" font-size="13">project · state · recovery</text>
+ <rect x="846" y="98" width="231" height="135" rx="18" fill="#192B36" stroke="#76E0D7" stroke-opacity=".60"/>
+ <text x="961" y="135" fill="#9FF1DB" font-size="17" font-weight="700">04 · DELIVER</text><text x="961" y="166" fill="#F0EAF9" font-size="22" font-weight="700">Render &amp; export</text><text x="961" y="195" fill="#ACBEC4" font-size="13">output · limits · cancellation</text>
+ <rect x="1113" y="98" width="222" height="135" rx="18" fill="#21223A" stroke="#A9A7F6" stroke-opacity=".74"/>
+ <text x="1224" y="135" fill="#BBB9FF" font-size="17" font-weight="700">05 · VERIFY</text><text x="1224" y="166" fill="#F0EAF9" font-size="22" font-weight="700">Inspect result</text><text x="1224" y="195" fill="#A6A7CB" font-size="13">real file · hash · evidence</text>
+</g>
+<g fill="none" stroke="url(#brand)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<path d="M280 165H304m-9 -8 9 8 -9 8"/><path d="M547 165H571m-9 -8 9 8 -9 8"/><path d="M814 165H838m-9 -8 9 8 -9 8"/><path d="M1081 165H1105m-9 -8 9 8 -9 8"/>
+</g>
+<text x="69" y="282" font-family="Arial,Helvetica,sans-serif" fill="#A7A0BA" font-size="14">WINDOWS: Electron + native services</text>
+<text x="725" y="282" font-family="Arial,Helvetica,sans-serif" fill="#A7A0BA" font-size="14">ANDROID: Capacitor + platform-specific bridges</text>
+<path d="M46 303H1335" stroke="url(#brand)" opacity=".65" stroke-width="2"/>
+</svg>

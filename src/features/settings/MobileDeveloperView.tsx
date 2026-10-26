@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, Github, ShieldCheck } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { CorporateIdentity } from '../about/CorporateIdentity';
 import { readAndroidBridgeHealth, type AndroidBridgeState } from '../../platform/androidBridgeHealth';
 import { getReleaseInfo } from '../../releaseInfo';
 import { useAppStore } from '../../store/appStore';
@@ -34,7 +35,7 @@ export const MobileDeveloperView: React.FC<{ onBack: () => void }> = ({ onBack }
   const health = readAndroidBridgeHealth();
   return <section className="knoux-mobile-settings" dir={ar ? 'rtl' : 'ltr'} data-component="MobileDeveloperView">
     <header className="kms-topbar"><button type="button" className="kx-back" aria-label={ar ? 'رجوع' : 'Back'} onClick={onBack}><ArrowLeft size={22} /></button><h1>{ar ? 'عن المطوّر' : 'Developer'}</h1><BrandMark size={44} /></header>
-    <div className="kms-hero"><BrandMark size={88} /><h1>KNOUX <em>X</em></h1><p>{ar ? 'مساحة للإبداع والتشغيل والتعديل المحلي.' : 'A space for local media, playback and creativity.'}</p></div>
+    <CorporateIdentity compact />
     <section className="kms-card"><h2>Eng. Sadek Elgazar</h2><p className="kms-copy">{ar ? 'مطوّر KNOuX X · هندسة البرمجيات والوسائط' : 'KNOuX X developer · Software and media engineering'}</p><p dir="ltr">Version {info.version} · {info.channel}</p><p dir="ltr" style={{ overflowWrap: 'anywhere' }}>Build {info.sha ?? 'unrecorded'}</p></section>
     <section className="kms-card" data-component="AndroidBridgeHealth">
       <h2><ShieldCheck size={18} /> {ar ? 'حالة قدرات الجهاز' : 'Device capability health'}</h2>

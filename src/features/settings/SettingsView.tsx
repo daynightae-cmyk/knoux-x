@@ -23,11 +23,11 @@ import {
   Video,
 } from 'lucide-react';
 
-import { BrandMark } from '../../components/brand/BrandMark';
 import { NeonButton } from '../../components/neon/NeonButton';
 import { NeonPanel } from '../../components/neon/NeonPanel';
 import { NeonSelect } from '../../components/neon/NeonSelect';
 import { KNOUX_BRAND } from '../../config/brand';
+import { CorporateIdentity } from '../about/CorporateIdentity';
 import {
   APPLICATION_SETTING_KEYS,
   parseApplicationSettings,
@@ -568,7 +568,7 @@ export const SettingsView: React.FC = () => {
           {category === 'about' && (
             <NeonPanel variant="dark" padding="lg">
               <h2>{t('settings.about')}</h2>
-              <div className="about-brand-card"><BrandMark size={72} /><div><strong>Knoux X</strong><p>A Knoux Product · Crafted by {KNOUX_BRAND.developer}</p></div></div>
+              <CorporateIdentity compact />
               <dl className="about-grid">
                 <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? getReleaseInfo().version}</dd></div>
                 <div><dt>SHA</dt><dd dir="ltr">{runtimeInfo?.sha ?? getReleaseInfo().shortSha ?? '—'}</dd></div>

@@ -41,7 +41,7 @@ export const KNOUX_IDENTITY = Object.freeze({
   phoneTel: 'tel:+971503281920',
   whatsapp: 'https://wa.me/971503281920',
   contacts: [
-    { id: 'whatsapp', value: 'WhatsApp — Direct Contact', href: 'https://wa.me/971503281920', hint: '+971 50 328 1920', copyable: false },
+    { id: 'whatsapp', value: '+971 50 328 1920', href: 'https://wa.me/971503281920', copyable: false },
     { id: 'email', value: 'admin@knoux.store', href: 'mailto:admin@knoux.store', copyable: true },
     { id: 'phone', value: '+971 50 328 1920', href: 'tel:+971503281920', hint: '050 328 1920', copyable: true },
     { id: 'website', value: 'knoux.store', href: 'https://knoux.store/', copyable: true },

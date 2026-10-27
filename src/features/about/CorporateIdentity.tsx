@@ -302,10 +302,12 @@ export const CorporateIdentity: React.FC<{ compact?: boolean }> = ({ compact = f
                 <strong>{social.label}</strong>
                 <small dir="ltr">{social.handle}</small>
               </span>
-              <span className={`kci-social__scope kci-social__scope--${social.scope}`}>
-                {social.scope === 'company' ? text.company : text.founder}
+              <span className="kci-social__meta">
+                <span className={`kci-social__scope kci-social__scope--${social.scope}`}>
+                  {social.scope === 'company' ? text.company : text.founder}
+                </span>
+                <ExternalLink size={14} aria-hidden="true" className="kci-social__external" />
               </span>
-              <ExternalLink size={14} aria-hidden="true" className="kci-social__external" />
             </button>
           ))}
         </div>

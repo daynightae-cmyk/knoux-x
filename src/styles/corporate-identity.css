@@ -4,18 +4,33 @@
 
 .kci {
   --kci-radius: var(--knoux-radius-xl, 26px);
+  /* The panel is always cinematic dark, so its palette must NOT follow the
+     light/dark app theme — daylight tokens made the wordmark black-on-black. */
+  --kci-text: #fbfaff;
+  --kci-text-2: #d2cadf;
+  --kci-muted: #a89fba;
+  --kci-accent: #9d5cff;
+  --kci-accent-2: #55dff5;
+  --kci-surface: rgba(22, 15, 34, 0.94);
+  --kci-surface-raised: rgba(31, 21, 47, 0.97);
+  --kci-surface-hover: rgba(255, 255, 255, 0.06);
+  --kci-border: rgba(190, 156, 245, 0.24);
+  --kci-divider: rgba(255, 255, 255, 0.085);
+  --kci-success: #43d6a0;
+  --kci-danger: #ff8798;
+  --kci-focus: #72ddf7;
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 26px;
   padding: clamp(18px, 3vw, 34px);
   border-radius: var(--kci-radius);
-  color: var(--knoux-text, #fbfaff);
+  color: var(--kci-text);
   background:
-    radial-gradient(ellipse at 88% -6%, color-mix(in srgb, var(--knoux-accent, #9d5cff) 22%, transparent), transparent 52%),
-    radial-gradient(ellipse at 4% 104%, color-mix(in srgb, var(--knoux-accent-secondary, #55dff5) 9%, transparent), transparent 46%),
+    radial-gradient(ellipse at 88% -6%, color-mix(in srgb, var(--kci-accent) 22%, transparent), transparent 52%),
+    radial-gradient(ellipse at 4% 104%, color-mix(in srgb, var(--kci-accent-2) 9%, transparent), transparent 46%),
     linear-gradient(160deg, #100b19 0%, #0a0710 52%, #0d0a16 100%);
-  border: 1px solid var(--knoux-border, rgba(190, 156, 245, 0.2));
+  border: 1px solid var(--kci-border);
   box-shadow: var(--knoux-shadow-md, 0 18px 52px rgba(0, 0, 0, 0.36));
   overflow: hidden;
   isolation: isolate;
@@ -47,7 +62,7 @@
   inset-block-start: -30%;
   inline-size: min(520px, 92%);
   block-size: 340px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--knoux-accent, #9d5cff) 30%, transparent) 0%, transparent 66%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--kci-accent) 30%, transparent) 0%, transparent 66%);
   filter: blur(10px);
   opacity: 0.55;
   z-index: -1;
@@ -62,10 +77,10 @@
   margin-block-end: 12px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 24%, rgba(247, 230, 255, 0.22), rgba(69, 36, 112, 0.34) 62%, rgba(24, 14, 36, 0.6));
-  border: 1.5px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 46%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--kci-accent) 46%, transparent);
   box-shadow:
-    0 0 0 12px color-mix(in srgb, var(--knoux-accent, #9d5cff) 8%, transparent),
-    0 28px 70px color-mix(in srgb, var(--knoux-accent, #9d5cff) 30%, transparent),
+    0 0 0 12px color-mix(in srgb, var(--kci-accent) 8%, transparent),
+    0 28px 70px color-mix(in srgb, var(--kci-accent) 30%, transparent),
     inset 0 1px rgba(255, 255, 255, 0.32);
   -webkit-backdrop-filter: blur(10px) saturate(130%);
   backdrop-filter: blur(10px) saturate(130%);
@@ -83,13 +98,13 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 30%, transparent);
   pointer-events: none;
 }
 
 .kci-glass__ring--outer {
   inset: -18px;
-  border-color: color-mix(in srgb, var(--knoux-accent, #9d5cff) 16%, transparent);
+  border-color: color-mix(in srgb, var(--kci-accent) 16%, transparent);
 }
 
 .kci-eyebrow {
@@ -101,7 +116,7 @@
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--knoux-accent, #9d5cff) 78%, #fbfaff);
+  color: color-mix(in srgb, var(--kci-accent) 78%, #fbfaff);
 }
 
 .kci-wordmark {
@@ -114,24 +129,24 @@
 
 .kci-wordmark span,
 .kci-signature__brand span {
-  color: var(--knoux-accent, #9d5cff);
+  color: var(--kci-accent);
 }
 
 .kci-headline {
   margin: 0;
   font-size: clamp(15px, 2.4vw, 18px);
   font-weight: 600;
-  color: var(--knoux-text-secondary, #cec7d9);
+  color: var(--kci-text-2);
 }
 
 .kci-founded {
   margin: 2px 0 0;
   font-size: 13px;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 .kci-founded strong {
-  color: var(--knoux-text, #fbfaff);
+  color: var(--kci-text);
   font-weight: 650;
 }
 
@@ -140,7 +155,7 @@
   max-inline-size: 62ch;
   font-size: 13.5px;
   line-height: 1.7;
-  color: var(--knoux-text-secondary, #cec7d9);
+  color: var(--kci-text-2);
 }
 
 /* sections */
@@ -160,7 +175,7 @@
 .kci-section__hint {
   margin: -6px 0 0;
   font-size: 12.5px;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 /* B — founder */
@@ -170,8 +185,8 @@
   gap: 14px;
   padding: 16px;
   border-radius: var(--knoux-radius-lg, 18px);
-  background: var(--knoux-surface-raised, rgba(26, 18, 40, 0.96));
-  border: 1px solid var(--knoux-border, rgba(190, 156, 245, 0.2));
+  background: var(--kci-surface-raised);
+  border: 1px solid var(--kci-border);
 }
 
 .kci-founder__badge {
@@ -184,8 +199,8 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #f4ecff;
-  background: linear-gradient(150deg, color-mix(in srgb, var(--knoux-accent, #9d5cff) 65%, #2a1740), #1a0f2b);
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 45%, transparent);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--kci-accent) 65%, #2a1740), #1a0f2b);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 45%, transparent);
 }
 
 .kci-founder__body h3 {
@@ -197,14 +212,14 @@
   margin: 4px 0 0;
   font-size: 12.5px;
   line-height: 1.6;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 .kci-subtitle {
   margin: 6px 0 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--knoux-text-secondary, #cec7d9);
+  color: var(--kci-text-2);
 }
 
 .kci-expertise {
@@ -216,8 +231,8 @@
 .kci-expertise__group {
   padding: 14px;
   border-radius: var(--knoux-radius-md, 13px);
-  background: color-mix(in srgb, var(--knoux-surface, rgba(17, 12, 26, 0.92)) 88%, transparent);
-  border: 1px solid var(--knoux-divider, rgba(255, 255, 255, 0.075));
+  background: color-mix(in srgb, var(--kci-surface) 88%, transparent);
+  border: 1px solid var(--kci-divider);
 }
 
 .kci-expertise__group h4 {
@@ -227,11 +242,11 @@
   margin: 0 0 10px;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--knoux-text, #fbfaff);
+  color: var(--kci-text);
 }
 
 .kci-expertise__group h4 svg {
-  color: var(--knoux-accent, #9d5cff);
+  color: var(--kci-accent);
 }
 
 .kci-expertise__group ul {
@@ -247,16 +262,16 @@
   padding: 5px 10px;
   border-radius: var(--knoux-radius-round, 999px);
   font-size: 11.5px;
-  color: var(--knoux-text-secondary, #cec7d9);
-  background: color-mix(in srgb, var(--knoux-accent, #9d5cff) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 24%, transparent);
+  color: var(--kci-text-2);
+  background: color-mix(in srgb, var(--kci-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 24%, transparent);
 }
 
 .kci-note {
   margin: 0;
   font-size: 11.5px;
   line-height: 1.6;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 /* C — contact centre */
@@ -270,8 +285,8 @@
   display: flex;
   align-items: stretch;
   border-radius: var(--knoux-radius-lg, 18px);
-  border: 1px solid var(--knoux-border, rgba(190, 156, 245, 0.2));
-  background: var(--knoux-surface, rgba(17, 12, 26, 0.92));
+  border: 1px solid var(--kci-border);
+  background: var(--kci-surface);
   overflow: hidden;
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -279,13 +294,13 @@
 .kci-contact:hover,
 .kci-contact:focus-within {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--knoux-accent, #9d5cff) 46%, transparent);
+  border-color: color-mix(in srgb, var(--kci-accent) 46%, transparent);
   box-shadow: var(--knoux-shadow-sm, 0 8px 24px rgba(0, 0, 0, 0.25));
 }
 
 .kci-contact--whatsapp {
-  border-color: color-mix(in srgb, #25d366 42%, var(--knoux-border, rgba(190, 156, 245, 0.2)));
-  background: linear-gradient(145deg, rgba(37, 211, 102, 0.14), var(--knoux-surface, rgba(17, 12, 26, 0.92)) 62%);
+  border-color: color-mix(in srgb, #25d366 42%, var(--kci-border));
+  background: linear-gradient(145deg, rgba(37, 211, 102, 0.14), var(--kci-surface) 62%);
 }
 
 .kci-contact__main {
@@ -307,7 +322,7 @@
 .kci-contact__copy-btn:focus-visible,
 .kci-social:focus-visible,
 .kci-signature__cta:focus-visible {
-  outline: 2px solid var(--knoux-focus, #72ddf7);
+  outline: 2px solid var(--kci-focus);
   outline-offset: 2px;
 }
 
@@ -319,8 +334,8 @@
   flex: 0 0 auto;
   border-radius: var(--knoux-radius-md, 13px);
   color: #f4ecff;
-  background: color-mix(in srgb, var(--knoux-accent, #9d5cff) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 30%, transparent);
+  background: color-mix(in srgb, var(--kci-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 30%, transparent);
 }
 
 .kci-contact--whatsapp .kci-contact__icon {
@@ -343,25 +358,25 @@
 
 .kci-contact__value {
   font-size: 13px;
-  color: var(--knoux-text, #fbfaff);
+  color: var(--kci-text);
   overflow-wrap: anywhere;
 }
 
 .kci-contact__copy small {
   font-size: 11.5px;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 .kci-contact__go {
   margin-inline-start: auto;
   flex: 0 0 auto;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
   transition: transform 180ms ease, color 180ms ease;
 }
 
 .kci-contact:hover .kci-contact__go {
   transform: translate(2px, -2px);
-  color: var(--knoux-accent, #9d5cff);
+  color: var(--kci-accent);
 }
 
 [dir='rtl'] .kci-contact:hover .kci-contact__go {
@@ -372,33 +387,34 @@
   flex: 0 0 auto;
   inline-size: 44px;
   border: 0;
-  border-inline-start: 1px solid var(--knoux-divider, rgba(255, 255, 255, 0.075));
+  border-inline-start: 1px solid var(--kci-divider);
   background: transparent;
-  color: var(--knoux-text-secondary, #cec7d9);
+  color: var(--kci-text-2);
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease;
 }
 
 .kci-contact__copy-btn:hover {
-  background: var(--knoux-surface-hover, rgba(255, 255, 255, 0.055));
-  color: var(--knoux-text, #fbfaff);
+  background: var(--kci-surface-hover);
+  color: var(--kci-text);
 }
 
 /* D — social grid */
 .kci-social-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
 }
 
 .kci-social {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 13px 14px;
   border-radius: var(--knoux-radius-lg, 18px);
-  border: 1px solid var(--knoux-border, rgba(190, 156, 245, 0.2));
-  background: var(--knoux-surface, rgba(17, 12, 26, 0.92));
+  border: 1px solid var(--kci-border);
+  background: var(--kci-surface);
   color: inherit;
   font: inherit;
   text-align: start;
@@ -408,8 +424,8 @@
 
 .kci-social:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--knoux-accent, #9d5cff) 42%, transparent);
-  background: var(--knoux-surface-raised, rgba(26, 18, 40, 0.96));
+  border-color: color-mix(in srgb, var(--kci-accent) 42%, transparent);
+  background: var(--kci-surface-raised);
 }
 
 .kci-social__icon {
@@ -419,8 +435,8 @@
   block-size: 38px;
   flex: 0 0 auto;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--knoux-accent, #9d5cff) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 26%, transparent);
+  background: color-mix(in srgb, var(--kci-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 26%, transparent);
   color: #efe6ff;
 }
 
@@ -456,14 +472,26 @@
   font-weight: 700;
 }
 
-.kci-social__body small {
-  font-size: 11px;
-  color: var(--knoux-muted, #9f97ad);
+.kci-social__body strong {
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
+.kci-social__body small {
+  font-size: 11px;
+  color: var(--kci-muted);
+  overflow-wrap: anywhere;
+}
+
+.kci-social__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .kci-social__scope {
-  margin-inline-start: auto;
   flex: 0 0 auto;
   padding: 3px 8px;
   border-radius: var(--knoux-radius-round, 999px);
@@ -471,9 +499,9 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--knoux-text-secondary, #cec7d9);
+  color: var(--kci-text-2);
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--knoux-divider, rgba(255, 255, 255, 0.075));
+  border: 1px solid var(--kci-divider);
 }
 
 .kci-social__scope--founder {
@@ -484,7 +512,7 @@
 
 .kci-social__external {
   flex: 0 0 auto;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 /* E — signature */
@@ -495,27 +523,27 @@
   gap: 4px;
   margin-block-start: 4px;
   padding-block-start: 18px;
-  border-block-start: 1px solid var(--knoux-divider, rgba(255, 255, 255, 0.075));
+  border-block-start: 1px solid var(--kci-divider);
   text-align: center;
 }
 
 .kci-signature p {
   margin: 0;
   font-size: 12px;
-  color: var(--knoux-muted, #9f97ad);
+  color: var(--kci-muted);
 }
 
 .kci-signature__name {
   font-size: 16px !important;
   font-weight: 700;
-  color: var(--knoux-text, #fbfaff) !important;
+  color: var(--kci-text) !important;
 }
 
 .kci-signature__brand {
   font-size: 20px !important;
   font-weight: 850;
   letter-spacing: 0.02em;
-  color: var(--knoux-text, #fbfaff) !important;
+  color: var(--kci-text) !important;
 }
 
 .kci-signature__cta {
@@ -525,9 +553,9 @@
   margin-block-start: 6px;
   padding: 9px 16px;
   border-radius: var(--knoux-radius-round, 999px);
-  border: 1px solid color-mix(in srgb, var(--knoux-accent, #9d5cff) 42%, transparent);
-  background: color-mix(in srgb, var(--knoux-accent, #9d5cff) 16%, transparent);
-  color: var(--knoux-text, #fbfaff);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--kci-accent) 16%, transparent);
+  color: var(--kci-text);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
@@ -535,7 +563,7 @@
 }
 
 .kci-signature__cta:hover {
-  background: color-mix(in srgb, var(--knoux-accent, #9d5cff) 26%, transparent);
+  background: color-mix(in srgb, var(--kci-accent) 26%, transparent);
   transform: translateY(-1px);
 }
 
@@ -549,18 +577,18 @@
   border-radius: var(--knoux-radius-round, 999px);
   font-size: 12px;
   backdrop-filter: blur(10px);
-  border: 1px solid var(--knoux-border, rgba(190, 156, 245, 0.2));
-  background: var(--knoux-surface-elevated, rgba(33, 23, 50, 0.98));
+  border: 1px solid var(--kci-border);
+  background: var(--kci-surface-raised);
 }
 
 .kci-status--ok {
-  color: var(--knoux-success, #43d6a0);
-  border-color: color-mix(in srgb, var(--knoux-success, #43d6a0) 40%, transparent);
+  color: var(--kci-success);
+  border-color: color-mix(in srgb, var(--kci-success) 40%, transparent);
 }
 
 .kci-status--error {
-  color: var(--knoux-danger, #f36983);
-  border-color: color-mix(in srgb, var(--knoux-danger, #f36983) 40%, transparent);
+  color: var(--kci-danger);
+  border-color: color-mix(in srgb, var(--kci-danger) 40%, transparent);
 }
 
 /* entrance — opacity/transform only */

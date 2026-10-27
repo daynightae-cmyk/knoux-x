@@ -11,61 +11,18 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'assets/**'
-      - 'tests/**'
-      - 'tools/android-emulator-smoke.sh'
-      - 'tools/prepare-android-branding.cjs'
-      - 'tools/prepare-android-premium-splash.cjs'
-      - 'tools/prepare-android-native-media.cjs'
-      - 'tools/prepare-android-functional-closure.cjs'
-      - 'tools/android/**'
-      - 'tools/verify-android-apk.cjs'
-      - 'tools/verify-android-app-plugin.cjs'
-      - 'tools/android-acceptance-diagnostics.sh'
-      - 'tools/run-android-installed-acceptance.sh'
-      - 'tools/verify-android-screen.cjs'
-      - 'tools/android-real-workflows.cjs'
-      - 'tools/android-native-core.cjs'
-      - 'tools/create-android-image-fixture.cjs'
-      - 'tools/configure-android-webview-debugging.cjs'
-      - 'electron/**'
-      - 'index.html'
-      - 'vite.renderer.config.ts'
-      - 'capacitor.config.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/android-apk.yml'
+    # No path filter, deliberately. Branch protection requires three contexts
+    # from this workflow ("validate-package" aside, the debug and release APK
+    # lanes), and a filtered workflow simply never reports them for a PR that
+    # touches anything outside the list — so that PR sits BLOCKED forever with
+    # every other lane green. That is exactly what happened to #86 (docs) and
+    # #88 (tools/android-ci-release.sh): a `workflow_dispatch` run on the branch
+    # succeeds, but required checks are evaluated on the PR's own suite, so the
+    # merge still cannot happen. An enumerated list also drifts as tooling is
+    # added, which is how the gap opened in the first place.
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'assets/**'
-      - 'tests/**'
-      - 'tools/android-emulator-smoke.sh'
-      - 'tools/prepare-android-branding.cjs'
-      - 'tools/prepare-android-premium-splash.cjs'
-      - 'tools/prepare-android-native-media.cjs'
-      - 'tools/prepare-android-functional-closure.cjs'
-      - 'tools/android/**'
-      - 'tools/verify-android-apk.cjs'
-      - 'tools/verify-android-app-plugin.cjs'
-      - 'tools/android-acceptance-diagnostics.sh'
-      - 'tools/run-android-installed-acceptance.sh'
-      - 'tools/verify-android-screen.cjs'
-      - 'tools/android-real-workflows.cjs'
-      - 'tools/android-native-core.cjs'
-      - 'tools/create-android-image-fixture.cjs'
-      - 'tools/configure-android-webview-debugging.cjs'
-      - 'electron/**'
-      - 'index.html'
-      - 'vite.renderer.config.ts'
-      - 'capacitor.config.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read

@@ -67,7 +67,7 @@ const COPY_AR: Record<string, string> = {
   'Choose a supported audio file.': 'اختر ملف صوت مدعومًا.',
   'MP4 render could not be queued.': 'تعذّر إضافة تصدير MP4 إلى قائمة الانتظار.',
   'MP4 render queued. Progress appears below. Save a copy once it completes.': 'أُضيف تصدير MP4 إلى الانتظار. يظهر التقدّم بالأسفل، واحفظ نسخة عند الاكتمال.',
-  'MP4 slideshow rendering is not implemented on this Android runtime yet. Your project remains saved and editable.': 'تصدير العرض إلى MP4 غير منفّذ بعد في نسخة أندرويد هذه. مشروعك يبقى محفوظًا وقابلًا للتحرير.',
+  'The slideshow renderer did not start on this device. Check Settings > About > Device capability health for the reason. Your project remains saved and editable.': 'تصدير العرض إلى MP4 غير منفّذ بعد في نسخة أندرويد هذه. مشروعك يبقى محفوظًا وقابلًا للتحرير.',
   'Media duration is unavailable.': 'مدة الوسائط غير متاحة.',
   'Media import failed.': 'فشل استيراد الوسائط.',
   'Media metadata could not be decoded.': 'تعذّر فك ترميز بيانات الوسائط.',
@@ -414,7 +414,7 @@ export const MobileSlideshowEditor = forwardRef<MobileSlideshowEditorHandle>((_,
     try {
       const queued = await window.knouxSlideshowAPI.render(structuredClone(current), 'mp4');
       if (!queued) {
-        setError('MP4 slideshow rendering is not implemented on this Android runtime yet. Your project remains saved and editable.');
+        setError('The slideshow renderer did not start on this device. Check Settings > About > Device capability health for the reason. Your project remains saved and editable.');
         return false;
       }
       setNotice('MP4 render queued. Progress appears below. Save a copy once it completes.');

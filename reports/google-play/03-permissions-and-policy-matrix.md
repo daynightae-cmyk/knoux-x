@@ -32,7 +32,7 @@ handled below.
 | `RECORD_AUDIO` | Microphone track **of screen recording** | `closure.cjs:312` and `:479` — checked only when the capture request sets `microphone: true` | "Record your screen with your voice" | Sensitive (microphone) | **Keep — narrow, real use** |
 | `MODIFY_AUDIO_SETTINGS` | Playback routing/volume behaviour in the player | Present in compiled manifest | Adjusts audio output settings | Normal | **Keep** |
 | `dev.knoux.playerx.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | AndroidX-generated protection for internal broadcasts | Automatic from AndroidX `core` | None needed | Not a user-facing permission | **Keep (framework-generated)** |
-| ~~`CAMERA`~~ | **Nothing** | No `getUserMedia({video})`, no `ACTION_IMAGE_CAPTURE`, no project script declares it — it came from the Capacitor template | — | Sensitive; an unused camera permission invites rejection | **REMOVED in this pass** |
+| ~~`CAMERA`~~ | **Nothing** | Confirmed absent from the compiled APK at `fe9a030`; no `getUserMedia({video})`, no `ACTION_IMAGE_CAPTURE`, no project script declares it — it came from the Capacitor template | — | Sensitive; an unused camera permission invites rejection | **REMOVED in this pass** |
 
 ## Camera removal
 

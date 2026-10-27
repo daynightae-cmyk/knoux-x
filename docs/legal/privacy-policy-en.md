@@ -107,12 +107,7 @@ something the app does not do.
 > declaration inherited from the Capacitor template into a manifest-merger removal
 > rule (`tools:node="remove"`).
 >
-> **Status of that statement, stated precisely:** the removal is implemented in the
-> build tooling and is covered by automated tests, but it has not yet taken effect
-> in any compiled artifact. The most recent analysed release APK **still declares**
-> `CAMERA`. This policy describes the build that will be uploaded, and that
-> description is only true once a bundle has actually been compiled with this
-> change and the resulting manifest has been checked.
+> **Status:** this is now verified against a compiled build. In the release artifact produced from `main` at `fe9a030`, the Android asset tooling reports **no** `CAMERA` permission at all, while `RECORD_AUDIO` and `MODIFY_AUDIO_SETTINGS` are present. The permission list in this policy therefore matches a real artifact rather than an intention. It must still be re-checked against the exact bundle that gets uploaded.
 
 > OWNER ACTION REQUIRED: confirm the final permission list against the APK that is actually uploaded
 > (`aapt2 dump permissions` or the Console's own manifest report), and paste the per-permission

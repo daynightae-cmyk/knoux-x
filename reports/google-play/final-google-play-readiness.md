@@ -188,7 +188,14 @@ Reasons, in order of severity:
 
 1. **No production-signed artifact exists**, and none can until the owner
    uploads the secrets and chooses an App Signing option.
-2. **No AAB has ever been built and verified end to end.** Reviewing the
+2. **No AAB signed by the production identity exists.** A real AAB is now built and
+   identity-verified on `main` at `fe9a030` (43 595 071 bytes, sha256
+   `37d24b0d…a9f3d0`, same certificate as its paired APK) — but with the disposable
+   CI acceptance key. See `02-aab-provenance-and-verification.json`. The earlier
+   blocker here was a real bug of mine, since fixed: the cross-artifact check
+   compared `keytool`'s colon-separated digest against `apksigner`'s colonless one.
+
+   Reviewing the
    publishing lane as an execution path rather than as unit tests surfaced a
    **pre-existing structural defect**: the signing step of
    `knoux-live-release.yml` declared no `working-directory`, so it ran at the

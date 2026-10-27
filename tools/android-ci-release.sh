@@ -128,6 +128,19 @@ fi
   "$UNSIGNED"
 
 "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$OUTPUT_DIR/android-release-signing.txt"
+# Production signing must match the owner's pinned certificate, not merely "a"
+# keystore: a wrong or rotated key would ship an APK that can never update the
+# installed app. Hard failure whenever the pin is configured.
+if [[ "$SIGNING_MODE" == "production" && -n "${KNOUX_ANDROID_CERT_SHA256:-}" ]]; then
+  ACTUAL_CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' "$OUTPUT_DIR/android-release-signing.txt" | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+  EXPECTED_CERT_SHA="$(printf '%s' "$KNOUX_ANDROID_CERT_SHA256" | tr -d ':\n' | tr 'A-F' 'a-f')"
+  if [[ -z "$ACTUAL_CERT_SHA" || "$ACTUAL_CERT_SHA" != "$EXPECTED_CERT_SHA" ]]; then
+    echo "Production signing certificate mismatch: expected $EXPECTED_CERT_SHA, got ${ACTUAL_CERT_SHA:-none}. Refusing to publish." >&2
+    exit 1
+  fi
+  echo 'Production signing certificate matches the pinned fingerprint.'
+fi
+
 sha256sum "$SIGNED" > "$SIGNED.sha256"
 stat -c '%s' "$SIGNED" > "$SIGNED.size"
 

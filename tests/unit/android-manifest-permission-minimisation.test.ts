@@ -86,3 +86,46 @@ describe('Android manifest permission minimisation', () => {
     }
   });
 });
+
+describe('CI media-permission step survives the camera removal rule', () => {
+  // Regression: the acceptance and debug lanes insert CAMERA, RECORD_AUDIO and
+  // MODIFY_AUDIO_SETTINGS behind a single "is CAMERA missing?" guard. Once
+  // hardening rewrites CAMERA into a merger removal rule the substring is still
+  // present, so that guard skipped the microphone permissions and both Android
+  // lanes failed their own grep. Each permission must be inserted on its own.
+  const workflows = [
+    '.github/workflows/android-release-acceptance.yml',
+    '.github/workflows/android-apk.yml',
+  ];
+
+  test.each(workflows)('%s inserts permissions independently', (workflowPath) => {
+    const text = fs.readFileSync(path.join(root, workflowPath), 'utf8');
+    const start = text.indexOf('Configure Android media permissions');
+    expect(start).toBeGreaterThan(-1);
+    const block = text.slice(start, text.indexOf('- name:', start + 10));
+    expect(block).toContain("for permission in ('CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS')");
+    expect(block).not.toMatch(/if 'android\.permission\.CAMERA' not in text:\s*\n\s*if marker/);
+  });
+
+  test('the inserted CAMERA line is still a removal rule after hardening runs first', () => {
+    const template = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <application android:allowBackup="true" android:label="KNOUX X">\n        <activity android:name=".MainActivity" />\n    </application>\n</manifest>\n';
+    const hardened = hardenManifest(template);
+    // The guard sees CAMERA mentioned and must not re-request it, yet the other
+    // two permissions still have to arrive.
+    expect(hardened).toContain('tools:node="remove"');
+    expect(hardened).not.toContain('android.permission.RECORD_AUDIO');
+    const newline = String.fromCharCode(10);
+    let text = hardened;
+    const marker = '    <application';
+    for (const permission of ['CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS']) {
+      if (!text.includes(`android.permission.${permission}`)) {
+        text = text.replace(marker, `    <uses-permission android:name="android.permission.${permission}" />${newline}${marker}`, 1);
+      }
+    }
+    expect(text).toContain('android.permission.RECORD_AUDIO');
+    expect(text).toContain('android.permission.MODIFY_AUDIO_SETTINGS');
+    const cameraDeclarations = [...text.matchAll(/<uses-permission\b[^>]*android:name="android\.permission\.CAMERA"[^>]*\/>/g)];
+    expect(cameraDeclarations).toHaveLength(1);
+    expect(cameraDeclarations[0][0]).toContain('tools:node="remove"');
+  });
+});

@@ -187,10 +187,12 @@ wait_for_settled_frame() {
   local width="$2"
   local height="$3"
   local attempts="${4:-30}"
-  local attempt
+  local attempt=0
+  local extra=0
   local settle="${destination}.settle.png"
   rm -f "$settle"
-  for attempt in $(seq 1 "$attempts"); do
+  while (( attempt < attempts + extra )); do
+    attempt=$((attempt + 1))
     if capture_screen "$destination" && node tools/verify-android-screen.cjs "$destination" && \
        [[ "$(png_dimensions "$destination" 2>/dev/null)" == "${width}x${height}" ]]; then
       if [[ -s "$settle" ]] && cmp -s "$settle" "$destination"; then
@@ -202,6 +204,24 @@ wait_for_settled_frame() {
       continue
     fi
     rm -f "$settle"
+    # A foreign system ANR raised *inside* this window covers KNOUX's own chrome,
+    # so the frame can never settle and the chrome check can never pass: the
+    # 2026-10-27 failures on main (42aef17) and on PR #89 both captured a
+    # correctly rendered home screen behind a "Pixel Launcher isn't responding"
+    # dialog and were reported as an app problem. The dismissal helpers already
+    # exist and already refuse to touch KNOUX's own ANR — they were only ever
+    # called before the exercise, never during it. Every assertion still has to
+    # hold on the frame that finally wins, so this makes the gate accurate, not
+    # lenient; the extra budget is granted only after a real recovery.
+    if foreign_anr_packages | grep -q .; then
+      if ! handle_foreign_anr; then
+        echo 'Foreign ANR could not be cleared safely during the settle window.' >&2
+        rm -f "$settle"
+        return 1
+      fi
+      extra=$((extra + 10))
+      continue
+    fi
     sleep 1
   done
   rm -f "$settle"

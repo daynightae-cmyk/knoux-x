@@ -566,24 +566,26 @@ export const SettingsView: React.FC = () => {
           )}
 
           {category === 'about' && (
-            <NeonPanel variant="dark" padding="lg">
-              <h2>{t('settings.about')}</h2>
+            <div className="settings-about-stack">
               <CorporateIdentity compact />
-              <dl className="about-grid">
-                <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? getReleaseInfo().version}</dd></div>
-                <div><dt>SHA</dt><dd dir="ltr">{runtimeInfo?.sha ?? getReleaseInfo().shortSha ?? '—'}</dd></div>
-                <div><dt>Electron</dt><dd>{runtimeInfo?.electronVersion ?? '—'}</dd></div>
-                <div><dt>Chromium</dt><dd>{runtimeInfo?.chromeVersion ?? '—'}</dd></div>
-                <div><dt>Node.js</dt><dd>{runtimeInfo?.nodeVersion ?? '—'}</dd></div>
-                <div><dt>{t('settings.runtime')}</dt><dd>{runtimeInfo ? `${runtimeInfo.platform} · ${runtimeInfo.arch}` : '—'}</dd></div>
-              </dl>
-              <ReleaseUpdatePanel />
-              <div className="developer-actions">
-                <NeonButton variant="secondary" leftIcon={<Copy size={16} />} onClick={() => void copyDiagnostics()} disabled={!runtimeInfo}>{t('settings.copyDiagnostics')}</NeonButton>
-                <NeonButton variant="secondary" onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}>{t('settings.productTour')}</NeonButton>
-                <NeonButton variant="secondary" leftIcon={<ExternalLink size={16} />} onClick={() => void openExternal(KNOUX_BRAND.website)}>{t('settings.website')}</NeonButton>
-              </div>
-            </NeonPanel>
+              <NeonPanel variant="dark" padding="lg">
+                <h2>{t('settings.about')}</h2>
+                <dl className="about-grid">
+                  <div><dt>{t('settings.version')}</dt><dd>{runtimeInfo?.version ?? getReleaseInfo().version}</dd></div>
+                  <div><dt>SHA</dt><dd dir="ltr">{runtimeInfo?.sha ?? getReleaseInfo().shortSha ?? '—'}</dd></div>
+                  <div><dt>Electron</dt><dd>{runtimeInfo?.electronVersion ?? '—'}</dd></div>
+                  <div><dt>Chromium</dt><dd>{runtimeInfo?.chromeVersion ?? '—'}</dd></div>
+                  <div><dt>Node.js</dt><dd>{runtimeInfo?.nodeVersion ?? '—'}</dd></div>
+                  <div><dt>{t('settings.runtime')}</dt><dd>{runtimeInfo ? `${runtimeInfo.platform} · ${runtimeInfo.arch}` : '—'}</dd></div>
+                </dl>
+                <ReleaseUpdatePanel />
+                <div className="developer-actions">
+                  <NeonButton variant="secondary" leftIcon={<Copy size={16} />} onClick={() => void copyDiagnostics()} disabled={!runtimeInfo}>{t('settings.copyDiagnostics')}</NeonButton>
+                  <NeonButton variant="secondary" onClick={() => window.dispatchEvent(new Event('knoux:show-product-tour'))}>{t('settings.productTour')}</NeonButton>
+                  <NeonButton variant="secondary" leftIcon={<ExternalLink size={16} />} onClick={() => void openExternal(KNOUX_BRAND.website)}>{t('settings.website')}</NeonButton>
+                </div>
+              </NeonPanel>
+            </div>
           )}
         </div>
       </div>

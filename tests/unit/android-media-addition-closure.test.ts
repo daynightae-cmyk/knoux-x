@@ -46,7 +46,7 @@ describe('Android media addition and slideshow output closure', () => {
     expect(slideshowEditor).toContain('void saveOutput(job.id)');
     expect(slideshowEditor).toContain("job.outputExists ? t('Saved on this device') : t('Rendered in memory — not a file yet')");
     expect(slideshowEditor).not.toMatch(/openOutput\?\.\(job\.id\)\.catch\(\(\) => undefined\)/);
-    expect(slideshowEditor).toContain('MP4 slideshow rendering is not implemented on this Android runtime yet.');
+    expect(slideshowEditor).toContain('The slideshow renderer did not start on this device.');
     expect(slideshowEditor).toContain('Your project remains saved and editable.');
   });
 

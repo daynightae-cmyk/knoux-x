@@ -29,7 +29,7 @@ describe('Knoux X Android mobile slideshow contract', () => {
   test('does not claim an Android MP4 render succeeded when the runtime renderer returns no job', () => {
     expect(bridge).toContain('render: async () => null');
     expect(editor).toContain("const queued = await window.knouxSlideshowAPI.render(structuredClone(current), 'mp4')");
-    expect(editor).toContain('MP4 slideshow rendering is not implemented on this Android runtime yet.');
+    expect(editor).toContain('The slideshow renderer did not start on this device.');
     expect(editor).toContain('Your project remains saved and editable.');
   });
 

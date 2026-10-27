@@ -281,9 +281,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     needs: [preflight, quality]
+    # The production signing material lives only in this environment. Without
+    # the reference the secrets are not even reachable from the job, which is how
+    # a release can silently end up signed by a disposable key.
+    environment: android-production
     outputs:
       signing: ${{ steps.signing.outputs.status }}
+      certificate_sha256: ${{ steps.signing.outputs.certificate_sha256 }}
       apk_sha256: ${{ steps.hashes.outputs.apk_sha256 }}
+      aab_sha256: ${{ steps.hashes.outputs.aab_sha256 }}
     env:
       KNOUX_RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
       KNOUX_RELEASE_BUILT_AT: ${{ needs.preflight.outputs.built_at }}
@@ -356,39 +362,143 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
 
-      - name: Sign with production key or labeled CI key
-        id: signing
+      - name: Decide the signing identity before building
+        id: identity
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KNOUX_ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KNOUX_ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEY_PASSWORD }}
+          CERT_SHA256: ${{ secrets.KNOUX_ANDROID_CERT_SHA256 }}
+          PUBLISH: ${{ needs.preflight.outputs.publish }}
         run: |
+          set -euo pipefail
+          missing=()
+          [ -n "$KEYSTORE_BASE64" ] || missing+=("KNOUX_ANDROID_KEYSTORE_BASE64")
+          [ -n "$KEYSTORE_PASSWORD" ] || missing+=("KNOUX_ANDROID_KEYSTORE_PASSWORD")
+          [ -n "$KEY_ALIAS" ] || missing+=("KNOUX_ANDROID_KEY_ALIAS")
+          [ -n "$KEY_PASSWORD" ] || missing+=("KNOUX_ANDROID_KEY_PASSWORD")
+          [ -n "$CERT_SHA256" ] || missing+=("KNOUX_ANDROID_CERT_SHA256")
+          # A publishable run has exactly one permissible identity. Falling back to
+          # a disposable CI key here would put an un-updatable signature in front of
+          # users, so an incomplete secret set is a hard stop, never a soft default.
+          if [ "${#missing[@]}" -gt 0 ]; then
+            if [ "$PUBLISH" = "true" ]; then
+              echo "::error::PRODUCTION_SECRETS_INCOMPLETE: ${missing[*]} are not configured in the android-production environment. Refusing to publish."
+              echo "PRODUCTION_SECRETS_INCOMPLETE: ${missing[*]}" > "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            echo "status=ci" >> "$GITHUB_OUTPUT"
+            echo "Production signing material is incomplete (${missing[*]}); this build is CI-signed and cannot be published."
+            exit 0
+          fi
+          echo "status=production" >> "$GITHUB_OUTPUT"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/knoux-production.p12"
+          chmod 600 "$RUNNER_TEMP/knoux-production.p12"
+          echo "keystore=$RUNNER_TEMP/knoux-production.p12" >> "$GITHUB_OUTPUT"
+          echo "Production signing material is present. Values are not logged."
+
+      - name: Verify the production signing identity
+        if: steps.identity.outputs.status == 'production'
+        env:
+          KNOUX_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEYSTORE_PASSWORD }}
+          KNOUX_ANDROID_KEY_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEY_PASSWORD }}
+          KNOUX_ANDROID_CERT_SHA256: ${{ secrets.KNOUX_ANDROID_CERT_SHA256 }}
+          KNOUX_ANDROID_KEY_ALIAS: ${{ secrets.KNOUX_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          # Written inside release-android/ so the identity evidence is uploaded
+          # with the artifacts it describes, instead of vanishing with the runner.
+          mkdir -p release-android
+          node tools/verify-production-signing-identity.cjs \
+            --keystore "${{ steps.identity.outputs.keystore }}" \
+            --storepass-env KNOUX_ANDROID_KEYSTORE_PASSWORD \
+            --keypass-env KNOUX_ANDROID_KEY_PASSWORD \
+            --alias "$KNOUX_ANDROID_KEY_ALIAS" \
+            --storetype PKCS12 \
+            --pin-env KNOUX_ANDROID_CERT_SHA256 \
+            --allow-ci-identity false \
+            --out release-android/production-signing-identity.json
+          cat release-android/production-signing-identity.json
+
+      - name: Sign APK and AAB with the resolved identity
+        id: signing
+        shell: bash
+        # This step reads app/build/outputs/... and writes ../release-android, so
+        # it must run inside the Gradle project. Every later step addresses the
+        # same directory as release-android/ from the workspace root; without this
+        # line the unsigned artifacts are not found and the output escapes the
+        # checkout entirely, which is why this job could never have completed.
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KNOUX_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
           mkdir -p ../release-android
           APKSIGNER="${ANDROID_HOME}/build-tools/36.0.0/apksigner"
           UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
           UNSIGNED_AAB="app/build/outputs/bundle/release/app-release.aab"
           test -s "$UNSIGNED_APK"
           test -s "$UNSIGNED_AAB"
-          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/knoux-prod.jks"
-            STORE="$RUNNER_TEMP/knoux-prod.jks"; SPASS="$KEYSTORE_PASSWORD"; ALIAS="$KEY_ALIAS"; KPASS="$KEY_PASSWORD"
-            echo "status=production" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.identity.outputs.status }}" = "production" ]; then
+            STORE="${{ steps.identity.outputs.keystore }}"
+            STORE_TYPE=PKCS12
+            ALIAS_ENV=KEY_ALIAS
+            KS_PASS="env:KEYSTORE_PASSWORD"
+            KEY_PASS="env:KEY_PASSWORD"
+            JARSIGNER_STORE_PASS_ENV=KEYSTORE_PASSWORD
+            JARSIGNER_KEY_PASS_ENV=KEY_PASSWORD
           else
-            STORE="$RUNNER_TEMP/knoux-release-ci.jks"; SPASS="knoux-ci-release-2026"; ALIAS="knoux-ci-release"; KPASS="knoux-ci-release-2026"
+            # Draft-only identity. It is never allowed to reach a public release,
+            # and it is deliberately not reusable as a production keystore.
+            STORE="$RUNNER_TEMP/knoux-release-ci.jks"
+            STORE_TYPE=JKS
+            export KNOWN_CI_RELEASE_PASS='knoux-ci-release-2026'
+            ALIAS_ENV=KNOWN_CI_RELEASE_ALIAS
+            export KNOWN_CI_RELEASE_ALIAS=knoux-ci-release
+            KS_PASS="env:KNOWN_CI_RELEASE_PASS"
+            KEY_PASS="env:KNOWN_CI_RELEASE_PASS"
+            JARSIGNER_STORE_PASS_ENV=KNOWN_CI_RELEASE_PASS
+            JARSIGNER_KEY_PASS_ENV=KNOWN_CI_RELEASE_PASS
             rm -f "$STORE"
-            keytool -genkeypair -keystore "$STORE" -storepass "$SPASS" -keypass "$KPASS" -alias "$ALIAS" \
+            keytool -genkeypair -keystore "$STORE" -storetype JKS -alias "$KNOWN_CI_RELEASE_ALIAS" \
               -keyalg RSA -keysize 3072 -validity 3650 \
-              -dname 'CN=Knoux X Release, OU=CI, O=Knoux X, C=AE'
-            echo "status=ci" >> "$GITHUB_OUTPUT"
+              -dname 'CN=Knoux X CI Release Verification, OU=CI, O=Knoux X, C=AE' \
+              -storepass:env KNOWN_CI_RELEASE_PASS -keypass:env KNOWN_CI_RELEASE_PASS
           fi
-          "$APKSIGNER" sign --ks "$STORE" --ks-key-alias "$ALIAS" --ks-pass "pass:$SPASS" --key-pass "pass:$KPASS" \
+          "$APKSIGNER" sign --ks "$STORE" --ks-type "$STORE_TYPE" --ks-key-alias "${!ALIAS_ENV}" \
+            --ks-pass "$KS_PASS" --key-pass "$KEY_PASS" \
             --out "../release-android/${{ needs.preflight.outputs.android_apk }}" "$UNSIGNED_APK"
-          jarsigner -keystore "$STORE" -storepass "$SPASS" -keypass "$KPASS" \
-            -signedjar "../release-android/${{ needs.preflight.outputs.android_aab }}" "$UNSIGNED_AAB" "$ALIAS"
+          jarsigner -keystore "$STORE" -storetype "$STORE_TYPE" \
+            -storepass:env "$JARSIGNER_STORE_PASS_ENV" -keypass:env "$JARSIGNER_KEY_PASS_ENV" \
+            -signedjar "../release-android/${{ needs.preflight.outputs.android_aab }}" "$UNSIGNED_AAB" "${!ALIAS_ENV}"
           "$APKSIGNER" verify --verbose --print-certs "../release-android/${{ needs.preflight.outputs.android_apk }}" | tee ../release-android/android-signing.txt
-          jarsigner -verify "../release-android/${{ needs.preflight.outputs.android_aab }}" | tee -a ../release-android/android-signing.txt
+          jarsigner -verify -certs "../release-android/${{ needs.preflight.outputs.android_aab }}" | tee -a ../release-android/android-signing.txt
+          CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' ../release-android/android-signing.txt | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
+          if [ -z "$CERT_SHA" ]; then
+            echo "::error::The published APK has no readable signer certificate."
+            exit 1
+          fi
+          echo "certificate_sha256=$CERT_SHA" >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.identity.outputs.status }}" = "production" ]; then
+            EXPECTED="$(printf '%s' "${{ secrets.KNOUX_ANDROID_CERT_SHA256 }}" | tr -d ':\n' | tr 'A-F' 'a-f')"
+            if [ "$CERT_SHA" != "$EXPECTED" ]; then
+              echo "::error::Published APK is signed by $CERT_SHA, not the pinned $EXPECTED. Refusing to publish."
+              exit 1
+            fi
+            AAB_CERT="$(mktemp)"; unzip -p "../release-android/${{ needs.preflight.outputs.android_aab }}" 'META-INF/*.RSA' > "$AAB_CERT" || true
+            AAB_SHA="$(keytool -printcert -file "$AAB_CERT" 2>/dev/null | awk -F': ' '/SHA256/ {print $2; exit}' | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
+            rm -f "$AAB_CERT"
+            if [ "$AAB_SHA" != "$EXPECTED" ]; then
+              echo "::error::Published AAB is signed by ${AAB_SHA:-none}, not the pinned $EXPECTED. Refusing to publish."
+              exit 1
+            fi
+            echo "Both published artifacts carry the pinned production certificate."
+          fi
+          echo "status=${{ steps.identity.outputs.status }}" >> "$GITHUB_OUTPUT"
 
       - name: Verify packaged identity
         shell: bash
@@ -406,6 +516,7 @@ jobs:
           sha256sum "release-android/${{ needs.preflight.outputs.android_apk }}" | tee "release-android/${{ needs.preflight.outputs.android_apk }}.sha256"
           sha256sum "release-android/${{ needs.preflight.outputs.android_aab }}" | tee "release-android/${{ needs.preflight.outputs.android_aab }}.sha256"
           echo "apk_sha256=$(cut -d' ' -f1 "release-android/${{ needs.preflight.outputs.android_apk }}.sha256")" >> "$GITHUB_OUTPUT"
+          echo "aab_sha256=$(cut -d' ' -f1 "release-android/${{ needs.preflight.outputs.android_aab }}.sha256")" >> "$GITHUB_OUTPUT"
 
       - name: Enable KVM for emulator smoke
         shell: bash
@@ -530,6 +641,23 @@ jobs:
         with:
           name: knoux-android-${{ needs.preflight.outputs.sha }}
           path: release-android/
+
+      - name: Refuse a public release that is not production-signed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The last line of defence: even if an earlier step mislabelled its
+          # identity, a disposable CI signature can never become a public release.
+          if [ "${{ needs.preflight.outputs.publish }}" = "true" ] \
+            && [ "${{ needs.android.outputs.signing }}" != "production" ]; then
+            echo "::error::PUBLICATION_BLOCKED: Android artifacts are signed with '${{ needs.android.outputs.signing }}', not the pinned production identity."
+            exit 1
+          fi
+          if [ -z "${{ needs.android.outputs.certificate_sha256 }}" ]; then
+            echo "::error::PUBLICATION_BLOCKED: no verified signing certificate fingerprint was recorded."
+            exit 1
+          fi
+          echo "Publication identity accepted: ${{ needs.android.outputs.signing }} / ${{ needs.android.outputs.certificate_sha256 }}"
 
       - name: Enforce same-SHA contract
         shell: bash

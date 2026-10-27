@@ -13,7 +13,11 @@ describe('Android slideshow output is never presented as a file it is not', () =
     // The scheme may only survive in prose explaining why it was removed.
     expect(bridge).not.toMatch(/[=:]\s*['"`]knoux-android-render/);
     expect(bridge).toMatch(/snapshot\.status = 'completed';[\s\S]*?snapshot\.outputPath = null;[\s\S]*?snapshot\.outputExists = false;/);
-    expect(bridge).toMatch(/snapshot\.warning = "The rendered slideshow is held in this session's memory/);
+    // The completion still states the in-memory truth; an encoder-substitution
+    // warning is prepended when the device had to fall back to WebM.
+    expect(bridge).toMatch(/const memoryWarning = "The rendered slideshow is held in this session's memory/);
+    expect(bridge).toContain('snapshot.warning = encoding.warning ?');
+    expect(bridge).toContain(': memoryWarning;');
   });
 
   test('saving a slideshow verifies the written file before claiming it', () => {

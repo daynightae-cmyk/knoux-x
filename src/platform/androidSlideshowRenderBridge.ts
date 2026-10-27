@@ -19,13 +19,48 @@ function randomId(): string {
   return typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-function mimeFor(format: SlideshowRenderFormat): string {
+const MP4_CANDIDATES = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4'];
+const WEBM_CANDIDATES = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+
+function pickMime(format: SlideshowRenderFormat, isTypeSupported: (candidate: string) => boolean): string {
   if (format === 'gif') return '';
-  const candidates = format === 'mp4'
-    ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']
-    : ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
-  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
+  const candidates = format === 'mp4' ? MP4_CANDIDATES : WEBM_CANDIDATES;
+  return candidates.find((candidate) => isTypeSupported(candidate)) ?? '';
 }
+
+export interface SlideshowEncoding {
+  /** What will actually be encoded; may differ from the requested format. */
+  format: SlideshowRenderFormat;
+  mime: string;
+  /** User-facing reason when the requested format had to be substituted. */
+  warning: string | null;
+}
+
+/**
+ * Pick the encoder for a requested slideshow format. A device whose WebView has
+ * no H.264 encoder used to fail the export outright with "not implemented";
+ * WebM is available in every modern WebView, so the render falls back to it and
+ * says so instead of refusing the work.
+ */
+export function resolveSlideshowEncoding(
+  format: SlideshowRenderFormat,
+  isTypeSupported: (candidate: string) => boolean,
+): SlideshowEncoding {
+  const direct = pickMime(format, isTypeSupported);
+  if (direct) return { format, mime: direct, warning: null };
+  if (format === 'mp4') {
+    const webm = pickMime('webm', isTypeSupported);
+    if (webm) {
+      return {
+        format: 'webm',
+        mime: webm,
+        warning: 'This device exposes no MP4 encoder, so the slideshow was rendered as WebM instead. It plays inside KNOUX X and in most players.',
+      };
+    }
+  }
+  return { format, mime: '', warning: null };
+}
+
 
 function clone(snapshot: SlideshowRenderSnapshot): SlideshowRenderSnapshot {
   return structuredClone(snapshot);
@@ -125,7 +160,9 @@ function audioTrackEnd(track: SlideshowAudioTrack, projectDurationSeconds: numbe
 }
 
 async function executeRender(project: SlideshowProject, format: SlideshowRenderFormat, snapshot: SlideshowRenderSnapshot): Promise<void> {
-  const mime = mimeFor(format);
+  const encoding = resolveSlideshowEncoding(format, (candidate) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(candidate));
+  const mime = encoding.mime;
+  if (encoding.format !== format) snapshot.format = encoding.format;
   if (!mime) {
     throw new Error(format === 'mp4'
       ? 'This Android WebView does not expose MP4 MediaRecorder. Update Android System WebView or use a device with MP4 recording support.'
@@ -280,7 +317,7 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
       return;
     }
     if (blob.size === 0) throw new Error('Android slideshow rendering produced an empty file.');
-    const extension = format === 'mp4' ? 'mp4' : 'webm';
+    const extension = snapshot.format === 'mp4' ? 'mp4' : 'webm';
     const fileName = `${cleanName(project.name)}.${extension}`;
     results.set(snapshot.id, { blob, fileName });
     snapshot.status = 'completed';
@@ -293,7 +330,8 @@ async function executeRender(project: SlideshowProject, format: SlideshowRenderF
     snapshot.completedAt = new Date().toISOString();
     snapshot.progress = { jobId: snapshot.id, timeSeconds: duration };
     snapshot.outputExists = false;
-    snapshot.warning = "The rendered slideshow is held in this session's memory. Save a copy before leaving KNOUX; there is no file on the device yet.";
+    const memoryWarning = "The rendered slideshow is held in this session's memory. Save a copy before leaving KNOUX; there is no file on the device yet.";
+    snapshot.warning = encoding.warning ? `${encoding.warning} ${memoryWarning}` : memoryWarning;
     snapshot.executionStrategy = 'android-canvas-mediarecorder';
     publish(snapshot);
   } finally {

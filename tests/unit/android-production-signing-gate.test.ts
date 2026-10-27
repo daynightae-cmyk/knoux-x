@@ -340,3 +340,34 @@ describe('signing lane contract', () => {
     expect(liveRelease).toContain('--allow-ci-identity false');
   });
 });
+
+describe('signer digest normalisation across the two tools', () => {
+  // keytool prints the certificate digest colon-separated and upper case;
+  // apksigner prints it colonless and lower case. Comparing the two raw made the
+  // APK-versus-AAB identity check fail on a bundle that was signed by exactly the
+  // same key, so the real CI release lane aborted on a false mismatch.
+  const KEYTOOL_LINE = '\t SHA256: 9C:5E:C8:F7:89:9F:1B:E2:F1:1E:D8:8C:BE:92:3E:47:71:BE:A0:E2:10:AF:5E:89:B3:09:3E:85:C7:C8:29:08';
+  const APKSIGNER_LINE = 'Signer #1 certificate SHA-256 digest: 9c5ec8f7899f1be2f11ed88cbe923e4771bea0e210af5e89b3093e85c7c82908';
+  const EXPECTED = '9c5ec8f7899f1be2f11ed88cbe923e4771bea0e210af5e89b3093e85c7c82908';
+
+  function normalise(line: string, pattern: string): string {
+    const result = spawnSync(bash, ['-c',
+      `printf '%s\n' "$1" | awk -F': ' '/${pattern}/ {print $2; exit}' | tr -d '[:space:]:' | tr 'A-F' 'a-f'`,
+      'knoux', line], { encoding: 'utf8' });
+    return (result.stdout || '').trim();
+  }
+
+  test('keytool and apksigner forms reduce to one comparable digest', () => {
+    expect(normalise(KEYTOOL_LINE, 'SHA256')).toBe(EXPECTED);
+    expect(normalise(APKSIGNER_LINE, 'Signer #1 certificate SHA-256 digest')).toBe(EXPECTED);
+  });
+
+  test('both lanes strip colons rather than only whitespace', () => {
+    const helper = fs.readFileSync(script, 'utf8');
+    const liveRelease = fs.readFileSync(path.join(root, '.github/workflows/knoux-live-release.yml'), 'utf8');
+    expect(helper).toContain("tr -d '[:space:]:'");
+    expect(liveRelease).toContain("tr -d '[:space:]:'");
+    // A whitespace-only strip is the defect itself.
+    expect(helper).not.toMatch(/awk -F': ' '\/SHA256\/ \{print \$2; exit\}' \| tr -d '\[:space:\]' \| tr 'A-F' 'a-f'/);
+  });
+});

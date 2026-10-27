@@ -477,7 +477,7 @@ jobs:
             -signedjar "../release-android/${{ needs.preflight.outputs.android_aab }}" "$UNSIGNED_AAB" "${!ALIAS_ENV}"
           "$APKSIGNER" verify --verbose --print-certs "../release-android/${{ needs.preflight.outputs.android_apk }}" | tee ../release-android/android-signing.txt
           jarsigner -verify -certs "../release-android/${{ needs.preflight.outputs.android_aab }}" | tee -a ../release-android/android-signing.txt
-          CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' ../release-android/android-signing.txt | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+          CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' ../release-android/android-signing.txt | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
           if [ -z "$CERT_SHA" ]; then
             echo "::error::The published APK has no readable signer certificate."
             exit 1
@@ -490,7 +490,7 @@ jobs:
               exit 1
             fi
             AAB_CERT="$(mktemp)"; unzip -p "../release-android/${{ needs.preflight.outputs.android_aab }}" 'META-INF/*.RSA' > "$AAB_CERT" || true
-            AAB_SHA="$(keytool -printcert -file "$AAB_CERT" 2>/dev/null | awk -F': ' '/SHA256/ {print $2; exit}' | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+            AAB_SHA="$(keytool -printcert -file "$AAB_CERT" 2>/dev/null | awk -F': ' '/SHA256/ {print $2; exit}' | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
             rm -f "$AAB_CERT"
             if [ "$AAB_SHA" != "$EXPECTED" ]; then
               echo "::error::Published AAB is signed by ${AAB_SHA:-none}, not the pinned $EXPECTED. Refusing to publish."

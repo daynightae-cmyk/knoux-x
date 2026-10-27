@@ -182,12 +182,12 @@ unzip -p "$BUNDLE" 'META-INF/*.RSA' > "$BUNDLE_CERT_DER" || true
 BUNDLE_CERT_SHA=''
 if [[ -s "$BUNDLE_CERT_DER" ]]; then
   BUNDLE_CERT_SHA="$(keytool -printcert -file "$BUNDLE_CERT_DER" 2>/dev/null \
-    | awk -F': ' '/SHA256/ {print $2; exit}' | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+    | awk -F': ' '/SHA256/ {print $2; exit}' | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
 fi
 rm -f "$BUNDLE_CERT_DER"
 echo "Bundle signer SHA-256: ${BUNDLE_CERT_SHA:-none}" | tee -a "$OUTPUT_DIR/android-bundle-signing.txt"
 
-ACTUAL_CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' "$OUTPUT_DIR/android-release-signing.txt" | tr -d '[:space:]' | tr 'A-F' 'a-f')"
+ACTUAL_CERT_SHA="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2; exit}' "$OUTPUT_DIR/android-release-signing.txt" | tr -d '[:space:]:' | tr 'A-F' 'a-f')"
 
 # The two artifacts a release channel could carry must be the same signer. If
 # they differ, one of them is not what the other claims to be.

@@ -4,6 +4,9 @@ import { createRequire } from 'module';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { randomUUID } from 'crypto';
 
+
+import { isUnexecutableArchivePath } from '../media-tool-paths';
+
 import { parsePacketPtsCsvExtent } from './probe-packet-extent';
 
 const requireForRuntime = createRequire(import.meta.url);
@@ -367,12 +370,18 @@ export class FFmpegService {
         if (commandAvailable) return candidate;
         continue;
       }
+      // Existence is not executability. Electron's asar-patched fs reports a
+      // binary inside app.asar as readable, and spawning it then fails, so an
+      // archived candidate is skipped outright and a real one has to answer a
+      // version probe before it is handed to every later ffmpeg call.
+      if (isUnexecutableArchivePath(candidate)) continue;
       try {
-        await fs.access(candidate);
-        return candidate;
+        const stats = await fs.stat(candidate);
+        if (!stats.isFile() || stats.size === 0) continue;
       } catch {
-        // Try next candidate.
+        continue;
       }
+      if (await this.commandWorks(candidate)) return candidate;
     }
     return null;
   }

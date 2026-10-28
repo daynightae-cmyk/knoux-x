@@ -42,7 +42,6 @@ export default defineConfig({
         'better-sqlite3',
         'sharp',
         'onnxruntime-node',
-        '@tensorflow/tfjs-node',
       ],
     },
   },

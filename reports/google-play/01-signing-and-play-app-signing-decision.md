@@ -181,12 +181,21 @@ or Play Console access.
    preferred path for the two passwords. The last two values above are not
    secrets — the alias and the public fingerprint are already recorded in
    `00-repository-baseline.md` — so those three commands can be run as-is.
-3. **Resolve the environment branch policy.** It is currently
-   `protected_branches: true`, but the release workflow triggers on tag push and
-   `workflow_dispatch`. Either add custom branch policies covering the release
-   branch and tag pattern, or accept dispatching from a protected branch. Until
-   this is settled, a publish run may not see the secrets at all — and it will
-   now **fail loudly** rather than fall back.
+3. **Understand the environment branch policy — it is narrower than first
+   recorded.** `android-production` uses `protected_branches: true`, and `main`
+   **is** protected (three required contexts, `strict: true`). So a
+   `workflow_dispatch` run against `main` satisfies the policy and can read the
+   environment secrets. A **tag push** is the case that does not match a branch
+   policy, so publishing by tag may not see the secrets at all.
+
+   Correction to the earlier draft of this file, which said the policy "can
+   prevent the release job from ever seeing the environment secrets": that is
+   true for tag-triggered runs, not for dispatch from `main`. The practical
+   consequence is that `mode=verify` should be run as
+   `gh workflow run knoux-live-release.yml --ref main -f mode=verify`, and that
+   if tag publication is wanted later, custom branch/tag policies must be added
+   first. Either way the run now **fails loudly** rather than falling back to a
+   CI key.
 4. **Add a required reviewer to `android-production`** (Console → Settings →
    Environments → `android-production` → Deployment protection rules). This is
    the mechanical form of Gate G: no human approval, no production signing.

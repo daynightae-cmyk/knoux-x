@@ -523,6 +523,24 @@ jobs:
           cp android/knoux-branding-report.json release-android/android-branding-report.json
           node tools/verify-android-apk.cjs "release-android/${{ needs.preflight.outputs.android_apk }}" release-android
 
+      - name: Verify release candidate provenance
+        shell: bash
+        env:
+          KNOUX_ANDROID_CERT_SHA256: ${{ secrets.KNOUX_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          # The build lane records where an artifact came from; this asserts the
+          # record is the one the release asked for, and re-checks the bytes.
+          ARGS=(--evidence release-android --badging android-apk-badging.txt
+            --expect-source-sha "${{ needs.preflight.outputs.sha }}"
+            --expect-version-name "${{ needs.preflight.outputs.version }}"
+            --expect-version-code "${{ needs.preflight.outputs.version_code }}"
+            --forbid-permissions android.permission.CAMERA)
+          if [ "${{ steps.identity.outputs.status }}" = "production" ]; then
+            ARGS+=(--require-production-identity true --expect-certificate "$KNOUX_ANDROID_CERT_SHA256")
+          fi
+          node tools/verify-android-release-provenance.cjs "${ARGS[@]}" | tee release-android/provenance-verification.json
+
       - name: Hash release files
         id: hashes
         shell: bash

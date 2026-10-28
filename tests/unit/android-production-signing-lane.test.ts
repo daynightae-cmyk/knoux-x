@@ -1,12 +1,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const yaml = require('js-yaml');
+
+import yaml = require('js-yaml');
 
 const root = path.resolve(__dirname, '../..');
 const workflowPath = path.join(root, '.github/workflows/knoux-live-release.yml');
 const workflowText = fs.readFileSync(workflowPath, 'utf8');
-const doc = yaml.load(workflowText);
+interface WorkflowStep {
+  name?: string;
+  run?: string;
+  if?: string;
+  env?: Record<string, string>;
+}
+
+interface WorkflowJob {
+  needs?: string[];
+  if?: string;
+  runs_on?: string;
+  outputs?: Record<string, string>;
+  steps?: WorkflowStep[];
+}
+
+const doc = yaml.load(workflowText) as { jobs: Record<string, WorkflowJob> };
 const jobs = doc.jobs;
 
 function trigger() {
@@ -24,7 +39,7 @@ describe('release-free production signing verification lane', () => {
   });
 
   test('a tag push can never take the release-free path', () => {
-    const preflight = jobs.preflight.steps.find((step: any) => /Resolve publish mode/.test(step.name));
+    const preflight = (jobs.preflight.steps || []).find((step) => /Resolve publish mode/.test(step.name || ''));
     expect(preflight.run).toContain('mode="publish"');
     expect(preflight.run).toMatch(/if \[\[ "\$\{\{ github.ref_type \}\}" == "tag" \]\]; then\s*mode="publish"/);
   });
@@ -33,18 +48,18 @@ describe('release-free production signing verification lane', () => {
     // Counting occurrences is brittle: the tag and non-tag branches each carry a
     // `gh release create`. What has to hold is that no other job can reach one.
     const callers = Object.entries(jobs)
-      .filter(([name, job]: [string, any]) => name !== 'publish'
-        && (job.steps || []).some((step: any) => /gh release (create|upload)/.test(step.run || '')))
+      .filter(([name, job]) => name !== 'publish'
+        && (job.steps || []).some((step) => /gh release (create|upload)/.test(step.run || '')))
       .map(([name]) => name);
     expect(callers).toEqual([]);
     const publishCalls = (jobs.publish.steps || [])
-      .filter((step: any) => /gh release (create|upload)/.test(step.run || ''));
+      .filter((step) => /gh release (create|upload)/.test(step.run || ''));
     expect(publishCalls.length).toBeGreaterThan(0);
     expect(jobs.publish.if).toContain("needs.preflight.outputs.mode != 'verify'");
   });
 
   test('verify refuses a CI key instead of falling back to one', () => {
-    const identity = jobs.android.steps.find((step: any) => /Decide the signing identity/.test(step.name));
+    const identity = (jobs.android.steps || []).find((step) => /Decide the signing identity/.test(step.name || ''));
     expect(identity.env.MODE).toContain('outputs.mode');
     expect(identity.run).toContain('[ "$MODE" = "verify" ]');
     expect(identity.run).toContain('PRODUCTION_SECRETS_INCOMPLETE');
@@ -66,7 +81,7 @@ describe('release-free production signing verification lane', () => {
   });
 
   test('verify records an auditable summary and never a release URL', () => {
-    const summary = jobs.android.steps.find((step: any) => /release-free verification outcome/.test(step.name));
+    const summary = (jobs.android.steps || []).find((step) => /release-free verification outcome/.test(step.name || ''));
     expect(summary.if).toContain("mode == 'verify'");
     expect(summary.run).toContain('No GitHub Release was created');
     expect(summary.run).toContain('steps.signing.outputs.certificate_sha256');

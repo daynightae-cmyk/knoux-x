@@ -24,6 +24,13 @@ const path = require("node:path");
 
 const BACKUP_ATTRIBUTES = ["android:allowBackup", "android:fullBackupContent", "android:dataExtractionRules"];
 
+// Permissions the Capacitor template declares but KNOUX X never uses. The camera
+// is never opened: screen capture goes through MediaProjection and the media
+// library reads MediaStore. Shipping an unused sensitive permission buys a
+// Google Play policy review for nothing, and the template re-adds it on every
+// `cap add android`, so it is removed at merge time rather than by hand.
+const UNUSED_PERMISSIONS = ["android.permission.CAMERA"];
+
 function setAttribute(applicationTag, name, value) {
   const existing = new RegExp(`\\s${name.replace(/[:]/g, ":")}="[^"]*"`);
   const attribute = ` ${name}="${value}"`;
@@ -45,9 +52,36 @@ function hardenManifest(xml) {
   applicationTag = setAttribute(applicationTag, "android:allowBackup", "false");
   applicationTag = removeAttribute(applicationTag, "android:fullBackupContent");
   applicationTag = removeAttribute(applicationTag, "android:dataExtractionRules");
-  const hardened = `${xml.slice(0, match.index)}${applicationTag}${xml.slice(match.index + match[0].length)}`;
+  let hardened = `${xml.slice(0, match.index)}${applicationTag}${xml.slice(match.index + match[0].length)}`;
+  hardened = stripUnusedPermissions(hardened);
   assertHardened(hardened);
   return hardened;
+}
+
+/**
+ * Replace each unwanted declaration with a `tools:node="remove"` directive.
+ *
+ * Deleting the line is not enough: the manifest merger re-adds any permission a
+ * library contributes, so the removal has to be expressed as a merger rule.
+ */
+function stripUnusedPermissions(xml) {
+  let result = xml;
+  for (const permission of UNUSED_PERMISSIONS) {
+    const escaped = permission.replace(/[.]/g, "\\$&");
+    const removal = `<uses-permission android:name="${permission}" tools:node="remove" />`;
+    const declaration = new RegExp(`([ \\t]*)<uses-permission\\b[^>]*android:name="${escaped}"[^>]*\\/>`);
+    if (declaration.test(result)) {
+      // The indent is captured and re-emitted so a repeated pass cannot slowly
+      // eat the file's formatting.
+      result = result.replace(new RegExp(declaration.source, "g"), (_whole, indent) => `${indent}${removal}`);
+    } else if (!result.includes(removal)) {
+      result = result.replace(/([ \t]*)<application\b/, (_whole, indent) => `${indent}${removal}\n${indent}<application`);
+    }
+  }
+  if (UNUSED_PERMISSIONS.length && !/xmlns:tools=/.test(result)) {
+    result = result.replace(/<manifest\b/, '<manifest xmlns:tools="http://schemas.android.com/tools"');
+  }
+  return result;
 }
 
 function assertHardened(xml) {
@@ -62,6 +96,18 @@ function assertHardened(xml) {
       throw new Error(`${attribute} is still present after hardening`);
     }
   }
+  for (const permission of UNUSED_PERMISSIONS) {
+    const escaped = permission.replace(/[.]/g, "\\$&");
+    const declarations = [...xml.matchAll(new RegExp(`<uses-permission\\b[^>]*android:name="${escaped}"[^>]*\\/>`, "g"))];
+    if (declarations.length === 0) {
+      throw new Error(`${permission} has no merger removal rule after hardening`);
+    }
+    for (const declaration of declarations) {
+      if (!/tools:node="remove"/.test(declaration[0])) {
+        throw new Error(`${permission} is still requested after hardening: ${declaration[0].trim()}`);
+      }
+    }
+  }
 }
 
 function manifestPathFor(androidDir) {
@@ -74,7 +120,7 @@ function hardenFile(androidDir) {
   const before = fs.readFileSync(manifestPath, "utf8");
   const after = hardenManifest(before);
   if (after !== before) fs.writeFileSync(manifestPath, after, "utf8");
-  console.log(`KNOUX Android manifest hardened: allowBackup=false, backup rule references removed`);
+  console.log(`KNOUX Android manifest hardened: allowBackup=false, backup rule references removed, unused permissions removed`);
   console.log(`manifest=${manifestPath} changed=${after !== before}`);
   return { manifestPath, changed: after !== before };
 }
@@ -88,4 +134,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { hardenManifest, hardenFile, assertHardened, manifestPathFor, BACKUP_ATTRIBUTES };
+module.exports = { hardenManifest, hardenFile, assertHardened, manifestPathFor, BACKUP_ATTRIBUTES, UNUSED_PERMISSIONS };

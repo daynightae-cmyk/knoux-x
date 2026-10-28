@@ -16,9 +16,12 @@ describe('Knoux X Android release acceptance contract', () => {
   const nativeMedia = read('tools/prepare-android-native-media.cjs');
   const overlay = read('src/components/mobile/MobileSplashOverlay.tsx');
 
-  test('builds a real Gradle release variant instead of stopping at assembleDebug', () => {
-    expect(helper).toContain('./gradlew assembleRelease --no-daemon --stacktrace');
+  test('builds a real Gradle release variant and the Play bundle together', () => {
+    // assembleRelease alone cannot satisfy Google Play; both tasks must come
+    // from one build so the installed APK and the uploadable AAB cannot diverge.
+    expect(helper).toContain('./gradlew assembleRelease bundleRelease --no-daemon --stacktrace');
     expect(helper).toContain('app/build/outputs/apk/release/app-release-unsigned.apk');
+    expect(helper).toContain('app/build/outputs/bundle/release/app-release.aab');
     expect(workflow).toContain('Build and CI-sign release APK');
   });
 
@@ -26,7 +29,8 @@ describe('Knoux X Android release acceptance contract', () => {
     expect(helper).toContain('apksigner');
     expect(helper).toContain('Knoux X CI Release Verification');
     expect(helper).toContain('"productionSigned": false');
-    expect(helper).toContain('"purpose": "installable release acceptance only"');
+    expect(helper).toContain('RELEASE_PURPOSE="installable release acceptance only"');
+    expect(helper).toContain('"purpose": "$RELEASE_PURPOSE"');
     expect(workflow).toContain("data['productionSigned'] = False");
   });
 

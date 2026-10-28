@@ -7,11 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Draft validates everything without publishing; publish creates the public release.'
+        description: 'verify signs and checks with the production key but creates no release; draft also creates a draft GitHub release; publish makes it public.'
         required: true
-        default: 'draft'
+        default: 'verify'
         type: choice
         options:
+          - verify
           - draft
           - publish
       release_notes:
@@ -42,6 +43,7 @@ jobs:
       sha: ${{ steps.sha.outputs.sha }}
       built_at: ${{ steps.sha.outputs.built_at }}
       publish: ${{ steps.mode.outputs.publish }}
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@v4
@@ -97,9 +99,14 @@ jobs:
         id: mode
         shell: bash
         run: |
+          # A tag push is always a publication and can never take the
+          # release-free path, whatever was typed into the input.
+          mode="${{ inputs.mode }}"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ inputs.mode }}" == "publish" ]]; then
+            mode="publish"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          if [[ "$mode" == "publish" ]]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -169,6 +176,10 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     needs: [preflight, quality]
+    # An explicit if overrides the implicit "every needs succeeded" gate, so the
+    # upstream result has to be re-asserted or a red quality job would still build
+    # a Windows installer.
+    if: needs.preflight.outputs.mode != 'verify' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     outputs:
       signing: ${{ steps.signing.outputs.status }}
       setup_sha256: ${{ steps.hashes.outputs.setup_sha256 }}
@@ -372,6 +383,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KNOUX_ANDROID_KEY_PASSWORD }}
           CERT_SHA256: ${{ secrets.KNOUX_ANDROID_CERT_SHA256 }}
           PUBLISH: ${{ needs.preflight.outputs.publish }}
+          MODE: ${{ needs.preflight.outputs.mode }}
         run: |
           set -euo pipefail
           missing=()
@@ -383,8 +395,10 @@ jobs:
           # A publishable run has exactly one permissible identity. Falling back to
           # a disposable CI key here would put an un-updatable signature in front of
           # users, so an incomplete secret set is a hard stop, never a soft default.
+          # "verify" is held to the same bar: a run that reports on the production
+          # identity must actually be exercising it, or its verdict is meaningless.
           if [ "${#missing[@]}" -gt 0 ]; then
-            if [ "$PUBLISH" = "true" ]; then
+            if [ "$PUBLISH" = "true" ] || [ "$MODE" = "verify" ]; then
               echo "::error::PRODUCTION_SECRETS_INCOMPLETE: ${missing[*]} are not configured in the android-production environment. Refusing to publish."
               echo "PRODUCTION_SECRETS_INCOMPLETE: ${missing[*]}" > "$GITHUB_STEP_SUMMARY"
               exit 1
@@ -562,6 +576,23 @@ jobs:
           emulator-options: -no-window -gpu angle_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -camera-back none -camera-front none
           script: bash tools/android-emulator-smoke.sh release-android/${{ needs.preflight.outputs.android_apk }} dev.knoux.playerx release-android
 
+      - name: Record the release-free verification outcome
+        if: needs.preflight.outputs.mode == 'verify'
+        shell: bash
+        run: |
+          {
+            echo "## Production signing verified without publishing"
+            echo ""
+            echo "- Source SHA: \`${{ needs.preflight.outputs.sha }}\`"
+            echo "- Version: ${{ needs.preflight.outputs.version }} (code ${{ needs.preflight.outputs.version_code }})"
+            echo "- Signing identity: \`${{ steps.signing.outputs.certificate_sha256 }}\`"
+            echo "- APK: \`${{ needs.preflight.outputs.android_apk }}\`"
+            echo "- AAB: \`${{ needs.preflight.outputs.android_aab }}\`"
+            echo ""
+            echo "No GitHub Release was created and nothing was submitted to Google Play."
+            echo "Artifacts live only in this run's private, expiring artifact store."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload Android artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -575,6 +606,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [preflight, quality]
+    if: needs.preflight.outputs.mode != 'verify' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     outputs:
       production: ${{ steps.smoke.outputs.verdict }}
     steps:
@@ -628,6 +660,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [preflight, quality, windows, android, web]
+    # The whole point of verify mode: this job, which is the only caller of
+    # `gh release create` and `gh release upload`, never runs. A draft release
+    # is still a persistent repository object holding the signed binaries, so
+    # "draft" was never a release-free way to exercise the production key.
+    if: needs.preflight.outputs.mode != 'verify' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     outputs:
       release_url: ${{ steps.release.outputs.url }}
     steps:

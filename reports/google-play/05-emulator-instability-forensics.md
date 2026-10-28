@@ -61,6 +61,21 @@ Acting on the pattern would have produced a re-run, a green result, and a real
 lint defect left in place. The re-run hypothesis was **wrong** and was only
 displaced by reading the log.
 
+### 5 — `windows-packaged-creative`, PR #95 — third-party binary download
+
+| | |
+|---|---|
+| Run / job | `122799105570` |
+| SHA | `093f999` |
+| Failing step | `Install locked dependencies` (`npm ci`) — the first step of the job |
+| Reported | `node-pre-gyp ERR! not ok` while `Downloading libtensorflow` for `@tensorflow/tfjs-node` |
+| Classification | Infrastructure. The branch changed one workflow YAML and one unit test; it cannot affect a native dependency download. |
+| Gate status | **Not a required context.** All three required checks passed, so the PR was mergeable; the state read `UNSTABLE`, not `BLOCKED`. |
+
+Recorded because it is the first case where the flake was in a **dependency
+provisioning** step rather than the emulator, and because it shows the value of
+`UNSTABLE` versus `BLOCKED`: a non-required red check is information, not a veto.
+
 ## Decision rule
 
 A re-run is admissible evidence of flakiness **only after** the failing step is
@@ -68,18 +83,23 @@ read and classified. The order is:
 
 1. Identify the **failing step**, not just the job. A lane can fail at a lint gate,
    a build gate, or an emulator gate; only the last two are candidates for flake.
-2. Identify the **process** in any ANR. `com.google.android.apps.nexuslauncher` is
+2. Identify the **step**. A failure in `npm ci` is provisioning; a failure in
+   `Install and launch … on Android emulator` is runtime; a failure in `ESLint gate`
+   is code.
+3. Identify the **process** in any ANR. `com.google.android.apps.nexuslauncher` is
    infrastructure; `dev.knoux.playerx` is an application defect and must never be
    retried away.
-3. Check whether the branch could have caused it. A docs- or test-only diff cannot
+3. Distinguish **required** from **optional** contexts. A red optional check makes a
+   PR `UNSTABLE`, not unmergeable, and should not stall a green required set.
+4. Check whether the branch could have caused it. A docs- or test-only diff cannot
    break an emulator, but it can absolutely break ESLint.
-4. Re-run **once**. A pass on the identical SHA proves intermittency, not health.
-5. Record the run and job IDs either way.
+5. Re-run **once**. A pass on the identical SHA proves intermittency, not health.
+6. Record the run and job IDs either way.
 
 ## What is still not eliminated
 
-- **Intermittency is characterised, not fixed.** Three of four cases passed on
-  retry. Nothing here proves the emulator GPU path or the launcher ANR storm has
+- **Intermittency is characterised, not fixed.** Four of five cases were
+  infrastructure and passed on retry, or were provably unrelated to the diff. Nothing here proves the emulator GPU path or the launcher ANR storm has
   been solved; it proves they are non-deterministic.
 - **The recovery budget in `tools/android-emulator-smoke.sh` is untested against a
   longer ANR storm.** Six dismissals may fail where five succeeded.
@@ -87,6 +107,9 @@ read and classified. The order is:
   behaves on real hardware with real graphics.
 - The `.vite/` renderer dependency in case 1 is a latent ordering coupling: the
   acceptance harness still assumes an earlier build step produced that directory.
+- `@tensorflow/tfjs-node` fetches a native binary from the network during
+  `npm ci` with no retry or cache, so **any** Windows job can fail for a reason
+  unrelated to its change. This is the most likely source of future false reds.
 
 ## Consequence for the release gate
 

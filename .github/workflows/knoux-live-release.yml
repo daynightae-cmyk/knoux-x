@@ -15,6 +15,16 @@ on:
           - verify
           - draft
           - publish
+      promotion_approval:
+        description: 'PUBLISH ONLY. Paste the exact 40-character commit SHA you are authorising. Any other value blocks publication.'
+        required: false
+        default: ''
+        type: string
+      expected_aab_sha256:
+        description: 'PUBLISH ONLY. Paste the SHA-256 of the exact AAB you are approving. A mismatch blocks publication.'
+        required: false
+        default: ''
+        type: string
       release_notes:
         description: 'Optional extra release notes (appended to generated notes).'
         required: false
@@ -44,6 +54,8 @@ jobs:
       built_at: ${{ steps.sha.outputs.built_at }}
       publish: ${{ steps.mode.outputs.publish }}
       mode: ${{ steps.mode.outputs.mode }}
+      promotion_approval: ${{ inputs.promotion_approval }}
+      expected_aab_sha256: ${{ inputs.expected_aab_sha256 }}
     steps:
       - name: Checkout release source
         uses: actions/checkout@v4
@@ -99,11 +111,13 @@ jobs:
         id: mode
         shell: bash
         run: |
-          # A tag push is always a publication and can never take the
-          # release-free path, whatever was typed into the input.
+          # Creating a tag is not an approval to publish. A tag push therefore
+          # runs the release-free verification path and publication stays a
+          # separate, explicit workflow_dispatch action.
           mode="${{ inputs.mode }}"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            mode="publish"
+            mode="verify"
+            echo "Tag push detected: running release-free verification. Publishing requires workflow_dispatch with mode=publish plus promotion approval."
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           if [[ "$mode" == "publish" ]]; then
@@ -658,6 +672,26 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Require explicit promotion approval for this exact commit
+        shell: bash
+        env:
+          APPROVAL: ${{ needs.preflight.outputs.promotion_approval }}
+          APPROVED_SHA: ${{ needs.preflight.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Publication is an explicit act. The approver must paste the exact
+          # commit they are authorising, so a stray tag, a rerun or a default
+          # input can never promote a build on its own.
+          if [ -z "$APPROVAL" ]; then
+            echo "::error::PROMOTION_NOT_APPROVED: promotion_approval is empty. Publishing requires an explicit commit approval."
+            exit 1
+          fi
+          if [ "$APPROVAL" != "$APPROVED_SHA" ]; then
+            echo "::error::PROMOTION_SHA_MISMATCH: approval was given for '$APPROVAL' but the release commit is '$APPROVED_SHA'."
+            exit 1
+          fi
+          echo "Promotion approved for commit $APPROVED_SHA."
+
       - name: Remove stale draft release for reruns
         shell: bash
         env:
@@ -695,6 +729,35 @@ jobs:
             exit 1
           fi
           echo "Publication identity accepted: ${{ needs.android.outputs.signing }} / ${{ needs.android.outputs.certificate_sha256 }}"
+
+      - name: Require approval to bind to the exact artifact bytes
+        shell: bash
+        env:
+          EXPECTED_AAB: ${{ needs.preflight.outputs.expected_aab_sha256 }}
+          SIGNING: ${{ needs.android.outputs.signing }}
+          CERT: ${{ needs.android.outputs.certificate_sha256 }}
+        run: |
+          set -euo pipefail
+          if [ "$SIGNING" != "production" ]; then
+            echo "::error::PUBLICATION_BLOCKED: Android artifacts are signed with '$SIGNING', not the pinned production identity."
+            exit 1
+          fi
+          if [ -z "$CERT" ]; then
+            echo "::error::PUBLICATION_BLOCKED: no verified signing certificate fingerprint was recorded."
+            exit 1
+          fi
+          AAB="release-android/${{ needs.preflight.outputs.android_aab }}"
+          test -s "$AAB"
+          ACTUAL="$(sha256sum "$AAB" | cut -d' ' -f1)"
+          if [ -z "$EXPECTED_AAB" ]; then
+            echo "::error::PROMOTION_NOT_APPROVED: expected_aab_sha256 is empty. Approving a commit is not approving the bytes it produced."
+            exit 1
+          fi
+          if [ "$ACTUAL" != "$(printf '%s' "$EXPECTED_AAB" | tr -d '[:space:]:' | tr 'A-F' 'a-f')" ]; then
+            echo "::error::PROMOTION_ARTIFACT_MISMATCH: approved AAB $EXPECTED_AAB but this run built $ACTUAL."
+            exit 1
+          fi
+          echo "Promotion approved for AAB $ACTUAL signed by $CERT."
 
       - name: Enforce same-SHA contract
         shell: bash

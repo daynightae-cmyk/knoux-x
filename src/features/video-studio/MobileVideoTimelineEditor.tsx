@@ -25,12 +25,20 @@ import type {
   TrackKind,
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
+import {
+  clipPreviewStyle,
+  textClipStyle,
+  resolveClipVisual,
+} from '../../core/creative/timelineRenderState';
 import { isAndroidRuntime } from '../../platform/runtime';
 import { MobilePromptDialog } from '../../components/mobile/MobilePromptDialog';
 import { useAppStore } from '../../store/appStore';
 import { RECORDING_EDITOR_HANDOFF_KEY } from '../recording/recordingEditorHandoff';
+import { canvasFiltersSupported } from '../export/mobileTimelineRenderer';
 
+import { MobileClipInspector } from './MobileClipInspector';
 import { VideoRetouchInspector } from './retouch/VideoRetouchInspector';
+import './mobileProgramMonitor.css';
 import { VideoRetouchPreviewOverlay } from './retouch/VideoRetouchPreviewOverlay';
 import {
   attachRetouchAfterTrimIn,
@@ -38,7 +46,7 @@ import {
   attachRetouchToSplit,
 } from './retouch/videoRetouchTimeline';
 import type { VideoRetouchClipState } from './retouch/videoRetouchProject';
-import { changeClipSpeed, draggedTimelineStart } from './mobileTimelineGestures';
+import { draggedTimelineStart } from './mobileTimelineGestures';
 
 type SaveResult = {
   ok: boolean;
@@ -84,6 +92,16 @@ const TRACK_KIND_AR: Record<TrackKind, string> = {
   subtitle: 'ترجمة',
   overlay: 'طبقة',
 };
+
+/** Output formats the on-device encoder can actually produce. */
+const PROJECT_FORMATS: Array<{ id: string; label: string; width: number; height: number }> = [
+  { id: 'landscape-1080', label: '16:9 · 1080p', width: 1920, height: 1080 },
+  { id: 'landscape-720', label: '16:9 · 720p', width: 1280, height: 720 },
+  { id: 'portrait-1080', label: '9:16 · Reels', width: 1080, height: 1920 },
+  { id: 'square-1080', label: '1:1 · Post', width: 1080, height: 1080 },
+  { id: 'portrait-4-5', label: '4:5 · Feed', width: 1080, height: 1350 },
+  { id: 'cinema-2k', label: '2K · 2560×1440', width: 2560, height: 1440 },
+];
 
 const ERROR_COPY_AR: Record<string, string> = {
   'Clip could not be deleted.': 'تعذّر حذف المقطع.',
@@ -137,13 +155,25 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
     const [recent, setRecent] = useState<string[]>([]);
     const [prompt, setPrompt] = useState<{ open: boolean; title: string; label: string; value: string; confirmLabel: string; submit: (value: string) => void } | null>(null);
     const [zoom, setZoom] = useState(1);
+    const [playing, setPlaying] = useState(false);
+    const [loopPreview, setLoopPreview] = useState(false);
+    const [showGuides, setShowGuides] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+    const [sourceDimensions, setSourceDimensions] = useState<{ width: number; height: number } | null>(null);
     const dragRef = useRef<{ id: string; x: number; start: number; laneWidth: number; moved: boolean } | null>(null);
+    const stageRef = useRef<HTMLDivElement | null>(null);
+    const canvasDragRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
     const suppressClickRef = useRef(false);
     const historyRef = useRef<ProjectHistory>({ past: [], future: [] });
+    const gestureRef = useRef<{ key: string; at: number }>({ key: '', at: 0 });
     const previewRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
 
     const duration = useMemo(() => project ? projectDuration(project) : 0, [project]);
     const selectedItem = useMemo(() => selectedItemOf(project, selectedItemId), [project, selectedItemId]);
+    /* Asked once per session: the inspector must say whether a colour grade will
+     * survive the encode on this WebView instead of promising it silently. */
+    const canvasFiltersAvailable = useMemo(() => canvasFiltersSupported(), []);
     const orderedTracks = useMemo(
       () => project ? [...project.tracks].sort((left, right) => left.order - right.order) : [],
       [project],
@@ -188,6 +218,26 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       setDirty(true);
     }, []);
 
+    /**
+     * A slider drag fires dozens of times per second. Pushing a history entry
+     * for each one would make undo useless on a phone, so consecutive edits that
+     * share a gesture key inside the gesture window collapse into the single
+     * entry the first change already recorded.
+     */
+    const commitLive = useCallback((next: MultitrackProject, gesture?: string): void => {
+      const now = Date.now();
+      const sameGesture = Boolean(gesture) && gestureRef.current.key === gesture && now - gestureRef.current.at < 700;
+      gestureRef.current = { key: gesture ?? '', at: now };
+      if (sameGesture) {
+        setProject((current) => (current
+          ? { ...structuredClone(next), updatedAt: new Date().toISOString() }
+          : current));
+        setDirty(true);
+        return;
+      }
+      commit(next);
+    }, [commit]);
+
     const refreshRecent = useCallback(async (): Promise<void> => {
       try {
         setRecent(await window.knouxMultitrackAPI.recent());
@@ -211,6 +261,8 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
     useEffect(() => {
       let active = true;
       setPreviewUrl(null);
+      setSourceDimensions(null);
+      setPlaying(false);
       const sourcePath = selectedItem?.sourcePath;
       if (!sourcePath) return () => { active = false; };
       void window.knouxCreativeAPI.media.toUrl(sourcePath)
@@ -325,16 +377,18 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       setDirty(true);
     }, [project]);
 
-    const patchSelectedItem = useCallback((patcher: (item: TimelineItem) => TimelineItem): void => {
+    const patchSelectedItem = useCallback((patcher: (item: TimelineItem) => TimelineItem, gesture?: string): void => {
       if (!project || !selectedItem) return;
-      commit({
+      const next: MultitrackProject = {
         ...project,
         tracks: project.tracks.map((track) => ({
           ...track,
           items: track.items.map((item) => item.id === selectedItem.id ? patcher(structuredClone(item)) : item),
         })),
-      });
-    }, [commit, project, selectedItem]);
+      };
+      if (gesture) commitLive(next, gesture);
+      else commit(next);
+    }, [commit, commitLive, project, selectedItem]);
 
     const splitSelected = useCallback((): void => {
       if (!project || !selectedItem) return;
@@ -456,23 +510,27 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       }
     }, [busy, commit, playhead, project]);
 
-    const addTextWithValue = useCallback((value: string): void => {
+    const addTextWithValue = useCallback((value: string, kind: 'text' | 'subtitle' = 'text'): void => {
       if (!project || !value) return;
       let workingProject = project;
-      let track = compatibleTrack(workingProject, 'text');
+      let track = compatibleTrack(workingProject, kind);
       if (!track) {
-        track = createTrack(crypto.randomUUID(), 'text', 'Titles', workingProject.tracks.length);
+        track = createTrack(crypto.randomUUID(), kind, kind === 'subtitle' ? 'Subtitles' : 'Titles', workingProject.tracks.length);
         workingProject = addTrack(workingProject, track);
       }
       const item = createTimelineItem({
         id: crypto.randomUUID(),
         trackId: track.id,
-        kind: 'text',
+        kind,
         name: value.slice(0, 80),
         timelineStart: playhead,
         duration: 5,
       });
-      if (item.text) item.text.text = value;
+      if (item.text) {
+        item.text.text = value;
+        /* Arabic captions default to RTL so the first render is already right. */
+        if (kind === 'subtitle') item.text.direction = 'auto';
+      }
       commit(insertItem(workingProject, item));
       setSelectedItemId(item.id);
     }, [commit, playhead, project]);
@@ -485,7 +543,19 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
         label: ar ? 'نص العنوان' : 'Title text',
         value: 'Knoux X',
         confirmLabel: ar ? 'إضافة' : 'Add',
-        submit: (value) => { addTextWithValue(value); },
+        submit: (value) => { addTextWithValue(value, 'text'); },
+      });
+    }, [addTextWithValue, ar, project]);
+
+    const addSubtitle = useCallback((): void => {
+      if (!project) return;
+      setPrompt({
+        open: true,
+        title: ar ? 'نص الترجمة' : 'Subtitle text',
+        label: ar ? 'نص الترجمة' : 'Subtitle text',
+        value: ar ? 'ترجمة' : 'Subtitle',
+        confirmLabel: ar ? 'إضافة' : 'Add',
+        submit: (value) => { addTextWithValue(value, 'subtitle'); },
       });
     }, [addTextWithValue, ar, project]);
 
@@ -503,6 +573,161 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       if (!project || !selectedItem) return;
       commit(setTimelineVideoRetouchTemporal(project, selectedItem.id, state));
     }, [commit, project, selectedItem]);
+
+    /* ------------------------------------------------------------------
+     * Program monitor: the stage is the project aspect, the clip is placed with
+     * the shared render-state maths, so what the phone draws is what the encoder
+     * writes. No second copy of that geometry lives in this file.
+     * ------------------------------------------------------------------ */
+
+    useEffect(() => {
+      const node = stageRef.current;
+      if (!node) return undefined;
+      const measure = (): void => setStageSize({ width: node.clientWidth, height: node.clientHeight });
+      measure();
+      const observer = new ResizeObserver(measure);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }, [project?.id]);
+
+    const stageFit = useMemo(() => {
+      const ratio = project ? project.settings.width / Math.max(1, project.settings.height) : 16 / 9;
+      const availableWidth = stageSize.width || 320;
+      const availableHeight = stageSize.height || Math.round(availableWidth / ratio);
+      return ratio >= availableWidth / Math.max(1, availableHeight)
+        ? { width: availableWidth, height: Math.max(1, Math.round(availableWidth / ratio)) }
+        : { width: Math.max(1, Math.round(availableHeight * ratio)), height: availableHeight };
+    }, [project, stageSize.height, stageSize.width]);
+
+    const selectedItemTrack = useMemo(() => (project && selectedItem
+      ? project.tracks.find((track) => track.id === selectedItem.trackId) ?? null
+      : null), [project, selectedItem]);
+
+    /** Neighbours on the same lane, which bound how long a transition can be. */
+    const neighbourDuration = useMemo(() => {
+      if (!project || !selectedItem || !selectedItemTrack) return { before: null, after: null };
+      const sorted = [...selectedItemTrack.items].sort((left, right) => left.timelineStart - right.timelineStart);
+      const index = sorted.findIndex((entry) => entry.id === selectedItem.id);
+      return {
+        before: index > 0 ? sorted[index - 1].duration : null,
+        after: index >= 0 && index < sorted.length - 1 ? sorted[index + 1].duration : null,
+      };
+    }, [project, selectedItem, selectedItemTrack]);
+
+    const monitorVisual = useMemo(
+      () => (selectedItem ? resolveClipVisual(selectedItem, Math.max(0, Math.min(selectedItem.duration, playhead - selectedItem.timelineStart))) : null),
+      [playhead, selectedItem],
+    );
+
+    const monitorStyle = useMemo(() => {
+      if (!selectedItem || !monitorVisual || !sourceDimensions || !project) return undefined;
+      const positionScale = stageFit.width / Math.max(1, project.settings.width);
+      return clipPreviewStyle({
+        stageWidth: stageFit.width,
+        stageHeight: stageFit.height,
+        sourceWidth: sourceDimensions.width,
+        sourceHeight: sourceDimensions.height,
+        visual: monitorVisual,
+        positionScale,
+      });
+    }, [monitorVisual, project, selectedItem, sourceDimensions, stageFit.height, stageFit.width]);
+
+    const monitorTextBox = useMemo(() => {
+      if (!selectedItem || !monitorVisual || !project) return null;
+      const stageScale = stageFit.width / Math.max(1, project.settings.width);
+      return { stageScale, visual: monitorVisual, text: selectedItem.text };
+    }, [monitorVisual, project, selectedItem, stageFit.width]);
+
+    /* Dragging the picture moves the clip, in output pixels like the exporter. */
+    const beginCanvasDrag = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+      if (!selectedItem || !project || selectedItem.kind === 'audio') return;
+      if (!event.isPrimary) return;
+      const positionScale = stageFit.width / Math.max(1, project.settings.width) || 1;
+      canvasDragRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        originX: selectedItem.transform.positionX,
+        originY: selectedItem.transform.positionY,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      const move = (moveEvent: PointerEvent): void => {
+        const origin = canvasDragRef.current;
+        if (!origin) return;
+        const deltaX = Math.round((moveEvent.clientX - origin.x) / positionScale);
+        const deltaY = Math.round((moveEvent.clientY - origin.y) / positionScale);
+        const limit = Math.max(project.settings.width, project.settings.height);
+        patchSelectedItem((item) => ({
+          ...item,
+          transform: {
+            ...item.transform,
+            positionX: Math.max(-limit, Math.min(limit, origin.originX + deltaX)),
+            positionY: Math.max(-limit, Math.min(limit, origin.originY + deltaY)),
+          },
+        }), 'canvas-drag');
+      };
+      const finish = (): void => {
+        canvasDragRef.current = null;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', finish);
+        window.removeEventListener('pointercancel', finish);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', finish);
+      window.addEventListener('pointercancel', finish);
+    }, [patchSelectedItem, project, selectedItem, stageFit.width]);
+
+    const togglePlayback = useCallback((): void => {
+      const media = previewRef.current;
+      if (!media) return;
+      if (playing) {
+        media.pause();
+        setPlaying(false);
+        return;
+      }
+      void media.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }, [playing]);
+
+    const stepFrame = useCallback((direction: -1 | 1): void => {
+      if (!project || !selectedItem) return;
+      const frame = 1 / Math.max(1, project.settings.fps);
+      setPlayhead((current) => Math.max(selectedItem.timelineStart, Math.min(selectedItem.timelineStart + selectedItem.duration, current + direction * frame)));
+    }, [project, selectedItem]);
+
+    const jumpClipEdge = useCallback((edge: 'start' | 'end'): void => {
+      if (!project || !selectedItem) return;
+      const lane = selectedItemTrack ? [...selectedItemTrack.items].sort((left, right) => left.timelineStart - right.timelineStart) : [];
+      const index = lane.findIndex((entry) => entry.id === selectedItem.id);
+      if (edge === 'start') {
+        setPlayhead(selectedItem.timelineStart);
+        if (previewRef.current) previewRef.current.currentTime = selectedItem.sourceIn;
+        return;
+      }
+      const next = index >= 0 && index + 1 < lane.length ? lane[index + 1] : null;
+      setPlayhead(next ? next.timelineStart : selectedItem.timelineStart + selectedItem.duration);
+    }, [previewRef, project, selectedItem, selectedItemTrack]);
+
+    const duplicateSelected = useCallback((): void => {
+      if (!project || !selectedItem || !selectedItemTrack) return;
+      const copy = structuredClone(selectedItem);
+      copy.id = crypto.randomUUID();
+      copy.trackId = selectedItemTrack.id;
+      copy.timelineStart = selectedItem.timelineStart + selectedItem.duration;
+      copy.name = `${selectedItem.name} copy`.slice(0, 240);
+      copy.keyframes = copy.keyframes.map((keyframe) => ({ ...keyframe, id: crypto.randomUUID() }));
+      commit(insertItem(project, copy));
+      setSelectedItemId(copy.id);
+    }, [commit, project, selectedItem, selectedItemTrack]);
+
+    const patchTrack = useCallback((trackId: string, patcher: (track: TimelineTrack) => TimelineTrack): void => {
+      if (!project) return;
+      commit({ ...project, tracks: project.tracks.map((track) => (track.id === trackId ? patcher(structuredClone(track)) : track)) });
+    }, [commit, project]);
+
+    const patchSettings = useCallback((patcher: (settings: MultitrackProject['settings']) => MultitrackProject['settings']): void => {
+      if (!project) return;
+      commit({ ...project, settings: patcher(structuredClone(project.settings)) });
+    }, [commit, project]);
 
     const updatePlayheadFromMedia = useCallback((): void => {
       const media = previewRef.current;
@@ -532,11 +757,11 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
       return (
         <section className="kmc-mobile-timeline kmc-mobile-timeline--empty" data-component="MobileVideoTimelineEditor">
           <div className="kmc-mobile-start-card">
-            <strong>{ar ? '???? ??????? ???????' : 'Your next great story'}</strong>
-            <span>{ar ? '?? ??? ????? ???? ???? ??????. ???? ??????? ?????? ?? ??? ??? ????? ?????.' : 'Every great story starts with a first cut. Create a project or return to one you have saved.'}</span>
+            <strong>{ar ? 'قصّتك القادمة' : 'Your next great story'}</strong>
+            <span>{ar ? 'كل قصة كبيرة تبدأ بقصّة أولى. أنشئ مشروعًا أو عُد إلى مشروع حفظته.' : 'Every great story starts with a first cut. Create a project or return to one you have saved.'}</span>
             <div className="kmc-mobile-start-actions">
-              <button type="button" onClick={createProject} disabled={busy}>{ar ? '????? ????' : 'New project'}</button>
-              <button type="button" onClick={() => void openProject()} disabled={busy}>{ar ? '??? ?????' : 'Open project'}</button>
+              <button type="button" onClick={createProject} disabled={busy}>{ar ? 'مشروع جديد' : 'New project'}</button>
+              <button type="button" onClick={() => void openProject()} disabled={busy}>{ar ? 'فتح مشروع' : 'Open project'}</button>
             </div>
             {recent.slice(0, 4).map((entry) => (
               <button key={entry} type="button" className="kmc-mobile-recent" onClick={() => void openRecent(entry)} disabled={busy}>
@@ -551,51 +776,123 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
     }
 
     return (
-      <section className="kmc-mobile-timeline" data-component="MobileVideoTimelineEditor" data-dirty={dirty ? 'true' : 'false'}>
+      <section className="kmc-mobile-timeline" data-component="MobileVideoTimelineEditor" data-dirty={dirty ? 'true' : 'false'} dir={ar ? 'rtl' : 'ltr'}>
         <div className="kmc-mobile-projectbar">
-          <div>
+          <div className="kmc-mobile-project-name">
             <strong><bdi>{project.name}</bdi></strong>
-            <span>{dirty ? (ar ? 'تغييرات غير محفوظة' : 'Unsaved changes') : projectPath ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مشروع محلي' : 'Local project')} · <bdi>{formatTime(duration)}</bdi></span>
+            <span>{dirty ? (ar ? 'تغييرات غير محفوظة' : 'Unsaved changes') : projectPath ? (ar ? 'محفوظ' : 'Saved') : (ar ? 'مشروع محلي' : 'Local project')} · <bdi>{formatTime(duration)}</bdi> · <bdi>{project.settings.width}×{project.settings.height}</bdi></span>
           </div>
           <div className="kmc-mobile-project-actions">
-            <button type="button" onClick={undo} disabled={historyRef.current.past.length === 0}>{ar ? 'تراجع' : 'Undo'}</button>
-            <button type="button" onClick={redo} disabled={historyRef.current.future.length === 0}>{ar ? 'إعادة' : 'Redo'}</button>
-            <button type="button" onClick={() => void save()} disabled={busy}>{ar ? 'حفظ' : 'Save'}</button>
+            <button type="button" onClick={undo} disabled={historyRef.current.past.length === 0} aria-label={ar ? 'تراجع' : 'Undo'}>{ar ? 'تراجع' : 'Undo'}</button>
+            <button type="button" onClick={redo} disabled={historyRef.current.future.length === 0} aria-label={ar ? 'إعادة' : 'Redo'}>{ar ? 'إعادة' : 'Redo'}</button>
+            <button type="button" className="is-quiet" onClick={() => setSettingsOpen((open) => !open)} aria-expanded={settingsOpen} aria-label={ar ? 'إعدادات المشروع' : 'Project settings'}>{ar ? 'الصيغة' : 'Format'}</button>
+            <button type="button" onClick={() => void save()} disabled={busy} aria-label={ar ? 'حفظ' : 'Save'}>{ar ? 'حفظ' : 'Save'}</button>
           </div>
         </div>
+
+        {settingsOpen && (
+          <div className="kmc-mobile-formats" role="group" aria-label={ar ? 'إعدادات المشروع' : 'Project settings'}>
+            <div className="kmc-mobile-format-chips">
+              {PROJECT_FORMATS.map((format) => (
+                <button
+                  key={format.id}
+                  type="button"
+                  className="kmc-mobile-format"
+                  data-active={project.settings.width === format.width && project.settings.height === format.height ? 'true' : 'false'}
+                  onClick={() => patchSettings((settings) => ({ ...settings, width: format.width, height: format.height }))}
+                >
+                  <strong><bdi>{format.label}</bdi></strong>
+                  <small><bdi>{format.width}×{format.height}</bdi></small>
+                </button>
+              ))}
+            </div>
+            <label className="kmc-mobile-format-field">
+              {ar ? 'معدل الإطارات' : 'Frame rate'}
+              <select
+                value={project.settings.fps}
+                onChange={(event) => patchSettings((settings) => ({ ...settings, fps: Number(event.target.value) }))}
+              >
+                {[24, 25, 30, 50, 60].map((fps) => <option key={fps} value={fps}>{fps}</option>)}
+              </select>
+            </label>
+            <label className="kmc-mobile-format-field">
+              {ar ? 'جذب المقاطع' : 'Snap'}
+              <input type="checkbox" checked={project.settings.snapEnabled} onChange={(event) => patchSettings((settings) => ({ ...settings, snapEnabled: event.target.checked }))} />
+            </label>
+          </div>
+        )}
 
         <div className="kmc-mobile-media-row" aria-label={ar ? 'إضافة وسائط' : 'Add media'}>
           <button type="button" onClick={() => void addMedia('video')} disabled={busy}>{ar ? '+ فيديو' : '+ Video'}</button>
           <button type="button" onClick={() => void addMedia('audio')} disabled={busy}>{ar ? '+ صوت' : '+ Audio'}</button>
           <button type="button" onClick={() => void addMedia('image')} disabled={busy}>{ar ? '+ صورة' : '+ Photo'}</button>
           <button type="button" onClick={addText} disabled={busy}>{ar ? '+ نص' : '+ Text'}</button>
-          <button type="button" onClick={deleteSelected} disabled={!selectedItem || busy}>{ar ? 'حذف' : 'Delete'}</button>
+          <button type="button" onClick={addSubtitle} disabled={busy}>{ar ? '+ ترجمة' : '+ Subtitle'}</button>
+          <button type="button" onClick={duplicateSelected} disabled={!selectedItem || busy}>{ar ? 'نسخ' : 'Duplicate'}</button>
+          <button type="button" className="is-danger" onClick={deleteSelected} disabled={!selectedItem || busy}>{ar ? 'حذف' : 'Delete'}</button>
         </div>
 
-        <div className="kmc-mobile-preview" data-kind={selectedItem?.kind ?? 'none'}>
-          {selectedItem && previewUrl && selectedItem.kind === 'video' && (
-            <div className="kmc-mobile-preview-media">
-              <video
-                ref={(node) => { previewRef.current = node; }}
-                src={previewUrl}
-                controls
-                playsInline
-                onTimeUpdate={updatePlayheadFromMedia}
-              />
-              <VideoRetouchPreviewOverlay item={selectedItem} mediaRef={previewRef} playhead={playhead} />
+        <div className="kmc-mobile-monitor" data-kind={selectedItem?.kind ?? 'none'}>
+          <div
+            ref={stageRef}
+            className="kmc-mobile-stage"
+            style={{ aspectRatio: `${project.settings.width} / ${project.settings.height}` }}
+            onPointerDown={beginCanvasDrag}
+          >
+            <div className="kmc-mobile-frame" style={{ width: stageFit.width, height: stageFit.height }}>
+              {selectedItem && previewUrl && selectedItem.kind === 'video' && (
+                <video
+                  ref={(node) => { previewRef.current = node; }}
+                  className="kmc-mobile-layer"
+                  src={previewUrl}
+                  playsInline
+                  style={monitorStyle}
+                  onLoadedMetadata={(event) => setSourceDimensions({ width: event.currentTarget.videoWidth, height: event.currentTarget.videoHeight })}
+                  onTimeUpdate={updatePlayheadFromMedia}
+                  onEnded={() => { if (loopPreview) { void previewRef.current?.play(); return; } setPlaying(false); }}
+                />
+              )}
+              {selectedItem && previewUrl && selectedItem.kind === 'image' && (
+                <img
+                  className="kmc-mobile-layer"
+                  src={previewUrl}
+                  alt={selectedItem.name}
+                  style={monitorStyle}
+                  onLoad={(event) => setSourceDimensions({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+                />
+              )}
+              {monitorTextBox?.text && (
+                <div className="kmc-mobile-text-layer" dir={monitorTextBox.text.direction} style={textClipStyle({ visual: monitorTextBox.visual, text: monitorTextBox.text, stageScale: monitorTextBox.stageScale })}>
+                  {monitorTextBox.text.text}
+                </div>
+              )}
+              {selectedItem && previewUrl && selectedItem.kind === 'audio' && (
+                <audio
+                  ref={(node) => { previewRef.current = node; }}
+                  src={previewUrl}
+                  className="kmc-mobile-audio"
+                  onTimeUpdate={updatePlayheadFromMedia}
+                  onEnded={() => { if (loopPreview) { void previewRef.current?.play(); return; } setPlaying(false); }}
+                />
+              )}
+              {showGuides && <div className="kmc-mobile-guides" aria-hidden="true"><i /><i /><i /><i /></div>}
+              {!selectedItem && <div className="kmc-mobile-preview-empty">{ar ? 'اختر مقطعًا أو أضف وسائط.' : 'Select a clip or add media.'}</div>}
+              {selectedItem?.kind === 'video' && (
+                <VideoRetouchPreviewOverlay item={selectedItem} mediaRef={previewRef} playhead={playhead} />
+              )}
             </div>
-          )}
-          {selectedItem && previewUrl && selectedItem.kind === 'audio' && (
-            <audio
-              ref={(node) => { previewRef.current = node; }}
-              src={previewUrl}
-              controls
-              onTimeUpdate={updatePlayheadFromMedia}
-            />
-          )}
-          {selectedItem && previewUrl && selectedItem.kind === 'image' && <img src={previewUrl} alt={selectedItem.name} />}
-          {selectedItem?.kind === 'text' && <div className="kmc-mobile-title-preview">{selectedItem.text?.text ?? selectedItem.name}</div>}
-          {!selectedItem && <div className="kmc-mobile-preview-empty">{ar ? 'اختر مقطعًا أو أضف وسائط.' : 'Select a clip or add media.'}</div>}
+          </div>
+
+          <div className="kmc-mobile-transport" role="toolbar" aria-label={ar ? 'أدوات التشغيل' : 'Playback'}>
+            <button type="button" onClick={() => jumpClipEdge('start')} disabled={!selectedItem} aria-label={ar ? 'انتقل إلى بداية المقطع' : 'Jump to clip start'}>⇤</button>
+            <button type="button" onClick={() => stepFrame(-1)} disabled={!selectedItem} aria-label={ar ? 'إطار للخلف' : 'Back one frame'}>«</button>
+            <button type="button" className="is-play" onClick={togglePlayback} disabled={!previewUrl} aria-label={playing ? (ar ? 'إيقاف مؤقت' : 'Pause') : (ar ? 'تشغيل' : 'Play')}>{playing ? '❚❚' : '▶'}</button>
+            <button type="button" onClick={() => stepFrame(1)} disabled={!selectedItem} aria-label={ar ? 'إطار للأمام' : 'Forward one frame'}>»</button>
+            <button type="button" onClick={() => jumpClipEdge('end')} disabled={!selectedItem} aria-label={ar ? 'انتقل إلى نهاية المقطع' : 'Jump to clip end'}>⇥</button>
+            <button type="button" className={loopPreview ? 'is-on' : ''} onClick={() => setLoopPreview((value) => !value)} aria-pressed={loopPreview} aria-label={ar ? 'تكرار' : 'Loop'}>⟲</button>
+            <button type="button" className={showGuides ? 'is-on' : ''} onClick={() => setShowGuides((value) => !value)} aria-pressed={showGuides} aria-label={ar ? 'أدلة الأمان' : 'Safe guides'}>▦</button>
+            <span className="kmc-mobile-timecode"><bdi>{formatTime(playhead)}</bdi></span>
+          </div>
         </div>
 
         <div className="kmc-mobile-playhead">
@@ -619,6 +916,44 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
               <div className="kmc-mobile-track-label">
                 <strong><bdi>{track.name}</bdi></strong>
                 <span>{ar ? TRACK_KIND_AR[track.kind] : track.kind}</span>
+                <div className="kmc-mobile-track-tools" role="group" aria-label={ar ? 'أدوات المسار' : 'Track controls'}>
+                  <button
+                    type="button"
+                    className={track.locked ? 'is-on' : ''}
+                    aria-pressed={track.locked}
+                    aria-label={ar ? 'قفل المسار' : 'Lock track'}
+                    title={ar ? 'قفل' : 'Lock'}
+                    onClick={() => patchTrack(track.id, (entry) => ({ ...entry, locked: !entry.locked }))}
+                  >🔒</button>
+                  <button
+                    type="button"
+                    className={track.hidden ? 'is-off' : ''}
+                    aria-pressed={!track.hidden}
+                    aria-label={ar ? 'إظهار المسار' : 'Show track'}
+                    title={ar ? 'إظهار' : 'Show'}
+                    onClick={() => patchTrack(track.id, (entry) => ({ ...entry, hidden: !entry.hidden }))}
+                  >👁</button>
+                  {track.kind !== 'text' && track.kind !== 'subtitle' && (
+                    <>
+                      <button
+                        type="button"
+                        className={track.muted ? 'is-off' : ''}
+                        aria-pressed={!track.muted}
+                        aria-label={ar ? 'كتم المسار' : 'Mute track'}
+                        title={ar ? 'كتم' : 'Mute'}
+                        onClick={() => patchTrack(track.id, (entry) => ({ ...entry, muted: !entry.muted }))}
+                      >🔇</button>
+                      <button
+                        type="button"
+                        className={track.solo ? 'is-on' : ''}
+                        aria-pressed={track.solo}
+                        aria-label={ar ? 'عزل المسار' : 'Solo track'}
+                        title={ar ? 'عزل' : 'Solo'}
+                        onClick={() => patchTrack(track.id, (entry) => ({ ...entry, solo: !entry.solo }))}
+                      >S</button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="kmc-mobile-track-lane" data-track-id={track.id}>
                 {track.items.map((item) => (
@@ -680,59 +1015,24 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
 
         {inspectorOpen && selectedItem && (
           <aside className="kmc-mobile-inspector" aria-label={ar ? 'خصائص المقطع' : 'Clip inspector'}>
-            <div className="kmc-mobile-inspector-grid">
-              <label>
-                {ar ? 'السرعة' : 'Speed'}
-                <input
-                  type="range"
-                  min={0.25}
-                  max={4}
-                  step={0.05}
-                  value={selectedItem.playbackRate}
-                  onChange={(event) => patchSelectedItem((item) => changeClipSpeed(item, Number(event.target.value)))}
-                />
-                <span>{selectedItem.playbackRate.toFixed(2)}×</span>
-              </label>
-              <label>
-                {ar ? 'الشفافية' : 'Opacity'}
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={selectedItem.transform.opacity}
-                  onChange={(event) => patchSelectedItem((item) => ({
-                    ...item,
-                    transform: { ...item.transform, opacity: Number(event.target.value) },
-                  }))}
-                />
-                <span>{Math.round(selectedItem.transform.opacity * 100)}%</span>
-              </label>
-              {(selectedItem.kind === 'audio' || selectedItem.kind === 'video') && (
-                <label>
-                  {ar ? 'مستوى الصوت' : 'Volume'}
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={selectedItem.audio.volume}
-                    onChange={(event) => patchSelectedItem((item) => ({
-                      ...item,
-                      audio: { ...item.audio, volume: Number(event.target.value) },
-                    }))}
-                  />
-                  <span>{Math.round(selectedItem.audio.volume * 100)}%</span>
-                </label>
-              )}
-            </div>
+            <MobileClipInspector
+              item={selectedItem}
+              settings={project.settings}
+              playhead={playhead}
+              neighbourDuration={neighbourDuration}
+              sourceDimensions={sourceDimensions}
+              canvasFiltersAvailable={canvasFiltersAvailable}
+              onPatch={patchSelectedItem}
+            />
             {selectedItem.kind === 'video' && (
-              <VideoRetouchInspector
-                item={selectedItem}
-                sourceUrl={previewUrl}
-                fps={project.settings.fps}
-                onChange={updateRetouch}
-              />
+              <div className="kmc-mobile-retouch-block">
+                <VideoRetouchInspector
+                  item={selectedItem}
+                  sourceUrl={previewUrl}
+                  fps={project.settings.fps}
+                  onChange={updateRetouch}
+                />
+              </div>
             )}
           </aside>
         )}

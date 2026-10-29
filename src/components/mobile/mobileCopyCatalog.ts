@@ -271,6 +271,13 @@ export const MOBILE_ARABIC: Readonly<Record<string, string>> = Object.freeze({
   'Saved, reopened, decoded & verified at {path}': 'حُفظت وأُعيد فتحها وفُكّ ترميزها وتحقّق منها في {path}',
   'Nothing to undo': 'لا شيء للتراجع عنه',
 
+  /* --- photo dock wording --- */
+  'Applied': 'المطبَّق',
+  'Nothing to preview yet': 'لا شيء للمعاينة بعد',
+  'Grain runs last, so sharpening never amplifies the noise.': 'الحبيبات تُطبَّق أخيراً حتى لا تضخّمها الحدة.',
+  'Re-encoding through the canvas drops camera metadata. Originals are never overwritten.': 'إعادة الترميز عبر اللوحة تحذف بيانات الكاميرا، ولا تُستبدل الأصول أبداً.',
+  'White balance is measured in the pixels, not faked with a colour cast.': 'توازن اللون الأبيض يُحسب من البكسل لا من صبغة وهمية.',
+
   /* --- tools hub --- */
   'Tools': 'الأدوات',
   'All tools': 'كل الأدوات',

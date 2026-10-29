@@ -1,60 +1,56 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
-  Check,
+  Columns2,
   Download,
-  FlipHorizontal,
-  FlipVertical,
+  Eye,
   FolderOpen,
   Image as ImageIcon,
-  RotateCw,
-  Sliders,
-  Sparkles,
-  Sun,
-  Wand2,
+  Redo2,
+  Undo2,
 } from 'lucide-react';
 
 import { BrandMark } from '../../components/brand/BrandMark';
+import { mobileCopy } from '../../components/mobile/mobileCopyCatalog';
 import { useAppStore } from '../../store/appStore';
+import {
+  DEFAULT_PHOTO_EDIT,
+  DEFAULT_PHOTO_OUTPUT,
+  applyPhotoEditToPixels,
+  cssFilterChain,
+  needsPixelPasses,
+  normalizePhotoEdit,
+  photoExportOptions,
+  photoFormatExtension,
+  photoFrameLayout,
+  photoOutputGeometry,
+  type PhotoEditSpec,
+  type PhotoOutputSpec,
+} from '../../core/creative/photoEditModel';
+
+import { MobilePhotoToolDock, type PhotoTab } from './MobilePhotoToolDock';
+
+/**
+ * KNOUX-X — ANDROID PHOTO EDITOR
+ *
+ * Non-destructive by construction: the source bytes are decoded once, every
+ * visible change is a number inside `PhotoEditSpec`, the viewport renders that
+ * spec onto a proxy copy, and the export runs the identical pass list on the
+ * full-resolution source, then reads the written file back, decodes it again and
+ * pixel-probes it before anything is claimed. Originals are never overwritten.
+ *
+ * Drafts saved by the previous four-number build still open: `normalizePhotoEdit`
+ * upgrades them — including the white-balance value the old editor stored,
+ * exposed and then never applied.
+ */
 
 type EditorState = 'EMPTY' | 'PICKING' | 'DECODING' | 'READY' | 'EDITING' | 'EXPORTING' | 'ERROR';
-type ToolTab = 'adjust' | 'filters' | 'transform';
 
-interface ImageAdjustments {
-  brightness: number; // -100 to 100
-  contrast: number; // -100 to 100
-  saturation: number; // -100 to 100
-  temperature: number; // -50 to 50
-  rotation: number; // 0, 90, 180, 270
-  flipH: boolean;
-  flipV: boolean;
-  filter: string; // 'none' | 'vivid' | 'dramatic' | 'mono' | 'warm' | 'cool' | 'vintage' | 'cyber'
-}
+const HISTORY_LIMIT = 40;
+/** Past this, the blur-based passes need more memory than a budget phone has. */
+const MAX_EXPORT_PIXELS = 12_000_000;
 
-const DEFAULT_ADJUSTMENTS: ImageAdjustments = {
-  brightness: 0,
-  contrast: 0,
-  saturation: 0,
-  temperature: 0,
-  rotation: 0,
-  flipH: false,
-  flipV: false,
-  filter: 'none',
-};
-
-const FILTERS = [
-  { id: 'none', label: 'Original' },
-  { id: 'vivid', label: 'Vivid' },
-  { id: 'dramatic', label: 'Dramatic' },
-  { id: 'mono', label: 'Mono' },
-  { id: 'warm', label: 'Warm' },
-  { id: 'cool', label: 'Cool' },
-  { id: 'vintage', label: 'Vintage' },
-  { id: 'cyber', label: 'Cyber' },
-];
-
-/* The photo editor is one of the few mobile screens that still shipped every
- * label in English (directive §16.1). Source strings stay English so thrown
+/* The photo editor ships English source strings (directive §16.1) so thrown
  * bridge messages remain greppable; Arabic is resolved at render time. */
 const COPY_AR: Record<string, string> = {
   'Back to home': 'رجوع إلى الرئيسية',
@@ -89,7 +85,6 @@ const COPY_AR: Record<string, string> = {
   'The exported photo was not found after writing.': 'لم يُعثر على الصورة المُصدَّرة بعد الكتابة.',
   'The exported photo is empty or truncated.': 'الصورة المُصدَّرة فارغة أو مبتورة.',
   'Could not inspect the decoded export.': 'تعذّر فحص المُصدَّر بعد فك الترميز.',
-  'Could not encode the edited canvas as JPEG.': 'تعذّر ترميز اللوحة المُعدَّلة بصيغة JPEG.',
   'Could not create the full-resolution photo renderer.': 'تعذّر إنشاء مُصيّر الصورة كامل الدقة.',
   'Unsupported binary file payload.': 'حمولة الملف الثنائية غير مدعومة.',
   'This photo is open, but the edit draft could not be saved on this device.':
@@ -102,6 +97,10 @@ const COPY_AR: Record<string, string> = {
   Cool: 'بارد',
   Vintage: 'عتيق',
   Cyber: 'سايبر',
+  Undo: 'تراجع',
+  Redo: 'إعادة',
+  After: 'بعد',
+  'Hold for original': 'اضغط مع الاستمرار للأصل',
 };
 
 function arabicLabel(text: string): string {
@@ -110,12 +109,16 @@ function arabicLabel(text: string): string {
   if (size) return `فشل التحقق من التصدير: المتوقع ${size[1]}×${size[2]}، والفعلي ${size[3]}×${size[4]}.`;
   const drift = text.match(/^Export verification failed: decoded pixel probe drifted by ([\d.]+) levels\.$/);
   if (drift) return `فشل التحقق من التصدير: انحراف عيّنة البكسل بمقدار ${drift[1]} مستوى.`;
-  return text;
+  const encode = text.match(/^Could not encode the edited canvas as ([\w/+.:-]+)\.$/);
+  if (encode) return `تعذّر ترميز اللوحة المُعدَّلة بصيغة ${encode[1]}.`;
+  return mobileCopy(text, 'ar');
 }
 
-
 const EXPORT_PROBE_SIZE = 8;
+/** JPEG and WebP are lossy, so the probe tolerates codec noise... */
 const MAX_JPEG_PROBE_ERROR = 34;
+/** ...while PNG is exact, and a drift there means a real defect. */
+const MAX_PNG_PROBE_ERROR = 6;
 
 interface ActivePhotoState {
   sourceUri: string;
@@ -134,11 +137,23 @@ interface DecodedImageSource {
 
 let persistentPhotoState: ActivePhotoState | null = null;
 const PHOTO_DRAFT_KEY = 'knoux:android:photo-draft:v1';
-function readPhotoDraft(): { photo: ActivePhotoState; adjustments: ImageAdjustments } | null {
+
+interface PhotoDraft {
+  photo: ActivePhotoState;
+  adjustments: PhotoEditSpec;
+  output: PhotoOutputSpec;
+}
+
+function readPhotoDraft(): PhotoDraft | null {
   try {
-    const value = JSON.parse(localStorage.getItem(PHOTO_DRAFT_KEY) || 'null');
+    const value = JSON.parse(window.localStorage.getItem(PHOTO_DRAFT_KEY) || 'null');
     if (!value?.photo?.sourceUri?.startsWith('content://') || !value.adjustments) return null;
-    return value;
+    return {
+      photo: value.photo,
+      // A draft from the old flat shape is upgraded here rather than rejected.
+      adjustments: normalizePhotoEdit(value.adjustments),
+      output: { ...DEFAULT_PHOTO_OUTPUT, ...(value.output ?? {}) },
+    };
   } catch { return null; }
 }
 
@@ -225,6 +240,8 @@ async function validateSavedImage(
   expectedWidth: number,
   expectedHeight: number,
   expectedProbe: Uint8ClampedArray,
+  mime: string,
+  tolerance: number,
 ): Promise<void> {
   if (!await window.knouxAPI.file.exists(targetUri)) {
     throw new Error('The exported photo was not found after writing.');
@@ -234,7 +251,7 @@ async function validateSavedImage(
   const storedBytes = toPortableBytes(storedPayload);
   if (storedBytes.byteLength < 4) throw new Error('The exported photo is empty or truncated.');
 
-  const decoded = await decodeStoredImage(storedBytes, 'image/jpeg');
+  const decoded = await decodeStoredImage(storedBytes, mime);
   try {
     if (decoded.width !== expectedWidth || decoded.height !== expectedHeight) {
       throw new Error(
@@ -250,7 +267,7 @@ async function validateSavedImage(
     context.drawImage(decoded.source, 0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE);
     const actualProbe = context.getImageData(0, 0, EXPORT_PROBE_SIZE, EXPORT_PROBE_SIZE).data;
     const error = meanProbeError(expectedProbe, actualProbe);
-    if (!Number.isFinite(error) || error > MAX_JPEG_PROBE_ERROR) {
+    if (!Number.isFinite(error) || error > tolerance) {
       throw new Error(`Export verification failed: decoded pixel probe drifted by ${error.toFixed(1)} levels.`);
     }
   } finally {
@@ -258,95 +275,118 @@ async function validateSavedImage(
   }
 }
 
-function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality: number | undefined): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
-      else reject(new Error('Could not encode the edited canvas as JPEG.'));
-    }, 'image/jpeg', 0.92);
+      else reject(new Error(`Could not encode the edited canvas as ${mimeType}.`));
+    }, mimeType, quality);
   });
 }
 
+/** Geometry used while the compare button is held: the untouched frame. */
+const PRISTINE_GEOMETRY = {
+  rotation: 0,
+  crop: { left: 0, top: 0, right: 0, bottom: 0 },
+  flipHorizontal: false,
+  flipVertical: false,
+};
+
 export const MobileImageEditorView: React.FC = () => {
   const ar = useAppStore((state) => state.locale) === 'ar';
-  const t = (text: string): string => (ar ? arabicLabel(text) : text);
+  const t = useCallback((text: string): string => (ar ? arabicLabel(text) : text), [ar]);
   const setView = useAppStore((state) => state.setView);
   const addNotification = useAppStore((state) => state.addNotification);
 
+  const draft = useMemo(() => readPhotoDraft(), []);
   const [editorState, setEditorState] = useState<EditorState>('EMPTY');
-  const [activeTab, setActiveTab] = useState<ToolTab>('adjust');
-  const [adjustments, setAdjustments] = useState<ImageAdjustments>(() => readPhotoDraft()?.adjustments ?? DEFAULT_ADJUSTMENTS);
+  const [activeTab, setActiveTab] = useState<PhotoTab>('adjust');
+  const [spec, setSpec] = useState<PhotoEditSpec>(() => draft?.adjustments ?? DEFAULT_PHOTO_EDIT);
+  const [output, setOutput] = useState<PhotoOutputSpec>(() => draft?.output ?? DEFAULT_PHOTO_OUTPUT);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [draftWarning, setDraftWarning] = useState<string>('');
-  const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(() => persistentPhotoState ?? readPhotoDraft()?.photo ?? null);
+  const [compareOriginal, setCompareOriginal] = useState(false);
+  const [historyDepth, setHistoryDepth] = useState({ undo: 0, redo: 0 });
+  const [photoInfo, setPhotoInfo] = useState<ActivePhotoState | null>(() => persistentPhotoState ?? draft?.photo ?? null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
+  const undoRef = useRef<PhotoEditSpec[]>([]);
+  const redoRef = useRef<PhotoEditSpec[]>([]);
+  const gestureRef = useRef<{ key: string; at: number }>({ key: '', at: 0 });
+  const frameRef = useRef<number | null>(null);
 
-  const renderCanvas = useCallback(() => {
+  const renderCanvas = useCallback((options?: { original?: boolean }) => {
     const canvas = canvasRef.current;
     const img = loadedImageRef.current;
     const container = containerRef.current;
     if (!canvas || !img || !container) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
     const rect = container.getBoundingClientRect();
     const containerWidth = rect.width || container.clientWidth || 360;
     const containerHeight = rect.height || container.clientHeight || 480;
-
     if (containerWidth <= 0 || containerHeight <= 0) return;
 
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return;
+
+    const showOriginal = options?.original === true;
+    const layout = photoFrameLayout(
+      img.naturalWidth,
+      img.naturalHeight,
+      showOriginal ? { ...spec.geometry, ...PRISTINE_GEOMETRY } : spec.geometry,
+    );
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const fitScale = Math.min((containerWidth - 24) / layout.rotatedWidth, (containerHeight - 24) / layout.rotatedHeight, 1);
+    const proxyWidth = Math.max(1, Math.round(layout.rotatedWidth * fitScale));
+    const proxyHeight = Math.max(1, Math.round(layout.rotatedHeight * fitScale));
 
-    canvas.width = containerWidth * dpr;
-    canvas.height = containerHeight * dpr;
-    canvas.style.width = `${containerWidth}px`;
-    canvas.style.height = `${containerHeight}px`;
+    canvas.width = Math.max(1, Math.round(proxyWidth * dpr));
+    canvas.height = Math.max(1, Math.round(proxyHeight * dpr));
+    canvas.style.width = `${proxyWidth}px`;
+    canvas.style.height = `${proxyHeight}px`;
 
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, containerWidth, containerHeight);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, proxyWidth, proxyHeight);
+    context.save();
+    context.translate(proxyWidth / 2, proxyHeight / 2);
+    context.rotate((layout.angle * Math.PI) / 180);
+    context.scale(
+      (showOriginal ? 1 : spec.geometry.flipHorizontal ? -1 : 1) * fitScale,
+      (showOriginal ? 1 : spec.geometry.flipVertical ? -1 : 1) * fitScale,
+    );
+    // The CSS half of the grade — the same string the exporter sets.
+    context.filter = showOriginal ? 'none' : cssFilterChain(spec);
+    context.drawImage(img, layout.sx, layout.sy, layout.sw, layout.sh, -layout.sw / 2, -layout.sh / 2, layout.sw, layout.sh);
+    context.restore();
+    context.filter = 'none';
 
-    const isRotated90 = adjustments.rotation % 180 !== 0;
-    const imgW = isRotated90 ? img.naturalHeight : img.naturalWidth;
-    const imgH = isRotated90 ? img.naturalWidth : img.naturalHeight;
+    // The pixel half runs on this proxy; export repeats it at full resolution.
+    if (!showOriginal && needsPixelPasses(spec)) {
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      applyPhotoEditToPixels({ data: pixels.data, width: canvas.width, height: canvas.height }, spec, 1);
+      context.putImageData(pixels, 0, 0);
+    }
+  }, [spec]);
 
-    if (imgW <= 0 || imgH <= 0) return;
+  /* Latest-wins scheduling: a thumb fires dozens of events per second and only
+   * the last one is worth rasterising on a phone. */
+  const scheduleRender = useCallback((options?: { original?: boolean }) => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      renderCanvas(options);
+    });
+  }, [renderCanvas]);
 
-    const scale = Math.min((containerWidth - 24) / imgW, (containerHeight - 24) / imgH, 1);
-    const renderW = img.naturalWidth * scale;
-    const renderH = img.naturalHeight * scale;
-    const drawX = containerWidth / 2;
-    const drawY = containerHeight / 2;
+  useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+  }, []);
 
-    ctx.save();
-    ctx.translate(drawX, drawY);
-    ctx.rotate((adjustments.rotation * Math.PI) / 180);
-    ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
-
-    const b = 100 + adjustments.brightness;
-    const c = 100 + adjustments.contrast;
-    const s = 100 + adjustments.saturation;
-
-    let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-    if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
-    else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
-    else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
-    else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
-    else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
-    else if (adjustments.filter === 'warm') filterStr += ' sepia(25%) saturate(110%)';
-    else if (adjustments.filter === 'cool') filterStr += ' hue-rotate(30deg) brightness(105%)';
-
-    ctx.filter = filterStr;
-    ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
-    ctx.restore();
-  }, [adjustments]);
-
-  // Decode Uint8Array / Blob bytes into HTMLImageElement
+  // Decode Uint8Array / Blob bytes into an HTMLImageElement.
   const decodeAndRenderBytes = useCallback(
     (bytes: Uint8Array, mime: string, sourceUri: string, name: string) => {
       setEditorState('DECODING');
@@ -417,10 +457,10 @@ export const MobileImageEditorView: React.FC = () => {
 
   useEffect(() => {
     if (!photoInfo?.sourceUri.startsWith('content://') || !['READY', 'EDITING'].includes(editorState)) return;
-    /* A draft that the WebView refused must not be presented as a saved edit
-     * session; the notice is rendered because ERROR is not reached here. */
+    /* A draft the WebView refused must not be presented as a saved edit session;
+     * the notice renders without reaching the ERROR state. */
     try {
-      const payload = JSON.stringify({ photo: photoInfo, adjustments });
+      const payload = JSON.stringify({ photo: photoInfo, adjustments: spec, output });
       window.localStorage.setItem(PHOTO_DRAFT_KEY, payload);
       if (window.localStorage.getItem(PHOTO_DRAFT_KEY) !== payload) {
         setDraftWarning('This photo is open, but the edit draft could not be saved on this device.');
@@ -430,27 +470,90 @@ export const MobileImageEditorView: React.FC = () => {
     } catch {
       setDraftWarning('This photo is open, but the edit draft could not be saved on this device.');
     }
-  }, [adjustments, editorState, photoInfo]);
+  }, [editorState, output, photoInfo, spec]);
 
   // Use ResizeObserver for viewport layout
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) return undefined;
 
     const observer = new ResizeObserver(() => {
       if (editorState === 'READY' || editorState === 'EDITING') {
-        renderCanvas();
+        scheduleRender({ original: compareOriginal });
       }
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [editorState, renderCanvas]);
+  }, [compareOriginal, editorState, scheduleRender]);
 
   useEffect(() => {
     if (editorState === 'READY' || editorState === 'EDITING') {
-      renderCanvas();
+      scheduleRender({ original: compareOriginal });
     }
-  }, [editorState, renderCanvas]);
+  }, [compareOriginal, editorState, scheduleRender, spec]);
+
+  /**
+   * One edit is one undo step, however many events a drag fires. The gesture key
+   * names the control; repeats inside the window collapse into that single step.
+   */
+  const applySpec = useCallback((next: PhotoEditSpec, gesture?: string): void => {
+    const now = Date.now();
+    const sameGesture = Boolean(gesture) && gestureRef.current.key === gesture && now - gestureRef.current.at < 600;
+    gestureRef.current = { key: gesture ?? '', at: now };
+    setSpec((current) => {
+      if (!sameGesture) {
+        undoRef.current.push(current);
+        if (undoRef.current.length > HISTORY_LIMIT) undoRef.current.shift();
+        redoRef.current = [];
+      }
+      return next;
+    });
+    setEditorState((state) => (state === 'READY' ? 'EDITING' : state));
+    setHistoryDepth({ undo: undoRef.current.length, redo: redoRef.current.length });
+  }, []);
+
+  const syncDepth = (): void => setHistoryDepth({ undo: undoRef.current.length, redo: redoRef.current.length });
+
+  const undo = useCallback((): void => {
+    const previous = undoRef.current.pop();
+    if (!previous) return;
+    setSpec((current) => {
+      redoRef.current.push(current);
+      if (redoRef.current.length > HISTORY_LIMIT) redoRef.current.shift();
+      return previous;
+    });
+    syncDepth();
+  }, []);
+
+  const redo = useCallback((): void => {
+    const next = redoRef.current.pop();
+    if (!next) return;
+    setSpec((current) => {
+      undoRef.current.push(current);
+      if (undoRef.current.length > HISTORY_LIMIT) undoRef.current.shift();
+      return next;
+    });
+    syncDepth();
+  }, []);
+
+  const resetAll = useCallback((): void => {
+    applySpec({
+      tone: { ...DEFAULT_PHOTO_EDIT.tone },
+      detail: { ...DEFAULT_PHOTO_EDIT.detail },
+      effects: { ...DEFAULT_PHOTO_EDIT.effects },
+      geometry: { ...DEFAULT_PHOTO_EDIT.geometry, crop: { ...DEFAULT_PHOTO_EDIT.geometry.crop } },
+      look: 'none',
+      lookStrength: DEFAULT_PHOTO_EDIT.lookStrength,
+    }, 'reset-all');
+  }, [applySpec]);
+
+  const autoPolish = useCallback((): void => {
+    applySpec({
+      ...spec,
+      tone: { ...spec.tone, exposure: 8, contrast: 10, saturation: 4, vibrance: 18, highlights: -10, shadows: 8, whites: 4, blacks: -4 },
+      detail: { ...spec.detail, sharpen: 22, clarity: 12 },
+    }, 'auto-polish');
+  }, [applySpec, spec]);
 
   const pickImageFile = async () => {
     setEditorState('PICKING');
@@ -460,6 +563,9 @@ export const MobileImageEditorView: React.FC = () => {
       });
 
       if (uri) {
+        undoRef.current = [];
+        redoRef.current = [];
+        syncDepth();
         await loadPhotoFromUri(uri);
         return;
       }
@@ -492,45 +598,51 @@ export const MobileImageEditorView: React.FC = () => {
 
     setEditorState('EXPORTING');
     try {
-      const offscreen = document.createElement('canvas');
-      const isRotated90 = adjustments.rotation % 180 !== 0;
-      const fullW = isRotated90 ? img.naturalHeight : img.naturalWidth;
-      const fullH = isRotated90 ? img.naturalWidth : img.naturalHeight;
+      const layout = photoFrameLayout(img.naturalWidth, img.naturalHeight, spec.geometry);
+      const sourcePixels = layout.rotatedWidth * layout.rotatedHeight;
+      /* A budget phone cannot hold the blur buffers for a 50MP frame, so the
+       * export is capped — and the badge already shows the size that results. */
+      const capped: PhotoOutputSpec = sourcePixels > MAX_EXPORT_PIXELS && (!output.longEdge || output.longEdge ** 2 > MAX_EXPORT_PIXELS)
+        ? { ...output, longEdge: Math.round(Math.sqrt(MAX_EXPORT_PIXELS)) }
+        : output;
+      const geometry = photoOutputGeometry(layout, capped);
+      const contentScale = geometry.width / layout.rotatedWidth;
 
-      offscreen.width = fullW;
-      offscreen.height = fullH;
+      const stage = document.createElement('canvas');
+      stage.width = geometry.width;
+      stage.height = geometry.height;
+      const context = stage.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('Could not create the full-resolution photo renderer.');
 
-      const ctx = offscreen.getContext('2d', { willReadFrequently: true });
-      if (!ctx) throw new Error('Could not create the full-resolution photo renderer.');
+      context.fillStyle = '#000000';
+      context.fillRect(0, 0, stage.width, stage.height);
+      context.save();
+      context.translate(stage.width / 2, stage.height / 2);
+      context.rotate((layout.angle * Math.PI) / 180);
+      context.scale(
+        (spec.geometry.flipHorizontal ? -1 : 1) * contentScale,
+        (spec.geometry.flipVertical ? -1 : 1) * contentScale,
+      );
+      context.filter = cssFilterChain(spec);
+      context.drawImage(img, layout.sx, layout.sy, layout.sw, layout.sh, -layout.sw / 2, -layout.sh / 2, layout.sw, layout.sh);
+      context.restore();
+      context.filter = 'none';
 
-      ctx.translate(fullW / 2, fullH / 2);
-      ctx.rotate((adjustments.rotation * Math.PI) / 180);
-      ctx.scale(adjustments.flipH ? -1 : 1, adjustments.flipV ? -1 : 1);
+      if (needsPixelPasses(spec)) {
+        const pixels = context.getImageData(0, 0, stage.width, stage.height);
+        applyPhotoEditToPixels({ data: pixels.data, width: stage.width, height: stage.height }, spec, 1);
+        context.putImageData(pixels, 0, 0);
+      }
 
-      const b = 100 + adjustments.brightness;
-      const c = 100 + adjustments.contrast;
-      const s = 100 + adjustments.saturation;
-
-      let filterStr = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-      if (adjustments.filter === 'mono') filterStr += ' grayscale(100%)';
-      else if (adjustments.filter === 'vintage') filterStr += ' sepia(60%)';
-      else if (adjustments.filter === 'vivid') filterStr += ' saturate(140%) contrast(110%)';
-      else if (adjustments.filter === 'dramatic') filterStr += ' contrast(135%) brightness(90%)';
-      else if (adjustments.filter === 'cyber') filterStr += ' hue-rotate(180deg) saturate(130%)';
-      else if (adjustments.filter === 'warm') filterStr += ' sepia(25%) saturate(110%)';
-      else if (adjustments.filter === 'cool') filterStr += ' hue-rotate(30deg) brightness(105%)';
-
-      ctx.filter = filterStr;
-      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-
-      const expectedProbe = canvasProbe(offscreen);
-      const blob = await canvasToJpeg(offscreen);
+      const expectedProbe = canvasProbe(stage);
+      const { mimeType, quality } = photoExportOptions(capped);
+      const blob = await canvasToBlob(stage, mimeType, quality);
       const bytes = new Uint8Array(await blob.arrayBuffer());
 
-      const defaultPath = `KNOUX_Photo_${Date.now()}.jpg`;
+      const defaultPath = `KNOUX_Photo_${Date.now()}.${photoFormatExtension(capped.format)}`;
       const targetUri = await window.knouxAPI.file.saveFile({
         defaultPath,
-        filters: [{ name: 'JPEG Image', extensions: ['jpg'] }],
+        filters: [{ name: mimeType, extensions: [photoFormatExtension(capped.format)] }],
       });
 
       if (!targetUri) {
@@ -539,7 +651,14 @@ export const MobileImageEditorView: React.FC = () => {
       }
 
       await writePortableBytes(targetUri, bytes);
-      await validateSavedImage(targetUri, fullW, fullH, expectedProbe);
+      await validateSavedImage(
+        targetUri,
+        geometry.width,
+        geometry.height,
+        expectedProbe,
+        mimeType,
+        mimeType === 'image/png' ? MAX_PNG_PROBE_ERROR : MAX_JPEG_PROBE_ERROR,
+      );
 
       addNotification({
         type: 'success',
@@ -561,8 +680,14 @@ export const MobileImageEditorView: React.FC = () => {
     }
   };
 
+  const graded = cssFilterChain(spec) !== 'none' || needsPixelPasses(spec);
+  const outputGeometry = useMemo(() => {
+    if (!photoInfo) return null;
+    return photoOutputGeometry(photoFrameLayout(photoInfo.naturalWidth, photoInfo.naturalHeight, spec.geometry), output);
+  }, [output, photoInfo, spec.geometry]);
+
   return (
-    <section className="knoux-mobile-creative-surface kmc-photo-editor" data-component="MobileImageEditorView" data-state={editorState}>
+    <section className="knoux-mobile-creative-surface kmc-photo-editor" data-component="MobileImageEditorView" data-state={editorState} dir={ar ? 'rtl' : 'ltr'}>
       <input
         type="file"
         ref={fileInputRef}
@@ -590,9 +715,43 @@ export const MobileImageEditorView: React.FC = () => {
           </button>
 
           {(editorState === 'READY' || editorState === 'EDITING') && (
-            <button type="button" className="kmc-export-button" aria-label={t('Export Photo')} onClick={handleExport}>
-              <Download size={17} /> {t('Export')}
-            </button>
+            <>
+              <button
+                type="button"
+                className="kmc-round-button"
+                aria-label={t('Undo')}
+                onClick={undo}
+                disabled={historyDepth.undo === 0}
+                data-undo-depth={historyDepth.undo}
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className="kmc-round-button"
+                aria-label={t('Redo')}
+                onClick={redo}
+                disabled={historyDepth.redo === 0}
+                data-redo-depth={historyDepth.redo}
+              >
+                <Redo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className="kmc-round-button"
+                aria-label={t('Hold for original')}
+                aria-pressed={compareOriginal}
+                onPointerDown={() => setCompareOriginal(true)}
+                onPointerUp={() => setCompareOriginal(false)}
+                onPointerLeave={() => setCompareOriginal(false)}
+                onPointerCancel={() => setCompareOriginal(false)}
+              >
+                <Columns2 size={18} />
+              </button>
+              <button type="button" className="kmc-export-button" aria-label={t('Export Photo')} onClick={handleExport}>
+                <Download size={17} /> {t('Export')}
+              </button>
+            </>
           )}
         </div>
       </header>
@@ -635,10 +794,11 @@ export const MobileImageEditorView: React.FC = () => {
 
         {(editorState === 'READY' || editorState === 'EDITING' || editorState === 'EXPORTING') && (
           <div className="kmc-photo-viewport">
-            <canvas ref={canvasRef} className="kmc-photo-canvas" />
+            <canvas ref={canvasRef} className="kmc-photo-canvas" data-compare={compareOriginal ? 'original' : 'edited'} />
             {photoInfo && (
               <span className="kmc-photo-badge">
-                {photoInfo.naturalWidth} × {photoInfo.naturalHeight}
+                <bdi>{outputGeometry ? `${outputGeometry.width} × ${outputGeometry.height}` : `${photoInfo.naturalWidth} × ${photoInfo.naturalHeight}`}</bdi>
+                {graded && !compareOriginal ? <em><Eye size={11} aria-hidden="true" /> {t('After')}</em> : null}
               </span>
             )}
           </div>
@@ -648,136 +808,18 @@ export const MobileImageEditorView: React.FC = () => {
       {/* Mobile Tool Dock */}
       {(editorState === 'READY' || editorState === 'EDITING') && (
         <div className="kmc-photo-tool-dock">
-          <div className="kmc-tool-tabs">
-            <button
-              type="button"
-              className={activeTab === 'adjust' ? 'active' : ''}
-              onClick={() => setActiveTab('adjust')}
-            >
-              <Sliders size={16} /> {t('Adjust')}
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'filters' ? 'active' : ''}
-              onClick={() => setActiveTab('filters')}
-            >
-              <Wand2 size={16} /> {t('Filters')}
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'transform' ? 'active' : ''}
-              onClick={() => setActiveTab('transform')}
-            >
-              <RotateCw size={16} /> {t('Transform')}
-            </button>
-          </div>
-
-          <div className="kmc-tool-panel">
-            {activeTab === 'adjust' && (
-              <div className="kmc-adjust-sliders">
-                <div className="kmc-slider-group">
-                  <label>
-                    <Sun size={14} /> {t('Brightness')} ({adjustments.brightness})
-                  </label>
-                  <input
-                    type="range"
-                    min={-100}
-                    max={100}
-                    value={adjustments.brightness}
-                    onChange={(e) => {
-                      setAdjustments({ ...adjustments, brightness: Number(e.target.value) });
-                      setEditorState('EDITING');
-                    }}
-                  />
-                </div>
-
-                <div className="kmc-slider-group">
-                  <label>
-                    <Sparkles size={14} /> {t('Contrast')} ({adjustments.contrast})
-                  </label>
-                  <input
-                    type="range"
-                    min={-100}
-                    max={100}
-                    value={adjustments.contrast}
-                    onChange={(e) => {
-                      setAdjustments({ ...adjustments, contrast: Number(e.target.value) });
-                      setEditorState('EDITING');
-                    }}
-                  />
-                </div>
-
-                <div className="kmc-slider-group">
-                  <label>
-                    <Wand2 size={14} /> {t('Saturation')} ({adjustments.saturation})
-                  </label>
-                  <input
-                    type="range"
-                    min={-100}
-                    max={100}
-                    value={adjustments.saturation}
-                    onChange={(e) => {
-                      setAdjustments({ ...adjustments, saturation: Number(e.target.value) });
-                      setEditorState('EDITING');
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'filters' && (
-              <div className="kmc-filter-grid">
-                {FILTERS.map((f) => (
-                  <button
-                    type="button"
-                    key={f.id}
-                    className={`kmc-filter-chip ${adjustments.filter === f.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setAdjustments({ ...adjustments, filter: f.id });
-                      setEditorState('EDITING');
-                    }}
-                  >
-                    {t(f.label)} {adjustments.filter === f.id && <Check size={12} />}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {activeTab === 'transform' && (
-              <div className="kmc-transform-buttons">
-                <button
-                  type="button"
-                  className="kmc-icon-action-btn"
-                  onClick={() => {
-                    setAdjustments({ ...adjustments, rotation: (adjustments.rotation + 90) % 360 });
-                    setEditorState('EDITING');
-                  }}
-                >
-                  <RotateCw size={18} /> {t('Rotate 90°')}
-                </button>
-                <button
-                  type="button"
-                  className={`kmc-icon-action-btn ${adjustments.flipH ? 'active' : ''}`}
-                  onClick={() => {
-                    setAdjustments({ ...adjustments, flipH: !adjustments.flipH });
-                    setEditorState('EDITING');
-                  }}
-                >
-                  <FlipHorizontal size={18} /> {t('Flip H')}
-                </button>
-                <button
-                  type="button"
-                  className={`kmc-icon-action-btn ${adjustments.flipV ? 'active' : ''}`}
-                  onClick={() => {
-                    setAdjustments({ ...adjustments, flipV: !adjustments.flipV });
-                    setEditorState('EDITING');
-                  }}
-                >
-                  <FlipVertical size={18} /> {t('Flip V')}
-                </button>
-              </div>
-            )}
-          </div>
+          <MobilePhotoToolDock
+            spec={spec}
+            output={output}
+            sourceWidth={photoInfo?.naturalWidth ?? 0}
+            sourceHeight={photoInfo?.naturalHeight ?? 0}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onSpecChange={applySpec}
+            onOutputChange={setOutput}
+            onAutoPolish={autoPolish}
+            onResetAll={resetAll}
+          />
         </div>
       )}
     </section>

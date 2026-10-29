@@ -39,7 +39,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @CapacitorPlugin(name = "KnouxSaf")
 public class KnouxSafPlugin extends Plugin {
@@ -113,6 +115,35 @@ public class KnouxSafPlugin extends Plugin {
         call.resolve(new JSObject().put("items", items));
     }
 
+    /** Display names already present in a tree, so a batch never clobbers them. */
+    private Set<String> childNames(Uri tree) {
+        Set<String> names = new HashSet<>();
+        try {
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+            String[] projection = new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME};
+            try (Cursor cursor = getContext().getContentResolver().query(children, projection, null, null, null)) {
+                if (cursor != null) while (cursor.moveToNext()) {
+                    String value = cursor.getString(0);
+                    if (value != null) names.add(value);
+                }
+            }
+        } catch (Exception ignored) {}
+        return names;
+    }
+
+    /** "tile.png" -> "tile (2).png" without ever dropping the extension. */
+    static String collisionSafeName(Set<String> taken, String desired) {
+        if (taken == null || taken.isEmpty() || desired == null || !taken.contains(desired)) return desired;
+        int dot = desired.lastIndexOf('.');
+        String stem = dot > 0 ? desired.substring(0, dot) : desired;
+        String extension = dot > 0 ? desired.substring(dot) : "";
+        for (int index = 2; index < 1000; index += 1) {
+            String candidate = stem + " (" + index + ")" + extension;
+            if (!taken.contains(candidate)) return candidate;
+        }
+        return stem + "-" + System.currentTimeMillis() + extension;
+    }
+
     private void addUri(JSArray items, Uri uri, int sourceFlags) {
         if (uri == null) return;
         persist(uri, sourceFlags);
@@ -171,6 +202,41 @@ public class KnouxSafPlugin extends Plugin {
             output.flush();
             call.resolve(new JSObject().put("written", bytes.length));
         } catch (Exception error) { call.reject("Could not write the Android document.", error); }
+    }
+
+    /*
+     * writeBytes can only open a document that already exists, so a tool that
+     * produces many files (a grid of tiles, a run of extracted frames) used to
+     * need one save sheet per file. This creates the child document inside a
+     * previously picked tree, which is what batch output actually requires.
+     */
+    @PluginMethod
+    public void createChild(PluginCall call) {
+        String parentValue = call.getString("uri", "");
+        String desired = call.getString("name", "");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        if (desired == null || desired.trim().isEmpty()) {
+            call.reject("A document name is required.");
+            return;
+        }
+        Uri parent = Uri.parse(parentValue);
+        try {
+            if (!DocumentsContract.isTreeUri(parent)) {
+                /* Already a concrete document URI: report it back so the caller
+                 * writes to the same place instead of failing the batch. */
+                call.resolve(describe(parent));
+                return;
+            }
+            Uri parentDocument = DocumentsContract.buildDocumentUriUsingTree(parent, DocumentsContract.getTreeDocumentId(parent));
+            String unique = collisionSafeName(childNames(parent), desired);
+            Uri child = DocumentsContract.createDocument(getContext().getContentResolver(), parentDocument, mimeType, unique);
+            if (child == null) throw new IllegalStateException("Android refused to create the document in the selected folder.");
+            JSObject result = describe(child);
+            result.put("created", true);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Could not create a document in the selected Android folder.", error);
+        }
     }
 
     @PluginMethod
@@ -634,6 +700,7 @@ const checks = [
   ['MainActivity.java', 'registerPlugin(KnouxScreenCapturePlugin.class)'],
   ['MainActivity.java', 'registerPlugin(KnouxVaultPlugin.class)'],
   ['KnouxSafPlugin.java', '@CapacitorPlugin(name = "KnouxSaf", permissions = {'],
+  ['KnouxSafPlugin.java', 'public void createChild(PluginCall call) {'],
   ['KnouxScreenCapturePlugin.java', '@CapacitorPlugin(name = "KnouxScreenCapture")'],
   ['KnouxScreenCaptureService.java', 'MediaProjection'],
   ['KnouxVaultPlugin.java', '@CapacitorPlugin(name = "KnouxVault")'],

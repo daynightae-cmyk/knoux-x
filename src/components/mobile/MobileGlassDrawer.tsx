@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   AudioLines,
   Folder,
+  Grid2x2,
   Home,
   Image as ImageIcon,
   Images,
@@ -34,6 +35,7 @@ const items: Array<{ view: ViewType; label: string; icon: LucideIcon }> = [
   { view: 'image-tools', label: 'Image Lab', icon: Wand2 },
   { view: 'image-studio', label: 'Beauty Retouch', icon: Sparkles },
   { view: 'audio-tools', label: 'Audio Tools', icon: AudioLines },
+  { view: 'tools', label: 'All Tools', icon: Grid2x2 },
   { view: 'export', label: 'Export', icon: Share2 },
   { view: 'settings', label: 'Settings', icon: Settings },
 ];

@@ -806,15 +806,23 @@ export const MobileVideoTimelineEditor = forwardRef<MobileVideoTimelineEditorHan
                 </button>
               ))}
             </div>
-            <label className="kmc-mobile-format-field">
-              {ar ? 'معدل الإطارات' : 'Frame rate'}
-              <select
-                value={project.settings.fps}
-                onChange={(event) => patchSettings((settings) => ({ ...settings, fps: Number(event.target.value) }))}
-              >
-                {[24, 25, 30, 50, 60].map((fps) => <option key={fps} value={fps}>{fps}</option>)}
-              </select>
-            </label>
+            <div className="kmc-mobile-format-field">
+              <span>{ar ? 'معدل الإطارات' : 'Frame rate'}</span>
+              <div className="kmc-mobile-format-chips kmc-mobile-fps">
+                {[24, 25, 30, 50, 60].map((fps) => (
+                  <button
+                    key={fps}
+                    type="button"
+                    className="kmc-mobile-format"
+                    data-active={project.settings.fps === fps ? 'true' : 'false'}
+                    aria-pressed={project.settings.fps === fps}
+                    onClick={() => patchSettings((settings) => ({ ...settings, fps }))}
+                  >
+                    <strong>{fps}</strong>
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="kmc-mobile-format-field">
               {ar ? 'جذب المقاطع' : 'Snap'}
               <input type="checkbox" checked={project.settings.snapEnabled} onChange={(event) => patchSettings((settings) => ({ ...settings, snapEnabled: event.target.checked }))} />

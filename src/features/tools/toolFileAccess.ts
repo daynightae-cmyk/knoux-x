@@ -8,6 +8,7 @@
  * WebView code. This module owns that difference so no tool repeats it.
  */
 
+import { androidCreateChildDocument, androidTreeCreateSupported } from '../../platform/androidSafBridge';
 import { isAndroidRuntime } from '../../platform/runtime';
 
 export interface PickedFile {
@@ -122,6 +123,82 @@ export async function saveToolFile(bytes: Uint8Array, defaultName: string, exten
     throw new Error('The saved file could not be read back at the expected size.');
   }
   return target;
+}
+
+/* ----------------------------------------------------------- batch output */
+
+/** A user-picked output folder: a SAF tree URI on Android, a real path on Windows. */
+export async function pickToolDirectory(): Promise<string | null> {
+  return window.knouxAPI.file.openDirectory();
+}
+
+/**
+ * Whether many files can be written into one picked folder. On Android this
+ * needs the native `createChild` method; an older installed build without it
+ * returns false and the tool keeps the one-sheet-per-file path honestly.
+ */
+export function toolDirectoryWriteSupported(target: string): boolean {
+  if (!target) return false;
+  if (target.startsWith('content://')) return androidTreeCreateSupported();
+  return true;
+}
+
+/** A human label for a picked output folder: a SAF tree id or a Windows path. */
+export function folderDisplayName(directory: string): string {
+  if (!directory) return '';
+  if (directory.startsWith('content://')) {
+    const decoded = decodeURIComponent(directory);
+    /* Tree URIs carry the volume and the relative path, e.g.
+     * "…/tree/primary:Pictures/KNOUX" — the user wants the folder, not the
+     * document-provider authority. */
+    const treeId = decoded.split('/tree/')[1] ?? decoded;
+    return treeId.replace(/^[^:/]+:/, '').replace(/\/$/, '') || treeId;
+  }
+  return directory.split(/[\\/]/).filter(Boolean).pop() ?? directory;
+}
+
+/** Joins a Windows path without assuming the separator the user's folder uses. */
+export function directoryChildPath(directory: string, name: string): string {
+  const separator = directory.includes('\\') && !directory.includes('/') ? '\\' : '/';
+  const trimmed = directory.replace(/[\\/]+$/, '');
+  return `${trimmed}${separator}${name}`;
+}
+
+export interface BatchSaveResult {
+  /** Name the platform actually stored the file under (Android may rename). */
+  name: string;
+  path: string;
+}
+
+/**
+ * Writes one file into a previously picked folder and reads it back to confirm
+ * the byte count, so a batch reports what really landed rather than what was
+ * attempted.
+ */
+export async function saveToolFileIntoDirectory(
+  directory: string,
+  bytes: Uint8Array,
+  name: string,
+  mimeType: string,
+): Promise<BatchSaveResult> {
+  if (directory.startsWith('content://')) {
+    const child = await androidCreateChildDocument(directory, name, mimeType);
+    if (!child) throw new Error('Android refused to create a file in the selected folder.');
+    await writePortableBytes(child.uri, bytes);
+    const stored = await window.knouxAPI.file.readFile(child.uri).then(toPortableBytes).catch(() => null);
+    if (!stored || stored.byteLength !== bytes.byteLength) {
+      throw new Error(`"${child.name}" was not readable back at the expected size.`);
+    }
+    return { name: child.name, path: child.uri };
+  }
+
+  const target = directoryChildPath(directory, name);
+  await writePortableBytes(target, bytes);
+  const stored = await window.knouxAPI.file.readFile(target).then(toPortableBytes).catch(() => null);
+  if (!stored || stored.byteLength !== bytes.byteLength) {
+    throw new Error(`"${name}" was not readable back at the expected size.`);
+  }
+  return { name, path: target };
 }
 
 /** Decodes image bytes off the main thread path used by the editor surfaces. */

@@ -1,8 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Download,
   Film,
-  Images,
+  FolderOpen,
   Grid2x2,
+  Images,
   Music2,
   Palette,
   Ruler,
@@ -10,6 +12,7 @@ import {
   Volume2,
 } from 'lucide-react';
 
+import { layoutTileGrid, TILE_NAME_TEMPLATE, tileName } from '../../core/creative/tileGrid';
 import {
   evaluateContrast,
   extractPalette,
@@ -27,6 +30,7 @@ import {
   KnouxAction,
   KnouxChipGroup,
   KnouxGroupLabel,
+  KnouxPanelNotice,
   KnouxSlider,
   useMobileCopy,
 } from '../../components/mobile/KnouxControlKit';
@@ -34,8 +38,12 @@ import {
 import {
   canvasToPng,
   decodeImageBytes,
+  folderDisplayName,
+  pickToolDirectory,
   pickToolFile,
   saveToolFile,
+  saveToolFileIntoDirectory,
+  toolDirectoryWriteSupported,
   type PickedFile,
 } from './toolFileAccess';
 import { ToolScaffold, useToolRunner } from './MobileToolScaffold';
@@ -362,9 +370,11 @@ export const GridSplitterTool: React.FC = () => {
   const copy = useMobileCopy();
   const runner = useToolRunner();
   const [picked, setPicked] = useState<PickedFile | null>(null);
+  const [folder, setFolder] = useState<string | null>(null);
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(3);
   const [gutter, setGutter] = useState(0);
+  const [natural, setNatural] = useState({ width: 0, height: 0 });
 
   const choose = useCallback(async (): Promise<void> => {
     runner.reset();
@@ -372,6 +382,12 @@ export const GridSplitterTool: React.FC = () => {
       const file = await pickToolFile('image');
       if (!file) return;
       setPicked(file);
+      const decoded = await decodeImageBytes(file.bytes, file.mime);
+      try {
+        setNatural({ width: decoded.width, height: decoded.height });
+      } finally {
+        decoded.close();
+      }
       runner.reset();
     } catch {
       setPicked(null);
@@ -379,45 +395,80 @@ export const GridSplitterTool: React.FC = () => {
     }
   }, [runner]);
 
-  const cut = useCallback((): Promise<void> => runner.run(async () => {
-    if (!picked) throw new Error('Choose a photo first.');
-    const decoded = await decodeImageBytes(picked.bytes, picked.mime);
+  const chooseFolder = useCallback(async (): Promise<void> => {
+    runner.reset();
     try {
-      const tileWidth = Math.floor((decoded.width - gutter * (columns - 1)) / columns);
-      const tileHeight = Math.floor((decoded.height - gutter * (rows - 1)) / rows);
-      if (tileWidth < 1 || tileHeight < 1) throw new Error('The grid is finer than the photo allows.');
-      let written = 0;
-      for (let row = 0; row < rows; row += 1) {
-        for (let column = 0; column < columns; column += 1) {
-          const canvas = document.createElement('canvas');
-          canvas.width = tileWidth;
-          canvas.height = tileHeight;
-          const context = canvas.getContext('2d');
-          if (!context) throw new Error('Could not create the tile canvas.');
-          context.drawImage(
-            decoded.source,
-            column * (tileWidth + gutter),
-            row * (tileHeight + gutter),
-            tileWidth,
-            tileHeight,
-            0,
-            0,
-            tileWidth,
-            tileHeight,
-          );
-          const bytes = await canvasToPng(canvas);
-          const name = `KNOUX_Tile_${row + 1}-${column + 1}.png`;
-          const saved = await saveToolFile(bytes, name, ['png']);
-          if (saved) written += 1;
-        }
+      const directory = await pickToolDirectory();
+      if (!directory) return;
+      setFolder(directory);
+      runner.reset();
+    } catch {
+      runner.reset();
+    }
+  }, [runner]);
+
+  const grid = useMemo(
+    () => layoutTileGrid(natural.width, natural.height, { rows, columns, gutter }),
+    [columns, gutter, natural.height, natural.width, rows],
+  );
+  const canBatch = Boolean(folder) && toolDirectoryWriteSupported(folder ?? '');
+
+  /** One pixel implementation, shared by both save paths. */
+  const renderTiles = useCallback(async (source: PickedFile): Promise<Array<{ name: string; bytes: Uint8Array }>> => {
+    const decoded = await decodeImageBytes(source.bytes, source.mime);
+    try {
+      const tiles: Array<{ name: string; bytes: Uint8Array }> = [];
+      for (const tile of grid.tiles) {
+        const canvas = document.createElement('canvas');
+        canvas.width = tile.width;
+        canvas.height = tile.height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not create the tile canvas.');
+        context.drawImage(decoded.source, tile.x, tile.y, tile.width, tile.height, 0, 0, tile.width, tile.height);
+        tiles.push({ name: tileName(TILE_NAME_TEMPLATE, tile), bytes: await canvasToPng(canvas) });
       }
-      return `${copy('Tiles saved')} · ${written}`;
+      return tiles;
     } finally {
       decoded.close();
     }
-  }, 'Processing'), [columns, copy, gutter, picked, rows, runner]);
+  }, [grid.tiles]);
 
-  const total = rows * columns;
+  const saveBatch = useCallback((): Promise<void> => runner.run(async () => {
+    if (!picked || !folder) throw new Error('Choose a photo and a folder first.');
+    const tiles = await renderTiles(picked);
+    const failures: string[] = [];
+    let saved = 0;
+    /* Sequential on purpose: the folder is one SAF tree, and a batch of parallel
+     * createDocument calls against it is exactly how providers hand back
+     * duplicate or half-written names. */
+    for (const tile of tiles) {
+      try {
+        await saveToolFileIntoDirectory(folder, tile.bytes, tile.name, 'image/png');
+        saved += 1;
+      } catch (error) {
+        failures.push(`${tile.name}: ${error instanceof Error ? error.message : copy('Failed')}`);
+      }
+    }
+    const summary = `${copy('Tiles saved')} · ${saved}/${tiles.length}`;
+    if (failures.length > 0) throw new Error(`${summary} — ${failures[0]}`);
+    return grid.warning ? `${summary} · ${grid.warning}` : summary;
+  }, 'Processing'), [copy, folder, grid.warning, picked, renderTiles, runner]);
+
+  /* Without a writable folder the only honest route is the platform save sheet,
+   * one per tile — and the panel says so instead of pretending the batch ran. */
+  const savePerFile = useCallback((): Promise<void> => runner.run(async () => {
+    if (!picked) throw new Error('Choose a photo first.');
+    const tiles = await renderTiles(picked);
+    let saved = 0;
+    for (const tile of tiles) {
+      const target = await saveToolFile(tile.bytes, tile.name, ['png']);
+      if (!target) break;
+      saved += 1;
+    }
+    const summary = `${copy('Tiles saved')} · ${saved}/${tiles.length}`;
+    return saved === tiles.length ? summary : `${summary} · ${copy('Save cancelled — nothing was written.')}`;
+  }, 'Processing'), [copy, picked, renderTiles, runner]);
+
   return (
     <ToolScaffold
       title="Grid splitter"
@@ -427,15 +478,34 @@ export const GridSplitterTool: React.FC = () => {
       pickLabel="Choose a photo"
       onPick={() => void choose()}
       pickedName={picked?.name ?? null}
-      actionLabel={'Cut into ' + total + ' tiles'}
-      onAction={() => void cut()}
-      actionDisabled={!picked}
+      actionLabel={canBatch ? `Save ${grid.tiles.length} to folder` : `Cut into ${grid.tiles.length} tiles`}
+      onAction={() => void (canBatch ? saveBatch() : savePerFile())}
+      actionDisabled={!picked || grid.tiles.length === 0}
       status={runner.status}
       statusTone={runner.tone}
     >
       <KnouxSlider label="Rows" value={rows} min={1} max={6} step={1} decimals={0} defaultValue={3} gesture="grid-rows" onChange={(value) => setRows(Math.round(value))} />
       <KnouxSlider label="Columns" value={columns} min={1} max={6} step={1} decimals={0} defaultValue={3} gesture="grid-columns" onChange={(value) => setColumns(Math.round(value))} />
       <KnouxSlider label="Gutter" value={gutter} min={0} max={40} step={1} unit="px" decimals={0} defaultValue={0} gesture="grid-gutter" onChange={(value) => setGutter(Math.round(value))} />
+
+      <div className="kmt-tool-pick">
+        <KnouxAction label="Save folder" icon={FolderOpen} onClick={() => void chooseFolder()} disabled={runner.phase === 'working'} />
+        {folder ? (
+          <span className="kmt-tool-file"><bdi>{folderDisplayName(folder)}</bdi><Download size={13} aria-hidden="true" /></span>
+        ) : (
+          <span className="kmt-tool-file is-empty">{copy('No folder picked')}</span>
+        )}
+      </div>
+
+      {grid.tiles.length > 0 && (
+        <div className="kmt-readout-row">
+          <span>{copy('Tiles')}: <bdi>{grid.tiles.length}</bdi></span>
+          <span><bdi>{grid.tileWidth} × {grid.tileHeight}</bdi></span>
+        </div>
+      )}
+      {grid.warning && <KnouxPanelNotice tone="warn">{grid.warning}</KnouxPanelNotice>}
+      {picked && !folder && <KnouxPanelNotice>{copy('Pick a folder to save every tile in one go. Without one, each tile asks the save sheet separately.')}</KnouxPanelNotice>}
+      {picked && folder && !canBatch && <KnouxPanelNotice tone="warn">{copy('This build cannot create files inside a folder, so tiles save one by one.')}</KnouxPanelNotice>}
     </ToolScaffold>
   );
 };

@@ -353,7 +353,15 @@ export const MOBILE_ARABIC: Readonly<Record<string, string>> = Object.freeze({
   'Gutter': 'فاصل',
   'Cut into {count} tiles': 'قص إلى {count} قطعة',
   'Tiles saved': 'حُفظت القطع',
-
+  'Save folder': 'مجلد الحفظ',
+  'No folder picked': 'لم يُحدَّد مجلد',
+  Tiles: 'قطع',
+  'Save {count} to folder': 'حفظ {count} في المجلد',
+  'Pick a folder to save every tile in one go. Without one, each tile asks the save sheet separately.':
+    'اختر مجلدًا لحفظ كل القطع دفعة واحدة. وبدونه تُطلب نافذة الحفظ لكل قطعة على حدة.',
+  'This build cannot create files inside a folder, so tiles save one by one.':
+    'هذا البناء لا ينشئ ملفات داخل مجلد، لذا تُحفظ القطع واحدة تلو الأخرى.',
+  'Save cancelled — nothing was written.': 'أُلغي الحفظ — لم تُكتب أي قطعة.',
   /* --- image combiner --- */
   'Photo merge': 'دمج الصور',
   'Stack photos side by side or on top of each other in seconds.': 'رتّب الصور جنبًا إلى جنب أو فوق بعضها في ثوانٍ.',

@@ -102,6 +102,56 @@ describe('tools catalog contract', () => {
 });
 
 /**
+ * Batch output depends on a native method that only exists in the generated
+ * Android plugin. These checks keep the three layers — Java template, bridge,
+ * tool — from drifting apart, which is how "saves one file at a time" tends to
+ * come back without anyone deciding it should.
+ */
+describe('batch tile output contract', () => {
+  const generator = read('tools/prepare-android-functional-closure.cjs');
+  const bridge = read('src/platform/androidSafBridge.ts');
+  const panels = read('src/features/tools/MobileToolPanels.tsx');
+  const access = read('src/features/tools/toolFileAccess.ts');
+
+  test('the SAF plugin template creates child documents in a picked tree', () => {
+    expect(generator).toContain('public void createChild(PluginCall call)');
+    expect(generator).toContain('DocumentsContract.createDocument(');
+    expect(generator).toContain('buildChildDocumentsUriUsingTree');
+    // A batch must not overwrite: the collision rule lives in the plugin.
+    expect(generator).toContain('static String collisionSafeName(');
+    expect(generator).toContain('result.put("created", true)');
+  });
+
+  test('the generator verifies its own createChild output', () => {
+    expect(generator).toContain(`['KnouxSafPlugin.java', 'public void createChild(PluginCall call) {']`);
+  });
+
+  test('the bridge exposes tree creation and reports the stored name', () => {
+    expect(bridge).toContain('createChild?(options: { uri: string; name: string; mimeType: string })');
+    expect(bridge).toContain('export async function androidCreateChildDocument');
+    expect(bridge).toContain('export function androidTreeCreateSupported');
+    // An older installed build without the method must not look like a success.
+    expect(bridge).toContain("typeof saf.createChild !== 'function'");
+  });
+
+  test('the file helper writes once into the folder and reads each file back', () => {
+    expect(access).toContain('export async function saveToolFileIntoDirectory');
+    expect(access).toContain('stored.byteLength !== bytes.byteLength');
+    expect(access).toContain('export function toolDirectoryWriteSupported');
+    expect(access).toContain('export async function pickToolDirectory');
+  });
+
+  test('the grid tool offers the batch route and keeps an honest fallback', () => {
+    expect(panels).toContain('saveToolFileIntoDirectory');
+    expect(panels).toContain('toolDirectoryWriteSupported');
+    expect(panels).toContain('layoutTileGrid');
+    // Both paths report saved/total, so a partial run never reads as complete.
+    expect(panels).toMatch(/copy\('Tiles saved'\)} · \$\{saved\}\/\$\{[a-z]+\.length\}/);
+    expect(panels).toContain('This build cannot create files inside a folder, so tiles save one by one.');
+  });
+});
+
+/**
  * Mobile surfaces resolve Arabic through the shared catalog. A missing entry
  * silently shows English to an Arabic user, which is the exact defect the
  * directive calls out, so the catalog is required to be fully filled.

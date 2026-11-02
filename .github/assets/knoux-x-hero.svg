@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="540" viewBox="0 0 1440 540" role="img" aria-labelledby="title desc">
+  <title id="title">KNOUX X — Create. Play. Enhance.</title>
+  <desc id="desc">A midnight-violet cinematic banner with a luminous glass orbit, creative timeline and dual desktop and Android product identity.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#08050E"/><stop offset=".53" stop-color="#121025"/><stop offset="1" stop-color="#070A13"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#A663FF" stop-opacity=".50"/><stop offset=".45" stop-color="#6D31D6" stop-opacity=".18"/><stop offset="1" stop-color="#8E4CFF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F0D9FF"/><stop offset=".42" stop-color="#C18DFF"/><stop offset="1" stop-color="#6D55FF"/></linearGradient>
+    <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#E2BBFF" stop-opacity=".96"/><stop offset=".48" stop-color="#8D56F7" stop-opacity=".56"/><stop offset="1" stop-color="#18D7FF" stop-opacity=".44"/></linearGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#B67AFF"/><stop offset=".52" stop-color="#7C57F8"/><stop offset="1" stop-color="#39C2DE"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M 48 0 L 0 0 0 48" fill="none" stroke="#9273C8" stroke-opacity=".08" stroke-width="1"/></pattern>
+    <filter id="blur"><feGaussianBlur stdDeviation="37"/></filter>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>
+    <clipPath id="frame"><rect width="1440" height="540" rx="28"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1440" height="540" fill="url(#bg)"/>
+    <rect width="1440" height="540" fill="url(#grid)"/>
+    <circle cx="1090" cy="215" r="340" fill="url(#halo)"/>
+    <circle cx="250" cy="450" r="230" fill="#6B36B1" opacity=".12" filter="url(#blur)"/>
+    <path d="M0 416 C280 315 390 506 703 426 S1160 318 1440 405" fill="none" stroke="url(#rail)" stroke-width="2" stroke-opacity=".20"/>
+    <path d="M0 440 C300 340 450 526 740 448 S1210 350 1440 430" fill="none" stroke="#B77EF8" stroke-width="1" stroke-opacity=".13"/>
+    <rect x="66" y="56" width="218" height="35" rx="17.5" fill="#AA78FF" fill-opacity=".09" stroke="#C199FF" stroke-opacity=".42"/>
+    <circle cx="86" cy="73.5" r="4.5" fill="#B48BFF"/>
+    <text x="102" y="78" font-family="Arial,Helvetica,sans-serif" fill="#E7D5FF" font-size="13" font-weight="700" letter-spacing="2">THE CREATIVE OS</text>
+    <text x="67" y="237" font-family="Arial,Helvetica,sans-serif" fill="#F9F5FF" font-size="111" font-weight="800" letter-spacing="-5">KNOuX</text>
+    <text x="493" y="237" font-family="Arial,Helvetica,sans-serif" fill="url(#glow)" font-size="115" font-weight="800" letter-spacing="-4">X</text>
+    <rect x="69" y="259" width="141" height="4" rx="2" fill="url(#rail)"/>
+    <text x="69" y="316" font-family="Arial,Helvetica,sans-serif" fill="#ECE2FA" font-size="31" font-weight="500" letter-spacing="5">CREATE · PLAY · ENHANCE</text>
+    <text x="70" y="353" font-family="Arial,Helvetica,sans-serif" fill="#AFA0CD" font-size="17" letter-spacing="1">A cinematic workspace for media, editing and imagination.</text>
+    <g font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="12" letter-spacing="1.6">
+      <rect x="68" y="386" width="170" height="37" rx="18.5" fill="#B188FF" fill-opacity=".13" stroke="#D2ACFF" stroke-opacity=".43"/>
+      <text x="90" y="409" fill="#E9D9FF">WINDOWS DESKTOP</text>
+      <rect x="249" y="386" width="149" height="37" rx="18.5" fill="#73DBF3" fill-opacity=".07" stroke="#73DBF3" stroke-opacity=".32"/>
+      <text x="273" y="409" fill="#ADEAF8">ANDROID APP</text>
+      <rect x="409" y="386" width="145" height="37" rx="18.5" fill="#CBA4FF" fill-opacity=".08" stroke="#CBA4FF" stroke-opacity=".30"/>
+      <text x="434" y="409" fill="#DCC1FF">LOCAL FIRST</text>
+    </g>
+    <g transform="translate(1080 227)">
+      <circle r="191" fill="#B273FF" opacity=".10" filter="url(#shadow)"/>
+      <circle r="183" fill="none" stroke="#A269ED" stroke-opacity=".19" stroke-width="1"/>
+      <circle r="158" fill="none" stroke="url(#orbit)" stroke-width="2.5" stroke-opacity=".76" stroke-dasharray="335 49 96 80 210 77" transform="rotate(-28)"/>
+      <circle r="137" fill="none" stroke="#DBB5FF" stroke-opacity=".13" stroke-width="18"/>
+      <circle r="125" fill="none" stroke="#D7ABFF" stroke-opacity=".16" stroke-width="1"/>
+      <circle r="111" fill="#140E29" fill-opacity=".88" stroke="#CB92FF" stroke-opacity=".55" stroke-width="1.5"/>
+      <circle r="101" fill="#9E6BFF" opacity=".075"/>
+      <path d="M-48 -68 L50 -68 L90 0 L50 68 L-48 68 L-89 0 Z" fill="none" stroke="url(#orbit)" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M-41 -58 L42 -58 L75 0 L42 58 L-41 58 L-75 0 Z" fill="#9F61FE" fill-opacity=".065" stroke="#B68AFF" stroke-opacity=".22" stroke-width="1"/>
+      <path d="M-28 -37 L45 0 L-28 37 Z" fill="url(#glow)"/>
+      <path d="M-11 -14 L18 0 L-11 14 Z" fill="#FFF8FF" opacity=".60"/>
+      <circle cx="0" cy="-158" r="5" fill="#D1A8FF"/>
+      <circle cx="153" cy="-40" r="4" fill="#5FE2FF"/>
+      <circle cx="-140" cy="74" r="3.5" fill="#CE9EFC"/>
+    </g>
+    <g opacity=".9" transform="translate(738 450)">
+      <rect width="618" height="53" rx="13" fill="#160F28" stroke="#B088EC" stroke-opacity=".40"/>
+      <rect x="17" y="12" width="94" height="29" rx="5" fill="#914DFF" fill-opacity=".45"/>
+      <rect x="116" y="12" width="58" height="29" rx="5" fill="#914DFF" fill-opacity=".33"/>
+      <rect x="179" y="12" width="122" height="29" rx="5" fill="#914DFF" fill-opacity=".48"/>
+      <path d="M315 31 q13 -26 24 0 t24 0 t24 0 t24 0 t24 0 t24 0" fill="none" stroke="#60E0F5" stroke-width="2"/>
+      <rect x="492" y="12" width="109" height="29" rx="5" fill="#5FE0DD" fill-opacity=".15" stroke="#53C8D4" stroke-opacity=".45"/>
+      <path d="M310 4 v45" stroke="#F3D2FF" stroke-width="2"/>
+    </g>
+    <text x="71" y="490" font-family="Arial,Helvetica,sans-serif" fill="#817393" font-size="13" letter-spacing="2">DESIGN-LED · EVIDENCE-DRIVEN · BUILT TO BE REAL</text>
+    <rect x="0" y="537" width="1440" height="3" fill="url(#rail)"/>
+  </g>
+</svg>

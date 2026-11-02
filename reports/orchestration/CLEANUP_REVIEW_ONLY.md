@@ -69,3 +69,19 @@ Open PRs: #86, #89, #97, #101, #102, #103.
 Do not bypass branch protection, weaken assertions or merge changes without current target-SHA acceptance.
 
 VERDICT: EXACT STORAGE HOTSPOTS IDENTIFIED / CLEANUP NOT YET AUTHORIZED BY EXACT PATH / NO DELETION PERFORMED.
+
+## POST-CLEANUP VERIFIED RESULT — 2026-11-02
+
+This section supersedes the earlier pre-cleanup verdict above; earlier measurements are retained as historical baseline.
+
+- Exact eight approved generated-output directories removed, with no errors.
+- Every original file was SHA-256 verified before removal against the 1,160-file baseline manifest.
+- Deduplicated recovery archive: K:\KNOUX-X-ARCHIVES\knoux-x-eight-builds-deduplicated-20261102.zip
+- Archive size: 1,173,102,445 bytes; SHA-256: b92440d0d094d623d4e6456d778dbfb9a2a8948ced9b7ee29df85e048904ed22.
+- Archive contains 159 file members and reconstructs all 8 original sets of 145 files based on byte-identical shared files and per-build executable/app.asar variants. Every stored member was hash-verified after creation; reconstruction mapping was checked. No end-to-end extracted installation test performed.
+- Cleanup measured free K: from 3,384,254,464 to 8,328,613,888 bytes during the delete phase, a measured gain of 4,944,359,424 bytes (4.605 GiB). The ZIP was created before the delete phase and its storage cost is already reflected in that starting free-space measurement.
+- Worktree branch remained feat/corporate-identity-polish-20261027 at d3808e4595bcfa8f9572c42c318b022b848d0c52; tracked Git status unchanged.
+- Full result receipt: K:\KNOUX-X-ARCHIVES\knoux-x-eight-builds-cleanup-result-20261102.json.
+- Original hash inventory: K:\tmp\knoux-build-eight-audit-20261102.json.
+- Nothing outside the eight approved generated-output directories was removed. All Git histories, branches, worktrees, signing keys, backups, user data and untracked sources remain preserved.
+- STATUS: CLEANUP_SCOPED_VERIFIED, NOT whole-repository cleanup and NOT production-release acceptance.

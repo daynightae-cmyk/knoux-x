@@ -38,10 +38,14 @@ describe('release-free production signing verification lane', () => {
     expect(mode.default).toBe('verify');
   });
 
-  test('a tag push can never take the release-free path', () => {
+  test('a tag push takes the release-free path instead of publishing', () => {
+    // This assertion previously demanded the opposite, because an earlier
+    // revision made a tag push force publication. That turned creating a tag
+    // into implicit authorisation for a public release, so the expectation is
+    // inverted deliberately: a tag now verifies, and publishing needs approval.
     const preflight = (jobs.preflight.steps || []).find((step) => /Resolve publish mode/.test(step.name || ''));
-    expect(preflight.run).toContain('mode="publish"');
-    expect(preflight.run).toMatch(/if \[\[ "\$\{\{ github.ref_type \}\}" == "tag" \]\]; then\s*mode="publish"/);
+    expect(preflight.run).toMatch(/== "tag" \]\]; then\s*\n\s*mode="verify"/);
+    expect(preflight.run).not.toContain('mode="publish"');
   });
 
   test('the publish job is the only caller of gh release and is skipped for verify', () => {

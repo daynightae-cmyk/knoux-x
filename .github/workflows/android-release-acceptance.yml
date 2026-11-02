@@ -11,33 +11,12 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'assets/**'
-      - 'tests/**'
-      - 'tools/android-ci-release.sh'
-      - 'tools/android-emulator-smoke.sh'
-      - 'tools/prepare-android-branding.cjs'
-      - 'tools/prepare-android-premium-splash.cjs'
-      - 'tools/prepare-android-native-media.cjs'
-      - 'tools/prepare-android-functional-closure.cjs'
-      - 'tools/android/**'
-      - 'tools/verify-android-apk.cjs'
-      - 'tools/verify-android-app-plugin.cjs'
-      - 'tools/android-acceptance-diagnostics.sh'
-      - 'tools/run-android-installed-acceptance.sh'
-      - 'tools/android-real-workflows.cjs'
-      - 'tools/android-native-core.cjs'
-      - 'tools/create-android-image-fixture.cjs'
-      - 'tools/configure-android-webview-debugging.cjs'
-      - 'tools/verify-android-screen.cjs'
-      - 'electron/**'
-      - 'index.html'
-      - 'vite.renderer.config.ts'
-      - 'capacitor.config.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/android-release-acceptance.yml'
+    # No path filter, deliberately. Branch protection requires the context
+    # "Build, sign, install, and launch release APK" from this workflow, and a
+    # filtered workflow simply never reports it for a pull request that only
+    # touches docs or reports - so such a pull request stays unmergeable forever
+    # with no failing check to look at. This mirrors the same removal already
+    # made for the debug lane in .github/workflows/android-apk.yml.
   push:
     branches:
       - main
@@ -168,14 +147,17 @@ jobs:
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
           marker = '    <application'
-          permissions = '''    <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.RECORD_AUDIO" />
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-          '''
-          if 'android.permission.CAMERA' not in text:
-              if marker not in text:
-                  raise SystemExit('AndroidManifest application marker not found')
-              text = text.replace(marker, permissions + marker, 1)
+          if marker not in text:
+              raise SystemExit('AndroidManifest application marker not found')
+          # Insert each permission on its own. A single CAMERA guard used to gate
+          # all three, which silently skipped RECORD_AUDIO and
+          # MODIFY_AUDIO_SETTINGS once build hardening rewrites the CAMERA line
+          # into a merger removal rule that still mentions CAMERA by name.
+          newline = chr(10)
+          for permission in ('CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS'):
+              if ('android.permission.' + permission) not in text:
+                  line = '    <uses-permission android:name="android.permission.' + permission + '" />'
+                  text = text.replace(marker, line + newline + marker, 1)
           manifest.write_text(text, encoding='utf-8')
           PY
           grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml

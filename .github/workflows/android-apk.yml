@@ -137,14 +137,17 @@ jobs:
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
           marker = '    <application'
-          permissions = '''    <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.RECORD_AUDIO" />
-              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-          '''
-          if 'android.permission.CAMERA' not in text:
-              if marker not in text:
-                  raise SystemExit('AndroidManifest application marker not found')
-              text = text.replace(marker, permissions + marker, 1)
+          if marker not in text:
+              raise SystemExit('AndroidManifest application marker not found')
+          newline = chr(10)
+          # Insert each permission on its own. A single CAMERA guard used to gate
+          # all three, which silently skipped RECORD_AUDIO and
+          # MODIFY_AUDIO_SETTINGS once build hardening rewrites the CAMERA line
+          # into a merger removal rule that still mentions CAMERA by name.
+          for permission in ('CAMERA', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS'):
+              if ('android.permission.' + permission) not in text:
+                  line = '    <uses-permission android:name="android.permission.' + permission + '" />'
+                  text = text.replace(marker, line + newline + marker, 1)
           manifest.write_text(text, encoding='utf-8')
           PY
           grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml

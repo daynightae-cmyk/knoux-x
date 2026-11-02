@@ -143,7 +143,17 @@ function main() {
     process.exit(2);
   }
   const expectIndex = process.argv.indexOf('--expect');
-  const expected = expectIndex > 0 ? String(process.argv[expectIndex + 1] || '').toLowerCase() : null;
+  const expectedRaw = expectIndex > 0 ? String(process.argv[expectIndex + 1] || '') : '';
+  // A prefix is not an identity: a one-character "pin" would match every
+  // certificate that starts with the same nibble, so the full digest is required.
+  let expected = null;
+  if (expectIndex > 0) {
+    expected = expectedRaw.replace(/[\s:]/g, '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(expected)) {
+      console.error('APK SIGNATURE VERIFICATION FAILED: --expect must be a full 64-hexigit SHA-256 digest');
+      process.exit(2);
+    }
+  }
   const fd = fs.openSync(apkPath, 'r');
   const size = fs.fstatSync(fd).size;
   const tailLength = Math.min(size, 1 << 20);
@@ -188,11 +198,12 @@ function main() {
     signerCertificates: certificates,
   };
   console.log(JSON.stringify(report, null, 2));
+  const pinned = !expected || certificates.every((cert) => cert.certificateSha256 === expected);
   const ok = found.signed
     && found.schemes.includes('v2')
     && certificates.length > 0
     && certificates.every((cert) => cert.owner && cert.certificateSha256)
-    && (!expected || certificates.some((cert) => String(cert.certificateSha256).startsWith(expected)));
+    && pinned;
   if (!ok) {
     console.error('APK SIGNATURE VERIFICATION FAILED');
     process.exit(1);

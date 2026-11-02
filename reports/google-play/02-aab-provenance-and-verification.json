@@ -1,0 +1,100 @@
+{
+  "record": "AAB provenance and verification",
+  "phase": "04",
+  "generatedAt": "2026-10-27T19:20:00Z",
+  "supersedes": "the 2026-10-27 14:30Z version of this record, which reported verdict NOT_PRODUCED",
+  "verdict": "BUNDLE_PRODUCED_AND_IDENTITY_VERIFIED / PRODUCTION_IDENTITY_NOT_EXERCISED",
+  "whatChanged": "PR #91 merged to main as fe9a030. The release-acceptance lane now runs 'gradlew assembleRelease bundleRelease', and the run produced a real signed Android App Bundle for the first time. The APK and the bundle were cross-checked and carry the same signing certificate, which is the check that had previously been reporting a false mismatch because keytool prints digests colon-separated and apksigner does not.",
+  "artifact": {
+    "file": "KNOUX-X-Android-release-ci-signed.aab",
+    "bytes": 43595071,
+    "sha256": "37d24b0d92777fe05357731e452e5f2ef4bac1b25f6e6a7a9e9e54b241a9f3d0",
+    "sourceSha": "fe9a030f1bd83134ee2b8de20be1cb3f2c7a14dd",
+    "sourceCommitSubject": "Merge pull request #91 from daynightae-cmyk/feat/google-play-production-readiness-20261027",
+    "package": "dev.knoux.playerx",
+    "versionName": "2.1.0",
+    "versionCode": 20100,
+    "buildVariant": "release",
+    "minSdkVersion": 24,
+    "targetSdkVersion": 36,
+    "compileSdkVersion": 36,
+    "producedByRun": 40562066642,
+    "producedByArtifact": 12763196202,
+    "laneConclusion": "success"
+  },
+  "pairedApk": {
+    "file": "KNOUX-X-Android-release-ci-signed.apk",
+    "bytes": 43715578,
+    "sha256": "937df980a4563795a8cb45bd69a97f1df14e850a650c0a654d74d297a5346cc5",
+    "idsig": "present (verified by apksigner)"
+  },
+  "signingIdentity": {
+    "signing": "acceptance",
+    "signingLabel": "TEST_SIGNED",
+    "productionSigned": false,
+    "keystoreType": "JKS",
+    "apkCertificateSha256": "242f8baab59f3fa404e2da5d9062454cbc8014a4018c6be3fc60770ea1f94578",
+    "bundleCertificateSha256": "242f8baab59f3fa404e2da5d9062454cbc8014a4018c6be3fc60770ea1f94578",
+    "crossArtifactIdentityCheck": "PASS - one certificate for both artifacts",
+    "important": "This is the disposable CI acceptance key, regenerated on every run, so the digest above will differ next time. It is NOT the owner's production identity and must never be treated as one.",
+    "productionUploadCertificateSha256": "695ef97df906e91ce5e06d809b1303fdb0a209b9f79e7c3b3b98e34ea22fd6cd",
+    "productionIdentityExercised": false,
+    "productionIdentityExercisedReason": "KNOUX_ANDROID_KEYSTORE_BASE64, KNOUX_ANDROID_KEYSTORE_PASSWORD and KNOUX_ANDROID_KEY_PASSWORD are still absent from the android-production environment. Every publishable run therefore fails closed by design."
+  },
+  "contentsVerifiedFromTheCompiledArtifact": {
+    "sourceMaps": 0,
+    "allowBackup": false,
+    "webContentsDebuggingEnabled": true,
+    "webContentsDebuggingNote": "true is required so the acceptance lane can drive an installed WebView; android-ci-release.sh asserts false in production mode and refuses the build otherwise. This artifact must never reach a release channel.",
+    "apkNativeLibraries": 0,
+    "aabNativeLibraries": 0,
+    "nativePageAlignment": "not-applicable",
+    "sixteenKbPages": "satisfied by construction - the bundle contains no lib/**/*.so entries, so there is no ELF alignment to fix. The release script measures this and would run zipalign -c -P 16 and fail the build if native code ever appears.",
+    "permissionCount": 13,
+    "cameraPermissionInCompiledApk": "ABSENT - verified by aapt2 badging and by the compiled manifest dump, both zero occurrences",
+    "cameraRemovalMechanism": "the staged source manifest carries tools:node=\"remove\", which is what the manifest merger needs; deleting the line would let a library re-add it",
+    "microphoneAndAudioSettings": "PRESENT - RECORD_AUDIO and MODIFY_AUDIO_SETTINGS both survive in the compiled artifact, confirming the per-permission insertion fix"
+  },
+  "gates": {
+    "A_source": {
+      "status": "VERIFIED",
+      "detail": "clean approved commit fe9a030 on main; branch protection satisfied; version identity validated; no secrets in git"
+    },
+    "B_build": {
+      "status": "VERIFIED",
+      "detail": "a real AAB and a real APK now come from one Gradle invocation, on a lane that runs, with correct production-shaped configuration and a recorded source SHA"
+    },
+    "C_cryptographic_verification": {
+      "status": "PARTIAL",
+      "verified": "bundle signature, cross-artifact identity equality, checksums, provenance, and the rule that a CI identity can never be labelled production",
+      "notVerified": "the owner's pinned production identity has never signed an artifact",
+      "blockedBy": "three owner-only secrets"
+    },
+    "D_runtime": {
+      "status": "PARTIAL",
+      "verified": "the APK installs and launches on the emulator and 21 functional cases pass",
+      "notVerified": "the AAB has not been converted with bundletool and installed - bundletool is not on this workstation and the lane does not run it; no physical device has executed anything"
+    },
+    "E_policy": {
+      "status": "PARTIAL",
+      "verified": "target API 36, 16 KB by evidence, camera permission removed in the compiled artifact, permission matrix written",
+      "notVerified": "privacy policy is not hosted, Data Safety not submitted, foreground-service declarations and the demonstration video do not exist"
+    },
+    "F_play_console": {
+      "status": "BLOCKED",
+      "blockedBy": "owner: confirm the developer account, create the app entry, choose and enrol a Play App Signing option"
+    },
+    "G_production_approval": {
+      "status": "NOT_STARTED",
+      "detail": "requires explicit owner approval of an exact AAB hash"
+    }
+  },
+  "remainingStepsForAProductionBundle": [
+    "Owner uploads the three remaining secrets to the android-production environment",
+    "Owner resolves the environment branch policy so a tag or dispatch run can actually read those secrets",
+    "Owner chooses Play App Signing Option A or B",
+    "Run knoux-live-release.yml with mode=draft, which now builds, signs, verifies and records a production-identity AAB, or with mode=publish only after the owner's Gate G approval of the exact hash",
+    "Install the production AAB's generated APK set on a real device and prove audio output and at least one export"
+  ],
+  "claimBoundary": "The bundle mechanism is now proven end to end on main. The production identity is not. Nothing in this record supports publishing to Google Play."
+}

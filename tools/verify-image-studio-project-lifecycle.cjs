@@ -35,6 +35,27 @@ const report = {
 };
 
 async function launch() {
+  if (!installedExecutable) {
+    // The main process loads this file with loadFile(); when it is missing or
+    // stale Electron dies in ~1s and Playwright reports only
+    // "Resulting promise was garbage collected", which hides the real cause.
+    // .vite is gitignored and produced as a side effect of the Forge build, so
+    // this acceptance silently depends on an earlier step having run.
+    const rendererEntry = path.join(root, '.vite', 'renderer', 'main_window', 'index.html');
+    let renderer = null;
+    try {
+      const stat = fs.statSync(rendererEntry);
+      renderer = { path: rendererEntry, bytes: stat.size, modified: stat.mtime.toISOString() };
+    } catch {
+      report.rendererEntry = { path: rendererEntry, missing: true };
+      throw new Error(`Renderer entry is missing: ${rendererEntry}. Build it (npm run package or electron-forge start) before running source-checkout acceptance.`);
+    }
+    if (renderer.bytes === 0) {
+      report.rendererEntry = { ...renderer, empty: true };
+      throw new Error(`Renderer entry is empty: ${rendererEntry}`);
+    }
+    report.rendererEntry = renderer;
+  }
   app = installedExecutable ? await launchInstalledImageDriver(installedExecutable, evidence, report) : await _electron.launch({
     executablePath: require('electron'), cwd: root,
     args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), '--disable-gpu', `--user-data-dir=${path.join(evidence, 'chromium')}`, root],

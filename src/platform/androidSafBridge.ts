@@ -22,6 +22,8 @@ type SafPlugin = {
   pick(options: { mode: 'file' | 'files' | 'directory' | 'save'; mimeTypes?: string[]; suggestedName?: string }): Promise<{ items?: SafItem[] }>;
   readBytes(options: { uri: string }): Promise<{ base64: string }>;
   writeBytes(options: { uri: string; base64: string }): Promise<{ written: number }>;
+  /** Creates a child document inside a previously picked tree URI. */
+  createChild?(options: { uri: string; name: string; mimeType: string }): Promise<SafItem & { created?: boolean }>;
   exists(options: { uri: string }): Promise<{ exists: boolean }>;
   delete(options: { uri: string }): Promise<{ deleted: boolean }>;
   stat(options: { uri: string }): Promise<SafItem>;
@@ -127,6 +129,30 @@ export async function readAndroidPersistentAsset(uri: string): Promise<{ bytes: 
   const [raw, stat] = await Promise.all([saf.readBytes({ uri }), saf.stat({ uri })]);
   const bytes = decodeBase64(raw.base64);
   return { bytes, blob: new Blob([bytes.slice().buffer], { type: stat.mime }), mime: stat.mime, name: stat.name };
+}
+
+/**
+ * Creates (or reuses) one document inside a picked SAF tree and returns its
+ * writeable URI plus the name Android actually stored it under — Android may
+ * rename a colliding file, so callers must not assume their requested name.
+ * Null means this build has no tree-creation support, which the tools treat as
+ * "fall back to one save sheet per file" rather than a silent failure.
+ */
+export async function androidCreateChildDocument(
+  treeUri: string,
+  name: string,
+  mimeType: string,
+): Promise<{ uri: string; name: string } | null> {
+  const saf = plugin();
+  if (!saf || typeof saf.createChild !== 'function' || !treeUri.startsWith('content://')) return null;
+  const child = await saf.createChild({ uri: treeUri, name, mimeType });
+  if (!child?.uri) return null;
+  return { uri: child.uri, name: child.name || name };
+}
+
+export function androidTreeCreateSupported(): boolean {
+  const saf = plugin();
+  return Boolean(saf && typeof saf.createChild === 'function');
 }
 
 export function installAndroidSafBridge(): void {

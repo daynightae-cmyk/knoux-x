@@ -1,0 +1,86 @@
+/**
+ * KNOUX-X — ANDROID PHOTO DOCK
+ * Layout for the six-tab photo panel. Controls themselves come from the shared
+ * control kit; this file only owns the dock shell and its read-outs.
+ */
+
+html[data-platform='android'] .kmc-photo-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(172, 112, 255, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(19, 12, 33, 0.88), rgba(6, 4, 12, 0.92));
+  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.42);
+}
+
+html[data-platform='android'] .kmc-photo-dock-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: 2px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-platform='android'] .kmc-photo-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html[data-platform='android'] .kmc-photo-look-readout,
+html[data-platform='android'] .kmc-photo-output-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+html[data-platform='android'] .kmc-photo-look-readout span {
+  padding: 4px 8px;
+  border: 1px solid rgba(172, 112, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(139, 61, 255, 0.12);
+  color: #dcccff;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-platform='android'] .kmc-photo-output-readout strong {
+  padding: 5px 10px;
+  border-radius: 9px;
+  background: linear-gradient(140deg, rgba(139, 61, 255, 0.5), rgba(85, 223, 245, 0.22));
+  color: #fff;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+html[data-platform='android'] .kmc-photo-output-readout small { color: #a596c4; font-size: 0.68rem; }
+
+/* The compare affordance must be obvious while it is held down. */
+html[data-platform='android'] .kmc-photo-canvas[data-compare='original'] {
+  outline: 2px solid rgba(85, 223, 245, 0.65);
+  outline-offset: 2px;
+}
+
+html[data-platform='android'] .kmc-photo-badge em {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-start: 6px;
+  color: #7fe4f7;
+  font-style: normal;
+  font-weight: 700;
+}
+
+@media (max-height: 720px) {
+  html[data-platform='android'] .kmc-photo-dock-body { max-height: 34vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-platform='android'] .kmc-photo-dock * { transition: none !important; }
+}

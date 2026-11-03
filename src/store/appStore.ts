@@ -33,6 +33,7 @@ export type ViewType =
   | 'image-tools'
   | 'slideshow'
   | 'audio-tools'
+  | 'tools'
   | 'export'
   | 'settings';
 export type ThemeType = KnouxThemeId;

@@ -19,7 +19,15 @@
   align-items: start;
 }
 
-.settings-runtime-content > .neon-panel {
+.settings-runtime-content > .neon-panel,
+.settings-about-stack > .neon-panel {
+  display: grid;
+  gap: 14px;
+}
+
+/* Settings › About opens with the corporate surface itself, then the release
+   panel — a dark page inside a light panel read as an imported block. */
+.settings-about-stack {
   display: grid;
   gap: 14px;
 }

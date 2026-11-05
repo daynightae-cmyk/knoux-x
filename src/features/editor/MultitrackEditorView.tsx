@@ -65,7 +65,7 @@ import type {
   TransitionKind,
 } from '../../core/creative/multitrackProject';
 import { setTimelineVideoRetouchTemporal } from '../../core/creative/videoRetouchEffect';
-import { transitionFadeOpacity } from '../../core/creative/transitionFade';
+import { resolveClipVisual } from '../../core/creative/timelineRenderState';
 import {
   compareBranchMetrics,
   computeBranchMetrics,
@@ -265,18 +265,17 @@ export const MultitrackEditorView: React.FC = () => {
   // Program-monitor transition proof: the selected item previews with its
   // keyframed opacity multiplied by the shared transition fade (the exact
   // semantic the mobile timeline renderer bakes into exported frames).
+  // One resolver now feeds both surfaces, so a clip colour grade and animated
+  // transform cannot quietly appear on one and not the other.
   const previewLocalTime = selectedItem
     ? Math.max(0, Math.min(selectedItem.duration, playhead - selectedItem.timelineStart))
     : 0;
-  const previewOpacity = selectedItem
-    ? transitionFadeOpacity(
-      interpolateKeyframes(selectedItem.keyframes, 'opacity', previewLocalTime, selectedItem.transform.opacity),
-      selectedItem.transitionIn,
-      selectedItem.transitionOut,
-      previewLocalTime,
-      selectedItem.duration,
-    )
-    : 1;
+  const previewVisual = selectedItem ? resolveClipVisual(selectedItem, previewLocalTime) : null;
+  const previewOpacity = previewVisual?.opacity ?? 1;
+  const previewGrade = previewVisual && previewVisual.filter !== 'none' ? previewVisual.filter : undefined;
+  const previewTransform = previewVisual
+    ? `translate(${previewVisual.positionX}px, ${previewVisual.positionY}px) rotate(${previewVisual.rotation}deg) scale(${previewVisual.scale * (previewVisual.flipHorizontal ? -1 : 1)}, ${previewVisual.scale * (previewVisual.flipVertical ? -1 : 1)})`
+    : undefined;
   const anySoloTrack = useMemo(() => project?.tracks.some((track) => track.solo) ?? false, [project]);
   const currentMetrics = useMemo(() => project ? computeBranchMetrics(project) : null, [project]);
   const activeMix = useMemo(() => project ? mixAudioAtTime(project, playhead) : [], [playhead, project]);
@@ -1148,7 +1147,7 @@ export const MultitrackEditorView: React.FC = () => {
                   <img
                     src={previewUrl}
                     alt={selectedItem.name}
-                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity, filter: previewGrade, transform: previewTransform }}
                     onError={() => setPreviewError(t('multitrack.previewUnsupported'))}
                     onLoad={(event) => {
                       const target = event.currentTarget;
@@ -1163,7 +1162,7 @@ export const MultitrackEditorView: React.FC = () => {
                   <video
                     ref={(node) => { previewRef.current = node; }}
                     src={previewUrl}
-                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity }}
+                    style={{ width: '100%', height: '100%', objectFit: monitorFit.objectFit, opacity: previewOpacity, filter: previewGrade, transform: previewTransform }}
                     onEnded={() => setPreviewPlaying(false)}
                     onError={() => setPreviewError(t('multitrack.previewUnsupported'))}
                     onLoadedMetadata={(event) => {

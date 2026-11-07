@@ -7,16 +7,13 @@ import {
   Code2,
   Copy,
   ExternalLink,
-  Facebook,
-  Github,
   Globe,
   Layers,
   Mail,
-  MessageCircle,
-  Music2,
   Phone,
   Sparkles,
 } from 'lucide-react';
+import { FaFacebookF, FaGithub, FaTiktok, FaWhatsapp } from 'react-icons/fa';
 
 import { OFFICIAL_LOGO_URL } from '../../components/brand/BrandMark';
 import { useAppStore } from '../../store/appStore';
@@ -33,11 +30,11 @@ interface StatusMessage {
 }
 
 const SOCIAL_ICONS: Record<SocialChannel['id'], React.ReactNode> = {
-  'facebook-page': <Facebook size={20} />,
-  'facebook-founder': <Facebook size={20} />,
-  'github-engineer': <Github size={20} />,
-  'github-brand': <Github size={20} />,
-  tiktok: <Music2 size={20} />,
+  'facebook-page': <FaFacebookF size={18} />,
+  'facebook-founder': <FaFacebookF size={18} />,
+  'github-engineer': <FaGithub size={18} />,
+  'github-brand': <FaGithub size={18} />,
+  tiktok: <FaTiktok size={18} />,
 };
 
 const EXPERTISE_ICONS: Record<string, React.ReactNode> = {
@@ -195,7 +192,7 @@ export const CorporateIdentity: React.FC<{ compact?: boolean }> = ({ compact = f
   }, [announce, text.copied, text.copyFailed]);
 
   const contactIcon = (id: string): React.ReactNode => (
-    id === 'whatsapp' ? <MessageCircle size={20} />
+    id === 'whatsapp' ? <FaWhatsapp size={21} />
       : id === 'email' ? <Mail size={20} />
         : id === 'phone' ? <Phone size={20} />
           : <Globe size={20} />
@@ -206,6 +203,7 @@ export const CorporateIdentity: React.FC<{ compact?: boolean }> = ({ compact = f
       className={`kci${compact ? ' kci--compact' : ''}`}
       dir={ar ? 'rtl' : 'ltr'}
       lang={ar ? 'ar' : 'en'}
+      data-locale={ar ? 'ar' : 'en'}
       data-component="CorporateIdentity"
     >
       {/* A — cinematic corporate hero */}
@@ -220,6 +218,9 @@ export const CorporateIdentity: React.FC<{ compact?: boolean }> = ({ compact = f
         <h1 className="kci-wordmark">KNOU<span>X</span></h1>
         <p className="kci-headline">{text.headline}</p>
         <p className="kci-founded">{text.foundedBy} <strong>{ar ? KNOUX_IDENTITY.founderAr : KNOUX_IDENTITY.founderEn}</strong></p>
+        <ul className="kci-disciplines">
+          {(ar ? KNOUX_IDENTITY.disciplines.ar : KNOUX_IDENTITY.disciplines.en).map((item) => <li key={item}>{item}</li>)}
+        </ul>
         <p className="kci-intro">{text.intro}</p>
       </header>
 

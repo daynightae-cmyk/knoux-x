@@ -34,6 +34,8 @@
   box-shadow: var(--knoux-shadow-md, 0 18px 52px rgba(0, 0, 0, 0.36));
   overflow: hidden;
   isolation: isolate;
+  container-type: inline-size;
+  container-name: kci;
 }
 
 .kci::before {
@@ -150,6 +152,27 @@
   font-weight: 650;
 }
 
+.kci-disciplines {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kci-disciplines li {
+  padding: 5px 12px;
+  border-radius: var(--knoux-radius-round, 999px);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--kci-text-2);
+  background: color-mix(in srgb, var(--kci-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kci-accent) 22%, transparent);
+}
+
 .kci-intro {
   margin: 4px 0 0;
   max-inline-size: 62ch;
@@ -225,7 +248,10 @@
 .kci-expertise {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: 1fr;
+  /* Groups size to their own content — stretching them to the tallest row
+     member left most of every card empty. */
+  align-items: start;
 }
 
 .kci-expertise__group {
@@ -278,7 +304,7 @@
 .kci-contact-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .kci-contact {
@@ -403,7 +429,7 @@
 .kci-social-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .kci-social {
@@ -655,12 +681,107 @@
     block-size: 102px;
   }
 
-  .kci-contact-grid,
-  .kci-social-grid {
-    grid-template-columns: 1fr;
-  }
-
   .kci-founder {
     align-items: flex-start;
   }
+}
+
+/* Compact — the same page at embedded scale (desktop Settings › About and the
+   Android developer screen): tighter rhythm, smaller mark, nothing dropped.
+   Declared last so it wins over the narrow-viewport defaults above. */
+.kci--compact {
+  gap: 18px;
+  padding: clamp(14px, 2.4vw, 22px);
+  border-radius: var(--knoux-radius-lg, 18px);
+}
+
+.kci--compact .kci-hero {
+  padding-block: clamp(6px, 2vw, 14px) 2px;
+}
+
+.kci--compact .kci-hero__aura {
+  inset-block-start: -22%;
+  block-size: 250px;
+}
+
+.kci--compact .kci-glass {
+  inline-size: 112px;
+  block-size: 112px;
+  margin-block-end: 6px;
+}
+
+.kci--compact .kci-glass img {
+  inline-size: 88px;
+  block-size: 88px;
+}
+
+.kci--compact .kci-glass__ring--outer {
+  inset: -12px;
+}
+
+.kci--compact .kci-wordmark {
+  font-size: clamp(30px, 5.4vw, 42px);
+}
+
+.kci--compact .kci-headline {
+  font-size: clamp(14px, 2vw, 16px);
+}
+
+.kci--compact .kci-intro {
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.kci--compact .kci-disciplines li {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.kci--compact .kci-section {
+  gap: 10px;
+}
+
+.kci--compact .kci-section__title {
+  font-size: 15px;
+}
+
+.kci--compact .kci-founder {
+  padding: 13px;
+}
+
+.kci--compact .kci-founder__badge {
+  inline-size: 46px;
+  block-size: 46px;
+}
+
+/* Column breakpoints measured on the panel itself, not the window: a 1440px
+   window leaves this page ~880px once the sidebar and the settings rail take
+   their share, and three social columns at that width break every handle
+   mid-token. Last in the sheet on purpose — a container query adds no
+   specificity, so it has to follow the single-column defaults it overrides.
+   The 680px line is where a two-up card still leaves ~150px of text column;
+   below it a handle such as facebook.com/knouxStore wraps mid-token, so the
+   grids stay single-column instead. Without container support the page stays
+   single-column, which is readable rather than broken. */
+@container kci (min-width: 540px) {
+  .kci-expertise { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container kci (min-width: 680px) {
+  .kci-contact-grid,
+  .kci-social-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Five channels in two columns strand the last card — let it fill the row. */
+  .kci-social-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+@container kci (min-width: 800px) {
+  .kci-expertise { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@container kci (min-width: 1080px) {
+  .kci-social-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  /* Three columns fit five cards as 3 + 2; a full-width row is wrong here. */
+  .kci-social-grid > :last-child:nth-child(odd) { grid-column: auto; }
 }

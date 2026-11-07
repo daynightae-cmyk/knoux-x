@@ -64,17 +64,28 @@ describe('Video Studio closure gaps', () => {
   });
 
   describe('transition output wiring', () => {
+    /*
+     * Superseded expectation: this used to grep the renderer for a direct
+     * `transitionOpacity(item, localTime)` call. Fade maths moved into the shared
+     * render-state resolver, which the exporter now calls — one place that also
+     * carries keyframes and the clip colour grade. The intent is unchanged (the
+     * encoder must bake the fade), so the assertion follows the seam instead of
+     * the spelling, and still proves the shared fade is what reaches the frames.
+     */
     test('the mobile timeline renderer bakes the shared fade', () => {
       const renderer = readSource('src/features/export/mobileTimelineRenderer.ts');
-      expect(renderer).toContain('transitionFadeOpacity');
-      expect(renderer).toContain('transitionOpacity(item, localTime)');
+      const renderState = readSource('src/core/creative/timelineRenderState.ts');
+      expect(renderer).toContain('resolveClipVisual(item, localTime)');
+      expect(renderer).toContain('visual.opacity');
+      expect(renderState).toContain('transitionFadeOpacity');
     });
 
     test('the desktop program monitor applies the shared fade to video and image previews', () => {
       const view = readSource('src/features/editor/MultitrackEditorView.tsx');
-      expect(view).toContain('transitionFadeOpacity(');
+      expect(view).toContain('resolveClipVisual(selectedItem, previewLocalTime)');
       expect(view).toContain('previewOpacity');
       expect(view).toContain('opacity: previewOpacity');
+      expect(view).toContain('filter: previewGrade');
     });
 
     test('the transition control discloses the honest preview semantic', () => {

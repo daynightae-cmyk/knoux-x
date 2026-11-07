@@ -1,4 +1,7 @@
 /** @jest-environment jsdom */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
@@ -23,13 +26,13 @@ const openExternal = jest.fn<Promise<void>, [string]>(() => Promise.resolve());
 let root: Root;
 let host: HTMLDivElement;
 
-function render(ar = false): void {
+function render(ar = false, compact = true): void {
   identityState().locale = ar ? 'ar' : 'en';
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
   act(() => {
-    root.render(<CorporateIdentity compact />);
+    root.render(<CorporateIdentity compact={compact} />);
   });
 }
 
@@ -132,5 +135,65 @@ describe('KNOUX corporate identity page', () => {
     for (const value of ['admin@knoux.store', 'knoux.store', '+971 50 328 1920', '@knoux_7', 'github.com/daynightae-cmyk', 'github.com/knoux-io', 'facebook.com/CopSadek', 'facebook.com/knouxStore']) {
       expect(host.textContent).toContain(value);
     }
+  });
+
+  it('draws the platform’s own mark for branded channels', () => {
+    render();
+    const box = (selector: string): string | null =>
+      host.querySelector(selector)?.getAttribute('viewBox') ?? null;
+    // Font Awesome brand canvases, not the product’s 24x24 stroke set.
+    expect(box('[data-channel="whatsapp"] .kci-contact__icon svg')).toBe('0 0 448 512');
+    expect(box('[data-social="tiktok"] .kci-social__icon svg')).toBe('0 0 448 512');
+    expect(box('[data-social="facebook-page"] .kci-social__icon svg')).toBe('0 0 320 512');
+    expect(box('[data-social="github-brand"] .kci-social__icon svg')).toBe('0 0 496 512');
+  });
+
+  it('keeps generic actions on the product icon set', () => {
+    render();
+    for (const channel of ['email', 'phone', 'website']) {
+      const box = host.querySelector(`[data-channel="${channel}"] .kci-contact__icon svg`)?.getAttribute('viewBox');
+      expect(box).toBe('0 0 24 24');
+    }
+  });
+
+  it('does not let the hero repeat its own sentence', () => {
+    render();
+    const headline = host.querySelector('.kci-headline')?.textContent?.trim() ?? '';
+    const intro = host.querySelector('.kci-intro')?.textContent?.trim() ?? '';
+    expect(headline.length).toBeGreaterThan(0);
+    expect(intro.startsWith(headline)).toBe(false);
+    expect(host.querySelectorAll('.kci-disciplines li')).toHaveLength(3);
+  });
+
+  it('does not repeat the hero sentence in Arabic either', () => {
+    render(true);
+    const headline = host.querySelector('.kci-headline')?.textContent?.trim() ?? '';
+    const intro = host.querySelector('.kci-intro')?.textContent?.trim() ?? '';
+    expect(intro.startsWith(headline)).toBe(false);
+    expect(host.querySelectorAll('.kci-disciplines li')).toHaveLength(3);
+  });
+
+  it('renders every card exactly once', () => {
+    render();
+    expect(host.querySelectorAll('.kci-contact')).toHaveLength(4);
+    expect(host.querySelectorAll('.kci-social')).toHaveLength(5);
+    expect(host.querySelectorAll('.kci-expertise__group')).toHaveLength(4);
+    expect(host.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('carries the embedded scale class when a host embeds it', () => {
+    render();
+    expect(host.querySelector('.kci')?.classList.contains('kci--compact')).toBe(true);
+  });
+
+  it('drops the embedded scale class when it owns the surface', () => {
+    render(false, false);
+    expect(host.querySelector('.kci')?.classList.contains('kci--compact')).toBe(false);
+  });
+
+  it('ships a rule for every class the component emits', () => {
+    const css = readFileSync(resolve(__dirname, '../../src/styles/corporate-identity.css'), 'utf8');
+    expect(css).toContain('.kci--compact');
+    expect(css).toContain('.kci-disciplines');
   });
 });

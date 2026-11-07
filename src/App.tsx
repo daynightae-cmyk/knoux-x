@@ -158,6 +158,10 @@ const QueueView = lazy(async () => {
   const module = await import('./features/queue/QueueView');
   return { default: module.QueueView };
 });
+const MobileToolsHub = lazy(async () => {
+  const module = await import('./features/tools/MobileToolsHub');
+  return { default: module.MobileToolsHub };
+});
 const AIAssistant = lazy(async () => {
   const module = await import('./features/ai/AIAssistant');
   return { default: module.AIAssistant };
@@ -178,6 +182,7 @@ function viewFor(currentView: ViewType, android: boolean): React.ReactNode {
     case 'slideshow': return android ? <MobilePhotosToVideoView /> : <SlideshowView />;
     case 'audio-tools': return <AudioToolsView />;
     case 'image-tools': return <ImageLabView />;
+    case 'tools': return android ? <MobileToolsHub /> : <ImageLabView />;
     case 'export': return android ? <MobileExportView /> : <ExportView />;
     case 'settings': return android ? <MobileSettingsView /> : <SettingsView />;
     default: return <PlayerViewportBoundary />;

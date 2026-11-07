@@ -60,9 +60,14 @@ export const KNOUX_IDENTITY = Object.freeze({
     { id: 'product', items: ['UI/UX', 'Product Architecture', 'Application Integration', 'Digital Product Development'] },
   ],
   role: { en: 'Founder of KNOUX · Software Engineer · Digital Product Builder · AI Automation Engineer', ar: 'مؤسس KNOUX · مهندس برمجيات · باني منتجات رقمية · مهندس أتمتة بالذكاء الاصطناعي' },
+  /** The three practice areas shown as the hero discipline row. */
+  disciplines: {
+    en: ['Software Engineering', 'Digital Products', 'AI Automation'],
+    ar: ['هندسة البرمجيات', 'المنتجات الرقمية', 'الأتمتة بالذكاء الاصطناعي'],
+  },
   intro: {
-    en: 'Engineering intelligent digital experiences — software engineering, digital products and AI automation, built with a local-first, privacy-respecting philosophy.',
-    ar: 'هندسة تجارب رقمية ذكية — هندسة برمجيات ومنتجات رقمية وأتمتة بالذكاء الاصطناعي، بفلسفة محلية أولًا تحترم الخصوصية.',
+    en: 'KNOUX builds desktop and mobile media tools, creative products and intelligent automation that keep the user’s files on their own machine.',
+    ar: 'تبني KNOUX أدوات وسائط وتطبيقات إبداعية وأتمتة ذكية لسطح المكتب والجوال، تُبقي ملفات المستخدم على جهازه.',
   },
 } as const);
 

@@ -3,6 +3,7 @@ import {
   Bell,
   ChevronRight,
   Folder,
+  Grid2x2,
   Home,
   Image as ImageIcon,
   Images,
@@ -39,12 +40,13 @@ const quickActions: Array<{
   { id: 'slideshow', label: 'Photos to Video', subtitle: 'Turn memories to life', view: 'slideshow', icon: Images },
   { id: 'image-editor', label: 'Photo Editor', subtitle: 'Edit & enhance', view: 'image-editor', icon: ImageIcon },
   { id: 'beauty', label: 'Beauty Retouch', subtitle: 'Enhance naturally', view: 'image-studio', icon: WandSparkles },
+  { id: 'tools', label: 'All Tools', subtitle: 'Every service in one place', view: 'tools', icon: Grid2x2 },
   { id: 'recording', label: 'Record', subtitle: 'Native screen capture', view: 'recording', icon: Mic2 },
 ];
 
 /* Arabic labels for the quick actions, kept beside the English source so the
  * search filter and the rendered copy can never drift apart. */
-const actionCopy: Record<string, [string, string]> = { player: ['المشغّل', 'سينما على جهازك'], editor: ['استوديو الفيديو', 'اصنع قصتك'], slideshow: ['صور إلى فيديو', 'لحظات تتحرّك'], 'image-editor': ['محرّر الصور', 'اهتم بكل تفصيلة'], beauty: ['استوديو الجمال', 'لمسات طبيعية'], recording: ['تسجيل الشاشة', 'التقط أفكارك'] };
+const actionCopy: Record<string, [string, string]> = { player: ['المشغّل', 'سينما على جهازك'], editor: ['استوديو الفيديو', 'اصنع قصتك'], slideshow: ['صور إلى فيديو', 'لحظات تتحرّك'], 'image-editor': ['محرّر الصور', 'اهتم بكل تفصيلة'], beauty: ['استوديو الجمال', 'لمسات طبيعية'], tools: ['كل الأدوات', 'خدمة واحدة بدل خمسة'], recording: ['تسجيل الشاشة', 'التقط أفكارك'] };
 
 
 type Overlay = null | 'search' | 'notifications' | 'create' | 'projects';
@@ -185,7 +187,7 @@ export const MobileHomeDashboard: React.FC = () => {
         <div className="kmh-hero-glow" /><div className="kmh-hero-copy"><span>{continueWatching ? copy('CONTINUE WATCHING', 'أكمل المشاهدة') : copy('PLAY BEYOND', 'شاهد بلا حدود')}</span><strong>{continueWatching?.title ?? copy('Your own private cinema.', 'سينماك الخاصة.')}</strong><p>{continueWatching ? `${watchedLabel(Math.round(continueWatching.progress * 100))} · ${formatTime(continueWatching.lastTime)}` : copy('Press play on your next great story.', 'شغّل قصتك الرائعة القادمة.')}</p><div className="kmh-hero-action"><Play size={18} fill="currentColor" /> {continueWatching ? copy('Resume', 'متابعة') : copy('Open Video', 'فتح فيديو')}</div></div><div className="kmh-hero-brand"><BrandMark size={158} /></div>
       </button>
 
-      <div className="kmh-section-heading"><div><span>{copy('THE CREATOR COLLECTION', 'مجموعة المبدع')}</span><h2>{copy('Your creative toolkit', 'اصنع شيئًا استثنائيًا')}</h2></div><button type="button" onClick={() => setOverlay('create')}>{copy('All tools', 'الأدوات')} <ChevronRight className="kx-forward" size={16} /></button></div>
+      <div className="kmh-section-heading"><div><span>{copy('THE CREATOR COLLECTION', 'مجموعة المبدع')}</span><h2>{copy('Your creative toolkit', 'اصنع شيئًا استثنائيًا')}</h2></div><button type="button" onClick={() => setView('tools')}>{copy('All tools', 'الأدوات')} <ChevronRight className="kx-forward" size={16} /></button></div>
       <div className="kmh-actions-grid">{quickActions.map((action) => <KnouxFeatureCard key={action.id} id={action.id} title={ar ? actionCopy[action.id][0] : action.label} description={ar ? actionCopy[action.id][1] : action.subtitle} icon={action.icon} onClick={() => void launchAction(action)} />)}</div>
 
       <div className="kmh-section-heading kmh-recents-heading"><div><span>{copy('YOUR MEDIA', 'وسائطك')}</span><h2>{copy('Pick up where you left off', 'أكمل من حيث توقفت')}</h2></div><button type="button" onClick={() => setView('library')}>{copy('Library', 'المكتبة')} <ChevronRight className="kx-forward" size={16} /></button></div>
@@ -195,6 +197,7 @@ export const MobileHomeDashboard: React.FC = () => {
         <button type="button" className="active" aria-current="page" aria-label={copy('Home', 'الرئيسية')}><Home size={22} /><span>{copy('Home', 'الرئيسية')}</span></button>
         <button type="button" onClick={() => setOverlay('create')} aria-label={copy('Create', 'إنشاء')}><Plus size={24} /><span>{copy('Create', 'إنشاء')}</span></button>
         <button type="button" onClick={() => setView('library')} aria-label={copy('Library', 'المكتبة')}><Folder size={22} /><span>{copy('Library', 'المكتبة')}</span></button>
+        <button type="button" onClick={() => setView('tools')} aria-label={copy('Tools', 'الأدوات')}><Grid2x2 size={22} /><span>{copy('Tools', 'الأدوات')}</span></button>
         <button type="button" onClick={() => void openProjects()} aria-label={copy('Projects', 'المشاريع')}><Video size={22} /><span>{copy('Projects', 'المشاريع')}</span></button>
         <button type="button" onClick={() => setView('settings')} aria-label={copy('Settings', 'الإعدادات')}><Settings size={22} /><span>{copy('Settings', 'الإعدادات')}</span></button>
       </nav>

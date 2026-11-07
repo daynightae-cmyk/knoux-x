@@ -5,7 +5,11 @@ import {
   type TimelineTrack,
 } from '../../core/creative/multitrackProject';
 import { getTimelineVideoRetouchExportTemporal } from '../../core/creative/videoRetouchEffect';
-import { transitionFadeOpacity } from '../../core/creative/transitionFade';
+import {
+  cropSourceRect,
+  resolveClipAudioGain,
+  resolveClipVisual,
+} from '../../core/creative/timelineRenderState';
 import type { VideoRetouchClipState } from '../../core/creative/videoRetouchTemporal';
 import { VideoFrameProcessor } from '../image-editor/retouch/RetouchModule/Media/VideoFrameProcessor';
 
@@ -55,6 +59,9 @@ type PreparedMedia = {
   retouchProcessor?: VideoFrameProcessor;
 };
 
+/** Shared with the parity test: one clip plus the lane it lives on. */
+export type TimelineClipSubject = PreparedMedia;
+
 function recorderMime(preferred?: readonly string[]): string {
   const fallback = [
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
@@ -97,16 +104,36 @@ function activeAt(item: TimelineItem, time: number): boolean {
   return time >= item.timelineStart && time < item.timelineStart + item.duration;
 }
 
-function transitionOpacity(item: TimelineItem, localTime: number): number {
-  return transitionFadeOpacity(item.transform.opacity, item.transitionIn, item.transitionOut, localTime, item.duration);
+/**
+ * Chromium's canvas 2D honours `context.filter`, which is how a clip colour
+ * grade reaches the encoded file. Older WebViews accept the property but ignore
+ * it; the export surface asks once so the inspector can tell the truth instead
+ * of promising a grade that will not survive the encode.
+ */
+let canvasFilterSupport: boolean | null = null;
+
+export function canvasFiltersSupported(): boolean {
+  if (canvasFilterSupport !== null) return canvasFilterSupport;
+  if (typeof document === 'undefined') return false;
+  const probe = document.createElement('canvas').getContext('2d');
+  if (!probe) return false;
+  try {
+    probe.filter = 'brightness(1.5)';
+    canvasFilterSupport = probe.filter === 'brightness(1.5)';
+    probe.filter = 'none';
+  } catch {
+    canvasFilterSupport = false;
+  }
+  return canvasFilterSupport;
+}
+
+function exportFilter(visual: ReturnType<typeof resolveClipVisual>): string {
+  if (visual.filter === 'none') return 'none';
+  return canvasFiltersSupported() ? visual.filter : 'none';
 }
 
 function audioGain(item: TimelineItem, track: TimelineTrack, localTime: number): number {
-  if (track.muted || item.audio.muted) return 0;
-  let value = Math.max(0, Math.min(2, track.volume * item.audio.volume));
-  if (item.audio.fadeIn > 0) value *= Math.min(1, localTime / item.audio.fadeIn);
-  if (item.audio.fadeOut > 0) value *= Math.min(1, (item.duration - localTime) / item.audio.fadeOut);
-  return Math.max(0, value);
+  return resolveClipAudioGain(item, track, localTime).gain;
 }
 
 function temporalRetouch(item: TimelineItem): VideoRetouchClipState | null {
@@ -147,7 +174,12 @@ function retouchedVisualSource(
   return buffer.canvas;
 }
 
-function drawVisual(
+/**
+ * Draws one clip at one timeline instant onto the output canvas. Exported so the
+ * parity contract can be asserted against the same numbers the monitor styles
+ * with; the render loop below is its only production caller.
+ */
+export function drawClipVisual(
   context: CanvasRenderingContext2D,
   prepared: PreparedMedia,
   outputWidth: number,
@@ -156,17 +188,22 @@ function drawVisual(
 ): void {
   const { item, element } = prepared;
   const localTime = time - item.timelineStart;
-  const opacity = transitionOpacity(item, localTime);
+  /* One resolution path for every surface: keyframes, transition fades and the
+   * clip colour grade all reach the encoded frames from here. */
+  const visual = resolveClipVisual(item, localTime);
+  const opacity = visual.opacity;
   if (opacity <= 0) return;
+  const filter = exportFilter(visual);
 
   if (item.kind === 'text' || item.kind === 'subtitle') {
     const text = item.text;
     if (!text) return;
     context.save();
     context.globalAlpha = opacity;
-    context.translate(outputWidth / 2 + item.transform.positionX, outputHeight / 2 + item.transform.positionY);
-    context.rotate(item.transform.rotation * Math.PI / 180);
-    context.scale(item.transform.scale * (item.transform.flipHorizontal ? -1 : 1), item.transform.scale * (item.transform.flipVertical ? -1 : 1));
+    if (filter !== 'none') context.filter = filter;
+    context.translate(outputWidth / 2 + visual.positionX, outputHeight / 2 + visual.positionY);
+    context.rotate(visual.rotation * Math.PI / 180);
+    context.scale(visual.scale * (visual.flipHorizontal ? -1 : 1), visual.scale * (visual.flipVertical ? -1 : 1));
     context.font = `${text.fontWeight} ${Math.max(12, text.fontSize)}px ${text.fontFamily}`;
     context.textAlign = text.align === 'start' ? 'left' : text.align === 'end' ? 'right' : 'center';
     context.textBaseline = 'middle';
@@ -193,25 +230,19 @@ function drawVisual(
   if (sourceWidth < 1 || sourceHeight < 1) return;
   const visualSource = retouchedVisualSource(prepared, element, sourceWidth, sourceHeight, localTime);
 
-  const cropLeft = Math.max(0, Math.min(0.95, item.transform.cropLeft));
-  const cropRight = Math.max(0, Math.min(0.95, item.transform.cropRight));
-  const cropTop = Math.max(0, Math.min(0.95, item.transform.cropTop));
-  const cropBottom = Math.max(0, Math.min(0.95, item.transform.cropBottom));
-  const sx = sourceWidth * cropLeft;
-  const sy = sourceHeight * cropTop;
-  const sw = Math.max(1, sourceWidth * (1 - cropLeft - cropRight));
-  const sh = Math.max(1, sourceHeight * (1 - cropTop - cropBottom));
-  const baseScale = Math.min(outputWidth / sw, outputHeight / sh);
-  const drawWidth = sw * baseScale;
-  const drawHeight = sh * baseScale;
+  const rect = cropSourceRect(sourceWidth, sourceHeight, visual.crop);
+  const baseScale = Math.min(outputWidth / rect.width, outputHeight / rect.height);
+  const drawWidth = rect.width * baseScale;
+  const drawHeight = rect.height * baseScale;
 
   context.save();
   context.globalAlpha = opacity;
-  context.globalCompositeOperation = item.transform.blendMode === 'normal' ? 'source-over' : item.transform.blendMode;
-  context.translate(outputWidth / 2 + item.transform.positionX, outputHeight / 2 + item.transform.positionY);
-  context.rotate(item.transform.rotation * Math.PI / 180);
-  context.scale(item.transform.scale * (item.transform.flipHorizontal ? -1 : 1), item.transform.scale * (item.transform.flipVertical ? -1 : 1));
-  context.drawImage(visualSource, sx, sy, sw, sh, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  if (filter !== 'none') context.filter = filter;
+  context.globalCompositeOperation = visual.blendMode === 'normal' ? 'source-over' : visual.blendMode;
+  context.translate(outputWidth / 2 + visual.positionX, outputHeight / 2 + visual.positionY);
+  context.rotate(visual.rotation * Math.PI / 180);
+  context.scale(visual.scale * (visual.flipHorizontal ? -1 : 1), visual.scale * (visual.flipVertical ? -1 : 1));
+  context.drawImage(visualSource, rect.x, rect.y, rect.width, rect.height, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   context.restore();
 }
 
@@ -335,7 +366,7 @@ export async function renderMultitrackProject(
                 if (!element.paused) element.pause();
               }
             }
-            if (active) drawVisual(context, entry, canvas.width, canvas.height, time);
+            if (active) drawClipVisual(context, entry, canvas.width, canvas.height, time);
           }
 
           capture.captureFrame?.(time);

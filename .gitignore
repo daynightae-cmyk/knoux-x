@@ -82,3 +82,7 @@ _temp/
 # Isolated verification build outputs and harness-run profiles (never evidence to commit)
 out-*/
 reports/.*-profile-*/
+
+# Capacitor-generated Android project (reproducible; native plugins live in tools/android/)
+/android/
+

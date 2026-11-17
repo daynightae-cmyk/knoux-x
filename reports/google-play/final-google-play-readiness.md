@@ -7,41 +7,23 @@ directive's reference table. Classifications are `VERIFIED` / `PARTIAL` /
 
 ## A. Executive verdict
 
-**Reconciled 2026-10-28.** The verdicts below are deliberately kept apart, because
-collapsing them into one "PASS" is exactly how a build looks ready when it is not.
+# `PARTIAL`
 
-| Axis | Verdict | Why |
-|---|---|---|
-| Engineering | `ENGINEERING_PARTIAL` | signing, permissions, provenance and CI lanes are fixed and merged; export and audio journeys are unproven |
-| Signing identity | `PRODUCTION_IDENTITY_NOT_VERIFIED` | the pinned key has never signed an artifact; three owner-only secrets are absent |
-| Artifacts | `CI_ONLY` | a real AAB and APK are built and identity-verified on `main`, signed with the disposable CI key |
-| Runtime | `EMULATOR_ONLY` | installs and launches on an emulator; no physical device has executed this build |
-| Google Play | `PLAY_ACCOUNT_PAYMENT_BLOCKED` | registration is US$25 and the owner has refused payment; nothing was purchased |
-| Public release | `NOT_AUTHORIZED` | Gate G requires the owner's approval of an exact artifact hash |
-
-The single sentence version: **the pipeline is real, the production signature is
-not, and no device has run this app.**
+Not `GOOGLE_PLAY_INTERNAL_TEST_READY`. The signing pipeline is now genuinely
+fail-closed and the store package is real, but **no production-signed artifact
+exists, no AAB has ever been built by a lane that runs, no physical device has
+ever executed this build, and the Play Console account is unconfirmed.**
 
 ## B. Repository state
 
-### Now (2026-10-28)
-
 | Item | Value |
 |---|---|
-| `origin/main` | `7e0e944` |
-| Merged by this effort | #88 `0f23bcb` · #90 `9e5c394` · #91 `fe9a030` · #92 `78533d3` · #93 `7e0e944` · #94 `6b41296` |
-| Still open | #89 (corporate identity r2, `CLEAN`), #86 (docs, `BEHIND` — needs a branch sync) |
-| Worktrees | 5 registered, all preserved; none reset, cleaned or deleted |
-| Secrets | 2 of 5 in `android-production` (both non-sensitive); the keystore blob and two passwords remain owner-only |
-
-### Captured 2026-10-27, retained as historical evidence
-
-| Item | Value at capture | Superseded by |
-|---|---|---|
-| `origin/main` | `42aef17b9c7ad69521580b885c1c19e308c99a4e` | `7e0e944` |
-| PR #88 | OPEN, head `03cb8db`, `mergeStateStatus=BLOCKED` | merged as `0f23bcb` |
-| Worktrees | 2 registered | 5 registered |
-| Hazard | this work uncommitted on another agent's branch | committed as `b1ca602`, merged via #91 |
+| `origin/main` | `42aef17b9c7ad69521580b885c1c19e308c99a4e` (unchanged from the directive's table) |
+| PR #88 | OPEN, head `03cb8db`, `mergeable=MERGEABLE`, `mergeStateStatus=BLOCKED` |
+| PR #87 | MERGED 2026-10-27T02:40:55Z |
+| PR #86 | OPEN (docs) |
+| Worktrees | 2 registered, both preserved; nothing reset, cleaned or deleted |
+| **Hazard** | The retouch worktree was switched by a concurrent process to local branch `feat/corporate-identity-polish-20261027` (`d3808e4`, unpushed) mid-session. All work below is **uncommitted** and now sits on that branch. |
 
 CI on PR #88 at capture: Android release acceptance **pass**; packaged timeline,
 packaged creative and recording **pass**; `validate-package` **fail** — then
@@ -190,13 +172,13 @@ tests/unit/android-manifest-permission-minimisation.test.ts
 - No physical Android device → the entire device matrix is `BLOCKED`.
 - No AI credential in CI → no live AI call is proven anywhere.
 
-**Process hazard — recorded 2026-10-27, resolved 2026-10-28:**
+**Process hazard needing your decision now:**
 - A concurrent process moved this worktree onto
-  `feat/corporate-identity-polish-20261027` (`d3808e4`, branched from PR #88's
-  head) while work was uncommitted. No git write was performed in that tree.
-  The work was subsequently landed properly: committed as `b1ca602`, opened as
-  PR #91, merged as `fe9a030`. Later fixes went through dedicated branches and
-  worktrees rather than the shared one.
+  `feat/corporate-identity-polish-20261027` (`d3808e4`, unpushed, branched from
+  PR #88's head). My changes are uncommitted and sit on that branch. Committing
+  here would mix Android signing work into another agent's in-progress
+  corporate-identity PR; checking back out to PR #88's branch could disturb
+  their active session. **No git write has been performed.**
 
 ## J. Production release decision
 
@@ -206,14 +188,7 @@ Reasons, in order of severity:
 
 1. **No production-signed artifact exists**, and none can until the owner
    uploads the secrets and chooses an App Signing option.
-2. **No AAB signed by the production identity exists.** A real AAB is now built and
-   identity-verified on `main` at `fe9a030` (43 595 071 bytes, sha256
-   `37d24b0d…a9f3d0`, same certificate as its paired APK) — but with the disposable
-   CI acceptance key. See `02-aab-provenance-and-verification.json`. The earlier
-   blocker here was a real bug of mine, since fixed: the cross-artifact check
-   compared `keytool`'s colon-separated digest against `apksigner`'s colonless one.
-
-   Reviewing the
+2. **No AAB has ever been built and verified end to end.** Reviewing the
    publishing lane as an execution path rather than as unit tests surfaced a
    **pre-existing structural defect**: the signing step of
    `knoux-live-release.yml` declared no `working-directory`, so it ran at the
@@ -240,13 +215,10 @@ in build tooling but the last analysed APK still declares it. The store package
 described 20 screenshots; there are **10 distinct surfaces**, each emitted twice as
 a native capture and a 1:2 crop, and all are **emulator** captures, not device ones.
 
-**Nearest achievable milestone:** after the owner uploads the three remaining
-secrets and resolves the environment branch policy, run
-`gh workflow run knoux-live-release.yml --ref main -f mode=verify` to produce and
-cryptographically verify a real production-signed AAB **without creating any
-release object**. `mode=draft` is no longer the right command: it still calls
-`gh release create --draft` and uploads the binaries. That converts gate C to
-`VERIFIED` for the production identity and makes internal testing reachable.
+**Nearest achievable milestone:** after owner items 1–3, run
+`gh workflow run knoux-live-release.yml --ref main -f mode=draft` to produce and
+cryptographically verify a real AAB without publishing anything. That converts
+gate C from `BLOCKED` to `VERIFIED` and makes internal testing reachable.
 
 Nothing was published, no version was bumped from `2.1.0`, no app was
 uninstalled, no key was exported, and no irreversible Play arrangement was made.

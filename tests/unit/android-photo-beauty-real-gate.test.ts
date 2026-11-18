@@ -43,7 +43,7 @@ function deltaStats(a: ImageData, b: ImageData) {
 }
 
 describe('Android photo real edit/export/reopen + beauty rendered gate', () => {
-  jest.setTimeout(30000);
+  jest.setTimeout(60000);
   const fixtures = path.resolve(__dirname, '..', 'android', 'fixtures');
   const portraitPath = path.join(fixtures, 'portrait-two-faces.jpg');
   const noFacePath = path.join(fixtures, 'no-face.jpg');

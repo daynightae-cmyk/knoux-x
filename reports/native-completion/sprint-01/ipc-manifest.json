@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "testedHead": "db0160b124b7efea8dbdfd54aa24102960aefdf1",
+  "testedHead": "0f5b48acf5222bfd2160bc95650ac22660023504",
   "channels": [
     {
       "channel": "ai-secure:cancel",
@@ -1444,6 +1444,28 @@
       "result": {
         "schema": "typescript",
         "typeId": "InvokeResultMap[\"file:write\"]"
+      },
+      "sourceRoots": [
+        "electron/ipc/setup.ts",
+        "electron/preload.ts"
+      ],
+      "lifecycle": "active",
+      "basic": false,
+      "registrationCount": 1,
+      "registeredOwner": "core-file"
+    },
+    {
+      "channel": "file:append",
+      "direction": "invoke",
+      "owner": "core-file",
+      "exposedBy": "preload",
+      "arguments": {
+        "schema": "typescript",
+        "typeId": "InvokeArgumentMap[\"file:append\"]"
+      },
+      "result": {
+        "schema": "typescript",
+        "typeId": "InvokeResultMap[\"file:append\"]"
       },
       "sourceRoots": [
         "electron/ipc/setup.ts",
@@ -4057,28 +4079,6 @@
       "registeredOwner": null
     },
     {
-      "channel": "ai:stream",
-      "direction": "outbound-event",
-      "owner": "core-ai",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"ai:stream\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for ai:stream; Sprint 01 has no production main-process emitter.",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
       "channel": "app:open-media",
       "direction": "outbound-event",
       "owner": "app",
@@ -4118,28 +4118,6 @@
         "electron/preload-audio-tools.ts"
       ],
       "lifecycle": "active",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
-      "channel": "audio:visualizer-data",
-      "direction": "outbound-event",
-      "owner": "core-audio",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"audio:visualizer-data\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for audio:visualizer-data; Sprint 01 has no production main-process emitter.",
       "basic": false,
       "registrationCount": null,
       "registeredOwner": null
@@ -4206,94 +4184,6 @@
         "electron/preload-creative.ts"
       ],
       "lifecycle": "active",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
-      "channel": "player:ended",
-      "direction": "outbound-event",
-      "owner": "core-player",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"player:ended\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for player:ended; Sprint 01 has no production main-process emitter.",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
-      "channel": "player:error",
-      "direction": "outbound-event",
-      "owner": "core-player",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"player:error\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for player:error; Sprint 01 has no production main-process emitter.",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
-      "channel": "player:state-change",
-      "direction": "outbound-event",
-      "owner": "core-player",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"player:state-change\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for player:state-change; Sprint 01 has no production main-process emitter.",
-      "basic": false,
-      "registrationCount": null,
-      "registeredOwner": null
-    },
-    {
-      "channel": "player:time-update",
-      "direction": "outbound-event",
-      "owner": "core-player",
-      "exposedBy": "preload subscription",
-      "arguments": {
-        "schema": "typescript",
-        "typeId": "OutboundPayloadMap[\"player:time-update\"]"
-      },
-      "result": {
-        "schema": "typescript",
-        "typeId": "void"
-      },
-      "sourceRoots": [
-        "electron/preload.ts"
-      ],
-      "lifecycle": "reserved",
-      "reservedReason": "Reserved renderer subscription for player:time-update; Sprint 01 has no production main-process emitter.",
       "basic": false,
       "registrationCount": null,
       "registeredOwner": null

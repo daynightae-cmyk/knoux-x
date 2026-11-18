@@ -11,33 +11,12 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'assets/**'
-      - 'tests/**'
-      - 'tools/android-ci-release.sh'
-      - 'tools/android-emulator-smoke.sh'
-      - 'tools/prepare-android-branding.cjs'
-      - 'tools/prepare-android-premium-splash.cjs'
-      - 'tools/prepare-android-native-media.cjs'
-      - 'tools/prepare-android-functional-closure.cjs'
-      - 'tools/android/**'
-      - 'tools/verify-android-apk.cjs'
-      - 'tools/verify-android-app-plugin.cjs'
-      - 'tools/android-acceptance-diagnostics.sh'
-      - 'tools/run-android-installed-acceptance.sh'
-      - 'tools/android-real-workflows.cjs'
-      - 'tools/android-native-core.cjs'
-      - 'tools/create-android-image-fixture.cjs'
-      - 'tools/configure-android-webview-debugging.cjs'
-      - 'tools/verify-android-screen.cjs'
-      - 'electron/**'
-      - 'index.html'
-      - 'vite.renderer.config.ts'
-      - 'capacitor.config.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/android-release-acceptance.yml'
+    # No path filter, deliberately. Branch protection requires the context
+    # "Build, sign, install, and launch release APK" from this workflow, and a
+    # filtered workflow simply never reports it for a pull request that only
+    # touches docs or reports - so such a pull request stays unmergeable forever
+    # with no failing check to look at. This mirrors the same removal already
+    # made for the debug lane in .github/workflows/android-apk.yml.
   push:
     branches:
       - main

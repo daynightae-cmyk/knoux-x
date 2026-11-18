@@ -597,6 +597,4 @@ export function setupIPCHandlers(registry: AuthoritativeIpcRegistry, orchestrato
   setupSystemHandlers(registry.forOwner('core-system'), orchestrator, registry);
   setupUpdateHandlers(registry.forOwner('core-update'));
   setupAIHandlers(registry.forOwner('core-ai'), orchestrator);
-
-  console.log('IPC handlers registered successfully');
 }
